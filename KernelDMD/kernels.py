@@ -30,20 +30,20 @@ class RBF(Kernel):
         self.length_scale = length_scale
 
     def __call__(self, X, Y=None, backend='torch'):   
-        return (-(self.cdist(X,Y, backend=backend)** 2) / 2).exp()
+        return (-(self.cdist(X,Y, backend=backend)** 2) / 2*(self.length_scale**2)).exp()
 
 class Matern(Kernel):
     def __init__(self, nu=1.5, length_scale=1.0):
         self.nu = nu
         self.length_scale = length_scale
 
-    def __call__(self, X, Y=None):
+    def __call__(self, X, Y=None, backend='torch'):
         x_ = LazyTensor(X[:,None,:]/self.length_scale)
         if Y is not None:
             y_ = LazyTensor(Y[None,:,:]/self.length_scale)
         else:
             y_ = LazyTensor(X[None,:,:]/self.length_scale) 
-        D = (((x_ - y_) ** 2).sum(2))**(0.5)
+        D = self.cdist(X,Y, backend=backend)
         if abs(self.nu - 0.5) <= 1e-12:
             return (-D).exp()
         elif abs(self.nu - 1.5) <= 1e-12: #Once differentiable functions
