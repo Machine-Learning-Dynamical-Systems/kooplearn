@@ -6,10 +6,10 @@ def _get_scaled_SVD_right_eigvectors(X, num_modes, backend):
     if backend =='torch':
         Sigma, V = torch.linalg.eigh(X)
         Sigma_r, V_r = Sigma[-num_modes:], V[:,-num_modes:]
-        return V_r@torch.diag(torch.sqrt(Sigma_r))
+        return V_r@torch.diag(torch.sqrt(Sigma_r)**-1)
     elif backend =='keops':
         Sigma_r, V_r = eigsh(aslinearoperator(X), k = num_modes)
-        return V_r@numpy.diag(numpy.sqrt(Sigma_r))
+        return V_r@numpy.diag(numpy.sqrt(Sigma_r)**-1)
     else:
         raise ValueError("Supported backends are 'torch' or 'keops'")
 
@@ -21,10 +21,11 @@ def _DMD(trajectory, kernel, num_modes, backend):
         kernel (kernel object)
         num_modes (int): number of modes to compute
     """
-    Vhat_r = _get_scaled_SVD_right_eigvectors(trajectory[:-1], num_modes, backend)
+    Vhat_r = _get_scaled_SVD_right_eigvectors(kernel(trajectory[:-1], backend=backend), num_modes, backend)
     Ahat = Vhat_r.T @(kernel(trajectory[:-1],trajectory[1:], backend=backend)@Vhat_r)
     if backend =='torch':
         evals, evecs = torch.linalg.eig(Ahat)
+        Vhat_r = Vhat_r.cfloat() #convert to Complex type
     elif backend =='keops':
         evals, evecs = numpy.linalg.eig(Ahat)
     else:
