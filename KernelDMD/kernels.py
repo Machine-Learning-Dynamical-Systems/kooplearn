@@ -24,6 +24,23 @@ class Kernel(metaclass=ABCMeta):
         else:
             raise ValueError("Supported backends are 'torch' or 'keops'")
 
+    def cprod(self, X,Y=None, backend='torch'):
+        if backend == 'torch':
+            if Y is None:
+                return X@(X.T)
+            else:
+                return X@(Y.T)
+        elif backend == 'keops':
+            x_ = LazyTensor(X[:,None,:])
+            if Y is not None:
+                y_ = LazyTensor(Y[None,:,:])
+            else:
+                y_ = LazyTensor(X[None,:,:]) 
+            return (x_*y_).sum(2)
+        else:
+            raise ValueError("Supported backends are 'torch' or 'keops'")
+            
+
 
 class RBF(Kernel):
     def __init__(self, length_scale=1.0):
@@ -64,14 +81,9 @@ class Poly(Kernel):
         self.gamma = gamma
         self.coef0 = coef0
 
-    def __call__(self, X, Y=None):
+    def __call__(self, X, Y=None, backend='torch'):
         if self.gamma is None:
             _gamma = 1.0 / X.shape[1]
         else:
             _gamma = self.gamma
-        x_ = LazyTensor(X[:,None,:])
-        if Y is not None:
-            y_ = LazyTensor(Y[None,:,:])
-        else:
-            y_ = LazyTensor(X[None,:,:]) 
-        return (self.coef0 + (x_*y_).sum(2)*_gamma)**self.degree
+        return (self.coef0 + self.cprod(X,Y,backend=backend)*_gamma)**self.degree
