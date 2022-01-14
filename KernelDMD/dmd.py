@@ -14,7 +14,7 @@ def _get_scaled_SVD_right_eigvectors(X, num_modes, backend):
         raise ValueError("Supported backends are 'torch' or 'keops'")
 
 def _DMD(trajectory, kernel, num_modes, backend):
-    """DMD using truncated SVD decomposition
+    """DMD utility function
 
     Args:
         trajectory (array): [observations, features]
@@ -32,7 +32,7 @@ def _DMD(trajectory, kernel, num_modes, backend):
         raise ValueError("Supported backends are 'torch' or 'keops'")    
     return evals, Vhat_r@evecs
 
-def DMDs(trajectory, kernel, num_modes):
+def DMD_large_scale(trajectory, kernel, num_modes):
     """Sparse DMD using Lanczos iterations. Useful for large problems
 
     Args:
@@ -43,7 +43,7 @@ def DMDs(trajectory, kernel, num_modes):
     return _DMD(trajectory, kernel, num_modes, 'keops')
 
 def DMD(trajectory, kernel, num_modes):
-    """Sparse DMD using Lanczos iterations. Useful for large problems
+    """DMD using truncated SVD
 
     Args:
         trajectory (array): [observations, features]
