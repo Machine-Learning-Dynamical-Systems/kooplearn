@@ -33,7 +33,7 @@ def _DMD(trajectory, kernel, num_modes, backend):
     return evals, Vhat_r@evecs
 
 def DMD_large_scale(trajectory, kernel, num_modes):
-    """Sparse DMD using Lanczos iterations. Useful for large problems
+    """DMD using Lanczos iterations. Useful for large problems
 
     Args:
         trajectory (array): [observations, features]
