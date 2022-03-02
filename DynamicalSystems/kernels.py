@@ -65,7 +65,8 @@ class Matern(Kernel):
             raise(ValueError(f"Supported nu parameters are 0.5, 1.5, 2.5, while self.nu={self.nu}"))
 
 class Poly(Kernel):
-    """Polynomial Kernel
+    """
+        Polynomial Kernel
         K(X, Y) = (gamma <X, Y> + coef0)^degree
     """
     def __init__(self, degree=3, gamma=None, coef0=1):
