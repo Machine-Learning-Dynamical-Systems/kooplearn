@@ -16,7 +16,7 @@ def reduced_rank_regression(data, evolved_data, kernel, rank, regularizer=1e-8, 
     dim = data.shape[0]
     U = aslinearoperator((V_r.T)@aslinearoperator(cross_kernel))
     V = aslinearoperator(aslinearoperator(evolved_data_kernel/dim)@V_r)
-    B = aslinearoperator(data_kernel) + aslinearoperator(identity(dim)*(regularizer*dim))
+    B = aslinearoperator(data_kernel) + aslinearoperator(identity(dim, dtype=U.dtype)*(regularizer*dim))
     return eigs(V@U, rank, B)
 
 def _get_low_rank_projector(data_kernel, evolved_data_kernel, rank, regularizer, backend):
@@ -25,8 +25,8 @@ def _get_low_rank_projector(data_kernel, evolved_data_kernel, rank, regularizer,
     if backend=='torch':
         A = aslinearoperator(data_kernel@evolved_data_kernel)
     else:
-        A = aslinearoperator(data_kernel.keops_tensordot(_rescaled_evolved_data_kernel, (dim,dim),(dim,dim),(1,),(0,)).sum_reduction(dim=1))
-    B = aslinearoperator(data_kernel) + aslinearoperator(identity(dim)*(regularizer*dim))
+        A = aslinearoperator(data_kernel)@aslinearoperator(_rescaled_evolved_data_kernel)
+    B = aslinearoperator(data_kernel) + aslinearoperator(identity(dim, dtype=A.dtype)*(regularizer*dim))
     _, V = eigs(A, rank, B)
     return aslinearoperator(modified_Gram_Schmidt(V, _rescaled_evolved_data_kernel))
 
