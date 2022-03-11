@@ -8,51 +8,37 @@ class Kernel(metaclass=ABCMeta):
     def __call__(self, X, Y=None):
         """Evaluate the kernel."""
 
-    def cdist(self, X, Y=None, backend='torch'):
-        if backend == 'torch':
-            if Y is None:
-                return torch_cdist(X,X)
-            else:
-                return torch_cdist(X,Y)
-        elif backend == 'keops':
-            x_ = LazyTensor(X[:,None,:])
-            if Y is not None:
-                y_ = LazyTensor(Y[None,:,:])
-            else:
-                y_ = LazyTensor(X[None,:,:]) 
-            return (((x_ - y_) ** 2).sum(2))**(0.5)
+    def cdist(self, X, Y=None):
+        x_ = LazyTensor(X[:,None,:])
+        if Y is not None:
+            y_ = LazyTensor(Y[None,:,:])
         else:
-            raise ValueError("Supported backends are 'torch' or 'keops'")
+            y_ = LazyTensor(X[None,:,:]) 
+        return (((x_ - y_) ** 2).sum(2))**(0.5)
+        
 
-    def cprod(self, X,Y=None, backend='torch'):
-        if backend == 'torch':
-            if Y is None:
-                return X@(X.T)
-            else:
-                return X@(Y.T)
-        elif backend == 'keops':
-            x_ = LazyTensor(X[:,None,:])
-            if Y is not None:
-                y_ = LazyTensor(Y[None,:,:])
-            else:
-                y_ = LazyTensor(X[None,:,:]) 
-            return (x_*y_).sum(2)
+    def cprod(self, X,Y=None):
+        x_ = LazyTensor(X[:,None,:])
+        if Y is not None:
+            y_ = LazyTensor(Y[None,:,:])
         else:
-            raise ValueError("Supported backends are 'torch' or 'keops'")
+            y_ = LazyTensor(X[None,:,:]) 
+        return (x_*y_).sum(2)
 
 class RBF(Kernel):
     def __init__(self, length_scale=1.0):
-        self.length_scale = length_scale
-    def __call__(self, X, Y=None, backend='torch'):   
-        return (-(self.cdist(X,Y, backend=backend)** 2) / (2*(self.length_scale**2))).exp()
+        self.length_scale = LazyTensor(length_scale)    
+        
+    def __call__(self, X, Y=None):   
+        return (-(self.cdist(X,Y)** 2) / (2*(self.length_scale**2))).exp()
 
 class Matern(Kernel):
     def __init__(self, nu=1.5, length_scale=1.0):
         self.nu = nu
-        self.length_scale = length_scale
+        self.length_scale = LazyTensor(length_scale)
 
-    def __call__(self, X, Y=None, backend='torch'):
-        D = self.cdist(X,Y, backend=backend)/self.length_scale
+    def __call__(self, X, Y=None):
+        D = self.cdist(X,Y)/self.length_scale
         if abs(self.nu - 0.5) <= 1e-12:
             return (-D).exp()
         elif abs(self.nu - 1.5) <= 1e-12: #Once differentiable functions
@@ -70,13 +56,16 @@ class Poly(Kernel):
         K(X, Y) = (gamma <X, Y> + coef0)^degree
     """
     def __init__(self, degree=3, gamma=None, coef0=1):
-        self.degree = degree
         self.gamma = gamma
-        self.coef0 = coef0
+        self.coef0 = LazyTensor(coef0)
+        self.degree = LazyTensor(degree)
 
-    def __call__(self, X, Y=None, backend='torch'):
+    def __call__(self, X, Y=None):
         if self.gamma is None:
             _gamma = 1.0 / X.shape[1]
         else:
             _gamma = self.gamma
-        return (self.coef0 + self.cprod(X,Y,backend=backend)*_gamma)**self.degree
+            
+        _gamma = LazyTensor(_gamma)
+
+        return (self.coef0 + self.cprod(X,Y)*_gamma)**self.degree
