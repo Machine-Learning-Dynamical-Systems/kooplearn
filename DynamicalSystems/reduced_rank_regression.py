@@ -10,10 +10,14 @@ from warnings import warn
 def reduced_rank_regression(data, evolved_data, kernel, rank, regularizer=1e-8, center_kernel = False, _cumbersome_diagonalization = True):
 
     # Defining kernels
-    data_kernel = kernel(data, data) 
+    print("Evaluating Kernel")
+    data_kernel = kernel(data, data)
+    print("Done") 
     evolved_data_kernel = aslinearoperator(kernel(evolved_data, evolved_data))
+    print("Done")
     #Working with the transpose of the matrix in the notes for easier implementation
     cross_kernel = aslinearoperator(kernel(data, evolved_data))
+    print("Done")
     
     dim = data_kernel.shape[0]
     scale = np.array(dim**-1).astype(data_kernel.dtype)    
@@ -22,9 +26,10 @@ def reduced_rank_regression(data, evolved_data, kernel, rank, regularizer=1e-8, 
     if center_kernel:
         evolved_data_kernel += _center_kernel(kernel, evolved_data, evolved_data, data, averaged_indices=(True, True))
         cross_kernel += _center_kernel(kernel, data, evolved_data, data, averaged_indices=(False, True))
-   
+        print("Done")
+    print("Low rank proj")
     proj = _get_low_rank_projector(aslinearoperator(data_kernel*scale.item()), evolved_data_kernel, rank, regularizer)
-    
+    print("Done")
     #Neither U nor V are normalised by 1/dim because from _get_low_rank_projector we spare a factor dim
     U = cross_kernel.matmat(proj)
     U = U.T #[rank, dim]
