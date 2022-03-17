@@ -1,2 +1,5 @@
 ### To do
-1. Check if the elements of V_r are all reals
+1. Set up logging system
+2. Re-organize usage of LinearOperators
+3. Fix dtype issues
+4. Performance

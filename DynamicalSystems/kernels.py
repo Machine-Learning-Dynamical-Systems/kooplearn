@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from pykeops.numpy import LazyTensor
+from pykeops.numpy import Vi, Vj, Pm
 from math import sqrt
 from torch import cdist as torch_cdist
 
@@ -8,26 +8,26 @@ class Kernel(metaclass=ABCMeta):
     def __call__(self, X, Y=None):
         """Evaluate the kernel."""
 
-    def cdist(self, X, Y=None):
-        x_ = LazyTensor(X[:,None,:])
+
+    def _to_lazy(self, X, Y):
+        x = Vi(X)
         if Y is not None:
-            y_ = LazyTensor(Y[None,:,:])
+            y= Vj(Y)
         else:
-            y_ = LazyTensor(X[None,:,:]) 
-        return (((x_ - y_) ** 2).sum(2))**(0.5)
-        
+            y = Vj(X)
+        return x, y
+
+    def cdist(self, X, Y= None):
+        x, y = self._to_lazy(X , Y)
+        return (((x - y) ** 2).sum(2))**(0.5)        
 
     def cprod(self, X,Y=None):
-        x_ = LazyTensor(X[:,None,:])
-        if Y is not None:
-            y_ = LazyTensor(Y[None,:,:])
-        else:
-            y_ = LazyTensor(X[None,:,:]) 
-        return (x_*y_).sum(2)
+        x, y = self._to_lazy(X , Y)
+        return (x*y).sum(2)
 
 class RBF(Kernel):
     def __init__(self, length_scale=1.0):
-        self.length_scale = LazyTensor(length_scale)    
+        self.length_scale = Pm(length_scale)    
         
     def __call__(self, X, Y=None):   
         return (-(self.cdist(X,Y)** 2) / (2*(self.length_scale**2))).exp()
@@ -35,7 +35,7 @@ class RBF(Kernel):
 class Matern(Kernel):
     def __init__(self, nu=1.5, length_scale=1.0):
         self.nu = nu
-        self.length_scale = LazyTensor(length_scale)
+        self.length_scale = Pm(length_scale)
 
     def __call__(self, X, Y=None):
         D = self.cdist(X,Y)/self.length_scale
@@ -57,8 +57,8 @@ class Poly(Kernel):
     """
     def __init__(self, degree=3, gamma=None, coef0=1):
         self.gamma = gamma
-        self.coef0 = LazyTensor(coef0)
-        self.degree = LazyTensor(degree)
+        self.coef0 = Pm(coef0)
+        self.degree = Pm(degree)
 
     def __call__(self, X, Y=None):
         if self.gamma is None:
@@ -66,6 +66,6 @@ class Poly(Kernel):
         else:
             _gamma = self.gamma
             
-        _gamma = LazyTensor(_gamma)
+        _gamma = Pm(_gamma)
 
         return (self.coef0 + self.cprod(X,Y)*_gamma)**self.degree
