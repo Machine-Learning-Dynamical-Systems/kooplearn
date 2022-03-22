@@ -1,20 +1,28 @@
 from abc import ABCMeta, abstractmethod
+from scipy.sparse.linalg import aslinearoperator
 from pykeops.numpy import Vi, Vj, Pm
 from math import sqrt
-from torch import cdist as torch_cdist
+import numpy as np
 
 class Kernel(metaclass=ABCMeta):
     @abstractmethod
     def __call__(self, X, Y=None):
         """Evaluate the kernel."""
 
+    def to_numpy(self, X, Y=None):
+        _lazy_kernel = self.__call__(X,Y)
+        if Y is not None:
+            if X.shape[0] != Y.shape[0]:
+                raise NotImplementedError("Implemented dense representation only for squared matrices")
+        Id = np.eye(_lazy_kernel.shape[0], dtype=_lazy_kernel.dtype, order ='F')
+        return aslinearoperator(_lazy_kernel).matmat(Id)
 
     def _to_lazy(self, X, Y):
-        x = Vi(X)
+        x = Vi(np.ascontiguousarray(X))
         if Y is not None:
-            y= Vj(Y)
+            y= Vj(np.ascontiguousarray(Y))
         else:
-            y = Vj(X)
+            y = Vj(np.ascontiguousarray(X))
         return x, y
 
     def cdist(self, X, Y= None):
@@ -23,7 +31,7 @@ class Kernel(metaclass=ABCMeta):
 
     def cprod(self, X,Y=None):
         x, y = self._to_lazy(X , Y)
-        return (x*y).sum(2)
+        return (x|y)
 
 class RBF(Kernel):
     def __init__(self, length_scale=1.0):
@@ -38,6 +46,7 @@ class Matern(Kernel):
         self.length_scale = Pm(length_scale)
 
     def __call__(self, X, Y=None):
+
         D = self.cdist(X,Y)/self.length_scale
         if abs(self.nu - 0.5) <= 1e-12:
             return (-D).exp()
@@ -58,7 +67,7 @@ class Poly(Kernel):
     def __init__(self, degree=3, gamma=None, coef0=1):
         self.gamma = gamma
         self.coef0 = Pm(coef0)
-        self.degree = Pm(degree)
+        self.degree = degree
 
     def __call__(self, X, Y=None):
         if self.gamma is None:
@@ -68,4 +77,18 @@ class Poly(Kernel):
             
         _gamma = Pm(_gamma)
 
-        return (self.coef0 + self.cprod(X,Y)*_gamma)**self.degree
+        inner = self.coef0 + self.cprod(X,Y)*_gamma
+        if self.degree == 1:
+            return inner
+        elif self.degree == 2:
+            return inner.square()
+        else:
+            raise NotImplementedError("Poly kernel with degree != [1,2] not implemented (because of a bug on pow function).")
+
+class Linear(Poly):
+    def __init__(self, gamma=None, coef0=1):
+        super().__init__(degree=1, gamma=gamma, coef0=coef0)
+
+class Quadratic(Poly):
+    def __init__(self, gamma=None, coef0=1):
+        super().__init__(degree=2, gamma=gamma, coef0=coef0)

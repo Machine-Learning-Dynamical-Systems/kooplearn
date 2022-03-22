@@ -23,7 +23,8 @@ def get_file_list(download_path):
 def prepare_dataframe(file_path):
     df = pd.read_csv(file_path).drop(["No"], axis = 1)
     df['wd'] = df['wd'].replace(to_replace=__wind_directions_to_degrees)
-    df['uid'] = df['year'].astype(str) + "_" +  df['month'].astype(str) + "_" + df['day'].astype(str) + "_" + df['hour'].astype(str)
+    #df['uid'] = df['year'].astype(str) + "_" +  df['month'].astype(str) + "_" + df['day'].astype(str) + "_" + df['hour'].astype(str)
+    df['uid'] = pd.to_datetime(df[['year', 'month', 'day', 'hour']])
     df = df.set_index('uid')
     station_name = df['station'].unique()
     assert len(station_name) == 1
