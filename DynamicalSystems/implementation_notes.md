@@ -14,3 +14,15 @@ $$V := K_{X}^{\dagger}V_{r}.$$
 For both cases now solve solve the EVD 
 $$U^{*}V w_{i} = \lambda_{i}w_{i}.$$
 Finally return the eigenvectors matrix $W:= V[w_{1} | \ldots |w_{r}]$.
+
+## Alternative implementation details: low rank projector:
+The eigenvalue problem to solve is
+$$ \frac{1}{n}K_{Y}K_{X}u_{i} = \sigma^{2}_{i}\left(K_{X} + n\eta \rm{Id}\right)u_{i},$$
+
+
+The vectors $u_{i}$ should be normed so that $u_{i}^{{\rm T}}\left[n^{-1}K_{X}\left(K_{X} + n\eta \rm{Id}\right)\right]u_{i} = \sigma_{i}^{2}$. I then define $V_{r} := K_{X}U_{r}\Sigma^{-2}_{r}n^{-1/2}$.
+### Eigenvalue problem
+Now solve solve the EVD 
+$$\frac{1}{n}V_{r}^{*}K_{YX}U_{r} w_{i} = \lambda_{i}w_{i}.$$
+Finally return the eigenvectors matrix $W:= V[w_{1} | \ldots |w_{r}]$.
+
