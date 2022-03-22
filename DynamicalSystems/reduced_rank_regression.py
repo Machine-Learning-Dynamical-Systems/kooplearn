@@ -8,7 +8,52 @@ import numpy as np
 from warnings import warn
 import tqdm
     
-def reduced_rank_regression(data, evolved_data, kernel, rank, regularizer=None, center_kernel = False):
+def reduced_rank_regression(data, evolved_data, kernel, rank, regularizer, center_kernel = False):
+    # Defining kernels
+    data_kernel = aslinearoperator(kernel(data, data))
+    evolved_data_kernel = aslinearoperator(kernel(evolved_data, evolved_data))
+    #Working with the transpose of the matrix in the notes for easier implementation
+    cross_kernel = aslinearoperator(kernel(evolved_data, data))
+  
+    #Correcting Kernel if needed
+    if center_kernel:
+        evolved_data_kernel += _center_kernel(kernel, evolved_data, evolved_data, data, averaged_indices=(True, True))
+        cross_kernel += _center_kernel(kernel, evolved_data, data, data, averaged_indices=(True, False))
+    
+    print("Low rank projection")
+    V, U = _low_rank_projector(data_kernel, evolved_data_kernel, rank, regularizer)
+    #Neither U nor V are normalised by 1/dim because from _get_low_rank_projector we spare a factor dim
+    C = cross_kernel.matmat(np.asfortranarray(U))
+    vals, vecs =  eig(V.T@C)
+    return vals, U@vecs
+
+def _low_rank_projector(data_kernel, evolved_data_kernel, rank, regularizer):
+    #For the moment data_kernel = LinearOperator, evolved_data_kernel = LinearOperator
+    dim = data_kernel.shape[0]
+    inverse_dim = dim**-1
+
+    K = inverse_dim*(evolved_data_kernel@data_kernel)  
+    K.dtype = data_kernel.dtype
+    tikhonov = aslinearoperator(diags(np.ones(dim, dtype=K.dtype)*(regularizer*dim)))
+    sigma_sq, U = eigs(K, rank, data_kernel + tikhonov)
+    
+    #Check that the eigenvectors are real (or have a global phase at most)
+    if not _check_real(U):
+        U_global_phase_norm = np.angle(U).std()
+        if U_global_phase_norm  > 1e-8:
+            raise ValueError("Computed projector is not real. The kernel function is either severely ill conditioned or non-symmetric")
+        else:
+            #It has a global complex phase, take absolute.
+            U = np.abs(U)
+    else:
+        U = np.real(U)
+    
+    U = modified_QR(U, inverse_dim*(data_kernel@(data_kernel + tikhonov)))
+    V = inverse_dim*(data_kernel@np.asfortranarray(U))
+    sigma = np.sqrt(np.real(sigma_sq))
+    return V*(sigma**-1), U*sigma
+
+def reduced_rank_regression_old(data, evolved_data, kernel, rank, regularizer=None, center_kernel = False):
     # Defining kernels
     data_kernel = aslinearoperator(kernel(data, data))
     evolved_data_kernel = aslinearoperator(kernel(evolved_data, evolved_data))
@@ -21,7 +66,7 @@ def reduced_rank_regression(data, evolved_data, kernel, rank, regularizer=None, 
         cross_kernel += _center_kernel(kernel, data, evolved_data, data, averaged_indices=(False, True))
     
     print("Low rank projection")
-    proj = np.asfortranarray(_low_rank_projector(data_kernel, evolved_data_kernel, rank, regularizer))
+    proj = np.asfortranarray(_low_rank_projector_old(data_kernel, evolved_data_kernel, rank, regularizer))
     dim = proj.shape[0]
     #Neither U nor V are normalised by 1/dim because from _get_low_rank_projector we spare a factor dim
     U = cross_kernel.matmat(proj)
@@ -53,7 +98,7 @@ def reduced_rank_regression(data, evolved_data, kernel, rank, regularizer=None, 
     vals, vecs =  eig(U@C)
     return vals, C@vecs
 
-def _low_rank_projector(data_kernel, evolved_data_kernel, rank, regularizer):
+def _low_rank_projector_old(data_kernel, evolved_data_kernel, rank, regularizer):
     #For the moment data_kernel = LinearOperator, evolved_data_kernel = LinearOperator
     dim = data_kernel.shape[0]
     inverse_dim = dim**-1
