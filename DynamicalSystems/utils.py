@@ -1,5 +1,7 @@
 import numpy as np
-import matplotlib
+from scipy.sparse import identity
+from scipy.sparse.linalg import LinearOperator
+from pykeops.numpy import Vi
 import matplotlib.pyplot as plt
 
 __useTeX__ = True
@@ -15,7 +17,7 @@ if __useTeX__:
 
 def plot_eigs(
         eigs,
-        show_axes=True,
+        log = False,
         figsize=(8, 8),
         title="",
         dpi=None,
@@ -68,3 +70,64 @@ def plot_eigs(
             plt.savefig(filename)
         else:
             plt.show()
+        return ax
+
+def parse_backend(backend, X):
+        if backend == 'keops':
+            return backend
+        elif backend == 'cpu':
+            return backend
+        elif backend == 'auto':
+            if X.shape[0] < 2000:
+                return 'cpu'
+            else:
+                return 'keops'
+        else:
+            raise ValueError(f"Unrecognized backend '{backend}'. Accepted values are 'auto', 'cpu' or 'keops'.")
+
+def modified_QR(A, backend, M=None):
+    backend = parse_backend(backend, A)
+    dim = A.shape[0]
+    vecs = A.shape[1]
+    if M is None:
+        if backend == 'keops':
+            M = identity(dim, dtype= A.dtype)
+        else:
+            M = np.eye(dim, dtype = A.dtype)
+    Q = np.zeros(A.shape, dtype=A.dtype)
+    for j in range(0, vecs):
+        q = np.asfortranarray(A[:,j])
+        for i in range(0, j):
+            rij = np.vdot(Q[:,i], M@q)
+            q = q - rij*Q[:,i]
+        rjj = np.sqrt(np.vdot(q, M@q))
+        if np.isclose(rjj,0.0):
+            raise ValueError("invalid input matrix")
+        else:
+            Q[:,j] = q/rjj
+    return Q
+
+def _check_real(V, eps = 1e-8):
+    if np.max(np.abs(np.imag(V))) > eps:
+        return False
+    else:
+        return True 
+
+class IterInv(LinearOperator):
+    """
+    Adapted from scipy
+    IterInv:
+       helper class to repeatedly solve M*x=b
+       using an iterative method.
+    """
+    def __init__(self, kernel, X, alpha, eps=1e-6):
+        self.M = kernel(X, backend='keops')
+        self.dtype = X.dtype
+        self.shape = self.M.shape
+        self.alpha = alpha
+        self.eps = eps
+
+    def _matvec(self, x):
+        _x = Vi(x[:, np.newaxis])
+        b = self.M.solve(_x, alpha=self.alpha, eps = self.eps)
+        return b
