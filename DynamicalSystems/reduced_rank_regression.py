@@ -1,14 +1,15 @@
 
 from cmath import sqrt
-from scipy.sparse.linalg import eigs, aslinearoperator, LinearOperator
+from scipy.sparse.linalg import eigs, aslinearoperator, LinearOperator, cg
 import scipy.linalg
 from scipy.sparse import diags
+from pykeops.numpy import Vi
 from DynamicalSystems.utils import modified_QR, parse_backend, _check_real, IterInv
 import numpy as np
 from warnings import warn
 
 class KoopmanRegression:
-    def __init__(self, data, evolved_data, kernel, rank, regularizer, center_kernel=False, backend='auto'):
+    def __init__(self, data, evolved_data, kernel, regularizer, rank=None, center_kernel=False, backend='auto'):
         self.backend = parse_backend(backend, data)
         self.kernel = kernel
         self.X, self.Y = data, evolved_data
@@ -35,9 +36,13 @@ class KoopmanRegression:
                 Id = np.eye(self.X.shape[0], dtype = self.X.dtype)
                 self.K_Y += dK_Y.matmat(Id)
                 self.K_YX += dK_YX.matmat(Id)
-        print("INIT: Computing low-rank-projection")
-        self.V, self.U = self._low_rank_projector()
-    
+        
+        if self.rank is not None:
+            print("INIT: Computing low-rank-projection")
+            self.V, self.U = self._low_rank_projector()
+        else:
+            pass
+        
     def _low_rank_projector(self):
         #For the moment data_kernel = LinearOperator, evolved_data_kernel = LinearOperator
         dim = self.K_X.shape[0]
@@ -100,6 +105,36 @@ class KoopmanRegression:
         else:
             observable = self.X
         self.U.T@observable
+
+    def __init_forecast(self):
+        if self.rank == None:
+            dim = self.K_X.shape[0]
+            dt = self.K_X.dtype
+            if self.backend == 'keops':     
+                alpha = self.reg*dim
+                M = self.kernel(self.X, backend=self.backend)
+                _X = Vi(self.Y)
+                self._forecast_Z =M.solve(_X, alpha = alpha, eps = 1e-6)
+            else:
+                tikhonov = np.eye(dim, dtype=dt)*(self.reg*dim)
+                K_reg = self.K_X + tikhonov
+                self._forecast_Z = scipy.linalg.solve(K_reg,self.Y, assume_a='pos') 
+        else:
+                self._forecast_Z = (self.V.T)@self.Y
+
+    def forecast(self, initial_point):
+        try:
+            if self.rank == None:
+                _forecast_S = self.kernel(initial_point[np.newaxis, :], self.X, backend = 'cpu')
+            else:
+                if self.backend == 'keops':
+                    _forecast_S = self.K_X.matmat(self.U)
+                else:
+                    _forecast_S = self.K_X@self.U
+            return np.squeeze(_forecast_S@self._forecast_Z)
+        except AttributeError:
+            self.__init_forecast()
+            return self.forecast(initial_point)
 
 def _center_kernel(kernel, X, Y, D, averaged_indices, backend):
     K_Y = kernel(Y, D, backend=backend).sum(1).squeeze() #Vector

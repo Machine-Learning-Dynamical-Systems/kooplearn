@@ -1,3 +1,7 @@
+## To-do
+1. Add history to sample and check performance of "autoregressive" models for forecasting
+2. Implement mode decomposition and forecast for given observable $f$. 
+3. Find low-rank dynamical system (syntetic) to compare with the full-rank decomposition.
 ## Implementation details: low rank projector:
 The eigenvalue problem to solve is
 $$ \frac{1}{n}K_{X}K_Yv_{i} = \sigma^{2}_{i}\left(K_{X} + n\eta \rm{Id}\right)v_{i},$$
