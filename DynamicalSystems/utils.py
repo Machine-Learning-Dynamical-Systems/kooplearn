@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 __useTeX__ = True
 if __useTeX__:
     plt.rcParams.update({
-        "text.usetex": True,
+        "text.usetex": False,
         "mathtext.fontset": "cm",
         "font.family": "serif",
         "font.serif": ["Computer Modern Roman"]
@@ -15,39 +15,35 @@ if __useTeX__:
         #"font.sans-serif": ["Computer Modern Serif"]
     })
 
-def plot_eigs(
-        eigs,
-        log = False,
-        figsize=(8, 8),
-        title="",
-        dpi=None,
-        filename=None,
-    ):
-        ## Adapted from package pyDMD
-        if dpi is not None:
-            plt.figure(figsize=figsize, dpi=dpi)
+def plot_eigs(eigs, log = False, labels = None):
+    if isinstance(eigs, np.ndarray):
+        if eigs.ndim == 1:
+            eigs = eigs[:, np.newaxis]
+    
+    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+    colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
+    for idx, eig in enumerate(eigs):
+        kwargs = {
+            'c': colors[idx],
+            's': 2
+        }
+        if labels is not None:
+            kwargs['label'] = labels[idx]
+        if log:
+            ax.scatter(np.log(np.abs(eig)), np.angle(eig), **kwargs)
+            ax.set_xlabel(r'$\log(|\lambda_i|)$')
+            ax.set_ylabel(r'$\angle\lambda_i$')
+            ax.set_yticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi])
+            ax.set_yticklabels([r'$-\pi$', r'$-\pi/2$', r'$0$', r'$+\pi/2$', r'$+\pi$'])
         else:
-            plt.figure(figsize=figsize)
+            ax.scatter(eig.real, eig.imag, **kwargs)
+            ax.set_xlabel('Real part')
+            ax.set_ylabel('Imaginary part')
+            ax.set_aspect('equal')
+    if labels is not None:
+        ax.legend(frameon=False)
 
-        plt.title(title)
-        plt.gcf()
-        ax = plt.gca()
-
-        (points,) = ax.plot(
-            eigs.real, eigs.imag, "r+", label="Eigenvalues"
-        )
-        lim = 1.1
-        supx, infx, supy, infy = lim, -lim, lim, -lim
-        
-        # set limits for axis
-        ax.set_xlim((infx, supx))
-        ax.set_ylim((infy, supy))
-        
-
-        plt.ylabel("Imaginary part")
-        plt.xlabel("Real part")
-        
-        unit_circle = plt.Circle(
+    unit_circle = plt.Circle(
             (0.0, 0.0),
             1.0,
             color="k",
@@ -55,22 +51,9 @@ def plot_eigs(
             label="Unit circle",
             linestyle="-",
         )
+    if not log:
         ax.add_artist(unit_circle)
-
-        # Dashed grid
-        gridlines = ax.get_xgridlines() + ax.get_ygridlines()
-        for line in gridlines:
-            line.set_linestyle("--")
-        ax.grid(True)
-
-        ax.add_artist(plt.legend([points], ["Eigenvalues"], loc="best", frameon=False))
-        ax.set_aspect("equal")
-
-        if filename:
-            plt.savefig(filename)
-        else:
-            plt.show()
-        return ax
+    return fig, ax
 
 def parse_backend(backend, X):
         if backend == 'keops':

@@ -99,12 +99,24 @@ class KoopmanRegression:
                 return vals, Kl@lv, Kr@rv
         else:
             return vals, self.V@lv, self.U@rv
+
+    def eigvals(self):
+        return self.eig()[0]
+
     def modes(self, f = None):
+        assert self.rank is not None, "Rank must be specified to compute modes"
         if f is not None:
             observable = f(self.X)
         else:
-            observable = self.X
-        self.U.T@observable
+            observable = self.X    
+        _, _, U_tilde = self.eig()
+        if self.backend == 'keops':
+            F = self.U.T.matmat(np.asfortranarray(observable))
+            D = (self.U.T)@self.K_X.matmat(np.asfortranarray(U_tilde))
+        else:
+            F = self.U.T@observable
+            D = (self.U.T)@self.K_X@U_tilde
+        return scipy.linalg.solve(D, F)
 
     def __init_forecast(self):
         if self.rank == None:
