@@ -105,40 +105,6 @@ def parse_backend(backend, X):
         else:
             raise ValueError(f"Unrecognized backend '{backend}'. Accepted values are 'auto', 'cpu' or 'keops'.")
 
-# def modified_QR(A, backend, M=None):
-#     """
-#     Applies the Gram-Schmidt method to A
-#     and returns Q with M-orthonormal columns
-#     """
-#     backend = parse_backend(backend, A)
-#     dim = A.shape[0]
-#     vecs = A.shape[1]
-#     flag = False
-#     if M is None:
-#         if backend == 'keops':
-#             M = identity(dim, dtype= A.dtype)
-#         else:
-#             M = np.eye(dim, dtype = A.dtype)
-#     Q = np.zeros((A.shape), dtype=A.dtype)
-#     R = np.zeros((vecs,vecs), dtype=A.dtype)
-#     keep_vec = A[:, 0] 
-#     for k in range(0, vecs):
-#         R[k, k] = np.sqrt(np.abs(np.vdot(A[:, k], M @ A[:, k])))
-#         if not np.isclose(R[k, k],0.0):
-#             Q[:, k] = A[:, k]/R[k, k]
-#         else:
-#             R[k, k] = 0.0
-#             Q[:, k] = keep_vec / np.sqrt(np.abs(np.vdot(keep_vec, M @ keep_vec)))
-#             warn('Actual rank is smaller!')
-
-#         MQ = M@Q[:, k]
-#         if k+1<vecs:
-#             keep_vec = A[:, k+1] 
-#         for j in range(k+1, vecs):
-#             R[k, j] = np.vdot(MQ, A[:, j])
-#             A[:, j] = A[:, j] - R[k, j]*Q[:, k]   
-#     return Q
-
 def _check_real(V, eps = 1e-8):
     if np.max(np.abs(np.imag(V))) > eps:
         return False
@@ -163,25 +129,6 @@ class IterInv(LinearOperator):
         _x = Vi(x[:, np.newaxis])
         b = self.M.solve(_x, alpha=self.alpha, eps = self.eps)
         return b
-
-# def rSVD(Kx,Ky,reg, rank, powers = 2, offset = 5, tol = 1e-6):
-#     n = Kx.shape[0]
-#     l = rank+offset
-#     Omega = np.random.randn(n,l)
-#     Omega = Omega @ np.diag(1/np.linalg.norm(Omega,axis=0))
-#     for j in range(powers):
-#         KyO = Ky@Omega
-#         Omega = KyO - n*reg*solve(Kx+n*reg*np.eye(n),KyO,assume_a='pos')
-#     Omega = solve(Kx+n*reg*np.eye(n), Ky@Omega, assume_a='pos')
-#     Q = modified_QR(Omega, backend = 'cpu', M = Kx@Kx/n+Kx*reg)
-#     C = Kx@Q
-#     evals, evecs = eigh((C.T @ Ky) @ C)
-#     evals = evals[::-1][:rank]/n
-#     evecs = evecs[:,::-1][:,:rank]
-#     print(evals)
-#     U = Q @ evecs
-#     V = Kx @ U
-#     return U, V
 
 def modified_QR(A, backend, M=None):
     """
@@ -258,7 +205,6 @@ def rSVD(Kx,Ky,reg, rank= None, powers = 2, offset = 5, tol = 1e-6):
         print(f"Attention! l1 Error in GEP is {error_}")
         #num_rank = np.sum(svals2_ / np.sqrt(svals2_*svals2_)>1e-16)
         #print(f'Numerical rank of the estimator is approximatly {num_rank}')
-
 
     return U, V, svals2
 
