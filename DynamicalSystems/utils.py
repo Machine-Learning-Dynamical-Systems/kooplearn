@@ -135,11 +135,8 @@ def modified_QR(A, backend, M=None):
     Applies the Gram-Schmidt method to A
     and returns Q with M-orthonormal columns
     """
-    backend = parse_backend(backend, A)
-    dim = A.shape[0]
-    vecs = A.shape[1]
-    rank = vecs
-    flag = False
+    dim, vecs = A.shape
+    numerical_rank = vecs
     if M is None:
         if backend == 'keops':
             M = identity(dim, dtype= A.dtype)
@@ -147,31 +144,40 @@ def modified_QR(A, backend, M=None):
             M = np.eye(dim, dtype = A.dtype)
     Q = np.copy(A)
     R = np.zeros((vecs,vecs), dtype=A.dtype)
-    perm_ = np.arange(0,vecs) 
+    _perm = np.arange(0,vecs) 
     for k in range(0, vecs):
-        nrm_ = np.diag(Q[:,k:].T @ M @ Q[:, k:])
-        idx = np.argmax(nrm_)
+        if backend == 'keops':
+            _nrm = np.diag(Q[:,k:].T @ M.matmat(np.asfortranarray(Q[:, k:])))
+        else:
+            _nrm = np.diag(Q[:,k:].T @ M @Q[:, k:])
+        idx = np.argmax(_nrm)
         idx = 0
-        perm_[[k,k+idx]] = perm_[[k+idx,k]] 
+        _perm[[k,k+idx]] = _perm[[k+idx,k]] 
         Q[:,[k,k+idx]] = Q[:,[k+idx,k]]
         R[:,[k,k+idx]] = R[:,[k+idx,k]]
-        R[k, k] = np.sqrt(np.abs(nrm_[idx]))  
-        if not R[k, k]<1e-12:
+        R[k, k] = np.sqrt(np.abs(_nrm[idx]))  
+        if not R[k, k] <1e-12:
             if 0:#k>0:
-                tmp = Q[:,:k].T@(M@Q[:,k])
+                if backend == 'keops':
+                    tmp = Q[:,:k].T@(M.matvec(Q[:,k]))
+                else:
+                    tmp = Q[:,:k].T@(M@Q[:,k])
                 #tmp = Q[:,:k].T@(Q[:,k])
                 R[:k,k] += tmp
                 Q[:,k] -= Q[:,:k]@tmp
                 
             Q[:, k] = Q[:, k]/R[k, k]
             if k<vecs-1:
-                R[k,k+1:] = (M@Q[:,k]).T @  Q[:,k+1:]
+                if backend == 'keops':
+                    R[k,k+1:] = (M.matvec(Q[:,k])).T @  Q[:,k+1:]
+                else:
+                    R[k,k+1:] = (M@Q[:,k]).T @  Q[:,k+1:]
                 Q[:,k+1:] -= np.outer(Q[:,k], R[k,k+1:])
         else:
-            rank = k 
+            numerical_rank = k 
             break
-    print('orthogonality error:', np.linalg.norm(R-np.diag(np.diag(R)), ord = 1))        
-    return Q[:,perm_][:,:rank] #, R[:,perm_][:rank,:]
+    #print('orthogonality error:', np.linalg.norm(R-np.diag(np.diag(R)), ord = 1))        
+    return Q[:,_perm][:,:numerical_rank]#, R[:,perm_][:rank,:]
 
 def rSVD(Kx,Ky,reg, rank= None, powers = 2, offset = 5, tol = 1e-6):
     n = Kx.shape[0]
