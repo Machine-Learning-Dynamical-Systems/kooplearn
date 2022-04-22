@@ -81,28 +81,54 @@ class KoopmanRegression(metaclass=ABCMeta):
             Predict the evolution of the state after a single time-step.
         """
         pass
+
+    @abstractmethod
+    def risk(self, X = None, Y = None):
+        """
+            Evaluate the training error (X = Y = None) or the test error.
+        """
+        pass
     
     def _init_kernels(self, X, Y, backend):
         self.X, self.Y = X, Y
-        self.backend = parse_backend(self.backend, X)
+        self.backend = parse_backend(backend, X)
+
+        self.K_X = self.kernel(self.X, backend=self.backend)
+        self.K_Y = self.kernel(self.Y, backend=self.backend)
+        self.K_YX = self.kernel(self.Y, self.X, backend=self.backend)
 
         if self.backend == 'keops':
-            self.K_X = aslinearoperator(self.kernel(self.X, backend=self.backend))
-            self.K_Y = aslinearoperator(self.kernel(self.Y, backend=self.backend))
-            self.K_YX = aslinearoperator(self.kernel(self.Y, self.X, backend=self.backend))
-        else:
-            self.K_X = self.kernel(self.X, backend=self.backend)
-            self.K_Y = self.kernel(self.Y, backend=self.backend)
-            self.K_YX = self.kernel(self.Y, self.X, backend=self.backend)
+            self.K_X = aslinearoperator(self.K_X)
+            self.K_Y = aslinearoperator(self.K_Y)
+            self.K_YX = aslinearoperator(self.K_YX)
 
         self.dtype = self.K_X.dtype
+    def _init_risk(self, X, Y):
+        if (X is not None) and (Y is not None):
+            K_yY = self.kernel(Y, self.Y, backend = self.backend)
+            K_Xx = self.kernel(self.X, X, backend = self.backend)
+            if self.backend == 'keops':
+                K_yY = aslinearoperator(K_yY)
+                K_Xx = aslinearoperator(K_Xx)
+            _Y = Y
+        else:
+            K_yY = self.K_Y
+            K_Xx = self.K_X
+            _Y = self.Y
+        r_yy = 0
+        for y in _Y:
+            y = y[:, None]
+            r_yy += self.kernel(y,y, backend='cpu')
+        r_yy = np.squeeze(r_yy)*((_Y.shape[0])**(-1))
+             
+        return K_yY, K_Xx, r_yy
 
 class KernelRidgeRegression(KoopmanRegression):
     def __init__(self, kernel, tikhonov_reg = None):
         self.tikhonov_reg = tikhonov_reg
         self.kernel = kernel
-    def fit(self, X, Y, backend = 'auto'):
-        if self.backend != 'cpu':
+    def fit(self, X, Y, backend = 'cpu'):
+        if backend != 'cpu':
             warn("Keops backend not implemented for KernelRidgeRegression. Forcing 'cpu' backend.")
         self._init_kernels(X, Y, 'cpu')
         
@@ -117,12 +143,12 @@ class KernelRidgeRegression(KoopmanRegression):
         
         dim = self.K_X.shape[0]
         if self.tikhonov_reg is not None:
-            tikhonov = np.eye(dim, dtype=self.K_X.dtype)*(self.tikhonov_reg*dim)
+            tikhonov = np.eye(dim, dtype=self.dtype)*(self.tikhonov_reg*dim)
             C = solve(self.K_X+tikhonov, self.K_YX, assume_a='pos') 
         else:
             C = np.linalg.pinv(self.K_X)@ self.K_YX
         
-        self._evals, self._levecs, self._revecs =  eig(C, left=True, right=True)
+        self._evals, self._levecs, self._revecs = eig(C, left=True, right=True)
 
         _rank = self._evals.shape[0]
         if self.backend == 'keops':
@@ -150,6 +176,22 @@ class KernelRidgeRegression(KoopmanRegression):
             return _S@_Z
         except AttributeError:
             raise AttributeError("You must first fit the model.")
+    
+    def risk(self, X = None, Y = None):
+        try:
+            K_yY, K_Xx, r = self._init_risk(X, Y)
+            val_dim, dim = K_yY.shape
+            if self.tikhonov_reg is not None:
+                tikhonov = np.eye(dim, dtype=self.dtype)*(self.tikhonov_reg*dim)
+                C = solve(self.K_X + tikhonov, K_Xx, assume_a='pos')
+            else:
+                C = np.linalg.pinv(self.K_X)@K_Xx
+
+            r -= 2*(val_dim**(-1))*np.trace(K_yY@C)
+            r += (val_dim**(-1))*np.trace(C.T@self.K_Y@C)
+            return r
+        except AttributeError:
+                raise AttributeError("You must first fit the model.")
 
 class LowRankKoopmanRegression(KoopmanRegression):
     def eig(self):
@@ -201,6 +243,27 @@ class LowRankKoopmanRegression(KoopmanRegression):
             return _S@_Z 
         except AttributeError:
                 raise AttributeError("You must first fit the model.")
+    
+    def risk(self, X = None, Y = None):
+        try:
+            K_yY, K_Xx, r = self._init_risk(X, Y)
+            val_dim, dim = K_yY.shape
+            sqrt_inv_dim = dim**(-0.5)
+            V = sqrt_inv_dim*self.V
+            U = sqrt_inv_dim*self.U
+            if self.backend == 'keops':
+                C = K_yY.matmat(np.asfortranarray(V))
+                D = ((K_Xx.T).matmat(np.asfortranarray(U))).T
+                E = (V.T)@self.K_Y.matmat(np.asfortranarray(V))
+            else:
+                C = K_yY@V
+                D = (K_Xx.T@U).T
+                E = (V.T)@self.K_Y@V
+            r -= 2*(val_dim**(-1))*np.trace(C@D)
+            r += (val_dim**(-1))*np.trace(D.T@E@D)
+            return r
+        except AttributeError:
+                raise AttributeError("You must first fit the model.")
 
 class ReducedRankRegression(LowRankKoopmanRegression):
     def __init__(self, kernel, rank, tikhonov_reg = None):
@@ -224,7 +287,7 @@ class ReducedRankRegression(LowRankKoopmanRegression):
                 tikhonov = np.eye(dim, dtype=self.dtype)*(self.tikhonov_reg*dim)   
                 sigma_sq, U = eig(K, self.K_X + tikhonov)
         
-            assert np.max(np.abs(np.imag(sigma_sq))) < self.tol, "Numerical error in computing singular values, try to increase the regularization."
+            assert np.max(np.abs(np.imag(sigma_sq))) < 1e-10, "Numerical error in computing singular values, try to increase the regularization."
             
             sigma_sq = np.real(sigma_sq)
             sort_perm = np.argsort(sigma_sq)[::-1]
@@ -235,10 +298,9 @@ class ReducedRankRegression(LowRankKoopmanRegression):
             if not _check_real(U):
                 raise ValueError("Computed projector is not real or a global complex phase is present. The kernel function is either severely ill conditioned or non-symmetric")
 
-            U = np.real(U)    
-            U, R = modified_QR(U, self.backend, inv_dim*(self.K_X@(self.K_X + tikhonov)))
-            if np.linalg.norm(R-np.diag(np.diag(R)), ord = 1)>self.tol:
-                print('Orthogonality error:', np.linalg.norm(R-np.diag(np.diag(R)), ord = 1))
+            U = np.real(U) 
+            M = inv_dim*(self.K_X@(self.K_X + tikhonov)) 
+            U = modified_QR(U, self.backend, M = M)
             V = (self.K_X@np.asfortranarray(U))            
         else:
             if self.backend == 'keops':
@@ -325,7 +387,7 @@ class RandomizedReducedRankRegression(LowRankKoopmanRegression):
             Omega = KyO - dim*self.tikhonov_reg*solve(self.K_X+dim*self.tikhonov_reg*np.eye(dim),KyO,assume_a='pos')
         KyO = self.K_Y@Omega
         Omega = solve(self.K_X+dim*self.tikhonov_reg*np.eye(dim), KyO, assume_a='pos')
-        Q = modified_QR(Omega, backend = self.backend, M = self.K_X@self.K_X/dim+self.K_X*self.tikhonov_reg)
+        Q = modified_QR(Omega, self.backend, M = self.K_X@self.K_X/dim+self.K_X*self.tikhonov_reg)
         if Q.shape[1]<self.rank:
             print(f"Actual rank is smaller! Detected rank is {Q.shape[1]} and is used.")   
         C = self.K_X@Q
