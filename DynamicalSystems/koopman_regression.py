@@ -117,7 +117,7 @@ class KoopmanRegression(metaclass=ABCMeta):
             _Y = self.Y
         r_yy = 0
         for y in _Y:
-            y = y[:, None]
+            y = y[None,:]
             r_yy += self.kernel(y,y, backend='cpu')
         r_yy = np.squeeze(r_yy)*((_Y.shape[0])**(-1))
              
