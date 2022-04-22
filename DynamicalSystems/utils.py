@@ -130,13 +130,34 @@ class IterInv(LinearOperator):
         b = self.M.solve(_x, alpha=self.alpha, eps = self.eps)
         return b
 
-def modified_QR(A, backend, M=None):
+
+def modified_norm_sq(A, backend, M=None):
+    if len(A.shape)==1:
+        A = A[:,None]
+    dim, vecs = A.shape
+    if M is None:
+        if backend == 'keops':
+            M = identity(dim, dtype= A.dtype)
+        else:
+            M = np.eye(dim, dtype = A.dtype)
+    _nrm = np.empty(vecs, dtype=A.dtype)
+    if backend == 'keops':
+        for k in range(vecs):
+            _nrm[k] = A[:,k].T @ M.matmat(np.asfortranarray(A[:,k]))
+    else:
+        for k in range(vecs):
+            _nrm[k] = A[:,k].T @ M @ A[:, k]
+    
+    return _nrm if A.shape[1]>1 else _nrm[0]
+
+
+def modified_QR(A, backend, M=None, pivoting = False, numerical_rank = False, r = False):
     """
     Applies the Gram-Schmidt method to A
     and returns Q with M-orthonormal columns
     """
     dim, vecs = A.shape
-    numerical_rank = vecs
+    rank = vecs
     if M is None:
         if backend == 'keops':
             M = identity(dim, dtype= A.dtype)
@@ -144,40 +165,59 @@ def modified_QR(A, backend, M=None):
             M = np.eye(dim, dtype = A.dtype)
     Q = np.copy(A)
     R = np.zeros((vecs,vecs), dtype=A.dtype)
-    _perm = np.arange(0,vecs) 
+    _perm = np.arange(0,vecs)
+
+    if pivoting:
+        eps, tau = 1e-8, 1e-2
+        _nrm = modified_norm_sq(A, backend=backend, M=M)
+        _eps = eps * _nrm
+        _nrm_max = _nrm.max()**(0.5)
+    else:
+        _nrm_max = 1.
+
     for k in range(0, vecs):
-        if backend == 'keops':
-            _nrm = np.diag(Q[:,k:].T @ M.matmat(np.asfortranarray(Q[:, k:])))
-        else:
-            _nrm = np.diag(Q[:,k:].T @ M @Q[:, k:])
-        idx = np.argmax(_nrm)
-        idx = 0
-        _perm[[k,k+idx]] = _perm[[k+idx,k]] 
-        Q[:,[k,k+idx]] = Q[:,[k+idx,k]]
-        R[:,[k,k+idx]] = R[:,[k+idx,k]]
-        R[k, k] = np.sqrt(np.abs(_nrm[idx]))  
-        if not R[k, k] <1e-12:
-            if 0:#k>0:
-                if backend == 'keops':
-                    tmp = Q[:,:k].T@(M.matvec(Q[:,k]))
-                else:
-                    tmp = Q[:,:k].T@(M@Q[:,k])
-                #tmp = Q[:,:k].T@(Q[:,k])
-                R[:k,k] += tmp
-                Q[:,k] -= Q[:,:k]@tmp
-                
-            Q[:, k] = Q[:, k]/R[k, k]
-            if k<vecs-1:
-                if backend == 'keops':
-                    R[k,k+1:] = (M.matvec(Q[:,k])).T @  Q[:,k+1:]
-                else:
-                    R[k,k+1:] = (M@Q[:,k]).T @  Q[:,k+1:]
-                Q[:,k+1:] -= np.outer(Q[:,k], R[k,k+1:])
-        else:
-            numerical_rank = k 
+        if pivoting:
+            idx = np.argmax(_nrm[k:])
+            _perm[[k,k+idx]] = _perm[[k+idx,k]] 
+            Q[:,[k,k+idx]] = Q[:,[k+idx,k]]
+            R[:k,[k,k+idx]] = R[:k,[k+idx,k]]
+            _nrm[[k,k+idx]]= _nrm[[k+idx,k]]
+        
+        if k>0:
+            if backend == 'keops':
+                tmp = Q[:,:k].T@(M.matvec(Q[:,k]))
+            else:
+                tmp = Q[:,:k].T@(M@Q[:,k])
+            R[:k,k] += tmp
+            Q[:,k] -= Q[:,:k]@tmp
+        
+        R[k, k] = modified_norm_sq(Q[:,k],backend=backend, M=M)**(0.5)    
+        if pivoting and numerical_rank and (R[k, k] < _nrm_max *1e-16):
+            rank = k 
             break
-    #print('orthogonality error:', np.linalg.norm(R-np.diag(np.diag(R)), ord = 1))        
-    return Q[:,_perm][:,:numerical_rank]#, R[:,perm_][:rank,:]
+
+        Q[:, k] = Q[:, k] / R[k, k]
+        if k<vecs-1:
+            if backend == 'keops':
+                R[k,k+1:] = (M.matvec(Q[:,k])).T @  Q[:,k+1:]
+            else:
+                R[k,k+1:] = (M@Q[:,k]).T @  Q[:,k+1:]
+            Q[:,k+1:] -= np.outer(Q[:,k], R[k,k+1:])
+            if pivoting:
+                _nrm[k+1:] -= np.abs(R[k,k+1:])**2
+                _test = _nrm[k+1:] < _eps[k+1:] / tau
+                if any(_test):
+                    _nrm[k+1:][_test] = modified_norm_sq(Q[:,k+1:][:,_test],backend=backend, M=M)
+                    _eps[k+1:][_test] = eps*_nrm[k+1:][_test] 
+            
+    #print('orthogonality error:', np.linalg.norm(R-np.diag(np.diag(R)), ord = 1))
+    if r:        
+        if pivoting:
+            return Q[:,:rank], R[:rank,:rank], _perm #Q[:,_perm][:,:rank], R[_perm,_perm][:rank,:rank]
+        else:
+            return Q[:,:rank], R[:rank,:rank]
+    else: 
+        return Q[:,:rank]
 
 def rSVD(Kx,Ky,reg, rank= None, powers = 2, offset = 5, tol = 1e-6):
     n = Kx.shape[0]
