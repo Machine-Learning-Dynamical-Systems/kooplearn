@@ -353,11 +353,10 @@ class ReducedRankRegression(LowRankKoopmanRegression):
                 raise ValueError("Computed projector is not real or a global complex phase is present. The kernel function is either severely ill conditioned or non-symmetric")
 
             U = np.real(U) 
-            M = inv_dim*(self.K_X@(self.K_X + tikhonov))
             
             _nrm_sq = modified_norm_sq(U, M = M)
             if any(_nrm_sq < _nrm_sq.max() * 4.84e-32):
-                U, perm = modified_QR(U, M = M, pivoting=True, numerical_rank=True)
+                U, perm = modified_QR(U, M = KernelSquared(self.kernel,self.X, inv_dim, self.tikhonov_reg, self.backend), pivoting=True, numerical_rank=True)
                 U = U[:,np.argsort(perm)]
                 self.rank = U.shape[1]
                 warn(f"Chosen rank is too high. Improving orthogonality and reducing the rank size to {self.rank}.")
