@@ -3,7 +3,7 @@ import numpy as np
 from scipy.linalg import eig, eigh, solve
 from scipy.sparse.linalg import aslinearoperator, eigs, eigsh
 from scipy.sparse import diags
-from .utils import modified_norm_sq, parse_backend, IterInv, _check_real, modified_QR, lsp
+from .utils import modified_norm_sq, parse_backend, IterInv, KernelSquared, _check_real, modified_QR, lsp
 from warnings import warn
 
 class KoopmanRegression(metaclass=ABCMeta):
@@ -355,9 +355,9 @@ class ReducedRankRegression(LowRankKoopmanRegression):
             U = np.real(U) 
             M = inv_dim*(self.K_X@(self.K_X + tikhonov))
             
-            _nrm_sq = modified_norm_sq(U, self.backend, M = M)
+            _nrm_sq = modified_norm_sq(U, M = M)
             if any(_nrm_sq < _nrm_sq.max() * 4.84e-32):
-                U, perm = modified_QR(U, self.backend, M = M, pivoting=True, numerical_rank=True)
+                U, perm = modified_QR(U, M = M, pivoting=True, numerical_rank=True)
                 U = U[:,np.argsort(perm)]
                 self.rank = U.shape[1]
                 warn(f"Chosen rank is too high. Improving orthogonality and reducing the rank size to {self.rank}.")
@@ -467,7 +467,7 @@ class RandomizedReducedRankRegression(LowRankKoopmanRegression):
         KyO = self.K_Y@Omega
 
         Omega = _solve(KyO)
-        Q, _ = modified_QR(Omega, backend = self.backend, M = self.K_X@self.K_X*(1/dim)+self.K_X*self.tikhonov_reg, pivoting=True, numerical_rank=True)        
+        Q, _ = modified_QR(Omega, M = KernelSquared(self.kernel,self.X,1/dim, self.tikhonov_reg, self.backend), pivoting=True, numerical_rank=True)        
         if Q.shape[1]<self.rank:
             print(f"Chosen rank is too high! Forcing rank to {Q.shape[1]}.")   
         C = self.K_X@Q
