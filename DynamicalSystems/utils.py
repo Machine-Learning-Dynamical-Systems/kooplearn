@@ -136,7 +136,26 @@ class IterInv(LinearOperator):
         return b
 
 
-def modified_norm_sq(A, backend, M=None):
+class KernelSquared(LinearOperator):
+    """
+    Adapted from scipy
+    KernelSquared:
+       helper class to repeatedly apply alpha*K@K+beta*K.
+    """
+    def __init__(self, kernel, X, alpha, beta, backend):
+        self.M = kernel(X, backend=backend)
+        self.dtype = X.dtype
+        self.shape = self.M.shape
+        self.alpha = alpha
+        self.beta = beta
+
+    def _matvec(self, x):
+        return self.alpha * self.M @ (self.M @ x) + self.beta * self.M @ x
+
+
+
+
+def modified_norm_sq(A, M=None):
     if len(A.shape)==1:
         A = A[:,None]
     dim, vecs = A.shape
@@ -146,10 +165,7 @@ def modified_norm_sq(A, backend, M=None):
         if M is None:
             _nrm[k] = A[:,k].T @ A[:,k]
         else:
-            if backend == 'keops':
-                _nrm[k] = A[:,k].T @ M.matvec(np.asfortranarray(A[:,k]))
-            else:
-                _nrm[k] = A[:,k].T @ M @ A[:, k]
+            _nrm[k] = A[:,k].T @ (M @ A[:, k])
     #_nrm = np.abs(_nrm)
     return _nrm if A.shape[1]>1 else _nrm[0]
 
@@ -169,7 +185,7 @@ def lsp(A,b, backend):
     # perm_inv = np.argsort(perm)  
     return np.linalg.pinv(A)@b
 
-def modified_QR(A, backend, M=None, pivoting = False, numerical_rank = False, r = False):
+def modified_QR(A, M=None, pivoting = False, numerical_rank = False, r = False):
     """
     Applies the row-wise Gram-Schmidt method to A
     and returns Q with M-orthonormal columns for M symmetric positive definite. 
@@ -199,7 +215,7 @@ def modified_QR(A, backend, M=None, pivoting = False, numerical_rank = False, r 
 
     if pivoting:
         eps, tau = 1e-8, 1e-2
-        _nrm = modified_norm_sq(A, backend=backend, M=M)
+        _nrm = modified_norm_sq(A, M=M)
         _eps = eps * _nrm
         _nrm_max = _nrm.max()
     else:
@@ -216,15 +232,12 @@ def modified_QR(A, backend, M=None, pivoting = False, numerical_rank = False, r 
         if k>0:
             if M is None:
                 tmp = Q[:,:k].T@ Q[:,k]
-            else:
-                if backend == 'keops':
-                    tmp = Q[:,:k].T@(M.matvec(Q[:,k]))
-                else:
-                    tmp = Q[:,:k].T@(M@Q[:,k])
+            else:    
+                tmp = Q[:,:k].T@(M@Q[:,k])
             R[:k,k] += tmp
             Q[:,k] -= Q[:,:k]@tmp
         
-        _nrm_k = modified_norm_sq(Q[:,k],backend=backend, M=M)
+        _nrm_k = modified_norm_sq(Q[:,k], M=M)
         if pivoting and numerical_rank and (_nrm_k < _nrm_max * 4.84e-32):
             rank = k 
             break
@@ -235,17 +248,13 @@ def modified_QR(A, backend, M=None, pivoting = False, numerical_rank = False, r 
             if M is None:
                 R[k,k+1:] = Q[:,k].T @  Q[:,k+1:]
             else:
-                if backend == 'keops':
-                    R[k,k+1:] = (M.matvec(Q[:,k])).T @  Q[:,k+1:]
-                else:
-                    R[k,k+1:] = (M@Q[:,k]).T @  Q[:,k+1:]
-            
+                R[k,k+1:] = (M@Q[:,k]).T @  Q[:,k+1:]            
             Q[:,k+1:] -= np.outer(Q[:,k], R[k,k+1:])
             if pivoting:
                 _nrm[k+1:] -= np.abs(R[k,k+1:])**2
                 _test = _nrm[k+1:] < _eps[k+1:] / tau
                 if any(_test):
-                    _nrm[k+1:][_test] = modified_norm_sq(Q[:,k+1:][:,_test],backend=backend, M=M)
+                    _nrm[k+1:][_test] = modified_norm_sq(Q[:,k+1:][:,_test], M=M)
                     _eps[k+1:][_test] = eps*_nrm[k+1:][_test]
             
     if r:        
