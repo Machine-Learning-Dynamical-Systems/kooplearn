@@ -151,3 +151,5 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 examples/background_separation/yt_video/forza_4_gameplay.mp4
+examples/synthetic_systems/logistic_map.ipynb
+examples/Beijing_air_quality/analysis.ipynb
