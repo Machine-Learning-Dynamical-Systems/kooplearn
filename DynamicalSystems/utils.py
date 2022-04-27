@@ -150,7 +150,8 @@ class KernelSquared(LinearOperator):
         self.beta = beta
 
     def _matvec(self, x):
-        return self.alpha * self.M @ (self.M @ x) + self.beta * self.M @ x
+        v = self.M @ x
+        return self.alpha * self.M @ v + self.beta * v
 
 
 
