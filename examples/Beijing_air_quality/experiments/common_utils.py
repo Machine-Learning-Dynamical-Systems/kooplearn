@@ -1,3 +1,4 @@
+from curses import window
 import numpy as np
 import pandas as pd
 
@@ -31,47 +32,16 @@ def print_timescale(eigenvalues, stride, timestep, units=''):
             a = str(x[0]) + " " + units
             print("Decay: " + a.ljust(col_width) + f"Frequency: {x[1]} {units}")
 
-def extract_windows_vectorized(array,sub_window_size):
+def extract_windows_vectorized(array,window_size=1):
     #Sliding window every timestep, adapted from https://towardsdatascience.com/fast-and-robust-sliding-window-vectorization-with-numpy-3ad950ed62f5
-    max_time = array.shape[0] - sub_window_size
+    max_time = array.shape[0] - window_size + 1
     sub_windows = (
         # expand_dims are used to convert a 1D array to 2D array.
-        np.expand_dims(np.arange(sub_window_size), 0) +
-        np.expand_dims(np.arange(max_time + 1), 0).T
+        np.expand_dims(np.arange(window_size), 0) +
+        np.expand_dims(np.arange(max_time), 0).T
     )
     res = array[sub_windows]
     return res.reshape(res.shape[0], -1)
-
-def subsample_data(df, n_timesteps, shift=0):
-    #Select 1 data point every n_timesteps
-    raised_exception = False
-    dataset_indexes = []
-    i = 0
-    while not raised_exception:
-        try:
-            df[shift + i*n_timesteps]
-            dataset_indexes.append(shift + i*n_timesteps)
-            i += 1
-        except Exception as e:
-            raised_exception = True
-    return df[np.array(dataset_indexes)]
-
-def get_training_dataset(df, measurements, n_timesteps = None, history = None, average = False, shift = 0):
-    if average:
-        features_names = [m + "_mean" for m in measurements]
-        _df = np.hstack([df[m][1].mean(axis=1)[:, np.newaxis] for m in measurements])
-    else:
-        features_names = [elem for sublist in [df[m][0] for m in measurements] for elem in sublist]
-        _df = np.hstack([df[m][1] for m in measurements])
-    #Applying subsampling and then sliding window
-    if n_timesteps is not None:
-        _df = subsample_data(_df, n_timesteps, shift = shift)
-    if history is not None:
-        _df = extract_windows_vectorized(_df, history)
-        features_names_old = features_names
-        features_names = [features_names_old[i] + " + " + str(j) for j in range(history) for i in range(len(features_names_old))]
-    #Return dataframe as numpy array and features names
-    return _df, features_names
 
 #If history, mask everything but the last history timesteps
 def mask_old_timesteps(array, features_names, measurement, history):
@@ -84,7 +54,7 @@ def mask_old_timesteps(array, features_names, measurement, history):
                 idxs.append(i)
     return array[:, idxs]
 
-def prepare_dataset(df_path):
+def split_by_measurement_and_normalize(df_path):
     df_pd = pd.read_pickle(df_path).interpolate().dropna()
     #Get stations and measurements 
     measurements = set()
@@ -102,9 +72,31 @@ def prepare_dataset(df_path):
     #Scale measurements
     df = dict()
     for m in measurements:
-        df[m] = (list(df_pd.filter(regex= m + "_*").columns), df_pd.filter(regex= m + "_*").apply(lambda x: scale(x, standardizing_parameters[m][1], standardizing_parameters[m][0])).to_numpy())
+        df[m] = df_pd.filter(regex= m + "_*").apply(lambda x: scale(x, standardizing_parameters[m][1], standardizing_parameters[m][0]))
 
-    return df, measurements, standardizing_parameters
+    return df, standardizing_parameters
+
+def prepare_training_dataset(df, n_timesteps = 1, history = 1, average = False, shift = 0):
+    measurements = list(df.keys())
+    if average:
+        dfs = [df[m].mean(axis='columns').rename(m) for m in measurements]
+        _df = pd.concat(dfs, axis=1)
+    else:
+        _df = pd.concat([d for d in df.values()], axis=1)
+    #Applying subsampling and then sliding window
+    _df = _df.iloc[shift::n_timesteps, :]
+    _df_np = extract_windows_vectorized(_df.to_numpy(), history)
+    cols = list(_df.columns)
+    features_names = []
+    for i in range(history):
+        for c in cols:
+            if i == history - 1:
+                features_names.append(c)
+            else:
+                features_names.append(c + " " + str((i - history + 1)*n_timesteps))
+
+    #X, Y, features names
+    return _df_np[:-1], _df_np[1:], features_names
 
 def scale(x, m, s):
         return (x - m)/s
