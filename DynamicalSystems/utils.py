@@ -2,7 +2,7 @@ from logging import warning
 import numpy as np
 from scipy.sparse import identity
 from scipy.sparse.linalg import LinearOperator
-from scipy.sparse.linalg import cg
+from scipy.sparse.linalg import cg, aslinearoperator
 from scipy.linalg import eigh, solve, solve_triangular
 from pykeops.numpy import Vi
 import matplotlib.pyplot as plt
@@ -157,18 +157,26 @@ class KernelSquared(LinearOperator):
 
 
 def modified_norm_sq(A, M=None):
+
+    dtype = A.dtype
+    if dtype=='complex':
+        herm = lambda X: np.conj(X.T)  
+    else:
+        herm =  lambda X: X.T
+    
     if len(A.shape)==1:
         A = A[:,None]
     dim, vecs = A.shape
 
-    _nrm = np.empty(vecs, dtype=A.dtype)
+    _nrm = np.empty(vecs, dtype=dtype)
     for k in range(vecs):
         if M is None:
-            _nrm[k] = A[:,k].T @ A[:,k]
+            _nrm[k] = herm(A[:,k]) @ A[:,k]
         else:
-            _nrm[k] = A[:,k].T @ (M @ A[:, k])
-    #_nrm = np.abs(_nrm)
-    return _nrm if A.shape[1]>1 else _nrm[0]
+            _nrm[k] = herm(A[:,k]) @ (M@A[:, k])
+
+    _nrm = np.real(_nrm)
+    return _nrm #if A.shape[1]>1 else _nrm[0]
 
 def lsp(A,b, backend):
     """
@@ -205,9 +213,14 @@ def modified_QR(A, M=None, pivoting = False, numerical_rank = False, r = False):
     """
     dim, vecs = A.shape
     rank = vecs
+    dtype = A.dtype
+    if dtype=='complex':
+        herm = lambda X: np.conj(X.T)  
+    else:
+        herm =  lambda X: X.T
 
     Q = np.copy(A)
-    R = np.zeros((vecs,vecs), dtype=A.dtype)
+    R = np.zeros((vecs,vecs), dtype=dtype)
     _perm = np.arange(0,vecs)
 
     if numerical_rank and not pivoting:
@@ -247,9 +260,9 @@ def modified_QR(A, M=None, pivoting = False, numerical_rank = False, r = False):
         Q[:, k] = Q[:, k] / R[k, k]
         if k<vecs-1:
             if M is None:
-                R[k,k+1:] = Q[:,k].T @  Q[:,k+1:]
+                R[k,k+1:] = herm(Q[:,k]) @  Q[:,k+1:]
             else:
-                R[k,k+1:] = (M@Q[:,k]).T @  Q[:,k+1:]            
+                R[k,k+1:] = herm(M@Q[:,k]) @  Q[:,k+1:]            
             Q[:,k+1:] -= np.outer(Q[:,k], R[k,k+1:])
             if pivoting:
                 _nrm[k+1:] -= np.abs(R[k,k+1:])**2

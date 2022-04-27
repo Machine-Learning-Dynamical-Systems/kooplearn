@@ -20,21 +20,18 @@ class KoopmanRegression(metaclass=ABCMeta):
             Compute the modes associated to the given observable (should be a callable).
         """
         try:
-            # _,R = np.linalg.qr(self._revecs)#,pivoting=True,numerical_rank=True)
-            # _R = np.abs(np.diag(R))
-            # if any(_R<2.2e-16/_R.max()):#  Q.shape[1]<self._revecs.shape[1]:
-            #     warn(f"Defective estimator!")
             sqrt_dim = (self.K_X.shape[0])**(0.5)
             evaluated_observable = observable(self.X)
             if evaluated_observable.ndim == 1:
                 evaluated_observable = evaluated_observable[:,None]
-            U_tilde = np.matrix(self._revecs)
+            U_tilde = self._revecs
+            U_tildeH = np.conj(self._revecs).T
             if self.backend == 'keops':
-                F = U_tilde.H.matmat(np.asfortranarray(evaluated_observable))
-                D = (U_tilde.H)@self.K_X.matmat(np.asfortranarray(self._revecs))
+                F = U_tildeH.matmat(np.asfortranarray(evaluated_observable))
+                D = U_tildeH @ self.K_X.matmat(U_tilde)
             else:
-                F = U_tilde.H@evaluated_observable
-                D = (U_tilde.H)@self.K_X@U_tilde
+                F = U_tildeH @ evaluated_observable
+                D = U_tildeH @ self.K_X@U_tilde
             
             self._modes = sqrt_dim*solve(D, F, assume_a='her')  
             self._modes_observable = observable  
@@ -46,7 +43,41 @@ class KoopmanRegression(metaclass=ABCMeta):
             except AttributeError:
                 raise AttributeError("You must first fit the model.")
     
-    def forecast(self, X, t=1., which = None):
+    # def forecast(self, X, t=1., which = None):
+    #     try:
+    #         evaluated_observable = self._modes_observable(X)
+    #         if evaluated_observable.ndim == 1:
+    #             evaluated_observable = evaluated_observable[:,None]
+
+    #         if which is not None:
+    #             evals = self._evals[which]
+    #             refuns = self._refuns(X)[:,which]
+    #             modes = self._modes[which,:]
+    #         else:
+    #             evals = self._evals
+    #             refuns = self._refuns(X)
+    #             modes = self._modes
+
+    #         if np.isscalar(t):
+    #             t = np.array(t, dtype=np.float64)[np.newaxis][np.newaxis]
+    #         elif t.ndim==1:
+    #             t = np.array(t, dtype=np.float64)[np.newaxis]
+
+    #         evolved_evals = np.exp(t.T @ np.log(evals[None,:]))
+
+    #         forcasted = np.empty((t.shape[1],X.shape[0],X.shape[1]),dtype=np.float64)
+    #         for k in range(t.shape[1]):
+    #             forcasted[k] =  np.real((refuns @ np.diag(evolved_evals[k,:])) @ modes)
+
+    #         if t.shape[1]==1:                
+    #             return forcasted[0]
+    #         else:
+    #             return forcasted
+
+    #     except AttributeError:
+    #         raise AttributeError("You must first fit the model and evaluate the modes with the 'self.modes' method.")
+    
+    def forecast(self, X, t =1., which = None):
         try:
             evaluated_observable = self._modes_observable(X)
             if evaluated_observable.ndim == 1:
@@ -61,21 +92,8 @@ class KoopmanRegression(metaclass=ABCMeta):
                 refuns = self._refuns(X)
                 modes = self._modes
 
-            if np.isscalar(t):
-                t = np.array(t, dtype=np.float64)[np.newaxis][np.newaxis]
-            elif len(t.shape)==1:
-                t = np.array(t, dtype=np.float64)[np.newaxis]
-
-            evolved_evals = np.exp(t.T @ np.log(evals[None,:]))
-
-            forcasted = np.empty((t.shape[1],X.shape[0],X.shape[1]),dtype=np.float64)
-            for k in range(t.shape[1]):
-                forcasted[k] =  np.real((refuns @ np.diag(evolved_evals[k,:])) @ modes)
-
-            if t.shape[1]==1:                
-                return forcasted[0]
-            else:
-                return forcasted
+            forcasted =  np.real((refuns @ np.diag(evals)) @ modes)
+            return forcasted
 
         except AttributeError:
             raise AttributeError("You must first fit the model and evaluate the modes with the 'self.modes' method.")
@@ -86,7 +104,7 @@ class KoopmanRegression(metaclass=ABCMeta):
                 X = self.X
                 Y = self.Y
             if left:
-                error = self._lefuns(Y) - self._lefuns(X)@np.diag(self._evals.conj())
+                error = self._lefuns(X) - self._lefuns(Y)@np.diag(self._evals.conj())
             else:
                 error = self._refuns(Y) - self._refuns(X)@np.diag(self._evals)
             
@@ -157,6 +175,7 @@ class KernelRidgeRegression(KoopmanRegression):
         self.rank = rank
         self.tikhonov_reg = tikhonov_reg
         self.kernel = kernel
+
     def fit(self, X, Y, backend = 'auto'):        
         if self.rank is None and backend != 'cpu':
             warn("Keops backend not implemented for full rank KernelRidgeRegression. Forcing 'cpu' backend.")
@@ -196,10 +215,10 @@ class KernelRidgeRegression(KoopmanRegression):
                         self._evals, self._revecs = eigs(self.K_YX, self.rank, self.K_X + tikhonov,  Minv=Minv)
                         idx_ = np.argsort(np.abs(self._evals))[::-1]
                         self._evals = self._evals[idx_]
-                        self._revecs = self._revecs[:,idx_]
+                        self._revecs = np.asfortranarray(self._revecs[:,idx_])
                         _evals, self._levecs = eigs(self.K_YX.T, self.rank, self.K_X + tikhonov,  Minv=Minv)
                         idx_ = np.argsort(np.abs(_evals))[::-1]
-                        self._levecs = self._levecs[:,idx_]
+                        self._levecs = np.asfortranarray(self._levecs[:,idx_])
                     else:
                         tikhonov = np.eye(dim, dtype=self.dtype)*(self.tikhonov_reg*dim)  
                         self._evals, self._levecs, self._revecs = eig(self.K_YX, self.K_X +tikhonov, left=True, right=True)
@@ -210,23 +229,19 @@ class KernelRidgeRegression(KoopmanRegression):
                     self._evals, self._levecs, self._revecs = eig(np.linalg.pinv(self.K_X)@self.K_YX, left=True, right=True)
                     idx_ = np.argsort(np.abs(self._evals))[::-1][:self.rank]
                     self._evals = self._evals[idx_]
-                    self._levecs, self._revecs = self._levecs[:,idx_], self._revecs[:,idx_]
+                    self._levecs, self._revecs = np.asfortranarray(self._levecs[:,idx_]), np.asfortranarray(self._revecs[:,idx_])
             
             _rank = self._evals.shape[0]
 
-            if self.backend == 'keops':
-                norm_r = np.diag(_rank*self._revecs.T@(self.K_X.matmat(np.asfortranarray(self._revecs))))*dim_inv
-                norm_l = np.diag(_rank*self._levecs.T@(self.K_Y.matmat(np.asfortranarray(self._levecs))))*dim_inv
-            else:
-                norm_r = np.diag(_rank*self._revecs.T@self.K_X@self._revecs)*dim_inv
-                norm_l = np.diag(_rank*self._levecs.T@self.K_Y@self._levecs)*dim_inv
+            norm_r = modified_norm_sq(self._revecs,self.K_X)*dim_inv
+            norm_l = modified_norm_sq(self._levecs,self.K_Y)*dim_inv
 
             self._revecs = self._revecs @ np.diag(norm_r**(-0.5))
             self._levecs = self._levecs @ np.diag(norm_l**(-0.5))
 
             if self.backend == 'keops':
-                self._refuns = lambda X: sqrt_inv_dim*aslinearoperator(self.kernel(X, self.X, backend=self.backend)).matmat(np.asfortranarray(self._revecs))
-                self._lefuns = lambda X: sqrt_inv_dim*aslinearoperator(self.kernel(X, self.Y, backend=self.backend)).matmat(np.asfortranarray(self._levecs))
+                self._refuns = lambda X: sqrt_inv_dim*aslinearoperator(self.kernel(X, self.X, backend=self.backend)).matmat(self._revecs)
+                self._lefuns = lambda X: sqrt_inv_dim*aslinearoperator(self.kernel(X, self.Y, backend=self.backend)).matmat(self._levecs)
             else:
                 self._refuns = lambda X:  sqrt_inv_dim*self.kernel(X, self.X, backend=self.backend)@self._revecs
                 self._lefuns = lambda X:  sqrt_inv_dim*self.kernel(X, self.Y, backend=self.backend)@self._levecs
@@ -294,22 +309,21 @@ class LowRankKoopmanRegression(KoopmanRegression):
                 C = dim_inv* self.K_YX@self.U 
             
             vals, lv, rv =  eig(self.V.T@C, left=True, right=True)
-            self._evals = vals 
-            self._levecs = self.V@lv
-            self._revecs = self.U@rv
+            self._evals = vals
+            if self.backend == 'keops':
+                self._levecs = np.asfortranarray(self.V@lv)
+                self._revecs = np.asfortranarray(self.U@rv)
+            else: 
+                self._levecs = self.V@lv
+                self._revecs = self.U@rv
 
             # sort the evals w.r.t. modulus 
             idx_ = np.argsort(np.abs(self._evals))[::-1]
             self._evals = self._evals[idx_]
             self._levecs, self._revecs = self._levecs[:,idx_], self._revecs[:,idx_]
-
-            _rank = self._evals.shape[0]
-            if self.backend == 'keops':
-                norm_r = np.diag(_rank*self._revecs.T@(self.K_X.matmat(np.asfortranarray(self._revecs)))) *dim_inv
-                norm_l = np.diag(_rank*self._levecs.T@(self.K_Y.matmat(np.asfortranarray(self._levecs)))) *dim_inv
-            else:
-                norm_r = np.diag(_rank*self._revecs.T@self.K_X@self._revecs)*dim_inv
-                norm_l = np.diag(_rank*self._levecs.T@self.K_Y@self._levecs)*dim_inv
+            
+            norm_r = modified_norm_sq(self._revecs,self.K_X)*dim_inv
+            norm_l = modified_norm_sq(self._levecs,self.K_Y)*dim_inv
 
             self._revecs = self._revecs @ np.diag(norm_r**(-0.5))
             self._levecs = self._levecs @ np.diag(norm_l**(-0.5))
@@ -319,8 +333,8 @@ class LowRankKoopmanRegression(KoopmanRegression):
             self._levecs, self._revecs = self._levecs[:,idx_], self._revecs[:,idx_]
 
             if self.backend == 'keops':
-                self._refuns = lambda X: sqrt_inv_dim*aslinearoperator(self.kernel(X, self.X, backend=self.backend)).matmat(np.asfortranarray(self._revecs))
-                self._lefuns = lambda X: sqrt_inv_dim*aslinearoperator(self.kernel(X, self.Y, backend=self.backend)).matmat(np.asfortranarray(self._levecs))
+                self._refuns = lambda X: sqrt_inv_dim*aslinearoperator(self.kernel(X, self.X, backend=self.backend)).matmat(self._revecs)
+                self._lefuns = lambda X: sqrt_inv_dim*aslinearoperator(self.kernel(X, self.Y, backend=self.backend)).matmat(self._levecs)
             else:
                 self._refuns = lambda X:  sqrt_inv_dim*self.kernel(X, self.X, backend=self.backend)@self._revecs
                 self._lefuns = lambda X:  sqrt_inv_dim*self.kernel(X, self.Y, backend=self.backend)@self._levecs
