@@ -104,13 +104,11 @@ def parse_backend(backend, X):
                 return 'keops'
         else:
             raise ValueError(f"Unrecognized backend '{backend}'. Accepted values are 'auto', 'cpu' or 'keops'.")
-
 def _check_real(V, eps = 1e-8):
     if np.max(np.abs(np.imag(V))) > eps:
         return False
     else:
         return True 
-
 class IterInv(LinearOperator):
     """
     Adapted from scipy
@@ -134,8 +132,6 @@ class IterInv(LinearOperator):
         _x = Vi(x)
         b = self.M.solve(_x, alpha=self.alpha, eps = self.eps)
         return b
-
-
 class KernelSquared(LinearOperator):
     """
     Adapted from scipy
@@ -150,14 +146,10 @@ class KernelSquared(LinearOperator):
         self.beta = beta
 
     def _matvec(self, x):
-        v = self.M @ x
+        v = np.ascontiguousarray(self.M @ x)
         return self.alpha * self.M @ v + self.beta * v
 
-
-
-
 def modified_norm_sq(A, M=None):
-
     dtype = A.dtype
     if dtype=='complex':
         herm = lambda X: np.conj(X.T)  
@@ -171,13 +163,12 @@ def modified_norm_sq(A, M=None):
     _nrm = np.empty(vecs, dtype=dtype)
     for k in range(vecs):
         if M is None:
-            _nrm[k] = herm(A[:,k]) @ A[:,k]
+            _nrm[k] = herm(A[:,k]) @ np.ascontiguousarray(A[:,k])
         else:
-            _nrm[k] = herm(A[:,k]) @ (M@A[:, k])
+            _nrm[k] = herm(A[:,k]) @ (M@np.ascontiguousarray(A[:, k]))
 
     _nrm = np.real(_nrm)
     return _nrm #if A.shape[1]>1 else _nrm[0]
-
 def modified_QR(A, M=None, pivoting = False, numerical_rank = False, r = False):
     """
     Applies the row-wise Gram-Schmidt method to A
@@ -265,7 +256,6 @@ def modified_QR(A, M=None, pivoting = False, numerical_rank = False, r = False):
             return Q[:,:rank], _perm 
         else:
             return Q[:,:rank] 
-
 def rSVD(Kx,Ky,reg, rank= None, powers = 2, offset = 5, tol = 1e-6):
     n = Kx.shape[0]
 
