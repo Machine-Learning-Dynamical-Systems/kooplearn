@@ -43,16 +43,28 @@ def extract_windows_vectorized(array,window_size=1):
     res = array[sub_windows]
     return res.reshape(res.shape[0], -1)
 
-#If history, mask everything but the last history timesteps
-def mask_old_timesteps(array, features_names, measurement, history):
-    idxs = []
-    num_cols = array.shape[1]
-    num_features = int(num_cols/history)
-    for i,x in enumerate(features_names):
-        if measurement in x:
-            if i >= num_features*int(history - 1):
-                idxs.append(i)
-    return array[:, idxs]
+def de_standardize(dataset, features_names, history, standardizing_parameters = None):
+    assert len(features_names)%history == 0, "Number of features must be divisible by history"
+    stride = len(features_names)//history
+    offset = stride * (history - 1)
+    _ds = np.copy(dataset[..., offset:])
+    _fnames = features_names[offset:]
+    if standardizing_parameters is not None:
+        for measurement in standardizing_parameters.keys():
+            for feat_idx, feat in enumerate(_fnames):
+                if measurement in feat:
+                    _ds[..., feat_idx] = unscale(_ds[..., feat_idx], standardizing_parameters[measurement][1], standardizing_parameters[measurement][0])
+    return _ds, _fnames
+
+def get_measurement(dataset, measurement, features_names, history, standardizing_parameters):
+    _ds, _fnames = de_standardize(dataset, features_names, history, standardizing_parameters)
+    cols = []
+    feats = []
+    for feat_idx, feature in enumerate(_fnames):
+        if measurement in feature:
+            feats.append(feature)
+            cols.append(_ds[:, feat_idx])
+    return np.array(cols).T, np.array(feats)
 
 def split_by_measurement_and_normalize(df_path):
     df_pd = pd.read_pickle(df_path).interpolate().dropna()
@@ -94,7 +106,6 @@ def prepare_training_dataset(df, n_timesteps = 1, history = 1, average = False, 
                 features_names.append(c)
             else:
                 features_names.append(c + " " + str((i - history + 1)*n_timesteps))
-
     #X, Y, features names
     return _df_np[:-1], _df_np[1:], features_names
 

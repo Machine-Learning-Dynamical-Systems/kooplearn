@@ -56,8 +56,9 @@ class KoopmanRegression(metaclass=ABCMeta):
                 t = np.array(t, dtype=np.float64)[None,:]   # [1, t]
             else:
                 raise ValueError("t must be a scalar or a vector.")
-
             evals_t = np.power(evals, t) # [r,t]
+
+            
             forecasted = np.einsum('ro,rt,nr->tno', modes, evals_t, refuns)  # [t,n,n_obs]
             if forecasted.shape[0] <= 1:
                 return np.real(forecasted[0])
@@ -138,7 +139,6 @@ class KoopmanRegression(metaclass=ABCMeta):
         r_yy = np.squeeze(r_yy)*((_Y.shape[0])**(-1))
              
         return K_yY, K_Xx, r_yy
-
 class KernelRidgeRegression(KoopmanRegression):
     def __init__(self, kernel, tikhonov_reg = None):
         self.tikhonov_reg = tikhonov_reg
@@ -200,7 +200,7 @@ class KernelRidgeRegression(KoopmanRegression):
                 else:
                     _Z = IterInv(self.kernel,X,self.tikhonov_reg*dim)._matmat(self.Y)
             else:
-                _Z = np.linalg.pinv(self.K_X)@self.Y
+                _Z, _, _, _ = lstsq(self.K_X)@self.Y
             if X.ndim == 1:
                 X = X[None,:]
             _S = self.kernel(X, self.X, backend = self.backend)
@@ -222,7 +222,7 @@ class KernelRidgeRegression(KoopmanRegression):
                 else:
                     C = IterInv(self.kernel,self.X,self.tikhonov_reg*dim)._matmat(K_Xx)
             else:
-                C = np.linalg.pinv(self.K_X)@K_Xx
+                C, _, _, _ = lstsq(self.K_X, K_Xx)
 
             r -= 2*(val_dim**(-1))*np.trace(K_yY@C)
             r += (val_dim**(-1))*np.trace(C.T@(self.K_Y@C))
@@ -231,6 +231,7 @@ class KernelRidgeRegression(KoopmanRegression):
                 raise AttributeError("You must first fit the model.")
 class TruncatedKernelRidgeRegression(KoopmanRegression):
     def __init__(self, kernel, rank = None, tikhonov_reg = None):
+        raise NotImplementedError("TruncatedKernelRidgeRegression is not implemented yet.")
         self.rank = rank
         self.tikhonov_reg = tikhonov_reg
         self.kernel = kernel
@@ -348,7 +349,6 @@ class TruncatedKernelRidgeRegression(KoopmanRegression):
             return r
         except AttributeError:
                 raise AttributeError("You must first fit the model.")
-
 class LowRankKoopmanRegression(KoopmanRegression):
     def eig(self):
         """Eigenvalue decomposition of the Koopman operator
@@ -435,7 +435,6 @@ class LowRankKoopmanRegression(KoopmanRegression):
             return r
         except AttributeError:
                 raise AttributeError("You must first fit the model.")
-
 class ReducedRankRegression(LowRankKoopmanRegression):
     def __init__(self, kernel, rank, tikhonov_reg = None):
         self.rank = rank
@@ -461,7 +460,6 @@ class ReducedRankRegression(LowRankKoopmanRegression):
             else:
                 tikhonov = np.eye(dim, dtype=self.dtype)*(self.tikhonov_reg*dim)   
                 sigma_sq, U = eig(K, self.K_X + tikhonov)
-        
             assert np.max(np.abs(np.imag(sigma_sq))) < 1e-10, "Numerical error in computing singular values, try to increase the regularization."
             
             sigma_sq = np.real(sigma_sq)
@@ -474,7 +472,6 @@ class ReducedRankRegression(LowRankKoopmanRegression):
                 raise ValueError("Computed projector is not real or a global complex phase is present. The kernel function is either severely ill conditioned or non-symmetric")
 
             U = np.real(U) 
-            
             _nrm_sq = modified_norm_sq(U, M = KernelSquared(self.kernel,self.X, inv_dim, self.tikhonov_reg, self.backend))
             if any(_nrm_sq < _nrm_sq.max() * 4.84e-32):
                 U, perm = modified_QR(U, M = KernelSquared(self.kernel,self.X, inv_dim, self.tikhonov_reg, self.backend), pivoting=True, numerical_rank=False)
@@ -497,10 +494,9 @@ class ReducedRankRegression(LowRankKoopmanRegression):
                 V = V[:,sort_perm][:,:self.rank]
                 V = V@np.diag(np.sqrt(dim)/(np.linalg.norm(V,ord=2,axis=0)))
                 #U = solve(self.K_X, V, assume_a='sym')
-                U = lstsq(self.K_X, V)
+                U, _, effective_rank, _ = lstsq(self.K_X, V)
         self.V = V 
         self.U = U
-
 class PrincipalComponentRegression(LowRankKoopmanRegression):
     def __init__(self, kernel, rank, tikhonov_reg = None):
         self.rank = rank
@@ -544,7 +540,6 @@ class PrincipalComponentRegression(LowRankKoopmanRegression):
             self.U = V[:_test]@np.diag(S[:_test]**-1) * np.sqrt(dim)
             self.rank = self.V.shape[1]
             warn(f"Chosen rank is to high! Forcing rank={self.rank}!")
-
 class RandomizedReducedRankRegression(LowRankKoopmanRegression):
     def __init__(self, kernel, rank, tikhonov_reg = None, offset = None, powers = 2):
         self.rank = rank
@@ -565,7 +560,7 @@ class RandomizedReducedRankRegression(LowRankKoopmanRegression):
             raise ValueError(f"Unsupported Randomized Reduced Rank Regression without Tikhonov regularization.")
         else:
             if self.backend == 'keops':
-                _solve = lambda V: IterInv(self.kernel,X,self.tikhonov_reg*dim)._matmat(V)
+                _solve = lambda V: IterInv(self.kernel,X,self.tikhonov_reg*dim)._matmat(np.asfortranarray(V))
             else:
                 _solve = lambda V: solve(self.K_X + np.eye(dim, dtype=self.dtype)*(self.tikhonov_reg*dim),V,assume_a='pos') 
 
@@ -576,8 +571,11 @@ class RandomizedReducedRankRegression(LowRankKoopmanRegression):
         Omega = np.random.randn(dim,l)
         Omega = Omega @ np.diag(1/np.linalg.norm(Omega,axis=0))
 
-        for j in range(self.powers):            
-            KyO = self.K_Y@Omega
+        for _ in range(self.powers):
+            if self.backend == 'keops':
+                KyO = self.K_Y.matmat(np.asfortranarray(Omega))
+            else:
+                KyO = self.K_Y@Omega
             Omega = KyO - dim*self.tikhonov_reg * _solve(KyO)
         KyO = self.K_Y@Omega
 
