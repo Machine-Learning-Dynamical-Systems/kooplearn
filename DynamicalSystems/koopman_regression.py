@@ -2,9 +2,9 @@ from abc import ABCMeta, abstractmethod
 from bdb import effective
 import numpy as np
 from scipy.linalg import eig, eigh, solve, lstsq
-from scipy.sparse.linalg import aslinearoperator, eigs, eigsh
+from scipy.sparse.linalg import aslinearoperator, eigs, eigsh, lsqr
 from scipy.sparse import diags
-from .utils import modified_norm_sq, parse_backend, IterInv, KernelSquared, _check_real, modified_QR, lsp
+from .utils import modified_norm_sq, parse_backend, IterInv, KernelSquared, _check_real, modified_QR
 from warnings import warn
 
 class KoopmanRegression(metaclass=ABCMeta):
@@ -21,8 +21,8 @@ class KoopmanRegression(metaclass=ABCMeta):
             Compute the modes associated to the given observable (should be a callable).
         """
         try:
-            sqrt_dim = (self.K_X.shape[0])**(0.5)
-            evaluated_observable = observable(self.X)
+            inv_sqrt_dim = (self.K_X.shape[0])**(-0.5)
+            evaluated_observable = observable(self.Y)
             if evaluated_observable.ndim == 1:
                 evaluated_observable = evaluated_observable[:,None]
             
@@ -30,7 +30,9 @@ class KoopmanRegression(metaclass=ABCMeta):
                 evaluated_observable = (self.V.T)@evaluated_observable
             
             self._modes, _, effective_rank, _ = lstsq(self._modes_to_invert, evaluated_observable) 
-            self._modes *= sqrt_dim 
+            self._modes *= inv_sqrt_dim
+            # if not isinstance(self, LowRankKoopmanRegression):
+            #     self._modes = np.diag(self._evals) @ self._modes
             self._modes_observable = observable  
             return self._modes
         except AttributeError:
@@ -48,11 +50,11 @@ class KoopmanRegression(metaclass=ABCMeta):
 
             if which is not None:
                 evals = self._evals[which][:, None]     # [r,1]
-                refuns = self._refuns(X)[:,which]       # [n,r]
+                refuns = self._refuns(evaluated_observable)[:,which]       # [n,r]
                 modes = self._modes[which,:]            # [r,n_obs]
             else:
-                evals = self._evals                     # [r,1]
-                refuns = self._refuns(X)                # [n,r]
+                evals = self._evals[:, None]                # [r,1]
+                refuns = self._refuns(evaluated_observable)                # [n,r]
                 modes = self._modes                     # [r,n_obs]
 
             if np.isscalar(t):
@@ -64,7 +66,7 @@ class KoopmanRegression(metaclass=ABCMeta):
 
             evals_t = np.power(evals, t) # [r,t]
             forecasted = np.einsum('ro,rt,nr->tno', modes, evals_t, refuns)  # [t,n,n_obs]
-            if forecasted.shape[0] == 0:
+            if forecasted.shape[0] <= 1:
                 return np.real(forecasted[0])
             else:
                 return np.real(forecasted)
@@ -181,7 +183,7 @@ class KernelRidgeRegression(KoopmanRegression):
 
             self._revecs = self._revecs @ np.diag(norm_r**(-0.5))
             self._levecs = self._levecs @ np.diag(norm_l**(-0.5))
-            self._modes_to_invert = self.K_YX@self._revecs
+            self._modes_to_invert = self.K_YX@self._revecs * dim_inv
 
             if self.backend == 'keops':
                 self._refuns = lambda X: sqrt_inv_dim*aslinearoperator(self.kernel(X, self.X, backend=self.backend)).matmat(self._revecs)
@@ -373,17 +375,15 @@ class LowRankKoopmanRegression(KoopmanRegression):
             
             vals, lv, rv =  eig(self.V.T@C, left=True, right=True)
             self._evals = vals
-            if self.backend == 'keops':
-                self._levecs = np.asfortranarray(self.V@lv)
-                self._revecs = np.asfortranarray(self.U@rv)
-            else: 
-                self._levecs = self.V@lv
-                self._revecs = self.U@rv
+
+            self._levecs = self.V@lv
+            self._revecs = self.U@rv
 
             # sort the evals w.r.t. modulus 
             idx_ = np.argsort(np.abs(self._evals))[::-1]
             self._evals = self._evals[idx_]
             self._levecs, self._revecs = self._levecs[:,idx_], self._revecs[:,idx_]
+            rv = rv[:,idx_]
             
             norm_r = modified_norm_sq(self._revecs,self.K_X)*dim_inv
             norm_l = modified_norm_sq(self._levecs,self.K_Y)*dim_inv
@@ -391,12 +391,12 @@ class LowRankKoopmanRegression(KoopmanRegression):
             self._revecs = self._revecs @ np.diag(norm_r**(-0.5))
             self._levecs = self._levecs @ np.diag(norm_l**(-0.5))
 
-            idx_ = np.argsort(np.abs(self._evals))[::-1]
-            self._evals = self._evals[idx_]
-            self._levecs, self._revecs = self._levecs[:,idx_], self._revecs[:,idx_]
-            self._modes_to_invert = self._revecs@np.diag(self._evals) 
+            self._modes_to_invert = rv @np.diag(self._evals*(norm_r**(-0.5)))
 
             if self.backend == 'keops':
+                self._levecs = np.asfortranarray(self._levecs)
+                self._revecs = np.asfortranarray(self._revecs)
+                self._modes_to_invert = np.asfortranarray(self._modes_to_invert)
                 self._refuns = lambda X: sqrt_inv_dim*aslinearoperator(self.kernel(X, self.X, backend=self.backend)).matmat(self._revecs)
                 self._lefuns = lambda X: sqrt_inv_dim*aslinearoperator(self.kernel(X, self.Y, backend=self.backend)).matmat(self._levecs)
             else:
@@ -496,11 +496,7 @@ class ReducedRankRegression(LowRankKoopmanRegression):
             if self.backend == 'keops':
                 sigma_sq, V = eigsh(self.K_Y, self.rank)
                 V = V@np.diag(np.sqrt(dim)/(np.linalg.norm(V,ord=2,axis=0)))
-                # M = IterInv(self.kernel, self.X)
-                # U = np.empty_like(V)
-                # for i in range(self.rank):
-                #     U[:,i] = M._matvec(V[:,i])
-                U = IterInv(self.kernel, self.X)._matmat(V)
+                U = lsqr(self.K_X, V)
             else:
                 sigma_sq, V = eigh(self.K_Y)
                 sort_perm = np.argsort(sigma_sq)[::-1]
@@ -508,7 +504,7 @@ class ReducedRankRegression(LowRankKoopmanRegression):
                 V = V[:,sort_perm][:,:self.rank]
                 V = V@np.diag(np.sqrt(dim)/(np.linalg.norm(V,ord=2,axis=0)))
                 #U = solve(self.K_X, V, assume_a='sym')
-                U = lsp(self.K_X, V, backend=self.backend)
+                U = lstsq(self.K_X, V)
         self.V = V 
         self.U = U
 
