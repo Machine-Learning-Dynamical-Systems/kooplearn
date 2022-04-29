@@ -31,9 +31,6 @@ class KoopmanRegression(metaclass=ABCMeta):
             
             self._modes, _, effective_rank, _ = lstsq(self._modes_to_invert, evaluated_observable) 
             self._modes *= inv_sqrt_dim
-            # if not isinstance(self, LowRankKoopmanRegression):
-            #     self._modes = np.diag(self._evals) @ self._modes
-            self._modes_observable = observable  
             return self._modes
         except AttributeError:
             try:
@@ -44,17 +41,13 @@ class KoopmanRegression(metaclass=ABCMeta):
     
     def forecast(self, X, t=1., which = None):
         try:
-            evaluated_observable = self._modes_observable(X)
-            if evaluated_observable.ndim == 1:
-                evaluated_observable = evaluated_observable[:,None]
-
             if which is not None:
                 evals = self._evals[which][:, None]     # [r,1]
-                refuns = self._refuns(evaluated_observable)[:,which]       # [n,r]
+                refuns = self._refuns(X)[:,which]       # [n,r]
                 modes = self._modes[which,:]            # [r,n_obs]
             else:
                 evals = self._evals[:, None]                # [r,1]
-                refuns = self._refuns(evaluated_observable)                # [n,r]
+                refuns = self._refuns(X)                # [n,r]
                 modes = self._modes                     # [r,n_obs]
 
             if np.isscalar(t):
