@@ -178,22 +178,6 @@ def modified_norm_sq(A, M=None):
     _nrm = np.real(_nrm)
     return _nrm #if A.shape[1]>1 else _nrm[0]
 
-def lsp(A,b, backend):
-    """
-    for a symmetric A returns least squares solution of A x = b 
-    """
-    # Q, R, perm = modified_QR(A, backend=backend, pivoting = True, numerical_rank = True, r = True)
-    # n = Q.shape[0]
-    # r = Q.shape[1]
-    # Q1, R1 = solve_triangular(R[:,:r],Q.T@b), solve_triangular(R[:,:r],R[:,r:]) 
-    # Z = solve(R1.T@R1+np.eye(n-r), R1.T@Q1, assume_a='pos')
-    # if len(b.shape)==1:
-    #     x = np.hstack((Q1-R1@Z,Z))[perm]
-    # else:
-    #     x = np.vstack((Q1-R1@Z,Z))[perm,:]
-    # perm_inv = np.argsort(perm)  
-    return np.linalg.pinv(A)@b
-
 def modified_QR(A, M=None, pivoting = False, numerical_rank = False, r = False):
     """
     Applies the row-wise Gram-Schmidt method to A
