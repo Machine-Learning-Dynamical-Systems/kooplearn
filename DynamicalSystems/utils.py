@@ -26,20 +26,26 @@ def plot_eigs(
         title="",
         dpi=None,
         filename=None,
+        ax = None,
+        style = 'r+',
+        label = 'Eigenvalues'
     ):
-        ## Adapted from package pyDMD
-        if dpi is not None:
-            plt.figure(figsize=figsize, dpi=dpi)
-        else:
-            plt.figure(figsize=figsize)
+        _given_axis = True
+        if ax is None:
+            ## Adapted from package pyDMD
+            if dpi is not None:
+                plt.figure(figsize=figsize, dpi=dpi)
+            else:
+                plt.figure(figsize=figsize)
 
-        plt.title(title)
-        plt.gcf()
-        ax = plt.gca()
+            plt.title(title)
+            plt.gcf()
+            ax = plt.gca()
+            _given_axis = False
 
         if log is None:
-            (points,) = ax.plot(
-                eigs.real, eigs.imag, "r+", label="Eigenvalues"
+            ax.plot(
+                eigs.real, eigs.imag, style, label=label
             )
             lim = 1.1
             supx, infx, supy, infy = lim, -lim, lim, -lim
@@ -49,42 +55,38 @@ def plot_eigs(
             ax.set_ylim((infy, supy))
 
         else:
-            (points,) = ax.plot(
-            np.log(np.abs(eigs)), np.angle(eigs), "r+", label="Eigenvalues"
+            ax.plot(
+            np.log(np.abs(eigs)), np.angle(eigs), style, label=label
             )
 
         plt.ylabel("Imaginary part")
         plt.xlabel("Real part")
         
-        if log is None:
-            unit_circle = plt.Circle(
-                (0.0, 0.0),
-                1.0,
-                color="k",
-                fill=False,
-                label="Unit circle",
-                linestyle="-",
-            )
-            ax.add_artist(unit_circle)
-        else:
-            line_ = plt.Line2D(
-                (0.0, 0.0),
-                (-np.pi,np.pi),
-                color="k",
-                label="Imaginary axis",
-                linestyle="-",
-            )
-            ax.add_artist(line_)
-
-        # Dashed grid
-        gridlines = ax.get_xgridlines() + ax.get_ygridlines()
-        for line in gridlines:
-            line.set_linestyle("--")
-        ax.grid(True)
-
-        ax.add_artist(plt.legend([points], ["Eigenvalues"], loc="best", frameon=False))
-        if log is None:
-            ax.set_aspect("equal")
+        if not _given_axis:
+            if log is None:
+                unit_circle = plt.Circle(
+                    (0.0, 0.0),
+                    1.0,
+                    color="k",
+                    fill=False,
+                    linestyle="-",
+                )
+                ax.add_artist(unit_circle)
+            else:
+                line_ = plt.Line2D(
+                    (0.0, 0.0),
+                    (-np.pi,np.pi),
+                    color="k",
+                    linestyle="-",
+                )
+                ax.add_artist(line_)
+            # Dashed grid
+            gridlines = ax.get_xgridlines() + ax.get_ygridlines()
+            for line in gridlines:
+                line.set_linestyle("--")
+            ax.grid(True)
+            if log is None:
+                ax.set_aspect("equal")
 
         if filename:
             plt.savefig(filename)

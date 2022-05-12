@@ -63,11 +63,11 @@ def get_measurement(dataset, measurement, features_names, history, standardizing
     for feat_idx, feature in enumerate(_fnames):
         if measurement in feature:
             feats.append(feature)
-            cols.append(_ds[:, feat_idx])
+            cols.append(_ds[..., feat_idx])
+    
     return np.array(cols).T, np.array(feats)
 
-def split_by_measurement_and_normalize(df_path):
-    df_pd = pd.read_pickle(df_path).interpolate().dropna()
+def split_by_measurement_and_normalize(df_pd):
     #Get stations and measurements 
     measurements = set()
     for col in df_pd.columns:
