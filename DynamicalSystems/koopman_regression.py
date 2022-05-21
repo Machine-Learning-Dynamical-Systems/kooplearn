@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from bdb import effective
 import numpy as np
-from scipy.linalg import eig, eigh, solve, lstsq
+from scipy.linalg import eig, eigh, solve, lstsq, eigvals
 from scipy.sparse.linalg import aslinearoperator, eigs, eigsh, lsqr
 from scipy.sparse import diags
 from .utils import modified_norm_sq, parse_backend, IterInv, KernelSquared, _check_real, modified_QR
@@ -107,7 +107,7 @@ class KoopmanRegression(metaclass=ABCMeta):
         pass
     
     def _init_kernels(self, X, Y, backend):
-        self.X, self.Y = X, Y
+        self.X, self.Y = X.copy(), Y.copy()
         self.backend = parse_backend(backend, X)
 
         self.K_X = self.kernel(self.X, backend=self.backend)
@@ -120,6 +120,7 @@ class KoopmanRegression(metaclass=ABCMeta):
             self.K_YX = aslinearoperator(self.K_YX)
 
         self.dtype = self.K_X.dtype
+        
     def _init_risk(self, X, Y):
         if (X is not None) and (Y is not None):
             K_yY = self.kernel(Y, self.Y, backend = self.backend)
@@ -148,6 +149,31 @@ class KernelRidgeRegression(KoopmanRegression):
         if backend != 'cpu':
             warn("Keops backend not implemented for KernelRidgeRegression. Use instead TruncatedKernelRidgeRegression. Forcing 'cpu' backend. ")
         self._init_kernels(X, Y, 'cpu')
+    
+    def eigvals(self, k=None):
+        """Eigenvalues of the Koopman operator
+
+        Returns:
+            evals: Eigenvalues of the Koopman operator. If k != None, return the k largest
+        """
+        try:
+            dim = self.K_X.shape[0]
+            dim_inv = dim**(-1)
+            sqrt_inv_dim = dim_inv**(0.5)
+            K_reg = self.K_X
+            if self.tikhonov_reg is not None:
+                tikhonov = np.eye(dim, dtype=self.dtype)*(self.tikhonov_reg*dim)
+                K_reg += tikhonov
+            
+            if k is None:
+                evals = eigvals(self.K_YX, K_reg)
+            else:
+                evals = eigs(self.K_YX, k, K_reg, return_eigenvectors=False)
+            
+            return evals
+
+        except AttributeError:
+            raise AttributeError("You must first fit the model.")
         
     def eig(self):
         """Eigenvalue decomposition of the Koopman operator
@@ -350,6 +376,27 @@ class TruncatedKernelRidgeRegression(KoopmanRegression):
         except AttributeError:
                 raise AttributeError("You must first fit the model.")
 class LowRankKoopmanRegression(KoopmanRegression):
+    
+    def eigvals(self, k=None):
+        """Eigenvalues of the Koopman operator
+
+        Returns:
+            evals: Eigenvalues of the Koopman operator. Parameter k not used in low-rank estimators.
+        """
+        try:
+            dim_inv = (self.K_X.shape[0])**(-1)
+            sqrt_inv_dim = dim_inv**0.5
+            if self.backend == 'keops':
+                C = dim_inv* self.K_YX.matmat(np.asfortranarray(self.U)) 
+            else:
+                C = dim_inv* self.K_YX@self.U 
+            
+            evals =  eigvals(self.V.T@C)         
+            return evals
+
+        except AttributeError:
+            raise AttributeError("You must first fit the model.")
+            
     def eig(self):
         """Eigenvalue decomposition of the Koopman operator
 
@@ -460,7 +507,7 @@ class ReducedRankRegression(LowRankKoopmanRegression):
             else:
                 tikhonov = np.eye(dim, dtype=self.dtype)*(self.tikhonov_reg*dim)   
                 sigma_sq, U = eig(K, self.K_X + tikhonov)
-            assert np.max(np.abs(np.imag(sigma_sq))) < 1e-10, "Numerical error in computing singular values, try to increase the regularization."
+            #assert np.max(np.abs(np.imag(sigma_sq))) < 1e-10, "Numerical error in computing singular values, try to increase the regularization."
             
             sigma_sq = np.real(sigma_sq)
             sort_perm = np.argsort(sigma_sq)[::-1]

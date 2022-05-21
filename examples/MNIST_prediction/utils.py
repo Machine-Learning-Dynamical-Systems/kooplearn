@@ -40,12 +40,13 @@ class GracefulExiter():
 
     def exit(self):
         return self.state
+    
 class DeepKernel(Kernel):
     def __init__(self, net, softmax=False):
         self.softmax = softmax
-        cpu = torch.device('cpu')
+        self.device = torch.device('cuda')
         state_dict = net.state_dict()
-        self._feature_map = net.__class__().to(cpu)
+        self._feature_map = net.__class__().to(self.device)
         self._feature_map.load_state_dict(state_dict)
     def __call__(self, X, Y=None, backend='auto'):
         _d = int(np.sqrt(X.shape[1]))
@@ -54,16 +55,16 @@ class DeepKernel(Kernel):
         else:
             with torch.no_grad():
                 _X = torch.from_numpy(X.reshape(-1, _d, _d))[:,None,:,:]
-                Phi_X = self._feature_map(_X).numpy()
+                Phi_X = self._feature_map(_X.to(self.device)).cpu().numpy()
                 if Y is None:
                     Phi_Y = Phi_X.copy()
                 else:
                     _Y = torch.from_numpy(Y.reshape(-1, _d, _d))[:,None,:,:]
-                    Phi_Y = self._feature_map(_Y).numpy()
+                    Phi_Y = self._feature_map(_Y.to(self.device)).cpu().numpy()
                 if self.softmax:
                     Phi_X = softmax(Phi_X, axis=1)
                     Phi_Y = softmax(Phi_Y, axis=1)
-                return Phi_X@(Phi_Y.T) 
+            return Phi_X@(Phi_Y.T) 
 
 def risk(X, Y, reg):
     n, d = X.shape 
