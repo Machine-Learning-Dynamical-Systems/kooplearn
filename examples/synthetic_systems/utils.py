@@ -6,6 +6,7 @@ import scipy.integrate
 from scipy.linalg import eig
 from scipy.stats.sampling import NumericalInversePolynomial
 import matplotlib.pyplot as plt
+from pykeops.numpy import Pm
 import sys
 sys.path.append("../../")
 from DynamicalSystems.kernels import Kernel
@@ -22,15 +23,17 @@ class CosineKernel(Kernel):
         elif np.ndim(X) == 0:
             X = np.array(X)[None,None]
         return X
+    
     def __call__(self, X, Y=None, backend='auto'):
-        if backend == 'keops':
-            raise NotImplementedError("KeOps backend is not implemented for DeepKernel.")
+        X = self._preprocess(X)
+        if Y is None:
+            Y = X.copy()
         else:
-            X = self._preprocess(X)
-            if Y is None:
-                Y = X.copy()
-            else:
-                Y = self._preprocess(Y)
+            Y = self._preprocess(Y)
+
+        if backend == 'keops':        
+            return Pm(self.C_N)*(((np.pi*self.cdist(X,Y)).cos())**(Pm(self.N)))
+        else:
             res = X - Y.T
             return self.C_N*((np.cos(np.pi * res))**self.N)
 
@@ -199,7 +202,7 @@ class LogisticMapSimulation:
         eigs = eigs[_perm][::-1]
         return eigs
 
-    def run_eigs(self, backend= 'auto'):
+    def run_eigs(self, backend= 'auto', save = True, num = None):
         if self.logistic._noisy:
             iterators = self._unpack_parameters()
             estimators, num_train_samples, ranks, tikhonov_regs = iterators
@@ -207,28 +210,47 @@ class LogisticMapSimulation:
                     raise ValueError("Cannot return eigs if ranks or num_train_samples is an array")
             rank = ranks[0]
             num_train = num_train_samples[0]
-            eig_size = np.maximum(rank, num_train)
+            if num is None:
+                eig_size = np.maximum(rank, num_train)
+            else:
+                eig_size = np.maximum(rank, num)
 
             true_eigs = self._preprocess_eigs(self.logistic._evals)
             #Mean, Std
-            eig_array = np.zeros((self.train_repetitions, eig_size, estimators.shape[0], tikhonov_regs.shape[0]), dtype = np.complex)
-        
+            eig_array = 1e2*np.ones((self.train_repetitions, eig_size, estimators.shape[0], tikhonov_regs.shape[0]), dtype = np.complex) #Large init value so that when min distance to closest eig is computed avoid problems.
+            train_errors = np.zeros((2, estimators.shape[0], tikhonov_regs.shape[0]))
+            test_errors = np.zeros((2, estimators.shape[0], tikhonov_regs.shape[0]))
             test_X, test_Y = self.test_set
             #Iterate over possible estimators
             for est_i, estimator in enumerate(estimators):
                 X_train, Y_train = self._generate_pts((num_train, self.train_repetitions))          
-                for reg_i, reg in tqdm(enumerate(tikhonov_regs), desc = estimator.__name__, total = tikhonov_regs.shape[0]):
+                for reg_i, reg in enumerate(tikhonov_regs):
+                    _err = np.zeros((self.train_repetitions, self.test_repetitions))
+                    _tr_err = np.zeros(self.train_repetitions)
                     #Iterate over train repetitions
-                    for train_rep in range(self.train_repetitions):
+                    for train_rep in tqdm(range(self.train_repetitions), desc = estimator.__name__ + "Reg:{:5.2f}".format(reg) ):
                         X, Y = X_train[:,train_rep][:,None], Y_train[:,train_rep][:,None]
                         if estimator == KernelRidgeRegression:
                             model = estimator(kernel = self.kernel, tikhonov_reg = reg)
+                            model.fit(X, Y, backend = 'cpu')
                         else:
                             model = estimator(kernel = self.kernel, rank = rank, tikhonov_reg = reg)
-                        model.fit(X, Y, backend = backend)
-                        _fitted_evals, _ ,_ = model.eig()
+                            model.fit(X, Y, backend = backend)
+                        _fitted_evals = model.eigvals(k = num)
                         eig_array[train_rep, :, est_i, reg_i][np.arange(_fitted_evals.shape[0])] = _fitted_evals
-            return estimators, tikhonov_regs, eig_array
+                        _err[train_rep] = np.array([model.risk(test_X[:,k][:, None], test_Y[:,k][:, None]) for k in range(test_X.shape[1])])
+                        _tr_err[train_rep] = model.risk()
+                        np.save('_tmp_eigenvalues.npy', eig_array)
+                        
+                    test_errors[0, est_i, reg_i] = np.mean(_err)
+                    test_errors[1, est_i, reg_i] = np.std(_err)
+                    
+                    train_errors[0, est_i, reg_i] = np.mean(_tr_err)
+                    train_errors[1, est_i, reg_i] = np.std(_tr_err)
+                    
+                    np.save('_tmp_train_errors.npy', train_errors)
+                    np.save('_tmp_test_errors.npy', test_errors)
+            return train_errors, test_errors, eig_array
         else:
             raise ValueError("Eigenvalue error not computable for noiseless case.")
 
