@@ -44,7 +44,7 @@ class GracefulExiter():
 class DeepKernel(Kernel):
     def __init__(self, net, softmax=False):
         self.softmax = softmax
-        self.device = torch.device('cuda')
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         state_dict = net.state_dict()
         self._feature_map = net.__class__().to(self.device)
         self._feature_map.load_state_dict(state_dict)
