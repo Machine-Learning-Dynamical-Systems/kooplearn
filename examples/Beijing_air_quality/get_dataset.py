@@ -3,8 +3,6 @@ from io import BytesIO
 from zipfile import ZipFile
 import pandas as pd
 import os
-from os import listdir
-from os.path import isfile, join
 import shutil
 
 
@@ -62,5 +60,7 @@ if __name__ == "__main__":
     file_list = get_file_list(download_path)
     dfs = [prepare_dataframe(f) for f in file_list]
     df = pd.concat(dfs, axis=1)
-    df.to_pickle("full_dataframe")
+    if not os.path.exists('data'):  
+        os.makedirs('data')
+    df.to_pickle("data/full_dataframe")
     shutil.rmtree(download_path)
