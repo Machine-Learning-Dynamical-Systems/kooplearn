@@ -1,8 +1,7 @@
 from logging import warning
 import numpy as np
 from scipy.sparse import identity
-from scipy.sparse.linalg import LinearOperator
-from scipy.sparse.linalg import cg, aslinearoperator
+from scipy.sparse.linalg import cg, aslinearoperator, LinearOperator
 from scipy.linalg import eigh, solve, solve_triangular
 from pykeops.numpy import Vi
 import matplotlib.pyplot as plt
@@ -106,11 +105,12 @@ def parse_backend(backend, X):
                 return 'keops'
         else:
             raise ValueError(f"Unrecognized backend '{backend}'. Accepted values are 'auto', 'cpu' or 'keops'.")
-def _check_real(V, eps = 1e-8):
+def _is_real(V, eps = 1e-8):
     if np.max(np.abs(np.imag(V))) > eps:
         return False
     else:
-        return True 
+        return True
+
 class IterInv(LinearOperator):
     """
     Adapted from scipy
@@ -134,6 +134,7 @@ class IterInv(LinearOperator):
         _x = Vi(x)
         b = self.M.solve(_x, alpha=self.alpha, eps = self.eps)
         return b
+
 class KernelSquared(LinearOperator):
     """
     Adapted from scipy
@@ -141,7 +142,11 @@ class KernelSquared(LinearOperator):
        helper class to repeatedly apply alpha*K@K+beta*K.
     """
     def __init__(self, kernel, X, alpha, beta, backend):
-        self.M = kernel(X, backend=backend)
+        k = kernel(X, backend=backend)
+        if backend == 'keops':
+            self.M = aslinearoperator(k)
+        else:
+            self.M = k
         self.dtype = X.dtype
         self.shape = self.M.shape
         self.alpha = alpha
@@ -171,13 +176,27 @@ def modified_norm_sq(A, M=None):
 
     _nrm = np.real(_nrm)
     return _nrm #if A.shape[1]>1 else _nrm[0]
-def modified_QR(A, M=None, pivoting = False, numerical_rank = False, r = False):
+
+def weighted_norm(A, M=None):
+    if len(A.shape)==1:
+        A = A[:,None] #A.shape = [dim, vecs]
+    A_conj = np.conj(A.copy())
+    if M is not None::
+        if isinstance(M, LinearOperator):
+            A = M.matmat(np.asfortranarray(A))  
+        else:
+            A = M@A
+    norm = np.sum(A_conj*A, axis=0)
+    return np.real(norm)
+
+def modified_QR(A, M = None, pivoting = False, numerical_rank = False, return_R = False):
     """
     Applies the row-wise Gram-Schmidt method to A
     and returns Q with M-orthonormal columns for M symmetric positive definite. 
     
     Parameters:
-    r=True 
+    
+    return_R = True 
         additionally returns R such that A = Q R.
     pivoting=True 
         uses column-wise pivoting and returns permuation perm such that A[:,perm] = Q R
@@ -200,13 +219,13 @@ def modified_QR(A, M=None, pivoting = False, numerical_rank = False, r = False):
     R = np.zeros((vecs,vecs), dtype=dtype)
     _perm = np.arange(0,vecs)
 
-    if numerical_rank and not pivoting:
-        pivoting=True
+    if (numerical_rank) and (not pivoting):
+        pivoting = True
         warn(f"Forcing pivoting to detect numerical rank.")
 
     if pivoting:
         eps, tau = 1e-8, 1e-2
-        _nrm = modified_norm_sq(A, M=M)
+        _nrm = weighted_norm(A, M=M)
         _eps = eps * _nrm
         _nrm_max = _nrm.max()
     else:
@@ -215,40 +234,51 @@ def modified_QR(A, M=None, pivoting = False, numerical_rank = False, r = False):
     for k in range(0, vecs):
         if pivoting:
             idx = np.argmax(_nrm[k:])
-            _perm[[k,k+idx]] = _perm[[k+idx,k]] 
-            Q[:,[k,k+idx]] = Q[:,[k+idx,k]]
-            R[:k,[k,k+idx]] = R[:k,[k+idx,k]]
-            _nrm[[k,k+idx]]= _nrm[[k+idx,k]]
+            _in = [k, k + idx]
+            _swap = [k + idx,k]
+            #Column pivoting
+            _perm[ _in] = _perm[_swap] 
+            Q[:, _in] = Q[:,_swap]
+            R[:k, _in] = R[:k,_swap]
+            _nrm[ _in]= _nrm[_swap]
         
-        if k>0:
-            if M is None:
-                tmp = Q[:,:k].T@ Q[:,k]
-            else:    
-                tmp = Q[:,:k].T@(M@Q[:,k])
-            R[:k,k] += tmp
-            Q[:,k] -= Q[:,:k]@tmp
-        
-        _nrm_k = modified_norm_sq(Q[:,k], M=M)
+        if k > 0:
+            Q_k = np.ascontiguousarray(Q[:, k].copy())
+            Q_pre_k = Q[:,:k]
+            if M is not None:
+                if isinstance(M, LinearOperator):
+                    Q_k = M.matvec(Q_k)  
+                else:
+                    Q_k = np.dot(M, Q_k)
+            
+            Q_norm = Q_pre_k.T@Q_k
+
+            R[:k,k] += Q_norm
+            Q[:,k] -= np.dot(Q_pre_k,Q_norm)
+  
+        _nrm_k = weighted_norm(Q[:,k], M=M)
         if pivoting and numerical_rank and (_nrm_k < _nrm_max * 4.84e-32):
             rank = k 
             break
 
         R[k, k] = _nrm_k**(0.5) 
         Q[:, k] = Q[:, k] / R[k, k]
-        if k<vecs-1:
-            if M is None:
-                R[k,k+1:] = herm(Q[:,k]) @  Q[:,k+1:]
-            else:
-                R[k,k+1:] = herm(M@Q[:,k]) @  Q[:,k+1:]            
-            Q[:,k+1:] -= np.outer(Q[:,k], R[k,k+1:])
+        if k < vecs - 1:
+            Q_k = np.ascontiguousarray(Q[:, k].copy())
+            if M is not None:
+                if isinstance(M, LinearOperator):
+                    Q_k = M.matvec(Q_k)  
+                else:
+                    Q_k = np.dot(M, Q_k)
+            R[k,k+1:] = np.sum(np.conj(Q_k)[:, None]*Q[:, k+1:], axis = 0)        
+            Q[:,k+1:] -= np.outer(Q_k, R[k,k+1:])
             if pivoting:
                 _nrm[k+1:] -= np.abs(R[k,k+1:])**2
                 _test = _nrm[k+1:] < _eps[k+1:] / tau
                 if any(_test):
-                    _nrm[k+1:][_test] = modified_norm_sq(Q[:,k+1:][:,_test], M=M)
-                    _eps[k+1:][_test] = eps*_nrm[k+1:][_test]
-            
-    if r:        
+                    _nrm[k+1:][_test] = weighted_norm(Q[:,k+1:][:,_test], M=M)
+                    _eps[k+1:][_test] = eps*_nrm[k+1:][_test]           
+    if return_R:        
         if pivoting:
             return Q[:,:rank], R[:rank,:], _perm 
         else:
@@ -258,6 +288,7 @@ def modified_QR(A, M=None, pivoting = False, numerical_rank = False, r = False):
             return Q[:,:rank], _perm 
         else:
             return Q[:,:rank] 
+            
 def rSVD(Kx,Ky,reg, rank= None, powers = 2, offset = 5, tol = 1e-6):
     n = Kx.shape[0]
 
