@@ -35,6 +35,7 @@ class Kernel(metaclass=ABCMeta):
     def cprod(self, X,Y=None):
         x, y = self._to_lazy(X , Y)
         return (x|y)
+
 class RBF(Kernel):
     def __init__(self, length_scale=1.0):
         self.length_scale = length_scale 
@@ -46,6 +47,7 @@ class RBF(Kernel):
             return (-(self.cdist(X,Y)** 2) / (2*(Pm(self.length_scale)**2))).exp()
         else:
             return self._scikit_kernel(X, Y)
+            
 class Matern(Kernel):
     def __init__(self, nu=1.5, length_scale=1.0):
         self.nu = nu
@@ -96,9 +98,11 @@ class Poly(Kernel):
                 raise NotImplementedError("Poly kernel with degree != [1,2] not implemented (because of a bug on pow function).")
         else:
             return sk_poly(X, Y, degree = self.degree, gamma = self.gamma, coef0 = self.coef0)
+            
 class Linear(Poly):
     def __init__(self, gamma=None, coef0=1):
         super().__init__(degree=1, gamma=gamma, coef0=coef0)
+
 class Quadratic(Poly):
     def __init__(self, gamma=None, coef0=1):
         super().__init__(degree=2, gamma=gamma, coef0=coef0)
