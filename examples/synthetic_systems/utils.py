@@ -1,16 +1,18 @@
 import numpy as np
 import scipy.stats
 import scipy.special
+import h5py
+import os
+import datetime
 from tqdm import tqdm
 import scipy.integrate
-from scipy.linalg import eig
 from scipy.stats.sampling import NumericalInversePolynomial
 import matplotlib.pyplot as plt
 from pykeops.numpy import Pm
 import sys
 sys.path.append("../../")
 from DynamicalSystems.kernels import Kernel
-from DynamicalSystems.koopman_regression import KernelRidgeRegression
+from DynamicalSystems.koopman_regression import KernelRidgeRegression, PrincipalComponentRegression
 
 class CosineKernel(Kernel):
     def __init__(self, N):
@@ -146,19 +148,6 @@ class LogisticMap():
             return 4*x*(1 - x)
 
 
-
-"""
-
-def koopman_eig(idx, N, A = None):
-    if A is None:
-        A, _ = transfer_matrix(N)
-    evals, revecs = eig(A.T, right=True)
-    f = lambda y: sum(  f(y) for f in (lambda x: feature(logistic_map(x),j,N)*revecs[j, idx] for j in range(N + 1)))
-    return evals[idx], f
-
-"""
-
-
 """
 statistics = {
     'num_test_samples' :    #Numer of test samples,
@@ -202,7 +191,18 @@ class LogisticMapSimulation:
         eigs = eigs[_perm][::-1]
         return eigs
 
-    def run_eigs(self, backend= 'auto', save = True, num = None):
+    def run_eigs(self, backend= 'auto', save = True, num = None, save_path = None):
+        if save:
+            if save_path is None:
+                save_path = './'
+            else:
+                if not os.path.exists(save_path):
+                    os.makedirs(save_path)
+            #Create file name based on time
+            time_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = "data_" + time_str + ".h5"
+            h5file = h5py.File(save_path + filename, "w")
+
         if self.logistic._noisy:
             iterators = self._unpack_parameters()
             estimators, num_train_samples, ranks, tikhonov_regs = iterators
@@ -215,11 +215,16 @@ class LogisticMapSimulation:
             else:
                 eig_size = np.maximum(rank, num)
 
-            true_eigs = self._preprocess_eigs(self.logistic._evals)
             #Mean, Std
             eig_array = 1e2*np.ones((self.train_repetitions, eig_size, estimators.shape[0], tikhonov_regs.shape[0]), dtype = np.complex) #Large init value so that when min distance to closest eig is computed avoid problems.
             train_errors = np.zeros((2, estimators.shape[0], tikhonov_regs.shape[0]))
             test_errors = np.zeros((2, estimators.shape[0], tikhonov_regs.shape[0]))
+
+            if save:
+                eig_dset = h5file.create_dataset("eigenvalues", data = eig_array)
+                train_dset = h5file.create_dataset("train_errors", data = train_errors)
+                test_dset = h5file.create_dataset("test_errors", data = test_errors)
+
             test_X, test_Y = self.test_set
             #Iterate over possible estimators
             for est_i, estimator in enumerate(estimators):
@@ -233,6 +238,9 @@ class LogisticMapSimulation:
                         if estimator == KernelRidgeRegression:
                             model = estimator(kernel = self.kernel, tikhonov_reg = reg)
                             model.fit(X, Y, backend = 'cpu')
+                        elif estimator == PrincipalComponentRegression:
+                            model = estimator(kernel = self.kernel, rank = rank)
+                            model.fit(X, Y, backend = backend)
                         else:
                             model = estimator(kernel = self.kernel, rank = rank, tikhonov_reg = reg)
                             model.fit(X, Y, backend = backend)
@@ -240,16 +248,19 @@ class LogisticMapSimulation:
                         eig_array[train_rep, :, est_i, reg_i][np.arange(_fitted_evals.shape[0])] = _fitted_evals
                         _err[train_rep] = np.array([model.risk(test_X[:,k][:, None], test_Y[:,k][:, None]) for k in range(test_X.shape[1])])
                         _tr_err[train_rep] = model.risk()
-                        np.save('_tmp_eigenvalues.npy', eig_array)
+                        if save:
+                            eig_dset[...] = eig_array
                         
                     test_errors[0, est_i, reg_i] = np.mean(_err)
                     test_errors[1, est_i, reg_i] = np.std(_err)
                     
                     train_errors[0, est_i, reg_i] = np.mean(_tr_err)
                     train_errors[1, est_i, reg_i] = np.std(_tr_err)
-                    
-                    np.save('_tmp_train_errors.npy', train_errors)
-                    np.save('_tmp_test_errors.npy', test_errors)
+                    if save:
+                        train_dset[...] = train_errors
+                        test_dset[...] = test_errors
+            if save:
+                h5file.close()
             return train_errors, test_errors, eig_array
         else:
             raise ValueError("Eigenvalue error not computable for noiseless case.")
