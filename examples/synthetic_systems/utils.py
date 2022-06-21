@@ -230,10 +230,11 @@ class LogisticMapSimulation:
             for est_i, estimator in enumerate(estimators):
                 X_train, Y_train = self._generate_pts((num_train, self.train_repetitions))          
                 for reg_i, reg in enumerate(tikhonov_regs):
+                    print(estimator.__name__ + f" regularization {reg_i + 1}/{tikhonov_regs.shape[0]}")
                     _err = np.zeros((self.train_repetitions, self.test_repetitions))
                     _tr_err = np.zeros(self.train_repetitions)
                     #Iterate over train repetitions
-                    for train_rep in tqdm(range(self.train_repetitions), desc = estimator.__name__ + "Reg:{:5.2f}".format(reg) ):
+                    for train_rep in range(self.train_repetitions):
                         X, Y = X_train[:,train_rep][:,None], Y_train[:,train_rep][:,None]
                         if estimator == KernelRidgeRegression:
                             model = estimator(kernel = self.kernel, tikhonov_reg = reg)
