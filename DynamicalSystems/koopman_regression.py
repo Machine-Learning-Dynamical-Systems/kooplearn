@@ -431,17 +431,16 @@ class ReducedRankRegression(LowRankKoopmanRegression):
                 Minv = IterInv(self.kernel, self.X, alpha)
                 sigma_sq, U = eigs(K, self.rank, self.K_X + tikhonov,  Minv=Minv)                
             else:
-                tikhonov = np.eye(dim, dtype=self.dtype)*(self.tikhonov_reg*dim)   
+                tikhonov = np.eye(dim, dtype=self.dtype)*alpha   
                 sigma_sq, U = eig(K, self.K_X + tikhonov)
 
             if not _is_real(sigma_sq):
+                _max_imag_part = np.max(np.abs(sigma_sq.imag))
                 warn(f"The computed eigenvalues should be real, but have imaginary parts as high as {_max_imag_part:.2e}. Discarting imaginary parts.")
-            
             sigma_sq = np.real(sigma_sq)
             sort_perm = np.argsort(sigma_sq)[::-1]
             sigma_sq = sigma_sq[sort_perm][:self.rank]
             U = U[:,sort_perm][:,:self.rank]
-
             #Check that the eigenvectors are real (or have a global phase at most)
             if not _is_real(U):
                 warn("Computed projector is not real or a global complex phase is present. The Kernel matrix is either severely ill conditioned or non-symmetric, discarting imaginary parts.")
@@ -449,14 +448,14 @@ class ReducedRankRegression(LowRankKoopmanRegression):
             U = np.real(U) 
             _M = KernelSquared(self.kernel, self.X, inv_dim, self.tikhonov_reg, self.backend)
             _nrm_sq = weighted_norm(U, M = _M )
+
             if any(_nrm_sq < _nrm_sq.max() * 4.84e-32):  
                 U, perm = modified_QR(U, M = _M, pivoting=True, numerical_rank=False)
                 U = U[:,np.argsort(perm)]         
                 warn(f"Chosen rank is to high. Reducing rank {self.rank} -> {U.shape[1]}.")
                 self.rank = U.shape[1]
             else:
-                U = U@np.diag(1/_nrm_sq**(0.5))
-            
+                U = U@np.diag(1/_nrm_sq**(0.5))                        
             V = (self.K_X@np.asfortranarray(U))  
 
         else:
