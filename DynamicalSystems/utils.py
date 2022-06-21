@@ -181,7 +181,7 @@ def weighted_norm(A, M=None):
     if len(A.shape)==1:
         A = A[:,None] #A.shape = [dim, vecs]
     A_conj = np.conj(A.copy())
-    if M is not None::
+    if M is not None:
         if isinstance(M, LinearOperator):
             A = M.matmat(np.asfortranarray(A))  
         else:
