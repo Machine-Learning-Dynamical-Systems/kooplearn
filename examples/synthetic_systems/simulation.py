@@ -7,18 +7,11 @@ from DynamicalSystems.kernels import RBF
 
 N = 20
 kernel = RBF(length_scale = 0.5)
-regularization_size = 30
-tikhonov_regs = np.geomspace(1e-7, 1e-2, num=regularization_size)
+regularization_size = 10
+tikhonov_regs = np.geomspace(1e-6, 1e-3, num=regularization_size)
 
 parameters = {
     'num_train_samples' :   10000,
-    'ranks' :               3,
-    'tikhonov_regs':        tikhonov_regs,
-    'estimators' :          [KernelRidgeRegression, ReducedRankRegression],
-}
-
-parameters = {
-    'num_train_samples' :   100,
     'ranks' :               3,
     'tikhonov_regs':        tikhonov_regs,
     'estimators' :          [KernelRidgeRegression, ReducedRankRegression],
