@@ -105,6 +105,7 @@ def parse_backend(backend, X):
                 return 'keops'
         else:
             raise ValueError(f"Unrecognized backend '{backend}'. Accepted values are 'auto', 'cpu' or 'keops'.")
+
 def _is_real(V, eps = 1e-8):
     if np.max(np.abs(np.imag(V))) > eps:
         return False
