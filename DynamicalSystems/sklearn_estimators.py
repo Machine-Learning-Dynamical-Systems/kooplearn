@@ -3,8 +3,9 @@ from sklearn.utils import check_array
 
 import numpy as np
 
-from scipy.linalg import eigh, lstsq
-from scipy.sparse.linalg import aslinearoperator, eigsh, lsqr
+from scipy.linalg import eig, eigh, lstsq
+from scipy.sparse.linalg import aslinearoperator, eigs, eigsh, lsqr
+from scipy.sparse import diags
 
 from warnings import warn
 
@@ -69,11 +70,23 @@ class ReducedRankRegression(BaseEstimator, LowRankRegressor):
     def _fit_regularized(self, K_X, K_Y):
         if self.svd_solver =='randomized':
             pass
-        elif self.svd_solver == 'arpack':
-            pass
-        else:
-            pass
-        return self
+        else: # 'arpack' or 'full'
+            dim = K_X.shape[0]
+            inv_dim = dim**(-1)
+            
+            alpha = dim*self.tikhonov_reg
+            K = inv_dim*(K_Y@K_X)
+            #Find U via Generalized eigenvalue problem equivalent to the SVD. If K is ill-conditioned might be slow. Prefer svd_solver == 'randomized' in such a case.
+            if self.svd_solver == 'arpack':
+                tikhonov = aslinearoperator(diags(np.ones(dim, dtype=K_X.dtype)*alpha))
+                #define Minv
+                sigma_sq, U = eigs(K, self.rank, K_X + tikhonov,  Minv=Minv)  
+            else: #'full'
+                tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
+                sigma_sq, U = eig(K, K_X + tikhonov)
+            #Post-process U to promote numerical stability etc.
+        V = K_X@np.asfortranarray(U)
+        return U, V
 
     def _fit_unregularized(self, K_X, K_Y):
         if self.svd_solver == 'randomized':
