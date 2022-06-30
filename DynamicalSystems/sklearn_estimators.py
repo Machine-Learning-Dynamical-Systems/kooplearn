@@ -69,7 +69,7 @@ class ReducedRankRegression(BaseEstimator, LowRankRegressor):
 
     def _fit_regularized(self, K_X, K_Y):
         if self.svd_solver =='randomized':
-            pass
+            pass 
         else: # 'arpack' or 'full'
             dim = K_X.shape[0]
             inv_dim = dim**(-1)
@@ -79,8 +79,8 @@ class ReducedRankRegression(BaseEstimator, LowRankRegressor):
             #Find U via Generalized eigenvalue problem equivalent to the SVD. If K is ill-conditioned might be slow. Prefer svd_solver == 'randomized' in such a case.
             if self.svd_solver == 'arpack':
                 tikhonov = aslinearoperator(diags(np.ones(dim, dtype=K_X.dtype)*alpha))
-                #define Minv
-                sigma_sq, U = eigs(K, self.rank, K_X + tikhonov,  Minv=Minv)  
+                #[TODO] Define a custom Minv here for optimal performance !!!
+                sigma_sq, U = eigs(K, self.rank, K_X + tikhonov)  
             else: #'full'
                 tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
                 sigma_sq, U = eig(K, K_X + tikhonov)
