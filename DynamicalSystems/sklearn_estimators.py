@@ -9,8 +9,7 @@ from scipy.sparse import diags
 
 from warnings import warn
 
-from .sklearn_utils import sort_and_crop
-
+from .sklearn_utils import sort_and_crop, weighted_norm, modified_QR, IterInv
 
 class LowRankRegressor(RegressorMixin):
     def eig():
@@ -79,19 +78,42 @@ class ReducedRankRegression(BaseEstimator, LowRankRegressor):
             #Find U via Generalized eigenvalue problem equivalent to the SVD. If K is ill-conditioned might be slow. Prefer svd_solver == 'randomized' in such a case.
             if self.svd_solver == 'arpack':
                 tikhonov = aslinearoperator(diags(np.ones(dim, dtype=K_X.dtype)*alpha))
-                #[TODO] Define a custom Minv here for optimal performance !!!
-                sigma_sq, U = eigs(K, self.rank, K_X + tikhonov)  
+                Minv = IterInv(K_X, alpha)
+                sigma_sq, U = eigs(K, self.rank, K_X + tikhonov, Minv = Minv)  
             else: #'full'
                 tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
                 sigma_sq, U = eig(K, K_X + tikhonov)
-            #Post-process U to promote numerical stability etc.
+            
+            #Post-process U. Promote numerical stability via additional QR decoposition if necessary.
+            U = U[:, sort_and_crop(sigma_sq, self.rank)]
+
+            #Check that the eigenvectors are real
+            if np.max(np.abs(np.sin(np.angle((U))))) > 1e-8:
+                warn("Computed projector is not real. The Kernel matrix is either severely ill conditioned or non-symmetric, discarting imaginary parts.")
+                #[TODO] Actually, the projector might be ok and complex if a global phase is present. Fix this.
+            U = np.real(U)
+
+            #Orthogonalize through pivoted QR algorithm
+            M = inv_dim*K_X@K_X + self.tikhonov_reg*K_X
+            U_norms = weighted_norm(U, M = M)
+            max_U_norm = np.max(U_norms)
+
+            if any(U_norms < max_U_norm * 2.2e-16):  #Columns of U are too close to be linearly dependent. Perform QR factorization with pivoting to expose rank deficiency.
+                U, _, columns_permutation = modified_QR(U, M = M, column_pivoting=True)
+                U = U[:,np.argsort(columns_permutation)]
+                if U.shape[1] < self.rank:
+                    warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). Reducing the rank to {U.shape[1]}.")
+                    self.set_params({
+                        "rank": U.shape[1]
+                    })
+            else:
+                U = U@np.diag(U_norms**-1) 
         V = K_X@np.asfortranarray(U)
         return U, V
 
     def _fit_unregularized(self, K_X, K_Y):
         if self.svd_solver == 'randomized':
             warn("The 'randomized' svd_solver is equivalent to 'arpack' when tikhonov_reg = None.")
-
         #Solve the Hermitian eigenvalue problem to find V
         if self.svd_solver != 'full':
             sigma_sq, V = eigsh(K_Y, self.rank)
