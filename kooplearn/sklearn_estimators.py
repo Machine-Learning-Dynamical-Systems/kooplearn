@@ -276,7 +276,7 @@ class PrincipalComponentRegression(BaseEstimator, LowRankRegressor):
             if self.backend == 'keops':
                 raise NotImplementedError('Randomized SVD solver is not implemented with the Keops backend yet.')
             else:
-                V, S, _ = randomized_svd(K_X, self.rank, n_oversamples=self.n_oversamples, n_iter=self.iterated_power)
+                V, S, _ = randomized_svd(K_X, self.rank, n_oversamples=self.n_oversamples, n_iter=self.iterated_power, random_state=None)
         sigma_sq = S**2
         sort_perm = sort_and_crop(sigma_sq, self.rank)   
         sigma_sq = sigma_sq[sort_perm]
