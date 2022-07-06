@@ -1,13 +1,14 @@
 import numpy as np
 
-from scipy.sparse.linalg import aslinearoperator, LinearOperator
-from scipy.linalg import cho_factor, cho_solve, qr
+from scipy.sparse.linalg import aslinearoperator, LinearOperator, cg
+from scipy.sparse import diags
+from scipy.linalg import cho_factor, cho_solve
 
 from sklearn.utils import check_array, check_random_state
 
 from warnings import warn
 
-from pykeops.numpy import Vi
+from ._keops_utils import Vi, __has_keops__, keops_import_error
 
 
 def sort_and_crop(vec, num_components = None):
@@ -163,33 +164,47 @@ class IterInv(LinearOperator):
     IterInv:
        helper class to repeatedly solve K*x=b. K is a symmetric positive definite matrix.
     """
-    def __init__(self, K,  alpha, tol=1e-6):
-        self.is_keops = False
+    def __init__(self, K,  alpha, tol=1e-3):
+        self.is_linop = False
         if isinstance(K, LinearOperator): #Use CG method
-            self.is_keops = True
-            self.lazy_K = K._CustomLinearOperator__matvec_impl.__self__ #A bit of a hack. Possibly not stable in the future.
+            self.K = K
+            self.is_linop = True
         else: #Use scipy.linalg.cholesky_solve
             self.cho_K = cho_factor(K + alpha*np.eye(K.shape[0]))
-        self.dtype = self.K.dtype #Needed by LinearOperator superclass
-        self.shape = self.K.shape #Needed by LinearOperator superclass
+        self.dtype = K.dtype #Needed by LinearOperator superclass
+        self.shape = K.shape #Needed by LinearOperator superclass
+        self.tikhonov_linop = aslinearoperator(diags(np.ones(K.shape[0], dtype=self.dtype)*alpha))
         self.alpha = alpha
         self.tol = tol
 
     def _matvec(self, x):
-        if self.is_keops:
-            _x = Vi(x[:, np.newaxis])
-            b = self.lazy_K.solve(_x, alpha=self.alpha, eps = self.tol)
+        if self.is_linop:
+            b, info = cg(self.K + self.tikhonov_linop, np.ascontiguousarray(x), tol=self.tol, maxiter=100, atol=self.tol)
+            if info > 0:
+                warn("CG solver did not converge after {} iterations.".format(info))
             return b
         else:
             return cho_solve(self.cho_K, x, overwrite_b=False)
 
-    def _matmat(self, x):
-        if self.is_keops:
-            _x = Vi(x)
-            b = self.lazy_K.solve(_x, alpha=self.alpha, eps = self.tol)
-            return b
-        else:
-            return cho_solve(self.cho_K, x, overwrite_b=False)
+class SquaredKernel(LinearOperator):
+    """
+    Adapted from scipy
+    KernelSquared:
+       helper class to repeatedly apply alpha*K@K+beta*K.
+    """
+    def __init__(self, K, alpha, beta):
+        self.K = K
+        self.is_linop = False
+        if isinstance(K, LinearOperator):
+            self.is_linop = True
+        self.dtype = K.dtype #Needed by LinearOperator superclass
+        self.shape = K.shape #Needed by LinearOperator superclass
+        self.alpha = alpha
+        self.beta = beta
+
+    def _matvec(self, x):
+        v = np.ascontiguousarray(self.K @ x)
+        return self.alpha * self.K @ v + self.beta * v
 
 def randomized_range_finder(A_A_adj, size, n_iter, power_iteration_normalizer="none", M=None, random_state=None):
     """Randomized range finder. Adapted from sklearn.utils.extmath.randomized_range_finder

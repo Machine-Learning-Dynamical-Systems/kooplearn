@@ -4,8 +4,8 @@ from scipy.integrate import quad
 from utils import LogisticMap, CosineKernel, LogisticMapSimulation
 import sys
 sys.path.append("../../")
-from DynamicalSystems.koopman_regression import KernelRidgeRegression, ReducedRankRegression, PrincipalComponentRegression, RandomizedReducedRankRegression
-from DynamicalSystems.kernels import RBF
+from kooplearn.koopman_regression import KernelRidgeRegression, ReducedRankRegression, PrincipalComponentRegression, RandomizedReducedRankRegression
+from kooplearn.kernels import RBF
 
 N = 20
 kernel = CosineKernel(N)
