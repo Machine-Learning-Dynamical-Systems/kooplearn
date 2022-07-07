@@ -13,7 +13,7 @@ from warnings import warn
 
 from .sklearn_utils import sort_and_crop, weighted_norm, modified_QR, IterInv, SquaredKernel
 
-class LowRankRegressor(RegressorMixin):
+class LowRankRegressor(BaseEstimator, RegressorMixin):
     def eig(self, left=False, right=True):
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
 
@@ -51,12 +51,29 @@ class LowRankRegressor(RegressorMixin):
             return w, fl
         return w, fr
 
-    def predict():
-        pass
+    def predict(self, X):
+        check_is_fitted(self, ["U_", "V_", "X_fit_", "Y_fit_"])
+        X = np.asarray(self._validate_data(X=X, reset=True))
+        
+        sqrt_dim_inv = (self.K_X_.shape[0])**(-0.5)
+        _Z = sqrt_dim_inv * self.V_.T @ self.Y_fit_
+        onedim_state_space = self.X_fit_.shape[1] == 1
+        if X.ndim == 1 and onedim_state_space: #Many samples with one feature
+            X = X[:, None]
+        elif X.ndim == 1 and (not onedim_state_space): #One sample with many features
+            X = X[None,:]
+        elif np.ndim(X) == 0: #One sample with one feature
+            X = np.asarray(X)[None, None]
+        _init_K = aslinearoperator(self.kernel(X, self.X_fit_, backend = self.backend))
+        _S = sqrt_dim_inv * _init_K@self.U_
+        return _S@_Z 
     def score():
         pass
+    def _more_tags(self):
+        return {'multioutput_only': True,
+                'non_deterministic': True}
 
-class ReducedRankRegression(BaseEstimator, LowRankRegressor):
+class ReducedRankRegression(LowRankRegressor):
     def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10):
         """Reduced Rank Regression Estimator for the Koopman Operator
         Args:
@@ -92,8 +109,9 @@ class ReducedRankRegression(BaseEstimator, LowRankRegressor):
             self: Returns self.
         """
         self._check_backend_solver_compatibility()
-        X = check_array(X, order='C', dtype=float, copy=True)
-        Y = check_array(Y, order='C', dtype=float, copy=True)
+        X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
+        Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
+
         K_X, K_Y, K_YX = self._init_kernels(X, Y)
 
         self.K_X_ = K_X
@@ -221,7 +239,7 @@ class ReducedRankRegression(BaseEstimator, LowRankRegressor):
             raise ValueError('Invalid backend and svd_solver combination. \'keops\' backend is not compatible with \'full\' svd_solver.')
         return
 
-class PrincipalComponentRegression(BaseEstimator, LowRankRegressor):
+class PrincipalComponentRegression(LowRankRegressor):
     def __init__(self, kernel=None, rank=5, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10):
         """Reduced Rank Regression Estimator for the Koopman Operator
         Args:
@@ -256,8 +274,9 @@ class PrincipalComponentRegression(BaseEstimator, LowRankRegressor):
             self: Returns self.
         """
         self._check_backend_solver_compatibility()
-        X = check_array(X, order='C', dtype=float, copy=True)
-        Y = check_array(Y, order='C', dtype=float, copy=True)
+        X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
+        Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
+    
         K_X, K_Y, K_YX = self._init_kernels(X, Y)
         dim = K_X.shape[0]
 
@@ -288,8 +307,8 @@ class PrincipalComponentRegression(BaseEstimator, LowRankRegressor):
             V = V * np.sqrt(dim) 
             U = V @ np.diag(S**-1)
         else:
-            V = V[:_test] *np.sqrt(dim) 
-            U = V[:_test] @ np.diag(S[:_test]**-1)
+            V = V[:,_test] *np.sqrt(dim) 
+            U = V @ np.diag(S[_test]**-1)
 
             warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). Reducing the rank to {V.shape[1]}.")
             self.set_params(rank=V.shape[1]) 
