@@ -165,7 +165,7 @@ class LogisticMap():
 def test_RRR_fit_numpy_arnoldi():
     N = 20
     logistic = LogisticMap(N)
-    x, y = logistic.sample(size=1000, iid=False)
+    x, y = logistic.sample(size=500, iid=False)
     kernel = RBF(length_scale = 0.5)
     backend = 'numpy'
     tikhonov_reg = 1e-5
@@ -187,7 +187,7 @@ def test_RRR_fit_numpy_arnoldi():
 def test_RRR_fit_keops_arnoldi():
     N = 20
     logistic = LogisticMap(N)
-    x, y = logistic.sample(size=10000, iid=False)
+    x, y = logistic.sample(size=500, iid=False)
     kernel = RBF(length_scale = 0.5)
     backend = 'keops'
     tikhonov_reg = 1e-5
