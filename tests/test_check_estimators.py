@@ -6,20 +6,31 @@ from kooplearn.sklearn_estimators import ReducedRankRegression, PrincipalCompone
 
 import numpy as np
 
-class DummyKernel(Kernel):
-    """Dummy kernel for testing. Accepting X and Y with different number of features."""
+class PaddedLinearKernel(Kernel):
+    """Dummy kernel for testing. If X and Y have the same number of features is a linear kernel. Otherwise the smaller of the two is padded with zeros and the other is linearly combined with the padded one."""
     def __init__(self):
         pass
     def __call__(self, X, Y=None, backend='numpy'):
-        lin_X = np.dot(X, X.T)
-        lin_X /= np.linalg.norm(lin_X, ord='fro')
+        if Y is None:
+            lin_X = np.dot(X, X.T)
+            return lin_X
         if Y is not None:
-            lin_Y = np.dot(Y, Y.T)
-            lin_Y /= np.linalg.norm(lin_Y, ord='fro')
-        else:
-            lin_Y = 0
-        return lin_X + lin_Y
-kernel = DummyKernel()
-@parametrize_with_checks([ReducedRankRegression(kernel=kernel), PrincipalComponentRegression(kernel=kernel)])
+            if Y.shape[1] == X.shape[1]:
+                pass
+            elif X.shape[1] < Y.shape[1]:
+                _zeroes = np.zeros((X.shape[0], Y.shape[1] - X.shape[1]))
+                X = np.c_[X, _zeroes]  
+            else:
+                _zeroes = np.zeros((X.shape[0], X.shape[1] - Y.shape[1]))
+                Y = np.c_[Y, _zeroes]
+            lin_XY = np.dot(X, Y.T)
+            return lin_XY
+                
+kernel = PaddedLinearKernel()
+parameters = {
+    'kernel': kernel,
+}
+tikhonov_reg = None
+@parametrize_with_checks([ReducedRankRegression(**parameters, tikhonov_reg=tikhonov_reg), PrincipalComponentRegression(**parameters)])
 def test_sklearn_compatible_estimator(estimator, check):
     check(estimator)
