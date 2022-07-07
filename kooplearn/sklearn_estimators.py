@@ -1,6 +1,6 @@
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.utils import check_array
-from sklearn.utils.validation import check_is_fitted
+from sklearn.utils.validation import check_is_fitted, check_X_y
 from sklearn.utils.extmath import randomized_svd
 
 import numpy as np
@@ -67,11 +67,13 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         _init_K = aslinearoperator(self.kernel(X, self.X_fit_, backend = self.backend))
         _S = sqrt_dim_inv * _init_K@self.U_
         return _S@_Z 
-    def score():
-        pass
+
     def _more_tags(self):
-        return {'multioutput_only': True,
-                'non_deterministic': True}
+        return {
+            'multioutput_only': True,
+            'non_deterministic': True,
+            'poor_score': True
+            }
 
 class ReducedRankRegression(LowRankRegressor):
     def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10):
@@ -111,6 +113,7 @@ class ReducedRankRegression(LowRankRegressor):
         self._check_backend_solver_compatibility()
         X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
         Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
+        check_X_y(X, Y, multi_output=True)
 
         K_X, K_Y, K_YX = self._init_kernels(X, Y)
 
@@ -148,8 +151,11 @@ class ReducedRankRegression(LowRankRegressor):
             #QR decomposition
             Q, _, columns_permutation = modified_QR(Omega, M = norm_inducing_op, column_pivoting=True)
             if self.rank > Q.shape[1]:
-                warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). Reducing the rank to {Q.shape[1]}.")
-                self.set_params(**{"rank": Q.shape[1]})
+                warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - Q.shape[1]} degrees of freedom will be ignored.")
+                _zeroes = np.zeros((Q.shape[0], self.rank - Q.shape[1]))
+                Q = np.c_[Q, _zeroes]
+                assert Q.shape[1] == self.rank
+                #self.set_params(**{"rank": Q.shape[1]})
 
             #Generation of matrices U and V.    
             C = np.asfortranarray(K_X@np.asfortranarray(Q))
@@ -189,8 +195,10 @@ class ReducedRankRegression(LowRankRegressor):
                 U, _, columns_permutation = modified_QR(U, M = norm_inducing_op, column_pivoting=True)
                 U = U[:,np.argsort(columns_permutation)]
                 if U.shape[1] < self.rank:
-                    warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). Reducing the rank to {U.shape[1]}.")
-                    self.set_params(**{"rank": U.shape[1]})
+                    warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - U.shape[1]} degrees of freedom will be ignored.")
+                    _zeroes = np.zeros((U.shape[0], self.rank - U.shape[1]))
+                    U = np.c_[U, _zeroes]
+                    assert U.shape[1] == self.rank
             else:
                 U = U@np.diag(U_norms**-1) 
         V = K_X@np.asfortranarray(U)
@@ -212,7 +220,7 @@ class ReducedRankRegression(LowRankRegressor):
 
         #Solve the least squares problem to determine U
         U = np.zeros_like(V)
-        for i in range(self.rank):
+        for i in range(U.shape[1]):
             U[:,i] = lsqr(K_X, V[:,i])[0] #Not optimal with this explicit loop
         return U, V
 
@@ -276,6 +284,7 @@ class PrincipalComponentRegression(LowRankRegressor):
         self._check_backend_solver_compatibility()
         X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
         Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
+        check_X_y(X, Y, multi_output=True)
     
         K_X, K_Y, K_YX = self._init_kernels(X, Y)
         dim = K_X.shape[0]
@@ -310,8 +319,13 @@ class PrincipalComponentRegression(LowRankRegressor):
             V = V[:,_test] *np.sqrt(dim) 
             U = V @ np.diag(S[_test]**-1)
 
-            warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). Reducing the rank to {V.shape[1]}.")
-            self.set_params(rank=V.shape[1]) 
+            warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - V.shape[1]} degrees of freedom will be ignored.")
+            _zeroes = np.zeros((V.shape[0], self.rank - V.shape[1]))
+            V = np.c_[V, _zeroes]
+            U = np.c_[U, _zeroes]
+            assert U.shape[1] == self.rank
+            assert V.shape[1] == self.rank
+           
            
         self.U_ = np.asfortranarray(U)
         self.V_ = np.asfortranarray(V)
