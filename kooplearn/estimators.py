@@ -181,7 +181,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
                 }
             }
 
-class ReducedRankRegression(LowRankRegressor):
+class ReducedRank(LowRankRegressor):
     def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10):
         """Reduced Rank Regression Estimator for the Koopman Operator
         Args:
@@ -329,7 +329,7 @@ class ReducedRankRegression(LowRankRegressor):
             U[:,i] = lsqr(K_X, V[:,i])[0] #Not optimal with this explicit loop
         return U, V
 
-class PrincipalComponentRegression(LowRankRegressor):
+class PrincipalComponent(LowRankRegressor):
     def __init__(self, kernel=None, rank=5, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10):
         """Reduced Rank Regression Estimator for the Koopman Operator
         Args:
