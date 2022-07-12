@@ -2,7 +2,7 @@ from sklearn.utils.estimator_checks import parametrize_with_checks
 from sys import path
 path.append('../')
 from kooplearn.kernels import Kernel
-from kooplearn.sklearn_estimators import ReducedRankRegression, PrincipalComponentRegression
+from kooplearn.estimators import ReducedRankRegression, PrincipalComponentRegression
 
 import numpy as np
 
@@ -29,6 +29,8 @@ class PaddedLinearKernel(Kernel):
 kernel = PaddedLinearKernel()
 parameters = {
     'kernel': kernel,
+    'svd_solver': 'full',
+    'rank': 1
 }
 tikhonov_reg = None
 @parametrize_with_checks([ReducedRankRegression(**parameters, tikhonov_reg=tikhonov_reg), PrincipalComponentRegression(**parameters)])

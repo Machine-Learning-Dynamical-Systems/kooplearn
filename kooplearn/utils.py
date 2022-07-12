@@ -1,327 +1,247 @@
-from logging import warning
 import numpy as np
-from scipy.sparse import identity
-from scipy.sparse.linalg import cg, aslinearoperator, LinearOperator
-from scipy.linalg import eigh, solve, solve_triangular
-from pykeops.numpy import Vi
-import matplotlib.pyplot as plt
+
+from scipy.sparse.linalg import aslinearoperator, LinearOperator, cg
+from scipy.sparse import diags
+from scipy.linalg import cho_factor, cho_solve
+
+from sklearn.utils import check_array, check_random_state
+
 from warnings import warn
 
-__useTeX__ = True
-if __useTeX__:
-    plt.rcParams.update({
-        "text.usetex": True,
-        "mathtext.fontset": "cm",
-        "font.family": "serif",
-        "font.serif": ["Computer Modern Roman"]
-        #"font.family": "sans-serif",
-        #"font.sans-serif": ["Computer Modern Serif"]
-    })
+from ._keops_utils import Vi, __has_keops__, keops_import_error
 
-def plot_eigs(
-        eigs,
-        log = None,
-        figsize=(8, 8),
-        title="",
-        dpi=None,
-        filename=None,
-        ax = None,
-        style = 'r+',
-        label = 'Eigenvalues'
-    ):
-        _given_axis = True
-        if ax is None:
-            ## Adapted from package pyDMD
-            if dpi is not None:
-                plt.figure(figsize=figsize, dpi=dpi)
-            else:
-                plt.figure(figsize=figsize)
 
-            plt.title(title)
-            plt.gcf()
-            ax = plt.gca()
-            _given_axis = False
+def sort_and_crop(vec, num_components = None):
+    """Return the i
 
-        if log is None:
-            ax.plot(
-                eigs.real, eigs.imag, style, label=label
-            )
-            lim = 1.1
-            supx, infx, supy, infy = lim, -lim, lim, -lim
+    Args:
+        vec (ndarray): 1D array of floats
+        num_component (int, optional): Number of indices to retain. Defaults to None corresponding to every indices.
 
-            # set limits for axis
-            ax.set_xlim((infx, supx))
-            ax.set_ylim((infy, supy))
-
-        else:
-            ax.plot(
-            np.log(np.abs(eigs)), np.angle(eigs), style, label=label
-            )
-
-        plt.ylabel("Imaginary part")
-        plt.xlabel("Real part")
-        
-        if not _given_axis:
-            if log is None:
-                unit_circle = plt.Circle(
-                    (0.0, 0.0),
-                    1.0,
-                    color="k",
-                    fill=False,
-                    linestyle="-",
-                )
-                ax.add_artist(unit_circle)
-            else:
-                line_ = plt.Line2D(
-                    (0.0, 0.0),
-                    (-np.pi,np.pi),
-                    color="k",
-                    linestyle="-",
-                )
-                ax.add_artist(line_)
-            # Dashed grid
-            gridlines = ax.get_xgridlines() + ax.get_ygridlines()
-            for line in gridlines:
-                line.set_linestyle("--")
-            ax.grid(True)
-            if log is None:
-                ax.set_aspect("equal")
-
-        if filename:
-            plt.savefig(filename)
-        else:
-            plt.show()
-        return ax
-
-def parse_backend(backend, X):
-        if backend == 'keops':
-            return backend
-        elif backend == 'cpu':
-            return backend
-        elif backend == 'auto':
-            if X.shape[0] < 2000:
-                return 'cpu'
-            else:
-                return 'keops'
-        else:
-            raise ValueError(f"Unrecognized backend '{backend}'. Accepted values are 'auto', 'cpu' or 'keops'.")
-
-def _is_real(V, eps = 1e-8):
-    if np.max(np.abs(np.imag(V))) > eps:
-        return False
+    Returns:
+        ndarray: array of integers corresponding to the indices of the largest num_components elements in vec.
+    """
+    assert np.ndim(vec) == 1, "'vec' must be a 1D array"
+    sort_perm = np.argsort(vec)[::-1] # descending order
+    if num_components is None:
+        return sort_perm
     else:
-        return True
+        return sort_perm[:num_components]
+    
+def weighted_norm(A, M = None):
+    """Weighted norm of the columns of A.
+
+    Args:
+        A (ndarray): 1D or 2D array. If 2D, the columns are treated as vectors.
+        M (ndarray or LinearOperator, optional): Weigthing matrix. the norm of the vector a is given by a.T@M@a. Defaults to None, corresponding to the Identity matrix. Warning: no checks are performed on M being a PSD operator. 
+
+    Returns:
+        (ndarray or float): if A.ndim == 2 returns 1D array of floats corresponding to the norms of the columns of A. Else return a float.
+    """    
+    assert A.ndim <= 2, "'A' must be a vector or a 2D array"
+    _1D = (A.ndim == 1)
+    if M is None:
+        norm = np.linalg.norm(A, axis=0)
+    else:
+        if _1D:
+            _A = aslinearoperator(M).matvec(np.ascontiguousarray(A))
+        else:
+            _A = aslinearoperator(M).matmat(np.asfortranarray(A))  
+        norm = np.sqrt(
+                np.real(
+                    np.sum(
+                        np.conj(A)*_A, 
+                        axis=0)
+                    )
+                )
+    return norm
+
+def weighted_dot_product(A, B, M=None):
+    """Weighted dot product between the columns of A and B. The output will be equivalent to np.conj(A).T@M@B
+
+    Args:
+        A, B (ndarray): 1D or 2D arrays.
+        M (ndarray or LinearOperator, optional): Weigthing matrix. Defaults to None, corresponding to the Identity matrix. Warning: no checks are performed on M being a PSD operator. 
+
+    Returns:
+        (ndarray or float): the result of np.conj(A).T@M@B.
+    """    
+    assert A.ndim <= 2, "'A' must be a vector or a 2D array"
+    assert B.ndim <= 2, "'B' must be a vector or a 2D array"
+    A_adj = np.conj(A.T)
+    _B_1D = (B.ndim == 1)
+    if M is None:
+        return np.dot(A_adj, B)
+    else:
+        if _B_1D:
+            _B = aslinearoperator(M).matvec(np.ascontiguousarray(B))
+        else:
+            _B = aslinearoperator(M).matmat(np.asfortranarray(B))
+        return np.dot(A_adj, _B)
+
+def _column_pivot(Q, R, k, squared_norms, columns_permutation):
+    """
+        Helper function to perform column pivoting on the QR decomposition at the k iteration. No checks are performed. For internal use only.
+    """
+    _arg_max = np.argmax(squared_norms[k:])
+    j = k + _arg_max
+    _in = [k, j]
+    _swap = [j,k]
+    #Column pivoting
+    columns_permutation[_in] = columns_permutation[_swap]
+    Q[:, _in] = Q[:,_swap]
+    R[:k, _in] = R[:k,_swap]
+    squared_norms[_in] = squared_norms[_swap]
+    return Q, R, squared_norms, columns_permutation
+
+def modified_QR(A, M = None, column_pivoting = False, rtol = 2.2e-16, verbose = False):
+    """Modified QR algorithm with column pivoting. Implementation follows the algorithm described in [1].
+
+    Args:
+        A (ndarray): 2D array whose columns are vectors to be orthogonalized.
+        M (ndarray or LinearOperator, optional): PSD linear operator. If not None, the vectors are orthonormalized with respect to the scalar product induced by M. Defaults to None corresponding to Identity matrix.
+        column_pivoting (bool, optional): Whether column pivoting is performed. Defaults to False.
+        rtol (float, optional): relative tolerance in determining the numerical rank of A. Defaults to 2.2e-16. This parameter is used only when column_pivoting == True.
+        verbose (bool, optional): Whether to print informations and warnings about the progress of the algorithm. Defaults to False.
+
+    Returns:
+        Q, R: the matrices Q and R satisfying A = QR. If column_pivoting is True, the permutation of the columns of A is returned as well.
+    
+    [1] A. Dax: 'A modified Gram–Schmidt algorithm with iterative orthogonalization and column pivoting', https://doi.org/10.1016/S0024-3795(00)00022-7. 
+    """    
+    A = check_array(A) #Ensure A is non-empty 2D array containing only finite values.
+    num_vecs = A.shape[1]
+    effective_rank = num_vecs
+    dtype = A.dtype
+    Q = np.copy(A)
+    R = np.zeros((num_vecs,num_vecs), dtype=dtype)
+
+    _roundoff = 1e-8 #From reference paper
+    _tau = 1e-2 #From reference paper
+
+    if column_pivoting: #Initialize variables for fast pivoting, without re-evaluation of the norm at each step.
+        squared_norms = weighted_norm(Q, M = M)**2
+        max_norm = np.sqrt(np.max(squared_norms))
+        columns_permutation = np.arange(num_vecs)
+
+    for k in range(num_vecs):
+        if column_pivoting:
+            Q, R, squared_norms, columns_permutation = _column_pivot(Q, R, k, squared_norms, columns_permutation)
+            norms_error_estimate = squared_norms * _roundoff
+        if k != 0: #Reorthogonalization of the column k+1 of A with respect to the previous orthonormal k vectors.     
+            alpha = weighted_dot_product(Q[:,:k], Q[:,k], M=M) #alpha = Q[:,:k].T@M@Q[:,k]
+            R[:k,k] += alpha
+            Q[:,k] -= np.dot(Q[:,:k],alpha)
+
+        #Numerical rank detection, performed only when column_pivoting == True
+        norm_at_iter_k = weighted_norm(Q[:,k], M=M)
+        if column_pivoting:
+            if norm_at_iter_k < rtol*max_norm:
+                effective_rank = k
+                if verbose:
+                    warn("Numerical rank of A has been reached with a relative tolerance rtol = {:.2e}. Effective rank = {}. Stopping Orthogonalization procedure.".format(rtol, effective_rank))
+                break    
+        # Normalization of the column k + 1 
+        R[k, k] = norm_at_iter_k
+        Q[:, k] = Q[:, k] / R[k, k]
+        # Orthogonalization of the remaining columns with respect to Q[:,k], i.e. the k+1 column of Q.
+        if k < num_vecs - 1:
+            R[k,k+1:] = weighted_dot_product(Q[:, k+1:], Q[:, k], M=M)       
+            Q[:,k+1:] -= np.outer(Q[:, k], R[k,k+1:])
+            if column_pivoting: #Try fast update of the squared norms, recompute if numerical criteria are not attained.
+                squared_norms[k+1:] -= R[k,k+1:]**2 #Update norms using Phythagorean Theorem
+                update_error_mask = _tau*squared_norms[k+1:] < norms_error_estimate[k+1:] #Check if the error estimate is too large
+                if any(update_error_mask):
+                    squared_norms[k+1:][update_error_mask] = weighted_norm(Q[:,k+1:][:,update_error_mask], M=M) #Recompute the norms if necessary.
+    if column_pivoting:
+        return Q[:,:effective_rank], R[:effective_rank], columns_permutation[:effective_rank]
+    else:
+        return Q[:,:effective_rank], R[:effective_rank]
 
 class IterInv(LinearOperator):
     """
-    Adapted from scipy
+    Adapted from scipy.sparse.linalg._eigen.arpack.IterInv to support pykeops
     IterInv:
-       helper class to repeatedly solve M*x=b
-       using an iterative method.
+       helper class to repeatedly solve K*x=b. K is a symmetric positive definite matrix.
     """
-    def __init__(self, kernel, X, alpha, eps=1e-6):
-        self.M = kernel(X, backend='keops')
-        self.dtype = X.dtype
-        self.shape = self.M.shape
+    def __init__(self, K,  alpha, tol=1e-3):
+        self.is_linop = False
+        if isinstance(K, LinearOperator): #Use CG method
+            self.K = K
+            self.is_linop = True
+        else: #Use scipy.linalg.cholesky_solve
+            self.cho_K = cho_factor(K + alpha*np.eye(K.shape[0]))
+        self.dtype = K.dtype #Needed by LinearOperator superclass
+        self.shape = K.shape #Needed by LinearOperator superclass
+        self.tikhonov_linop = aslinearoperator(diags(np.ones(K.shape[0], dtype=self.dtype)*alpha))
         self.alpha = alpha
-        self.eps = eps
+        self.tol = tol
 
     def _matvec(self, x):
-        _x = Vi(x[:, np.newaxis])
-        b = self.M.solve(_x, alpha=self.alpha, eps = self.eps)
-        return b
+        if self.is_linop:
+            b, info = cg(self.K + self.tikhonov_linop, np.ascontiguousarray(x), tol=self.tol, maxiter=100, atol=self.tol)
+            if info > 0:
+                warn("CG solver did not converge after {} iterations.".format(info))
+            return b
+        else:
+            return cho_solve(self.cho_K, x, overwrite_b=False)
 
-    def _matmat(self, x):
-        _x = Vi(x)
-        b = self.M.solve(_x, alpha=self.alpha, eps = self.eps)
-        return b
-
-class KernelSquared(LinearOperator):
+class SquaredKernel(LinearOperator):
     """
     Adapted from scipy
     KernelSquared:
        helper class to repeatedly apply alpha*K@K+beta*K.
     """
-    def __init__(self, kernel, X, alpha, beta, backend):
-        k = kernel(X, backend=backend)
-        if backend == 'keops':
-            self.M = aslinearoperator(k)
-        else:
-            self.M = k
-        self.dtype = X.dtype
-        self.shape = self.M.shape
+    def __init__(self, K, alpha, beta):
+        self.K = K
+        self.is_linop = False
+        if isinstance(K, LinearOperator):
+            self.is_linop = True
+        self.dtype = K.dtype #Needed by LinearOperator superclass
+        self.shape = K.shape #Needed by LinearOperator superclass
         self.alpha = alpha
         self.beta = beta
 
     def _matvec(self, x):
-        v = np.ascontiguousarray(self.M @ x)
-        return self.alpha * self.M @ v + self.beta * v
+        v = np.ascontiguousarray(self.K @ x)
+        return self.alpha * self.K @ v + self.beta * v
 
-def modified_norm_sq(A, M=None):
-    dtype = A.dtype
-    if dtype=='complex':
-        herm = lambda X: np.conj(X.T)  
-    else:
-        herm =  lambda X: X.T
-    
-    if len(A.shape)==1:
-        A = A[:,None]
-    dim, vecs = A.shape
+def randomized_range_finder(A_A_adj, size, n_iter, power_iteration_normalizer="none", M=None, random_state=None):
+    """Randomized range finder. Adapted from sklearn.utils.extmath.randomized_range_finder
 
-    _nrm = np.empty(vecs, dtype=dtype)
-    for k in range(vecs):
-        if M is None:
-            _nrm[k] = herm(A[:,k]) @ np.ascontiguousarray(A[:,k])
-        else:
-            _nrm[k] = herm(A[:,k]) @ (M@np.ascontiguousarray(A[:, k]))
+    Args:
+        A_A_adj (ndarray, LinearOperator): Object representing A@A_adj, where A is the matrix whose range is to be found.
+        size (int): Number of vectors to be generated and used to find the range of A.
+        n_iter (int): Number of power iterations to be used to estimate the matrix range.
+        power_iteration_normalizer (str, optional): Scheme to normalize the power iterations at each step. Defaults to "none". Available options are: "QR" and "column_pivoted_QR".
+        M (ndarray or LinearOperator, optional): PSD linear operator. If not None, the vectors are orthonormalized with respect to the scalar product induced by M. Defaults to None corresponding to Identity matrix, i.e. standard Euclidean norm.
+        random_state (int, optional):  int, RandomState instance or None, default=None
+        The seed of the pseudo random number generator to use when shuffling
+        the data, i.e. getting the random vectors to initialize the algorithm.
+        Pass an int for reproducible results across multiple function calls.
 
-    _nrm = np.real(_nrm)
-    return _nrm #if A.shape[1]>1 else _nrm[0]
-
-def weighted_norm(A, M=None):
-    if len(A.shape)==1:
-        A = A[:,None] #A.shape = [dim, vecs]
-    A_conj = np.conj(A.copy())
-    if M is not None:
-        if isinstance(M, LinearOperator):
-            A = M.matmat(np.asfortranarray(A))  
-        else:
-            A = M@A
-    norm = np.sum(A_conj*A, axis=0)
-    return np.real(norm)
-
-def modified_QR(A, M = None, pivoting = False, numerical_rank = False, return_R = False):
-    """
-    Applies the row-wise Gram-Schmidt method to A
-    and returns Q with M-orthonormal columns for M symmetric positive definite. 
-    
-    Parameters:
-    
-    return_R = True 
-        additionally returns R such that A = Q R.
-    pivoting=True 
-        uses column-wise pivoting and returns permuation perm such that A[:,perm] = Q R
-    numerical_rank=True 
-        detects when numerical rank of A is reached and stops so that rank = Q.shape[1] and A[:,perm[:rank]] = Q R[:,:rank] 
-        while A[:,perm[rank:]] is in the kenrel of M 
-
-    For M being numerically rank deficient, it is recomended to use pivoting=True and numerical_rank=True.
-
-    """
-    dim, vecs = A.shape
-    rank = vecs
-    dtype = A.dtype
-    if dtype=='complex':
-        herm = lambda X: np.conj(X.T)  
-    else:
-        herm =  lambda X: X.T
-
-    Q = np.copy(A)
-    R = np.zeros((vecs,vecs), dtype=dtype)
-    _perm = np.arange(0,vecs)
-
-    if (numerical_rank) and (not pivoting):
-        pivoting = True
-        warn(f"Forcing pivoting to detect numerical rank.")
-
-    if pivoting:
-        eps, tau = 1e-8, 1e-2
-        _nrm = weighted_norm(A, M=M)
-        _eps = eps * _nrm
-        _nrm_max = _nrm.max()
-    else:
-        _nrm_max = 1.
-
-    for k in range(0, vecs):
-        if pivoting:
-            idx = np.argmax(_nrm[k:])
-            _in = [k, k + idx]
-            _swap = [k + idx,k]
-            #Column pivoting
-            _perm[ _in] = _perm[_swap] 
-            Q[:, _in] = Q[:,_swap]
-            R[:k, _in] = R[:k,_swap]
-            _nrm[ _in]= _nrm[_swap]
-        
-        if k > 0:
-            Q_k = np.ascontiguousarray(Q[:, k].copy())
-            Q_pre_k = Q[:,:k]
-            if M is not None:
-                if isinstance(M, LinearOperator):
-                    Q_k = M.matvec(Q_k)  
-                else:
-                    Q_k = np.dot(M, Q_k)
-            
-            Q_norm = Q_pre_k.T@Q_k
-
-            R[:k,k] += Q_norm
-            Q[:,k] -= np.dot(Q_pre_k,Q_norm)
-  
-        _nrm_k = weighted_norm(Q[:,k], M=M)
-        if pivoting and numerical_rank and (_nrm_k < _nrm_max * 4.84e-32):
-            rank = k 
-            break
-
-        R[k, k] = _nrm_k**(0.5) 
-        Q[:, k] = Q[:, k] / R[k, k]
-        if k < vecs - 1:
-            Q_k = np.ascontiguousarray(Q[:, k].copy())
-            if M is not None:
-                if isinstance(M, LinearOperator):
-                    Q_k = M.matvec(Q_k)  
-                else:
-                    Q_k = np.dot(M, Q_k)
-            R[k,k+1:] = np.sum(np.conj(Q_k)[:, None]*Q[:, k+1:], axis = 0)        
-            Q[:,k+1:] -= np.outer(Q_k, R[k,k+1:])
-            if pivoting:
-                _nrm[k+1:] -= np.abs(R[k,k+1:])**2
-                _test = _nrm[k+1:] < _eps[k+1:] / tau
-                if any(_test):
-                    _nrm[k+1:][_test] = weighted_norm(Q[:,k+1:][:,_test], M=M)
-                    _eps[k+1:][_test] = eps*_nrm[k+1:][_test]           
-    if return_R:        
-        if pivoting:
-            return Q[:,:rank], R[:rank,:], _perm 
-        else:
-            return Q[:,:rank], R[:rank,:]
-    else:
-        if pivoting:
-            return Q[:,:rank], _perm 
-        else:
-            return Q[:,:rank] 
-            
-def rSVD(Kx,Ky,reg, rank= None, powers = 2, offset = 5, tol = 1e-6):
-    n = Kx.shape[0]
-
-    if rank is None:
-        rank = int(np.trace(Ky)/np.linalg.norm(Ky,ord =2))
-        print(f'Numerical rank of the output kernel is approximatly {rank}')
-
-    l = rank+offset
-    Omega = np.random.randn(n,l)
-    Omega = Omega @ np.diag(1/np.linalg.norm(Omega,axis=0))
-    for j in range(powers):
-        KyO = Ky@Omega
-        Omega = KyO - n*reg*solve(Kx+n*reg*np.eye(n),KyO,assume_a='pos')
-    KyO = Ky@Omega
-    Omega = solve(Kx+n*reg*np.eye(n), KyO, assume_a='pos')
-    Q = modified_QR(Omega, backend = 'cpu', M = Kx@Kx/n+Kx*reg)
-    if Q.shape[1]<rank:
-        print(f"Actual rank is smaller! Detected rank is {Q.shape[1]}")   
-    C = Kx@Q
-    svals2, evecs = eigh((C.T @ Ky) @ C)
-    svals2_ = svals2[::-1]/(n**2)
-    svals2 = svals2_[:rank]
-    evecs = evecs[:,::-1][:,:rank]
-    
-    print(svals2)
-    U = Q @ evecs
-    V = Kx @ U
-    error_ = np.linalg.norm(Ky@V/n - (V+n*reg*U)@np.diag(svals2),ord=1)
-    if  error_> 1e-6:
-        print(f"Attention! l1 Error in GEP is {error_}")
-        #num_rank = np.sum(svals2_ / np.sqrt(svals2_*svals2_)>1e-16)
-        #print(f'Numerical rank of the estimator is approximatly {num_rank}')
-
-    return U, V, svals2
-
+    Returns:
+        ndarray: An (A_A_adj.shape[0], size) matrix the range of which approximates the range of A.
+    """    
+    #Adapted from sklearn.utils.extmath.randomized_range_finder
+    A = aslinearoperator(A_A_adj)
+    random_state = check_random_state(random_state)
+    # Generating normal random vectors with shape: (A_A_adj.shape[0], size)
+    assert size > 0, "Size must be greater than zero"
+    Q = random_state.normal(size=(A_A_adj.shape[0], size))
+    if hasattr(A_A_adj, "dtype") and A_A_adj.dtype.kind == "f":
+        # Ensure f32 is preserved as f32
+        Q = Q.astype(A_A_adj.dtype, copy=False)
+    # Perform power iterations with Q to further 'imprint' the top
+    # singular vectors of A in Q
+    for _ in range(n_iter):
+        if power_iteration_normalizer == "none":
+            Q = A.matmat(Q)
+        elif power_iteration_normalizer == "QR":
+            Q, _ = modified_QR(A.matmat(Q), M=M)
+        elif power_iteration_normalizer == "column_pivoted_QR":
+            Q, _, _ = modified_QR(A.matmat(Q), M=M, column_pivoting=True)
+    # Sample the range of A using by linear projection of Q
+    # Extract an orthonormal basis
+    Q, _, _ = modified_QR(A.matmat(Q), M=M, column_pivoting=True)
+    return Q

@@ -4,7 +4,7 @@ from scipy.integrate import quad
 from utils import LogisticMap, CosineKernel, LogisticMapSimulation
 import sys
 sys.path.append("../../")
-from kooplearn.koopman_regression import KernelRidgeRegression, ReducedRankRegression, PrincipalComponentRegression, RandomizedReducedRankRegression
+from kooplearn.estimators import KernelRidgeRegression, ReducedRankRegression, PrincipalComponentRegression, RandomizedReducedRankRegression
 from kooplearn.kernels import RBF
 
 N = 20
