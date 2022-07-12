@@ -147,3 +147,6 @@ cython_debug/
 
 **/data
 **/figs
+
+#VS code
+workspace.code-workspace

@@ -1,6 +1,6 @@
 from sys import path
 path.append('../')
-from kooplearn.sklearn_utils import modified_QR
+from kooplearn.utils import modified_QR
 import numpy as np
 
 def test_qr_numpy_euclidean_nopivoting():

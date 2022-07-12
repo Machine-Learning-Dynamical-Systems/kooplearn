@@ -11,12 +11,81 @@ from scipy.sparse import diags
 
 from warnings import warn
 
-from .sklearn_utils import sort_and_crop, weighted_norm, modified_QR, IterInv, SquaredKernel
+from .utils import sort_and_crop, weighted_norm, modified_QR, IterInv, SquaredKernel
 
 class LowRankRegressor(BaseEstimator, RegressorMixin):
-    def eig(self, left=False, right=True):
-        check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
+    def modes(self, observable = lambda x: x, _modes_to_invert = None):
+        """Modes of the estimated Koopman operator.
 
+        Args:
+            observable (lambda function, optional): _description_. Defaults to the identity map, corresponding to computing the modes of the state itself.
+            _modes_to_invert (ndarray, optional): Internal parameter used if cached results can be exploited. Defaults to None.
+
+        Returns:
+            ndarray: Array of shape (self.rank, n_obs) containing the estimated modes of the observable(s) provided as argument. Here n_obs = len(observable(x)).
+        """        
+        check_is_fitted(self, ['V_', 'K_X_', 'Y_fit_'])
+        inv_sqrt_dim = (self.K_X_.shape[0])**(-0.5)
+        evaluated_observable = observable(self.Y_fit_)
+        if evaluated_observable.ndim == 1:
+            evaluated_observable = evaluated_observable[:,None]
+        evaluated_observable = (self.V_.T)@evaluated_observable
+        if _modes_to_invert is None:
+            _, _, modes_to_invert = self._eig(_return_modes_to_invert=True) #[TODO] This could be cached for improved performance
+        modes = lstsq(modes_to_invert, evaluated_observable)[0] 
+        return modes*inv_sqrt_dim        
+    def forecast(self, X, t=1., observable = lambda x: x, which = None,):
+        """Forecast an observable using the estimated Koopman operator.
+
+        Args:
+            X (ndarray): 2D array of shape (n_samples, n_features) containing the initial conditions.
+            t (scalar or ndarray, optional): Time(s) to forecast. Defaults to 1..
+            observable (lambda function, optional): Observable to forecast. Defaults to the identity map, corresponding to forecasting the state itself.
+            which (None or array of integers, optional): If None, compute the forecast with all the modes of the observable. If which is an array of integers, the forecast is computed using only the modes corresponding to the indexes provided. The modes are arranged in decreasing order with respect to the eigenvalues. For example, if which = [0,2] only the first and third leading modes are used to forecast.  Defaults to None.
+
+            This method with t=1., observable = lambda x: x, and which = None is equivalent to self.predict(X).
+
+        Returns:
+            ndarray: array of shape (n_t, n_samples, n_obs) containing the forecast of the observable(s) provided as argument. Here n_samples = len(X), n_obs = len(observable(x)), n_t = len(t) (if t is a scalar n_t = 1).
+        """        
+        check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
+        evals, _refuns, modes_to_invert = self._eig(_return_modes_to_invert=True)
+        modes = self.modes(self, observable=observable, _modes_to_invert=modes_to_invert)
+        
+        if which is not None:
+            evals = evals[which][:, None]           # [r,1]
+            refuns = _refuns(X)[:,which]            # [n,r]
+            modes = modes[which,:]                  # [r,n_obs]
+        else:
+            evals = evals[:, None]                  # [r,1]
+            refuns = _refuns(X)                     # [n,r]
+
+        if np.isscalar(t):
+            t = np.array([t], dtype=np.float64)[None,:] # [1, t]
+        elif np.ndim(t) == 1:
+            t = np.array(t, dtype=np.float64)[None,:]   # [1, t]
+        else:
+            raise ValueError("t must be a scalar or a 1D array.")
+        evals_t = np.power(evals, t) # [r,t]
+        forecasted = np.einsum('ro,rt,nr->tno', modes, evals_t, refuns)  # [t,n,n_obs]
+        if forecasted.shape[0] <= 1:
+            return np.real(forecasted[0])
+        else:
+            return np.real(forecasted)
+    def eig(self, left=False, right=True):
+        """Eigenvalue decomposition of the estimated Koopman operator.
+
+        Args:
+            left (bool, optional): Whether to return the left eigenfunctions. Defaults to False.
+            right (bool, optional): Wheter to return the right eigenfunctions. Defaults to True.
+        Returns:
+            w (ndarray): Eigenvalues of the estimated Koopman Operator.
+            fr (lambda function, only if right=True): Right eigenfunctions of the estimated Koopman Operator.
+            fl (lambda function, only if left=True): Left eigenfunctions of the estimated Koopman Operator.
+        """
+        return self._eig(left=left, right=right, _return_modes_to_invert=False)
+    def _eig(self, left=False, right=True, _return_modes_to_invert = False):         
+        check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
         dim_inv = (self.K_X_.shape[0])**(-1)
         sqrt_inv_dim = dim_inv**0.5
         C = dim_inv * self.K_YX_@self.U_
@@ -43,15 +112,28 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         vl = np.asfortranarray(vl @ np.diag(norm_l**(-1)))
 
         modes_to_invert_ = vr_cpy_ @np.diag(w*(norm_r**(-1)))
+
+        
         fr = lambda X:  sqrt_inv_dim*self.kernel(X, self.X_fit_, backend=self.backend)@vr
         fl = lambda X:  sqrt_inv_dim*self.kernel(X, self.Y_fit_, backend=self.backend)@vl    
+        
+        #If _return_modes_to_invert is True, override the normal returns.
+        if _return_modes_to_invert:
+            return w, fr, modes_to_invert_
         if left:
             if right:
                 return w, fl, fr
             return w, fl
-        return w, fr
-
+        else:
+            return w, fr
     def predict(self, X):
+        """Predict the state of the system at the next step using the estimated Koopman operator.
+        Args:
+            X (ndarray): Array of shape (n_samples, n_features) containing n_samples states of the system.
+
+        Returns:
+            ndarray: Array of shape (n_samples, n_features) containing the one-step-ahead prediction of the states in X.
+        """
         check_is_fitted(self, ["U_", "V_", "X_fit_", "Y_fit_"])
         X = np.asarray(self._validate_data(X=X, reset=True))
         
@@ -67,12 +149,36 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         _init_K = aslinearoperator(self.kernel(X, self.X_fit_, backend = self.backend))
         _S = sqrt_dim_inv * _init_K@self.U_
         return _S@_Z 
-
+    def _init_kernels(self, X, Y):
+        K_X = self.kernel(X, backend=self.backend)
+        K_Y = self.kernel(Y, backend=self.backend)
+        K_YX = self.kernel(Y, X, backend=self.backend)
+        if self.backend == 'keops':
+            K_X = aslinearoperator(K_X)
+            K_Y = aslinearoperator(K_Y)
+            K_YX = aslinearoperator(K_YX)
+        return K_X, K_Y, K_YX    
+    def _check_backend_solver_compatibility(self):
+        if self.backend not in ['numpy', 'keops']:
+            raise ValueError('Invalid backend. Allowed values are \'numpy\' and \'keops\'.')
+        if self.svd_solver not in ['full', 'arnoldi', 'randomized']:
+            raise ValueError('Invalid svd_solver. Allowed values are \'full\', \'arnoldi\' and \'randomized\'.')
+        if self.svd_solver == 'randomized' and self.iterated_power < 0:
+            raise ValueError('Invalid iterated_power. Must be non-negative.')
+        if self.svd_solver == 'randomized' and self.n_oversamples < 0:
+            raise ValueError('Invalid n_oversamples. Must be non-negative.')
+        if self.svd_solver == 'full' and self.backend == 'keops':
+            raise ValueError('Invalid backend and svd_solver combination. \'keops\' backend is not compatible with \'full\' svd_solver.')
+        return
     def _more_tags(self):
         return {
             'multioutput_only': True,
             'non_deterministic': True,
-            'poor_score': True
+            'poor_score': True,
+            "_xfail_checks": {
+                # check_estimator checks that fail:
+                "check_dict_unchanged": "Comparing ndarrays (input data + kernel) with == fails. Could be fixed by using np.allclose.",
+                }
             }
 
 class ReducedRankRegression(LowRankRegressor):
@@ -101,7 +207,6 @@ class ReducedRankRegression(LowRankRegressor):
         self.svd_solver = svd_solver
         self.iterated_power = iterated_power
         self.n_oversamples = n_oversamples
-
     def fit(self, X, Y):
         """Fit the Koopman operator estimator.
         Args:
@@ -124,6 +229,8 @@ class ReducedRankRegression(LowRankRegressor):
         self.X_fit_ = X
         self.Y_fit_ = Y
 
+        self.n_features_in_ = X.shape[1]
+
         if self.tikhonov_reg is None:
             U, V = self._fit_unregularized(self.K_X_, self.K_Y_)
         else:
@@ -131,7 +238,6 @@ class ReducedRankRegression(LowRankRegressor):
         self.U_ = np.asfortranarray(U)
         self.V_ = np.asfortranarray(V)
         return self
-
     def _fit_regularized(self, K_X, K_Y):
         dim = K_X.shape[0]
         inv_dim = dim**(-1)
@@ -203,7 +309,6 @@ class ReducedRankRegression(LowRankRegressor):
                 U = U@np.diag(U_norms**-1) 
         V = K_X@np.asfortranarray(U)
         return U, V
-
     def _fit_unregularized(self, K_X, K_Y):
         if self.svd_solver == 'randomized':
             warn("The 'randomized' svd_solver is equivalent to 'arnoldi' when tikhonov_reg = None.")
@@ -223,29 +328,6 @@ class ReducedRankRegression(LowRankRegressor):
         for i in range(U.shape[1]):
             U[:,i] = lsqr(K_X, V[:,i])[0] #Not optimal with this explicit loop
         return U, V
-
-    def _init_kernels(self, X, Y):
-        K_X = self.kernel(X, backend=self.backend)
-        K_Y = self.kernel(Y, backend=self.backend)
-        K_YX = self.kernel(Y, X, backend=self.backend)
-        if self.backend == 'keops':
-            K_X = aslinearoperator(K_X)
-            K_Y = aslinearoperator(K_Y)
-            K_YX = aslinearoperator(K_YX)
-        return K_X, K_Y, K_YX
-
-    def _check_backend_solver_compatibility(self):
-        if self.backend not in ['numpy', 'keops']:
-            raise ValueError('Invalid backend. Allowed values are \'numpy\' and \'keops\'.')
-        if self.svd_solver not in ['full', 'arnoldi', 'randomized']:
-            raise ValueError('Invalid svd_solver. Allowed values are \'full\', \'arnoldi\' and \'randomized\'.')
-        if self.svd_solver == 'randomized' and self.iterated_power < 0:
-            raise ValueError('Invalid iterated_power. Must be non-negative.')
-        if self.svd_solver == 'randomized' and self.n_oversamples < 0:
-            raise ValueError('Invalid n_oversamples. Must be non-negative.')
-        if self.svd_solver == 'full' and self.backend == 'keops':
-            raise ValueError('Invalid backend and svd_solver combination. \'keops\' backend is not compatible with \'full\' svd_solver.')
-        return
 
 class PrincipalComponentRegression(LowRankRegressor):
     def __init__(self, kernel=None, rank=5, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10):
@@ -272,7 +354,6 @@ class PrincipalComponentRegression(LowRankRegressor):
         self.svd_solver = svd_solver
         self.iterated_power = iterated_power
         self.n_oversamples = n_oversamples
-
     def fit(self, X, Y):
         """Fit the Koopman operator estimator.
         Args:
@@ -287,6 +368,7 @@ class PrincipalComponentRegression(LowRankRegressor):
         check_X_y(X, Y, multi_output=True)
     
         K_X, K_Y, K_YX = self._init_kernels(X, Y)
+        
         dim = K_X.shape[0]
 
         self.K_X_ = K_X
@@ -295,6 +377,8 @@ class PrincipalComponentRegression(LowRankRegressor):
 
         self.X_fit_ = X
         self.Y_fit_ = Y
+
+        self.n_features_in_ = X.shape[1]
 
         if self.svd_solver == 'arnoldi':
             S, V = eigsh(K_X, self.rank)
@@ -330,26 +414,3 @@ class PrincipalComponentRegression(LowRankRegressor):
         self.U_ = np.asfortranarray(U)
         self.V_ = np.asfortranarray(V)
         return self
-
-    def _init_kernels(self, X, Y):
-        K_X = self.kernel(X, backend=self.backend)
-        K_Y = self.kernel(Y, backend=self.backend)
-        K_YX = self.kernel(Y, X, backend=self.backend)
-        if self.backend == 'keops':
-            K_X = aslinearoperator(K_X)
-            K_Y = aslinearoperator(K_Y)
-            K_YX = aslinearoperator(K_YX)
-        return K_X, K_Y, K_YX
-
-    def _check_backend_solver_compatibility(self):
-        if self.backend not in ['numpy', 'keops']:
-            raise ValueError('Invalid backend. Allowed values are \'numpy\' and \'keops\'.')
-        if self.svd_solver not in ['full', 'arnoldi', 'randomized']:
-            raise ValueError('Invalid svd_solver. Allowed values are \'full\', \'arnoldi\' and \'randomized\'.')
-        if self.svd_solver == 'randomized' and self.iterated_power < 0:
-            raise ValueError('Invalid iterated_power. Must be non-negative.')
-        if self.svd_solver == 'randomized' and self.n_oversamples < 0:
-            raise ValueError('Invalid n_oversamples. Must be non-negative.')
-        if self.svd_solver == 'full' and self.backend == 'keops':
-            raise ValueError('Invalid backend and svd_solver combination. \'keops\' backend is not compatible with \'full\' svd_solver.')
-        return
