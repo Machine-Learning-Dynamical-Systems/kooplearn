@@ -1,2 +1,2 @@
-from .estimators import ReducedRankRegression, PrincipalComponentRegression
-__all__ = ['ReducedRankRegression', 'PrincipalComponentRegression']
+from .estimators import ReducedRank, PrincipalComponent, KernelRidge
+__all__ = ['ReducedRank', 'KernelRidge', 'PrincipalComponent']
