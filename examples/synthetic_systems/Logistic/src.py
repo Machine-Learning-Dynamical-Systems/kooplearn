@@ -1,5 +1,5 @@
 from sys import path
-path.append('../')
+path.append('../../')
 from kooplearn.kernels import Kernel, parse_backend
 from kooplearn._keops_utils import Pm, lazy_cdist
 
@@ -45,7 +45,8 @@ class CosineDistribution():
 
 class LogisticMap():
     def __init__(self, N=None):
-        self._noisy = False      
+        self._noisy = False     
+        self.ndim = 1 
         if N is not None:
             #Noisy case
             self._noisy = True
@@ -88,7 +89,7 @@ class LogisticMap():
         else:
             raise ValueError("This method not needed for noiseless case")
     
-    def sample(self, size=1, iid=False):
+    def sample(self, size=1, iid=True):
         if np.isscalar(size):
             size = (size, 1)
         if iid:

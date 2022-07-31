@@ -78,8 +78,8 @@ class KernelRidge(BaseEstimator, RegressorMixin):
         if evaluated_observable.ndim == 1:
             evaluated_observable = evaluated_observable[:,None]
         if _modes_to_invert is None:
-            _, _, modes_to_invert = self._eig(_return_modes_to_invert=True) #[TODO] This could be cached for improved performance
-        modes = lstsq(modes_to_invert, evaluated_observable)[0] 
+            _, _, _modes_to_invert = self._eig(_return_modes_to_invert=True) #[TODO] This could be cached for improved performance
+        modes = lstsq(_modes_to_invert, evaluated_observable)[0] 
         return modes*inv_sqrt_dim           
     def forecast(self, X, t=1., observable = lambda x: x, which = None,):
         """Forecast an observable using the estimated Koopman operator.
@@ -173,13 +173,13 @@ class KernelRidge(BaseEstimator, RegressorMixin):
             vl = vl[:, sortperm]
             norm_l = weighted_norm(vl,self.K_Y_)*dim_inv
             vl = vl @ np.diag(norm_l**(-0.5))
-            fl = lambda X:  sqrt_inv_dim*self.kernel(X, self.Y_fit_, backend=self.backend)@vl
+            fl = lambda X:  sqrt_inv_dim*aslinearoperator(self.kernel(X, self.Y_fit_, backend=self.backend))@vl
         
         if vr is not None:
             vr = vr[:, sortperm]
             norm_r = weighted_norm(vr,self.K_X_)*dim_inv
             vr = vr @ np.diag(norm_r**(-0.5))
-            fr = lambda X:  sqrt_inv_dim*self.kernel(X, self.X_fit_, backend=self.backend)@vr
+            fr = lambda X:  sqrt_inv_dim*aslinearoperator(self.kernel(X, self.X_fit_, backend=self.backend))@vr
             modes_to_invert_ = self.K_YX_@vr * dim_inv
 
         #If _return_modes_to_invert is True, override the normal returns.
@@ -235,6 +235,50 @@ class KernelRidge(BaseEstimator, RegressorMixin):
         if self.backend == 'keops':
             raise NotImplementedError("Keops backend is not yet implemented.")
         return
+    def _init_risk(self, X, Y):
+        check_is_fitted(self, ['K_X_', 'K_Y_', 'X_fit_', 'Y_fit_'])
+        if (X is not None) and (Y is not None):
+            X = np.asarray(self._validate_data(X=X, reset=True))
+            Y = np.asarray(self._validate_data(X=Y, reset=True))
+            K_yY = self.kernel(Y, self.Y_fit_, backend = self.backend)
+            K_Xx = self.kernel(self.X_fit_, X, backend = self.backend)
+            if self.backend == 'keops':
+                K_yY = aslinearoperator(K_yY)
+                K_Xx = aslinearoperator(K_Xx)
+            _Y = Y
+        else:
+            K_yY = self.K_Y_
+            K_Xx = self.K_X_
+            _Y = self.Y_fit_
+        r_yy = 0
+        for y in _Y:
+            y = y[None,:]
+            r_yy += self.kernel(y,y, backend='numpy')
+        r_yy = np.squeeze(r_yy)*((_Y.shape[0])**(-1))             
+        return K_yY, K_Xx, r_yy
+    def risk(self, X = None, Y = None):
+        """Empirical risk of the model. n^{-1}\sum_{i = 1}^{n} ||\phi(Y_i) - G^*\phi(X_i)||^{2}_{H}
+
+        Args:
+            X (ndarray, optional): Array of shape (num_test_points, num_features) of input observations. Defaults to None.
+            Y (ndarray, optional): Array of shape (num_test_points, num_features) of evolved observations. Defaults to None.
+            If X == Y == None, the traning data is used. And the sample training risk is returned.
+
+        Returns:
+            float: Risk of the Kernel Ridge Regression estimator.
+        """
+        check_is_fitted(self, ['K_X_'])        
+        K_yY, K_Xx, r = self._init_risk(X, Y)
+        val_dim, dim = K_yY.shape
+        if self.tikhonov_reg is not None:
+            tikhonov = np.eye(dim, dtype=self.dtype)*(self.tikhonov_reg*dim)
+            C = solve(self.K_X_ + tikhonov, K_Xx, assume_a='pos')
+        else:
+            C = lstsq(self.K_X_, K_Xx)[0]
+        r -= 2*(val_dim**(-1))*np.trace(K_yY@C)
+        r += (val_dim**(-1))*np.trace(C.T@(self.K_Y@C))
+        return r
+        
     def _more_tags(self):
         return {
             'multioutput_only': True,
@@ -263,8 +307,8 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             evaluated_observable = evaluated_observable[:,None]
         evaluated_observable = (self.V_.T)@evaluated_observable
         if _modes_to_invert is None:
-            _, _, modes_to_invert = self._eig(_return_modes_to_invert=True) #[TODO] This could be cached for improved performance
-        modes = lstsq(modes_to_invert, evaluated_observable)[0] 
+            _, _, _modes_to_invert = self._eig(_return_modes_to_invert=True) #[TODO] This could be cached for improved performance
+        modes = lstsq(_modes_to_invert, evaluated_observable)[0] 
         return modes*inv_sqrt_dim        
     def forecast(self, X, t=1., observable = lambda x: x, which = None,):
         """Forecast an observable using the estimated Koopman operator.
@@ -282,7 +326,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         """        
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
         evals, _refuns, modes_to_invert = self._eig(_return_modes_to_invert=True)
-        modes = self.modes(self, observable=observable, _modes_to_invert=modes_to_invert)
+        modes = self.modes(observable=observable, _modes_to_invert=modes_to_invert)
         
         if which is not None:
             evals = evals[which][:, None]           # [r,1]
@@ -326,6 +370,8 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
 
         if not (left or right):
             return w
+        
+        vr_cpy_ = vr.copy()
 
         vl = self.V_@vl
         vr = self.U_@vr
@@ -335,10 +381,11 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         w = w[sortperm]
         vl = vl[:, sortperm]
         vr = vr[:, sortperm]
-        vr_cpy_ = vr.copy()
+        vr_cpy_ = vr_cpy_[:, sortperm]
+        
         
         norm_r = weighted_norm(vr,self.K_X_)*dim_inv
-        norm_l = weighted_norm(vl._levecs,self.K_Y_)*dim_inv
+        norm_l = weighted_norm(vl,self.K_Y_)*dim_inv
 
         vr = np.asfortranarray(vr @ np.diag(norm_r**(-1)))
         vl = np.asfortranarray(vl @ np.diag(norm_l**(-1)))
@@ -346,8 +393,8 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         modes_to_invert_ = vr_cpy_ @np.diag(w*(norm_r**(-1)))
 
         
-        fr = lambda X:  sqrt_inv_dim*self.kernel(X, self.X_fit_, backend=self.backend)@vr
-        fl = lambda X:  sqrt_inv_dim*self.kernel(X, self.Y_fit_, backend=self.backend)@vl    
+        fr = lambda X:  sqrt_inv_dim*aslinearoperator(self.kernel(X, self.X_fit_, backend=self.backend))@vr
+        fl = lambda X:  sqrt_inv_dim*aslinearoperator(self.kernel(X, self.Y_fit_, backend=self.backend))@vl    
         
         #If _return_modes_to_invert is True, override the normal returns.
         if _return_modes_to_invert:
@@ -402,6 +449,66 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         if self.svd_solver == 'full' and self.backend == 'keops':
             raise ValueError('Invalid backend and svd_solver combination. \'keops\' backend is not compatible with \'full\' svd_solver.')
         return
+    def _init_risk(self, X, Y):
+        check_is_fitted(self, ['K_X_', 'K_Y_', 'X_fit_', 'Y_fit_'])
+        if (X is not None) and (Y is not None):
+            X = np.asarray(self._validate_data(X=X, reset=True))
+            Y = np.asarray(self._validate_data(X=Y, reset=True))
+            K_yY = self.kernel(Y, self.Y_fit_, backend = self.backend)
+            K_Xx = self.kernel(self.X_fit_, X, backend = self.backend)
+            if self.backend == 'keops':
+                K_yY = aslinearoperator(K_yY)
+                K_Xx = aslinearoperator(K_Xx)
+            _Y = Y
+        else:
+            K_yY = self.K_Y_
+            K_Xx = self.K_X_
+            _Y = self.Y_fit_
+        r_yy = 0
+        for y in _Y:
+            y = y[None,:]
+            r_yy += self.kernel(y,y, backend='numpy')
+        r_yy = np.squeeze(r_yy)*((_Y.shape[0])**(-1))             
+        return K_yY, K_Xx, r_yy
+    def risk(self, X = None, Y = None):
+        """Empirical risk of the model. n^{-1}\sum_{i = 1}^{n} ||\phi(Y_i) - G^*\phi(X_i)||^{2}_{H}
+
+        Args:
+            X (ndarray, optional): Array of shape (num_test_points, num_features) of input observations. Defaults to None.
+            Y (ndarray, optional): Array of shape (num_test_points, num_features) of evolved observations. Defaults to None.
+            If X == Y == None, the traning data is used. And the sample training risk is returned.
+
+        Returns:
+            float: Risk of the Low Rank Regression estimator.
+        """
+        check_is_fitted(self, ['K_X_', 'K_Y_', 'U_', 'V_'])        
+
+        K_yY, K_Xx, r = self._init_risk(X, Y)
+        val_dim, dim = K_yY.shape
+        sqrt_inv_dim = dim**(-0.5)
+        V = sqrt_inv_dim*self.V_
+        U = sqrt_inv_dim*self.U_
+
+        C = K_yY@V
+        D = (K_Xx.T@U).T
+        E = (V.T)@(self.K_Y_@V)
+
+        r -= 2*(val_dim**(-1))*np.trace(D@C)
+        r += (val_dim**(-1))*np.trace(E@D@D.T)
+        return r
+    def norm(self):
+        """
+            Hilbert-Schmidt norm of the estimator ||\hat{S}^{*}@U@V.T@\hat{Z}||_{HS} = n^{-2}tr(U.T@K_X@U@V.T@K_Y@V)
+        """
+        check_is_fitted(self, ['K_X_', 'K_Y_', 'U_', 'V_'])
+        dim = self.K_X_.shape[0]
+        sqrt_inv_dim = dim**(-0.5)
+        U = sqrt_inv_dim*self.U_
+        V = sqrt_inv_dim*self.V_
+        U_X = U.T@(self.K_X_@U)
+        V_Y = V.T@(self.K_Y_@V)
+        return np.sqrt(np.trace(U_X@V_Y))
+        
     def _more_tags(self):
         return {
             'multioutput_only': True,
@@ -426,7 +533,7 @@ class ReducedRank(LowRankRegressor):
             svd_solver (str, optional): 
                 If 'full', run exact SVD calling LAPACK solver functions. Warning: 'full' is not compatible with the 'keops' backend.
                 If 'arnoldi', run SVD truncated to rank calling ARPACK solver functions.
-                If 'randomized', run randomized SVD by the method of Kostic, Novelli [add ref.]  
+                If 'randomized', run randomized SVD by the method of [add ref.]  
                 Defaults to 'full'.
             iterated_power (int, optional): Number of iterations for the power method computed by svd_solver == 'randomized'. Must be of range [0, infinity). Defaults to 2.
             n_oversamples (int, optional): This parameter is only relevant when svd_solver == 'randomized'. It corresponds to the additional number of random vectors to sample the range of X so as to ensure proper conditioning. Defaults to 10.
@@ -460,7 +567,6 @@ class ReducedRank(LowRankRegressor):
         self.X_fit_ = X
         self.Y_fit_ = Y
 
-        self.n_features_in_ = X.shape[1]
 
         if self.tikhonov_reg is None:
             U, V = self._fit_unregularized(self.K_X_, self.K_Y_)
@@ -572,7 +678,7 @@ class PrincipalComponent(LowRankRegressor):
             svd_solver (str, optional): 
                 If 'full', run exact SVD calling LAPACK solver functions. Warning: 'full' is not compatible with the 'keops' backend.
                 If 'arnoldi', run SVD truncated to rank calling ARPACK solver functions.
-                If 'randomized', run randomized SVD by the method of Kostic, Novelli [add ref.]  
+                If 'randomized', run randomized SVD by the method of [add ref.]  
                 Defaults to 'full'.
             iterated_power (int, optional): Number of iterations for the power method computed by svd_solver == 'randomized'. Must be of range [0, infinity). Defaults to 2.
             n_oversamples (int, optional): This parameter is only relevant when svd_solver == 'randomized'. It corresponds to the additional number of random vectors to sample the range of X so as to ensure proper conditioning. Defaults to 10.
@@ -637,8 +743,7 @@ class PrincipalComponent(LowRankRegressor):
             V = np.c_[V, _zeroes]
             U = np.c_[U, _zeroes]
             assert U.shape[1] == self.rank
-            assert V.shape[1] == self.rank
-           
+            assert V.shape[1] == self.rank       
            
         self.U_ = np.asfortranarray(U)
         self.V_ = np.asfortranarray(V)
