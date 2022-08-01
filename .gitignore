@@ -147,8 +147,7 @@ cython_debug/
 
 **/data
 **/figs
-
-**/image_factory
+**/_image_factory
 
 #VS code
 workspace.code-workspace
