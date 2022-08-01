@@ -13,7 +13,7 @@ import numpy as np
 from tqdm import tqdm
 from scipy.special import softmax
 #DynamicalSystems
-from DynamicalSystems.kernels import Kernel
+from kooplearn.kernels import Kernel
 
 _train_data = datasets.MNIST(
     root = 'data',

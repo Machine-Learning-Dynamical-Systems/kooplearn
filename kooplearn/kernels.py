@@ -1,50 +1,34 @@
 from abc import ABCMeta, abstractmethod
-from scipy.sparse.linalg import aslinearoperator
 import sklearn.gaussian_process.kernels as sk_kernels
 from sklearn.metrics.pairwise import polynomial_kernel as sk_poly
-from pykeops.numpy import Vi, Vj, Pm
+from ._keops_utils import Pm, lazy_cdist, lazy_cprod, __has_keops__, keops_import_error
 from math import sqrt
-import numpy as np
-from DynamicalSystems.utils import parse_backend
+
+def parse_backend(backend):
+    if backend == 'keops':
+        if __has_keops__:
+            return backend
+        else:
+            raise keops_import_error
+    elif backend == 'numpy':
+        return backend
+    else:
+        raise ValueError('Invalid backend. Allowed values are \'numpy\' and \'keops\'.')
 
 class Kernel(metaclass=ABCMeta):
     @abstractmethod
-    def __call__(self, X, Y=None, backend='auto'):
+    def __call__(self, X, Y=None, backend='numpy'):
         """Evaluate the kernel."""
-
-    def to_numpy(self, X, Y=None):
-        _lazy_kernel = self.__call__(X,Y, backend = 'keops')
-        if Y is not None:
-            if X.shape[0] != Y.shape[0]:
-                raise NotImplementedError("Implemented dense representation only for squared matrices")
-        Id = np.eye(_lazy_kernel.shape[0], dtype=_lazy_kernel.dtype, order ='F')
-        return aslinearoperator(_lazy_kernel).matmat(Id)
     
-    def _to_lazy(self, X, Y):
-        x = Vi(np.ascontiguousarray(X))
-        if Y is not None:
-            y= Vj(np.ascontiguousarray(Y))
-        else:
-            y = Vj(np.ascontiguousarray(X))
-        return x, y
-
-    def cdist(self, X, Y= None):
-        x, y = self._to_lazy(X , Y)
-        return (((x - y) ** 2).sum(2))**(0.5)        
-
-    def cprod(self, X,Y=None):
-        x, y = self._to_lazy(X , Y)
-        return (x|y)
-
 class RBF(Kernel):
     def __init__(self, length_scale=1.0):
         self.length_scale = length_scale 
         self._scikit_kernel =  sk_kernels.RBF(self.length_scale)  
         
-    def __call__(self, X, Y=None, backend='auto'):
-        backend = parse_backend(backend, X)
+    def __call__(self, X, Y=None, backend='numpy'):
+        backend = parse_backend(backend)
         if backend == 'keops':   
-            return (-(self.cdist(X,Y)** 2) / (2*(Pm(self.length_scale)**2))).exp()
+            return (-(lazy_cdist(X,Y)** 2) / (2*(Pm(self.length_scale)**2))).exp()
         else:
             return self._scikit_kernel(X, Y)
             
@@ -54,10 +38,10 @@ class Matern(Kernel):
         self.length_scale = length_scale
         self._scikit_kernel =  sk_kernels.Matern(self.length_scale, nu=self.nu)  
 
-    def __call__(self, X, Y=None, backend='auto'):
-        backend = parse_backend(backend, X)  
+    def __call__(self, X, Y=None, backend='numpy'):
+        backend = parse_backend(backend)  
         if backend == 'keops':  
-            D = self.cdist(X,Y)/Pm(self.length_scale)
+            D = lazy_cdist(X,Y)/Pm(self.length_scale)
             if abs(self.nu - 0.5) <= 1e-12:
                 return (-D).exp()
             elif abs(self.nu - 1.5) <= 1e-12: #Once differentiable functions
@@ -79,17 +63,16 @@ class Poly(Kernel):
         self.gamma = gamma
         self.coef0 = coef0
         self.degree = degree
-        
 
-    def __call__(self, X, Y=None, backend='auto'):
-        backend = parse_backend(backend, X)  
+    def __call__(self, X, Y=None, backend='numpy'):
+        backend = parse_backend(backend)  
         if self.gamma is None:
             _gamma = 1.0 / X.shape[1]
         else:
             _gamma = self.gamma
         
         if backend == 'keops':
-            inner = Pm(self.coef0) + self.cprod(X,Y)*Pm(_gamma)
+            inner = Pm(self.coef0) + lazy_cprod(X,Y)*Pm(_gamma)
             if self.degree == 1:
                 return inner
             elif self.degree == 2:

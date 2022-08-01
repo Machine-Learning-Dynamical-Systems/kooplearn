@@ -5,7 +5,6 @@ import pandas as pd
 import os
 import shutil
 
-
 def download_and_unzip(url, extract_to='_tmp'):
     http_response = urlopen(url)
     zipfile = ZipFile(BytesIO(http_response.read()))
