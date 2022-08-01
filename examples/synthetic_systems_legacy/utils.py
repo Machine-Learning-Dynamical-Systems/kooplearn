@@ -239,7 +239,7 @@ class LogisticMapSimulation:
                         if estimator == KernelRidgeRegression:
                             model = estimator(kernel = self.kernel, tikhonov_reg = reg)
                             model.fit(X, Y, backend = 'cpu')
-                        elif estimator == PrincipalComponentRegression:
+                        elif estimator == PrincipalComponent:
                             model = estimator(kernel = self.kernel, rank = rank)
                             model.fit(X, Y, backend = backend)
                         else:

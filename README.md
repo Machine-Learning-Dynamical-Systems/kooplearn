@@ -4,5 +4,5 @@ A Python module implementing different algorithms to perform Koopman operator re
 Implemented estimators are:
 
 1. KernelRidgeRegression
-2. PrincipalComponentRegression
-3. ReducedRankRegression
+2. PrincipalComponent
+3. ReducedRank
