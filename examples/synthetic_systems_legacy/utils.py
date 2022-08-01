@@ -12,7 +12,7 @@ from pykeops.numpy import Pm
 import sys
 sys.path.append("../../")
 from kooplearn.kernels import Kernel
-from kooplearn.koopman_regression import KernelRidgeRegression
+from kooplearn.estimators import KernelRidge
 
 class CosineKernel(Kernel):
     def __init__(self, N):

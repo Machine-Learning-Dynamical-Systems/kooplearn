@@ -2,7 +2,7 @@ import numpy as np
 from utils import LogisticMapSimulation
 import sys
 sys.path.append("../../")
-from kooplearn.estimators import KernelRidgeRegression, ReducedRank, PrincipalComponent, RandomizedReducedRank
+from kooplearn.estimators import KernelRidge, ReducedRank, PrincipalComponent
 from kooplearn.kernels import RBF
 
 N = 20
@@ -14,7 +14,7 @@ parameters = {
     'num_train_samples' :   10000,
     'ranks' :               3,
     'tikhonov_regs':        tikhonov_regs,
-    'estimators' :          [KernelRidgeRegression, ReducedRank],
+    'estimators' :          [KernelRidge, ReducedRank],
 }
 
 # parameters = {
