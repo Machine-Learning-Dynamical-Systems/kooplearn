@@ -473,61 +473,6 @@ class ReducedRankRegression(LowRankKoopmanRegression):
         self.V = V 
         self.U = U
 
-class RandomizedReducedRankRegression(LowRankKoopmanRegression):
-    def __init__(self, kernel, rank, tikhonov_reg = None, offset = None, powers = 2):
-        self.rank = rank
-        self.tikhonov_reg = tikhonov_reg
-        self.kernel = kernel
-        self.offset = offset
-        self.powers = powers
-
-    def fit(self, X, Y, backend = 'auto'):
-        self._init_kernels(X, Y, backend)
-        dim = self.K_X.shape[0]
-
-        if self.tikhonov_reg is None:
-            raise ValueError(f"Unsupported Randomized Reduced Rank Regression without Tikhonov regularization.")
-        else:
-            if self.backend == 'keops':
-                _solve = lambda V: IterInv(self.kernel,X,self.tikhonov_reg*dim)._matmat(np.asfortranarray(V))
-            else:
-                _solve = lambda V: solve(self.K_X + np.eye(dim, dtype=self.dtype)*(self.tikhonov_reg*dim),V,assume_a='pos') 
-
-        if self.offset is None:
-            self.offset = 2*self.rank
-
-        l = self.rank + self.offset
-        Omega = np.random.randn(dim,l)
-        Omega = Omega @ np.diag(1/np.linalg.norm(Omega,axis=0))
-
-        for _ in range(self.powers):
-            if self.backend == 'keops':
-                KyO = self.K_Y.matmat(np.asfortranarray(Omega))
-            else:
-                KyO = self.K_Y@Omega
-            Omega = KyO - dim*self.tikhonov_reg * _solve(KyO)
-        KyO = self.K_Y@Omega
-
-        Omega = _solve(KyO)
-        Q, _ = modified_QR(Omega, M = KernelSquared(self.kernel,self.X,1/dim, self.tikhonov_reg, self.backend), pivoting=True, numerical_rank=True)        
-        if Q.shape[1]<self.rank:
-            print(f"Chosen rank is too high! Forcing rank to {Q.shape[1]}.")   
-        C = self.K_X@Q
-        sigma_sq, evecs = eigh(C.T @ (self.K_Y @ C))
-        sigma_sq = sigma_sq[::-1][:self.rank]/(dim**2)
-        evecs = evecs[:,::-1][:,:self.rank]
-        
-        U = Q @ evecs
-        V = self.K_X @ U
-        # error_ = np.linalg.norm(self.K_X@V/dim - (V+dim*self.tikhonov_reg*U)@np.diag(sigma_sq),ord=1)
-        # if  error_> 1e-6:
-        #     print(f"Attention! l1 Error in Generalized Eigenvalue Problem is {error_}")
-        self.sigma_sq = sigma_sq
-        self.rank = sigma_sq.shape[0]
-
-        self.V = V
-        self.U = U
-
 class PrincipalComponentRegression(LowRankKoopmanRegression):
     def __init__(self, kernel, rank):
         self.rank = rank
