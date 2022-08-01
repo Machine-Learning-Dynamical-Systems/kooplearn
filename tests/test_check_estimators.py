@@ -2,7 +2,7 @@ from sklearn.utils.estimator_checks import parametrize_with_checks
 from sys import path
 path.append('../')
 from kooplearn.kernels import Kernel
-from kooplearn.estimators import ReducedRankRegression, PrincipalComponentRegression
+from kooplearn.estimators import ReducedRank, PrincipalComponent
 
 import numpy as np
 
@@ -33,6 +33,6 @@ parameters = {
     'rank': 1
 }
 tikhonov_reg = None
-@parametrize_with_checks([ReducedRankRegression(**parameters, tikhonov_reg=tikhonov_reg), PrincipalComponentRegression(**parameters)])
+@parametrize_with_checks([ReducedRank(**parameters, tikhonov_reg=tikhonov_reg), PrincipalComponent(**parameters)])
 def test_sklearn_compatible_estimator(estimator, check):
     check(estimator)

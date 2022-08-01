@@ -3,7 +3,7 @@ path.append('../')
 from kooplearn.kernels import Kernel, parse_backend, RBF
 from kooplearn._keops_utils import Pm, lazy_cdist
 
-from kooplearn.estimators import ReducedRankRegression
+from kooplearn.estimators import ReducedRank
 
 import numpy as np
 import scipy.stats
@@ -175,7 +175,7 @@ def test_RRR_fit_numpy_arnoldi():
             pass
         else:
             print(f"Training with svd_solver={svd_solver}")
-            estimator = ReducedRankRegression(kernel=kernel,rank=3, tikhonov_reg=tikhonov_reg, svd_solver=svd_solver, backend=backend, n_oversamples=10, iterated_power=3)
+            estimator = ReducedRank(kernel=kernel,rank=3, tikhonov_reg=tikhonov_reg, svd_solver=svd_solver, backend=backend, n_oversamples=10, iterated_power=3)
             estimator.fit(x, y)
             res[svd_solver] = (estimator.U_, estimator.V_)
     W = {}
@@ -197,7 +197,7 @@ def test_RRR_fit_keops_arnoldi():
             pass
         else:
             print(f"Training with svd_solver={svd_solver}")
-            estimator = ReducedRankRegression(kernel=kernel,rank=3, tikhonov_reg=tikhonov_reg, svd_solver=svd_solver, backend=backend, n_oversamples=10, iterated_power=3)
+            estimator = ReducedRank(kernel=kernel,rank=3, tikhonov_reg=tikhonov_reg, svd_solver=svd_solver, backend=backend, n_oversamples=10, iterated_power=3)
             estimator.fit(x, y)
             res[svd_solver] = (estimator.U_, estimator.V_)
     W = {}
