@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 from pykeops.numpy import Pm
 import sys
 sys.path.append("../../")
-from DynamicalSystems.kernels import Kernel
-from DynamicalSystems.koopman_regression import KernelRidgeRegression, PrincipalComponentRegression
+from kooplearn.kernels import Kernel
+from kooplearn.koopman_regression import KernelRidgeRegression
 
 class CosineKernel(Kernel):
     def __init__(self, N):

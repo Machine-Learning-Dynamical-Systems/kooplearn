@@ -2,8 +2,8 @@ import numpy as np
 from utils import LogisticMapSimulation
 import sys
 sys.path.append("../../")
-from DynamicalSystems.koopman_regression import KernelRidgeRegression, ReducedRankRegression, PrincipalComponentRegression 
-from DynamicalSystems.kernels import RBF
+from kooplearn.estimators import KernelRidgeRegression, ReducedRankRegression, PrincipalComponentRegression, RandomizedReducedRankRegression
+from kooplearn.kernels import RBF
 
 N = 20
 kernel = RBF(length_scale = 0.5)
