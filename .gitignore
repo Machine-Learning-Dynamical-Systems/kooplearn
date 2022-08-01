@@ -148,6 +148,8 @@ cython_debug/
 **/data
 **/figs
 
+**/image_factory
+
 #VS code
 workspace.code-workspace
 .DS_Store
