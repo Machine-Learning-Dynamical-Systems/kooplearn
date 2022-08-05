@@ -39,14 +39,7 @@ For Alanine dipeptide it is well known that the dihedral angles (i.e. the ones a
 
 We now try to recover the same informations from the spectral decomposition of the Koopman operator. We train the Reduced Rank Regression estimator with rank 5 and a standard Gaussian kernel. We remark that the dataset is comprised of atomic _positions_, and not dihedral angles. We show that the computed eigenfunctions are highly correlated with the dihedral angles, meaning that our estimator was able to _learn the correct physical quantities_ starting only from the raw atomic positions.
 
-The estimated eigenvalues are
-| |
-|---|
-|$\lambda_{1} = 0.99920$ |
-|$\lambda_{2} = 0.9177$|
-|$\lambda_{3} = 0.4731$|
-|$\lambda_{4} = -0.0042$|
-|$\lambda_{5} = -0.0252$|
+The estimated eigenvalues are $\lambda_{1} = 0.99920$, $\lambda_{2} = 0.9177$, $\lambda_{3} = 0.4731$, $\lambda_{4} = -0.0042$ and $\lambda_{5} = -0.0252$.
 
 Notice that they are all real (as they should be, since the system is time-reversal-invariant). The eigenfunction corresponding to the largest eigenvalue is the equilibrium eigenfunction, and should be constant everywhere.
 
