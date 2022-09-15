@@ -276,8 +276,7 @@ class KernelRidge(BaseEstimator, RegressorMixin):
             C = lstsq(self.K_X_, K_Xx)[0]
         r -= 2*(val_dim**(-1))*np.trace(K_yY@C)
         r += (val_dim**(-1))*np.trace(C.T@(self.K_Y@C))
-        return r
-        
+        return r        
     def _more_tags(self):
         return {
             'multioutput_only': True,
@@ -565,7 +564,6 @@ class ReducedRank(LowRankRegressor):
 
         self.X_fit_ = X
         self.Y_fit_ = Y
-
 
         if self.tikhonov_reg is None:
             U, V = self._fit_unregularized(self.K_X_, self.K_Y_)
