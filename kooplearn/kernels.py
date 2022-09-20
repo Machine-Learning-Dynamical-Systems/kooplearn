@@ -87,7 +87,7 @@ if __has_torch__:
                     phi_Y = self.__feature_map__(Y)
                     return self.__to_numpy__(phi_X.T@phi_Y)
         def __to_numpy__(self, tensor):
-            return tensor.cpu().detatch().numpy()
+            return tensor.cpu().detach().numpy()
 
 class RBF(Kernel):
     def __init__(self, length_scale=1.0):
