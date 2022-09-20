@@ -172,13 +172,13 @@ class KernelRidge(BaseEstimator, RegressorMixin):
             vl = vl[:, sortperm]
             norm_l = weighted_norm(vl,self.K_Y_)*dim_inv
             vl = vl @ np.diag(norm_l**(-0.5))
-            fl = lambda X:  sqrt_inv_dim*aslinearoperator(self.kernel(X, self.Y_fit_, backend=self.backend))@vl
+            fl = lambda X:  sqrt_inv_dim*self.kernel(X, self.Y_fit_, backend=self.backend)@vl
         
         if vr is not None:
             vr = vr[:, sortperm]
             norm_r = weighted_norm(vr,self.K_X_)*dim_inv
             vr = vr @ np.diag(norm_r**(-0.5))
-            fr = lambda X:  sqrt_inv_dim*aslinearoperator(self.kernel(X, self.X_fit_, backend=self.backend))@vr
+            fr = lambda X:  sqrt_inv_dim*self.kernel(X, self.X_fit_, backend=self.backend)@vr
             modes_to_invert_ = self.K_YX_@vr * dim_inv
 
         #If _return_modes_to_invert is True, override the normal returns.
@@ -220,10 +220,6 @@ class KernelRidge(BaseEstimator, RegressorMixin):
         K_X = self.kernel(X, backend=self.backend)
         K_Y = self.kernel(Y, backend=self.backend)
         K_YX = self.kernel(Y, X, backend=self.backend)
-        if self.backend == 'keops':
-            K_X = aslinearoperator(K_X)
-            K_Y = aslinearoperator(K_Y)
-            K_YX = aslinearoperator(K_YX)
         return K_X, K_Y, K_YX
     def _check_backend_solver_compatibility(self):
         if self.backend not in ['numpy', 'keops']:
@@ -241,9 +237,6 @@ class KernelRidge(BaseEstimator, RegressorMixin):
             Y = np.asarray(self._validate_data(X=Y, reset=True))
             K_yY = self.kernel(Y, self.Y_fit_, backend = self.backend)
             K_Xx = self.kernel(self.X_fit_, X, backend = self.backend)
-            if self.backend == 'keops':
-                K_yY = aslinearoperator(K_yY)
-                K_Xx = aslinearoperator(K_Xx)
             _Y = Y
         else:
             K_yY = self.K_Y_
@@ -391,8 +384,8 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         modes_to_invert_ = vr_cpy_ @np.diag(w*(norm_r**(-1)))
 
         
-        fr = lambda X:  sqrt_inv_dim*aslinearoperator(self.kernel(X, self.X_fit_, backend=self.backend))@vr
-        fl = lambda X:  sqrt_inv_dim*aslinearoperator(self.kernel(X, self.Y_fit_, backend=self.backend))@vl    
+        fr = lambda X:  sqrt_inv_dim*self.kernel(X, self.X_fit_, backend=self.backend)@vr
+        fl = lambda X:  sqrt_inv_dim*self.kernel(X, self.Y_fit_, backend=self.backend)@vl    
         
         #If _return_modes_to_invert is True, override the normal returns.
         if _return_modes_to_invert:
@@ -423,17 +416,13 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             X = X[None,:]
         elif np.ndim(X) == 0: #One sample with one feature
             X = np.asarray(X)[None, None]
-        _init_K = aslinearoperator(self.kernel(X, self.X_fit_, backend = self.backend))
+        _init_K = self.kernel(X, self.X_fit_, backend = self.backend)
         _S = sqrt_dim_inv * _init_K@self.U_
         return _S@_Z 
     def _init_kernels(self, X, Y):
         K_X = self.kernel(X, backend=self.backend)
         K_Y = self.kernel(Y, backend=self.backend)
         K_YX = self.kernel(Y, X, backend=self.backend)
-        if self.backend == 'keops':
-            K_X = aslinearoperator(K_X)
-            K_Y = aslinearoperator(K_Y)
-            K_YX = aslinearoperator(K_YX)
         return K_X, K_Y, K_YX    
     def _check_backend_solver_compatibility(self):
         if self.backend not in ['numpy', 'keops']:
@@ -454,9 +443,6 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             Y = np.asarray(self._validate_data(X=Y, reset=True))
             K_yY = self.kernel(Y, self.Y_fit_, backend = self.backend)
             K_Xx = self.kernel(self.X_fit_, X, backend = self.backend)
-            if self.backend == 'keops':
-                K_yY = aslinearoperator(K_yY)
-                K_Xx = aslinearoperator(K_Xx)
             _Y = Y
         else:
             K_yY = self.K_Y_
