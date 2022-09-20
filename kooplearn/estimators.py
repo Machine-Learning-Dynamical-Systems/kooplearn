@@ -504,7 +504,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
                 }
             }
 class ReducedRank(LowRankRegressor):
-    def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10):
+    def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10, override_checks=False):
         """Reduced Rank Regression Estimator for the Koopman Operator
         Args:
             kernel (Kernel, optional): Kernel object implemented according to the specification found in the ``kernels``submodule. Defaults to None corresponds to a linear kernel.
@@ -529,6 +529,7 @@ class ReducedRank(LowRankRegressor):
         self.svd_solver = svd_solver
         self.iterated_power = iterated_power
         self.n_oversamples = n_oversamples
+        self.override_checks = override_checks
     def fit(self, X, Y):
         """Fit the Koopman operator estimator.
         Args:
@@ -538,9 +539,10 @@ class ReducedRank(LowRankRegressor):
             self: Returns self.
         """
         self._check_backend_solver_compatibility()
-        X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
-        Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
-        check_X_y(X, Y, multi_output=True)
+        if not self.override_checks:
+            X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
+            Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
+            check_X_y(X, Y, multi_output=True)
 
         K_X, K_Y, K_YX = self._init_kernels(X, Y)
 
