@@ -165,7 +165,7 @@ class KernelRidge(BaseEstimator, RegressorMixin):
             vl = None
 
         # Sort the eigenvalues with respect to modulus 
-        sortperm = np.argsort(w)[::-1]
+        sortperm = np.argsort(w, kind='stable')[::-1]
         w = w[sortperm]
         
         if vl is not None:
@@ -295,15 +295,15 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         inv_sqrt_dim = (self.K_X_.shape[0])**(-0.5)
         evaluated_observable = observable(self.Y_fit_).T
         if evaluated_observable.ndim == 1:
-            evaluated_observable = evaluated_observable[:,None]
+            evaluated_observable = evaluated_observable[None, :]
 
         if _cached_results is None:
-            left_right_norms, vl, _ = self._eig(_for_koopman_modes=True)
+            _, left_right_norms, vl, _ = self._eig(_for_koopman_modes=True)
         else:
             (left_right_norms, vl) = _cached_results
         
         modes = evaluated_observable@self.V_@vl.conj()@left_right_norms
-        return modes*inv_sqrt_dim        
+        return modes.T*inv_sqrt_dim        
     
     def forecast(self, X, t=1., observable = lambda x: x, which = None,):
         """Forecast an observable using the estimated Koopman operator.
@@ -316,11 +316,13 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
 
             This method with t=1., observable = lambda x: x, and which = None is equivalent to self.predict(X).
 
+            Be aware of the unit of measurements: if the datapoints come from a continuous dynamical system disctretized every dt, the variable t in this function corresponds to the time t' = t*dt  of the continuous dynamical system.
+
         Returns:
             ndarray: array of shape (n_t, n_samples, n_obs) containing the forecast of the observable(s) provided as argument. Here n_samples = len(X), n_obs = len(observable(x)), n_t = len(t) (if t is a scalar n_t = 1).
         """        
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
-        left_right_norms, vl, _refuns = self._eig(_for_koopman_modes=True)
+        evals, left_right_norms, vl, _refuns = self._eig(_for_koopman_modes=True)
         cached_results = (left_right_norms, vl)
         modes = self.modes(observable=observable, _cached_results = cached_results)
         
@@ -391,7 +393,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         #If _for_koopman_modes is True, override the normal returns.
         if _for_koopman_modes:
             left_right_norms = np.diag((w*left_right_dot)**-1)
-            return left_right_norms, vl, fr
+            return w, left_right_norms, vl, fr
         if left:
             if right:
                 return w, fl, fr
