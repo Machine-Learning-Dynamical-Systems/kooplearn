@@ -296,7 +296,6 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         evaluated_observable = observable(self.Y_fit_).T
         if evaluated_observable.ndim == 1:
             evaluated_observable = evaluated_observable[None, :]
-
         if _cached_results is None:
             _, left_right_norms, vl, _ = self._eig(_for_koopman_modes=True)
         else:
