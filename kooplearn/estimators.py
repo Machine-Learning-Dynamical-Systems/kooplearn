@@ -165,20 +165,20 @@ class KernelRidge(BaseEstimator, RegressorMixin):
             vl = None
 
         # Sort the eigenvalues with respect to modulus 
-        sortperm = np.argsort(w)[::-1]
+        sortperm = np.argsort(w, kind='stable')[::-1]
         w = w[sortperm]
         
         if vl is not None:
             vl = vl[:, sortperm]
             norm_l = weighted_norm(vl,self.K_Y_)*dim_inv
             vl = vl @ np.diag(norm_l**(-0.5))
-            fl = lambda X:  sqrt_inv_dim*aslinearoperator(self.kernel(X, self.Y_fit_, backend=self.backend))@vl
+            fl = lambda X:  sqrt_inv_dim*self.kernel(X, self.Y_fit_, backend=self.backend)@vl
         
         if vr is not None:
             vr = vr[:, sortperm]
             norm_r = weighted_norm(vr,self.K_X_)*dim_inv
             vr = vr @ np.diag(norm_r**(-0.5))
-            fr = lambda X:  sqrt_inv_dim*aslinearoperator(self.kernel(X, self.X_fit_, backend=self.backend))@vr
+            fr = lambda X:  sqrt_inv_dim*self.kernel(X, self.X_fit_, backend=self.backend)@vr
             modes_to_invert_ = self.K_YX_@vr * dim_inv
 
         #If _return_modes_to_invert is True, override the normal returns.
@@ -220,10 +220,6 @@ class KernelRidge(BaseEstimator, RegressorMixin):
         K_X = self.kernel(X, backend=self.backend)
         K_Y = self.kernel(Y, backend=self.backend)
         K_YX = self.kernel(Y, X, backend=self.backend)
-        if self.backend == 'keops':
-            K_X = aslinearoperator(K_X)
-            K_Y = aslinearoperator(K_Y)
-            K_YX = aslinearoperator(K_YX)
         return K_X, K_Y, K_YX
     def _check_backend_solver_compatibility(self):
         if self.backend not in ['numpy', 'keops']:
@@ -241,9 +237,6 @@ class KernelRidge(BaseEstimator, RegressorMixin):
             Y = np.asarray(self._validate_data(X=Y, reset=True))
             K_yY = self.kernel(Y, self.Y_fit_, backend = self.backend)
             K_Xx = self.kernel(self.X_fit_, X, backend = self.backend)
-            if self.backend == 'keops':
-                K_yY = aslinearoperator(K_yY)
-                K_Xx = aslinearoperator(K_Xx)
             _Y = Y
         else:
             K_yY = self.K_Y_
@@ -288,7 +281,7 @@ class KernelRidge(BaseEstimator, RegressorMixin):
                 }
             }
 class LowRankRegressor(BaseEstimator, RegressorMixin):
-    def modes(self, observable = lambda x: x, _modes_to_invert = None):
+    def modes(self, observable = lambda x: x, _cached_results = None):
         """Modes of the estimated Koopman operator.
 
         Args:
@@ -300,14 +293,17 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         """        
         check_is_fitted(self, ['V_', 'K_X_', 'Y_fit_'])
         inv_sqrt_dim = (self.K_X_.shape[0])**(-0.5)
-        evaluated_observable = observable(self.Y_fit_)
+        evaluated_observable = observable(self.Y_fit_).T
         if evaluated_observable.ndim == 1:
-            evaluated_observable = evaluated_observable[:,None]
-        evaluated_observable = (self.V_.T)@evaluated_observable
-        if _modes_to_invert is None:
-            _, _, _modes_to_invert = self._eig(_return_modes_to_invert=True) #[TODO] This could be cached for improved performance
-        modes = lstsq(_modes_to_invert, evaluated_observable)[0] 
-        return modes*inv_sqrt_dim        
+            evaluated_observable = evaluated_observable[None, :]
+        if _cached_results is None:
+            _, left_right_norms, vl, _ = self._eig(_for_koopman_modes=True)
+        else:
+            (left_right_norms, vl) = _cached_results
+        
+        modes = evaluated_observable@self.V_@vl.conj()@left_right_norms
+        return modes.T*inv_sqrt_dim        
+    
     def forecast(self, X, t=1., observable = lambda x: x, which = None,):
         """Forecast an observable using the estimated Koopman operator.
 
@@ -319,12 +315,15 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
 
             This method with t=1., observable = lambda x: x, and which = None is equivalent to self.predict(X).
 
+            Be aware of the unit of measurements: if the datapoints come from a continuous dynamical system disctretized every dt, the variable t in this function corresponds to the time t' = t*dt  of the continuous dynamical system.
+
         Returns:
             ndarray: array of shape (n_t, n_samples, n_obs) containing the forecast of the observable(s) provided as argument. Here n_samples = len(X), n_obs = len(observable(x)), n_t = len(t) (if t is a scalar n_t = 1).
         """        
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
-        evals, _refuns, modes_to_invert = self._eig(_return_modes_to_invert=True)
-        modes = self.modes(observable=observable, _modes_to_invert=modes_to_invert)
+        evals, left_right_norms, vl, _refuns = self._eig(_for_koopman_modes=True)
+        cached_results = (left_right_norms, vl)
+        modes = self.modes(observable=observable, _cached_results = cached_results)
         
         if which is not None:
             evals = evals[which][:, None]           # [r,1]
@@ -357,46 +356,43 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             fr (lambda function, only if right=True): Right eigenfunctions of the estimated Koopman Operator.
             fl (lambda function, only if left=True): Left eigenfunctions of the estimated Koopman Operator.
         """
-        return self._eig(left=left, right=right, _return_modes_to_invert=False)
-    def _eig(self, left=False, right=True, _return_modes_to_invert = False):         
+        return self._eig(left=left, right=right, _for_koopman_modes=False)
+    
+    def _eig(self, left=False, right=True, _for_koopman_modes = False):         
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
         dim_inv = (self.K_X_.shape[0])**(-1)
         sqrt_inv_dim = dim_inv**0.5
-        C = dim_inv * self.K_YX_@self.U_
+        C = self.V_.T@(dim_inv * self.K_YX_)@self.U_
 
-        w, vl, vr =  eig(self.V_.T@C, left=True, right=True)
+        w, vl, vr =  eig(C, left=True, right=True) #Left -> V, Right -> U
 
         if not (left or right):
             return w
-        
-        vr_cpy_ = vr.copy()
-
-        vl = self.V_@vl
-        vr = self.U_@vr
 
         # Sort the eigenvalues with respect to modulus 
-        sortperm = np.argsort(w)[::-1]
+        sortperm = np.argsort(w, kind='stable')[::-1]
         w = w[sortperm]
         vl = vl[:, sortperm]
         vr = vr[:, sortperm]
-        vr_cpy_ = vr_cpy_[:, sortperm]
-        
-        
-        norm_r = weighted_norm(vr,self.K_X_)*dim_inv
-        norm_l = weighted_norm(vl,self.K_Y_)*dim_inv
 
-        vr = np.asfortranarray(vr @ np.diag(norm_r**(-1)))
-        vl = np.asfortranarray(vl @ np.diag(norm_l**(-1)))
-
-        modes_to_invert_ = vr_cpy_ @np.diag(w*(norm_r**(-1)))
-
+        W_X = self.U_.T @ (self.K_X_ * dim_inv) @ self.U_
+        W_Y = self.V_.T @ (self.K_Y_ * dim_inv) @ self.V_   
         
-        fr = lambda X:  sqrt_inv_dim*aslinearoperator(self.kernel(X, self.X_fit_, backend=self.backend))@vr
-        fl = lambda X:  sqrt_inv_dim*aslinearoperator(self.kernel(X, self.Y_fit_, backend=self.backend))@vl    
+        norm_r = weighted_norm(vr,W_X)
+        norm_l = weighted_norm(vl,W_Y)
+
+        vr = vr @ np.diag(norm_r**(-1))
+        vl = vl @ np.diag(norm_l**(-1))
+
+        left_right_dot = np.sum(vl.conj()*vr, axis=0)
         
-        #If _return_modes_to_invert is True, override the normal returns.
-        if _return_modes_to_invert:
-            return w, fr, modes_to_invert_
+        fr = lambda X:  sqrt_inv_dim*self.kernel(X, self.X_fit_, backend=self.backend)@self.U_@vr
+        fl = lambda X:  sqrt_inv_dim*self.kernel(X, self.Y_fit_, backend=self.backend)@self.V_@vl    
+        
+        #If _for_koopman_modes is True, override the normal returns.
+        if _for_koopman_modes:
+            left_right_norms = np.diag((w*left_right_dot)**-1)
+            return w, left_right_norms, vl, fr
         if left:
             if right:
                 return w, fl, fr
@@ -423,17 +419,13 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             X = X[None,:]
         elif np.ndim(X) == 0: #One sample with one feature
             X = np.asarray(X)[None, None]
-        _init_K = aslinearoperator(self.kernel(X, self.X_fit_, backend = self.backend))
+        _init_K = self.kernel(X, self.X_fit_, backend = self.backend)
         _S = sqrt_dim_inv * _init_K@self.U_
         return _S@_Z 
     def _init_kernels(self, X, Y):
         K_X = self.kernel(X, backend=self.backend)
         K_Y = self.kernel(Y, backend=self.backend)
         K_YX = self.kernel(Y, X, backend=self.backend)
-        if self.backend == 'keops':
-            K_X = aslinearoperator(K_X)
-            K_Y = aslinearoperator(K_Y)
-            K_YX = aslinearoperator(K_YX)
         return K_X, K_Y, K_YX    
     def _check_backend_solver_compatibility(self):
         if self.backend not in ['numpy', 'keops']:
@@ -454,9 +446,6 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             Y = np.asarray(self._validate_data(X=Y, reset=True))
             K_yY = self.kernel(Y, self.Y_fit_, backend = self.backend)
             K_Xx = self.kernel(self.X_fit_, X, backend = self.backend)
-            if self.backend == 'keops':
-                K_yY = aslinearoperator(K_yY)
-                K_Xx = aslinearoperator(K_Xx)
             _Y = Y
         else:
             K_yY = self.K_Y_
@@ -518,7 +507,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
                 }
             }
 class ReducedRank(LowRankRegressor):
-    def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10):
+    def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10, override_array_checks=False):
         """Reduced Rank Regression Estimator for the Koopman Operator
         Args:
             kernel (Kernel, optional): Kernel object implemented according to the specification found in the ``kernels``submodule. Defaults to None corresponds to a linear kernel.
@@ -543,6 +532,7 @@ class ReducedRank(LowRankRegressor):
         self.svd_solver = svd_solver
         self.iterated_power = iterated_power
         self.n_oversamples = n_oversamples
+        self.override_array_checks = override_array_checks
     def fit(self, X, Y):
         """Fit the Koopman operator estimator.
         Args:
@@ -552,9 +542,10 @@ class ReducedRank(LowRankRegressor):
             self: Returns self.
         """
         self._check_backend_solver_compatibility()
-        X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
-        Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
-        check_X_y(X, Y, multi_output=True)
+        if not self.override_array_checks:
+            X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
+            Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
+            check_X_y(X, Y, multi_output=True)
 
         K_X, K_Y, K_YX = self._init_kernels(X, Y)
 
@@ -594,7 +585,7 @@ class ReducedRank(LowRankRegressor):
             U = U[:, sort_and_crop(sigma_sq, self.rank)]
 
             #Check that the eigenvectors are real
-            if np.max(np.abs(np.sin(np.angle((U))))) > 1e-8:
+            if np.max(np.abs(U.imag)) > 1e-8:
                 warn("Computed projector is not real. The Kernel matrix is either severely ill conditioned or non-symmetric, discarting imaginary parts.")
                 #[TODO] Actually, the projector might be ok and complex if a global phase is present. Fix this.
             U = np.real(U)
@@ -635,7 +626,7 @@ class ReducedRank(LowRankRegressor):
             U[:,i] = lsqr(K_X, V[:,i])[0] #Not optimal with this explicit loop
         return U, V
 class PrincipalComponent(LowRankRegressor):
-    def __init__(self, kernel=None, rank=5, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10):
+    def __init__(self, kernel=None, rank=5, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10, override_array_checks=False):
         """Reduced Rank Regression Estimator for the Koopman Operator
         Args:
             kernel (Kernel, optional): Kernel object implemented according to the specification found in the ``kernels``submodule. Defaults to None corresponds to a linear kernel.
@@ -659,6 +650,7 @@ class PrincipalComponent(LowRankRegressor):
         self.svd_solver = svd_solver
         self.iterated_power = iterated_power
         self.n_oversamples = n_oversamples
+        self.override_array_checks = override_array_checks
     def fit(self, X, Y):
         """Fit the Koopman operator estimator.
         Args:
@@ -668,9 +660,10 @@ class PrincipalComponent(LowRankRegressor):
             self: Returns self.
         """
         self._check_backend_solver_compatibility()
-        X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
-        Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
-        check_X_y(X, Y, multi_output=True)
+        if not self.override_array_checks:
+            X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
+            Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
+            check_X_y(X, Y, multi_output=True)
     
         K_X, K_Y, K_YX = self._init_kernels(X, Y)
         
