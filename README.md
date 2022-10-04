@@ -1,7 +1,7 @@
 # Kooplearn: a Python package to learn the Koopman operator
 
 ## Example: noisy logistic map & Lorenz63
-The noisy logistic map is defined by the equation $x_{t + 1} = 4x_{t}(1 - x_{t}) + \xi_{t}$, where $\xi_{t}$ is an additive i.i.d. noise term. The Lorenz63 system is the discretization of the differential equation $\frac{dx}{dt} =$$\begin{bmatrix}\sigma(x_{2} - x_{1}) \\ x_{1}(\mu - x_{3}) \\ x_{1}x_{2} - \beta x_{3} \end{bmatrix}$, with $\sigma = 10$, $\mu = 28$ and $\beta = 8/3$.
+The noisy logistic map is defined by the equation $x_{t + 1} = 4x_{t}(1 - x_{t}) + \xi_{t}$, where $\xi_{t}$ is an additive i.i.d. noise term. The Lorenz63 system is the discretization of the differential equation $\frac{dx}{dt} =\begin{bmatrix}\sigma(x_{2} - x_{1})\\x_{1}(\mu - x_{3})\\x_{1}x_{2} - \beta x_{3} \end{bmatrix}$, with $\sigma = 10$, $\mu = 28$ and $\beta = 8/3$.
 
 <p align="center">
 <img src="complementary_figures/sample_trajectories.jpg" alt="Sample Trajectories" width="640"/>
