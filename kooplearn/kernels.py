@@ -1,5 +1,4 @@
 from abc import ABCMeta, abstractmethod
-from ast import Import
 import sklearn.gaussian_process.kernels as sk_kernels
 from sklearn.metrics.pairwise import polynomial_kernel as sk_poly
 from scipy.sparse.linalg import aslinearoperator
