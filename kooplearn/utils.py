@@ -8,9 +8,6 @@ from sklearn.utils import check_array, check_random_state
 
 from warnings import warn
 
-from ._keops_utils import Vi, __has_keops__, keops_import_error
-
-
 def sort_and_crop(vec, num_components = None):
     """Return the i
 
