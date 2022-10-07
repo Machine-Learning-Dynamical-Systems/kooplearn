@@ -362,7 +362,8 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
         dim_inv = (self.K_X_.shape[0])**(-1)
         sqrt_inv_dim = dim_inv**0.5
-        C = self.V_.T@(dim_inv * self.K_YX_)@self.U_
+        
+        C = (self.V_.T)@((dim_inv * self.K_YX_)@(self.U_))
 
         w, vl, vr =  eig(C, left=True, right=True) #Left -> V, Right -> U
 
@@ -375,8 +376,8 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         vl = vl[:, sortperm]
         vr = vr[:, sortperm]
 
-        W_X = self.U_.T @ (self.K_X_ * dim_inv) @ self.U_
-        W_Y = self.V_.T @ (self.K_Y_ * dim_inv) @ self.V_   
+        W_X = self.U_.T @ ((self.K_X_ * dim_inv) @ self.U_)
+        W_Y = self.V_.T @ ((self.K_Y_ * dim_inv) @ self.V_)
         
         norm_r = weighted_norm(vr,W_X)
         norm_l = weighted_norm(vl,W_Y)
