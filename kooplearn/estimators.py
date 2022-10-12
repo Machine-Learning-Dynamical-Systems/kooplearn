@@ -303,8 +303,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             (left_right_norms, vl) = _cached_results
         
         modes = evaluated_observable@self.V_@vl.conj()@left_right_norms
-        return modes.T*inv_sqrt_dim        
-    
+        return modes.T*inv_sqrt_dim            
     def forecast(self, X, t=1., observable = lambda x: x, which = None,):
         """Forecast an observable using the estimated Koopman operator.
 
@@ -357,8 +356,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             fr (lambda function, only if right=True): Right eigenfunctions of the estimated Koopman Operator.
             fl (lambda function, only if left=True): Left eigenfunctions of the estimated Koopman Operator.
         """
-        return self._eig(left=left, right=right, _for_koopman_modes=False)
-    
+        return self._eig(left=left, right=right, _for_koopman_modes=False)    
     def _eig(self, left=False, right=True, _for_koopman_modes = False):         
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
         dim_inv = (self.K_X_.shape[0])**(-1)
@@ -496,8 +494,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         V = sqrt_inv_dim*self.V_
         U_X = U.T@(self.K_X_@U)
         V_Y = V.T@(self.K_Y_@V)
-        return np.sqrt(np.trace(U_X@V_Y))
-        
+        return np.sqrt(np.trace(U_X@V_Y))        
     def _more_tags(self):
         return {
             'multioutput_only': True,
@@ -571,37 +568,28 @@ class ReducedRank(LowRankRegressor):
         alpha = dim*self.tikhonov_reg
         norm_inducing_op = SquaredKernel(K_X, inv_dim, self.tikhonov_reg)
         if self.svd_solver =='randomized':
-            dim = K_X.shape[0]
-        inv_dim = dim**(-1)
-        alpha = dim*self.tikhonov_reg
-        norm_inducing_op = SquaredKernel(K_X, inv_dim, self.tikhonov_reg)
-        if self.svd_solver =='randomized':
-            K_reg_inv = IterInv(K_X, alpha)
-            #Utility function to solve linear systems
+            K_reg_inv = IterInv((inv_dim*K_X), self.tikhonov_reg)
             l = self.rank + self.n_oversamples
-            Omega = np.random.randn(dim,l)
-            Omega = np.asfortranarray(Omega @ np.diag(np.linalg.norm(Omega,axis=0)**-1))
-            #Rangefinder
-            for pw in range(self.iterated_power):
-                KyO = np.asfortranarray(K_Y@Omega)
-                Omega = np.asfortranarray(KyO - alpha * K_reg_inv@KyO)
-            Omega = K_reg_inv@np.asfortranarray(K_Y@Omega)
-            #QR decomposition
-            Q, _, columns_permutation = modified_QR(Omega, M = norm_inducing_op, column_pivoting=True)
-            if self.rank > Q.shape[1]:
-                warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - Q.shape[1]} degrees of freedom will be ignored.")
-                _zeroes = np.zeros((Q.shape[0], self.rank - Q.shape[1]))
-                Q = np.c_[Q, _zeroes]
-                assert Q.shape[1] == self.rank
+            Om = np.random.randn(dim, l)
+            for _ in range(self.iterated_power):
+                #Powered randomized rangefinder
+                Om = np.asfortranarray((inv_dim*K_Y)@(Om - (self.tikhonov_reg*K_reg_inv)@Om))
+            Om = np.asfortranarray(K_reg_inv@Om)
+            W, _, _ =  modified_QR(Om, M = norm_inducing_op, column_pivoting=True) #[TODO] We miss a 1/n factor here possibly
+            if self.rank > W.shape[1]:
+                warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - W.shape[1]} degrees of freedom will be ignored.")
+                _zeroes = np.zeros((W.shape[0], self.rank - W.shape[1]))
+                W = np.c_[W, _zeroes]
+                assert W.shape[1] == self.rank
 
             #Generation of matrices U and V.    
             C = np.asfortranarray(K_X@np.asfortranarray(Q))
-            sigma_sq, evecs = eigh(C.T @ (K_Y @ C))
+            sigma_sq, Q = eigh(C.T @ (K_Y @ C))
             _idxs = sort_and_crop(sigma_sq, self.rank)
             sigma_sq = sigma_sq[_idxs]/(dim**2)
-            evecs = evecs[:,_idxs]
+            Q = Q[:,_idxs]
             
-            U = np.asfortranarray(Q @ evecs)
+            U = np.asfortranarray(W @ Q)
             V = K_X @ U
             return U, V
         else: # 'arnoldi' or 'full'
@@ -685,6 +673,7 @@ class PrincipalComponent(LowRankRegressor):
         self.iterated_power = iterated_power
         self.n_oversamples = n_oversamples
         self.override_array_checks = override_array_checks
+        
     def fit(self, X, Y):
         """Fit the Koopman operator estimator.
         Args:
