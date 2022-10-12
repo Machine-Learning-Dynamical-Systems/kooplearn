@@ -583,7 +583,7 @@ class ReducedRank(LowRankRegressor):
                 assert W.shape[1] == self.rank
 
             #Generation of matrices U and V.    
-            C = np.asfortranarray(K_X@np.asfortranarray(Q))
+            C = np.asfortranarray(K_X@np.asfortranarray(W))
             sigma_sq, Q = eigh(C.T @ (K_Y @ C))
             _idxs = sort_and_crop(sigma_sq, self.rank)
             sigma_sq = sigma_sq[_idxs]/(dim**2)
@@ -673,7 +673,7 @@ class PrincipalComponent(LowRankRegressor):
         self.iterated_power = iterated_power
         self.n_oversamples = n_oversamples
         self.override_array_checks = override_array_checks
-        
+
     def fit(self, X, Y):
         """Fit the Koopman operator estimator.
         Args:
