@@ -1,6 +1,7 @@
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted, check_X_y
+from sklearn.utils.extmath import randomized_svd
 
 import numpy as np
 
@@ -570,7 +571,39 @@ class ReducedRank(LowRankRegressor):
         alpha = dim*self.tikhonov_reg
         norm_inducing_op = SquaredKernel(K_X, inv_dim, self.tikhonov_reg)
         if self.svd_solver =='randomized':
-            raise NotImplementedError()
+            dim = K_X.shape[0]
+        inv_dim = dim**(-1)
+        alpha = dim*self.tikhonov_reg
+        norm_inducing_op = SquaredKernel(K_X, inv_dim, self.tikhonov_reg)
+        if self.svd_solver =='randomized':
+            K_reg_inv = IterInv(K_X, alpha)
+            #Utility function to solve linear systems
+            l = self.rank + self.n_oversamples
+            Omega = np.random.randn(dim,l)
+            Omega = np.asfortranarray(Omega @ np.diag(np.linalg.norm(Omega,axis=0)**-1))
+            #Rangefinder
+            for pw in range(self.iterated_power):
+                KyO = np.asfortranarray(K_Y@Omega)
+                Omega = np.asfortranarray(KyO - alpha * K_reg_inv@KyO)
+            Omega = K_reg_inv@np.asfortranarray(K_Y@Omega)
+            #QR decomposition
+            Q, _, columns_permutation = modified_QR(Omega, M = norm_inducing_op, column_pivoting=True)
+            if self.rank > Q.shape[1]:
+                warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - Q.shape[1]} degrees of freedom will be ignored.")
+                _zeroes = np.zeros((Q.shape[0], self.rank - Q.shape[1]))
+                Q = np.c_[Q, _zeroes]
+                assert Q.shape[1] == self.rank
+
+            #Generation of matrices U and V.    
+            C = np.asfortranarray(K_X@np.asfortranarray(Q))
+            sigma_sq, evecs = eigh(C.T @ (K_Y @ C))
+            _idxs = sort_and_crop(sigma_sq, self.rank)
+            sigma_sq = sigma_sq[_idxs]/(dim**2)
+            evecs = evecs[:,_idxs]
+            
+            U = np.asfortranarray(Q @ evecs)
+            V = K_X @ U
+            return U, V
         else: # 'arnoldi' or 'full'
             K = inv_dim*(K_Y@K_X)
             #Find U via Generalized eigenvalue problem equivalent to the SVD. If K is ill-conditioned might be slow. Prefer svd_solver == 'randomized' in such a case.
@@ -684,7 +717,10 @@ class PrincipalComponent(LowRankRegressor):
         elif self.svd_solver == 'full':
             S, V = eigh(K_X)
         else:
-            raise NotImplementedError('Randomized SVD solver is not implemented with the Keops backend yet.')
+            if self.backend == 'keops':
+                raise NotImplementedError('Randomized SVD solver is not implemented with the Keops backend yet.')
+            else:
+                V, S, _ = randomized_svd(K_X, self.rank, n_oversamples=self.n_oversamples, n_iter=self.iterated_power, random_state=None)
             
         sigma_sq = S**2
         sort_perm = sort_and_crop(sigma_sq, self.rank)   
