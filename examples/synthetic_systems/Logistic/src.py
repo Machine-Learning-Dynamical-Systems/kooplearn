@@ -44,16 +44,16 @@ class CosineDistribution():
         return self.C_N*((np.cos(np.pi * x))**self.N)
 
 class LogisticMap():
-    def __init__(self, N=None):
+    def __init__(self, N=None, seed = None):
         self._noisy = False     
         self.ndim = 1 
+        self._urng = np.random.default_rng(seed)
         if N is not None:
             #Noisy case
             self._noisy = True
             self.N = N
             self.C_N = np.pi/scipy.special.beta(N//2  + 0.5, 0.5)
-            self._evals, self._PF_largest_evec, self._Koop_evecs = self._transfer_matrix_eig_process()
-            self._urng = np.random.default_rng()
+            self._evals, self._PF_largest_evec, self._Koop_evecs = self._transfer_matrix_eig_process()       
             self._rng = NumericalInversePolynomial(self, domain=(0,1), random_state=self._urng)
             self._noise_dist = CosineDistribution(N)
             self._noise_rng = NumericalInversePolynomial(self._noise_dist, domain=(-0.5,0.5), mode = 0, random_state=self._urng)
@@ -79,7 +79,7 @@ class LogisticMap():
         if self._noisy:
             return self._rng.rvs(size)
         else:
-            return scipy.stats.beta(0.5, 0.5).rvs(size=size)
+            return self._urng.beta(0.5,0.5, size)
     
     def noise(self, size = 1):
         if np.isscalar(size):
