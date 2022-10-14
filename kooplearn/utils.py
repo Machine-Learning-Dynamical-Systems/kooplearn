@@ -194,14 +194,19 @@ class SquaredKernel(LinearOperator):
         self.is_linop = False
         if isinstance(K, LinearOperator):
             self.is_linop = True
+        else:
+            self.M = (alpha*K + beta)@K
         self.dtype = K.dtype #Needed by LinearOperator superclass
         self.shape = K.shape #Needed by LinearOperator superclass
         self.alpha = alpha
         self.beta = beta
 
     def _matvec(self, x):
-        v = np.ascontiguousarray(self.K @ x)
-        return self.alpha * self.K @ v + self.beta * v
+        if self.is_linop:
+            v = np.ascontiguousarray(self.K @ x)
+            return self.alpha * self.K @ v + self.beta * v
+        else:
+            return self.M@x
 
 def randomized_range_finder(A_A_adj, size, n_iter, power_iteration_normalizer="none", M=None, random_state=None):
     """Randomized range finder. Adapted from sklearn.utils.extmath.randomized_range_finder

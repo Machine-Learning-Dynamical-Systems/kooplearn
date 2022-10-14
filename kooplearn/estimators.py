@@ -568,12 +568,12 @@ class ReducedRank(LowRankRegressor):
         alpha = dim*self.tikhonov_reg
         norm_inducing_op = SquaredKernel(K_X, inv_dim, self.tikhonov_reg)
         if self.svd_solver =='randomized':
-            K_reg_inv = IterInv((inv_dim*K_X), self.tikhonov_reg)
+            K_reg_inv = IterInv(K_X, alpha)
             l = self.rank + self.n_oversamples
             Om = np.random.randn(dim, l)
             for _ in range(self.iterated_power):
                 #Powered randomized rangefinder
-                Om = np.asfortranarray((inv_dim*K_Y)@(Om - (self.tikhonov_reg*K_reg_inv)@Om))
+                Om = np.asfortranarray((inv_dim*K_Y)@(Om - (alpha*K_reg_inv)@Om))
             Om = np.asfortranarray(K_reg_inv@Om)
             W, _, _ =  modified_QR(Om, M = norm_inducing_op, column_pivoting=True) #[TODO] We miss a 1/n factor here possibly
             if self.rank > W.shape[1]:
@@ -581,9 +581,10 @@ class ReducedRank(LowRankRegressor):
                 _zeroes = np.zeros((W.shape[0], self.rank - W.shape[1]))
                 W = np.c_[W, _zeroes]
                 assert W.shape[1] == self.rank
-
+            
             #Generation of matrices U and V.    
             C = np.asfortranarray(K_X@np.asfortranarray(W))
+
             sigma_sq, Q = eigh(C.T @ (K_Y @ C))
             _idxs = sort_and_crop(sigma_sq, self.rank)
             sigma_sq = sigma_sq[_idxs]/(dim**2)
