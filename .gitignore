@@ -149,6 +149,7 @@ cython_debug/
 **/figs
 **/_image_factory
 **/runs
+**/profiling
 
 #VS code
 workspace.code-workspace
