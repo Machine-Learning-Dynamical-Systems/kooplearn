@@ -39,7 +39,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     seed = 0 #For reproducibility
 
-    sample_sizes = [100, 500, 1000, 2500, 5000, 10000]
+    #sample_sizes = [100, 500, 1000, 2500, 5000, 10000]
+    sample_sizes = [10000]
     regularizations = np.geomspace(1e-9, 1e-3, 10)
 
     if args.mode == 'sample':

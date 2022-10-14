@@ -5,7 +5,7 @@ from sklearn.utils.extmath import randomized_svd
 
 import numpy as np
 
-from scipy.linalg import eig, eigh, lstsq, solve
+from scipy.linalg import eig, eigh, lstsq, solve, LinAlgError, pinvh
 from scipy.sparse.linalg import aslinearoperator, eigs, eigsh, lsqr
 from scipy.sparse import diags
 
@@ -562,6 +562,7 @@ class ReducedRank(LowRankRegressor):
         self.U_ = np.asfortranarray(U)
         self.V_ = np.asfortranarray(V)
         return self
+    @profile
     def _fit_regularized(self, K_X, K_Y):
         dim = K_X.shape[0]
         inv_dim = dim**(-1)
@@ -575,22 +576,22 @@ class ReducedRank(LowRankRegressor):
                 #Powered randomized rangefinder
                 Om = np.asfortranarray((inv_dim*K_Y)@(Om - (alpha*K_reg_inv)@Om))
             Om = np.asfortranarray(K_reg_inv@Om)
-            W, _, _ =  modified_QR(Om, M = norm_inducing_op, column_pivoting=True) #[TODO] We miss a 1/n factor here possibly
-            if self.rank > W.shape[1]:
-                warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - W.shape[1]} degrees of freedom will be ignored.")
-                _zeroes = np.zeros((W.shape[0], self.rank - W.shape[1]))
-                W = np.c_[W, _zeroes]
-                assert W.shape[1] == self.rank
-            
-            #Generation of matrices U and V.    
-            C = np.asfortranarray(K_X@np.asfortranarray(W))
 
-            sigma_sq, Q = eigh(C.T @ (K_Y @ C))
+            F_0 = (Om.T)@(norm_inducing_op@Om)
+            C = np.asfortranarray(K_X@Om)
+            F_1 = (C.T @ (K_Y @ C))
+
+            #Generation of matrices U and V.   
+            try:
+                sigma_sq, Q = eigh(F_1, F_0)
+            except LinAlgError:  
+                sigma_sq, Q = eig(pinvh(F_0)@F_1) 
+
             _idxs = sort_and_crop(sigma_sq, self.rank)
             sigma_sq = sigma_sq[_idxs]/(dim**2)
             Q = Q[:,_idxs]
             
-            U = np.asfortranarray(W @ Q)
+            U = np.asfortranarray(Om @ Q)
             V = K_X @ U
             return U, V
         else: # 'arnoldi' or 'full'
