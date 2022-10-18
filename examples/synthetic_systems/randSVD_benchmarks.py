@@ -2,13 +2,15 @@ from sys import path
 path.append('../../')
 import argparse
 from kooplearn.estimators import ReducedRank
-from kooplearn.kernels import RBF, Matern
+from kooplearn.kernels import RBF, Matern, Linear
 
 from Logistic import LogisticMap
 from Lorenz63 import Lorenz63
+from NoisyLinearSystem import NoisyLinear
 
 from tqdm import tqdm
 import numpy as np
+import scipy
 from time import perf_counter
 import pickle
 
@@ -39,8 +41,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     seed = 0 #For reproducibility
 
-    #sample_sizes = [100, 500, 1000, 2500, 5000, 10000]
-    sample_sizes = [10000]
+    sample_sizes = [100, 500, 1000, 2500, 5000, 7500, 10000]
     regularizations = np.geomspace(1e-9, 1e-3, 10)
 
     if args.mode == 'sample':
@@ -50,7 +51,7 @@ if __name__ == '__main__':
     else:
         raise ValueError("Available modes are 'sample' and 'reg'")
     
-    reg_0 = 1e-4
+    reg_0 = 1e-5
     sample_0 = 10000
 
     solvers = ['randomized', 'arnoldi']
@@ -58,9 +59,9 @@ if __name__ == '__main__':
     base_params = {
         'backend': 'numpy',
         'n_oversamples': 5,
-        'iterated_power': 3
+        'iterated_power': 1
     }
-    num_repetitions = 2
+    num_repetitions = 5
 
     map_specific_params = [
         {
@@ -72,35 +73,55 @@ if __name__ == '__main__':
             #Lorenz63
             'kernel': Matern(length_scale=1.0, nu = 0.5),
             'rank': 10,
+        },
+        {
+            #NoisyLinear
+            'kernel': Linear(coef0=0),
+            'rank': 10,
         }
     ]
-    maps = [LogisticMap(N = 20, seed=seed), Lorenz63(dt = 0.1, seed=seed)]
-    file_names = ['logistic_map', 'lorenz63']
+
+    """
+    Generation of the matrix A for the noisy linear example
+    """
+    ndim = 50
+    random_basis_change = scipy.stats.special_ortho_group.rvs(ndim, random_state=seed)
+    temperature = 0.2
+    eigenvalues = 0.5*(1 - np.tanh(np.linspace(-2, 2, ndim)/temperature))
+    A = random_basis_change.T.dot(np.diag(eigenvalues)).dot(random_basis_change)
+    ######################
+
+    maps = [
+        LogisticMap(N = 20, seed=seed), 
+        Lorenz63(dt = 0.1, seed=seed),
+        NoisyLinear(stability = 0.999, A = A)
+    ]
+
+    file_names = ['logistic_map', 'lorenz63', 'noisylinear']
 
     for (params, map, file_name) in zip(map_specific_params, maps, file_names):
-        means = np.zeros((len(solvers), len(iter_arr)))
-        stds = np.zeros((len(solvers), len(iter_arr)))
+        if file_name == 'noisylinear':
+            means = np.zeros((len(solvers), len(iter_arr)))
+            stds = np.zeros((len(solvers), len(iter_arr)))
 
+            for iter_idx, item in tqdm(enumerate(iter_arr), total=len(iter_arr), desc=file_name):
+                if args.mode == 'sample':
+                    sample_size = item
+                    tikhonov_reg = reg_0
+                elif args.mode == 'reg':
+                    sample_size = sample_0
+                    tikhonov_reg = item
+                
+                times = benchmark(map, sample_size, tikhonov_reg, base_params | params, num_repetitions, solvers=solvers)
+                means[:, iter_idx] = times.mean(axis=1)
+                stds[:, iter_idx] = times.std(axis=1)
 
-        for iter_idx, item in tqdm(enumerate(iter_arr), total=len(iter_arr), desc=file_name):
-            if args.mode == 'sample':
-                sample_size = item
-                tikhonov_reg = reg_0*(sample_size**-0.5)
-            elif args.mode == 'reg':
-                sample_size = sample_0
-                tikhonov_reg = item
-            
-            
-            times = benchmark(map, sample_size, tikhonov_reg, base_params | params, num_repetitions, solvers=solvers)
-            means[:, iter_idx] = times.mean(axis=1)
-            stds[:, iter_idx] = times.std(axis=1)
-
-        results = {
-            'iterated_array': iter_arr,
-            'solvers': solvers,
-            'means': means,
-            'stds': stds,
-            'n_oversamples': base_params['n_oversamples'],
-            'iterated_power': base_params['iterated_power']
-        }
-        pickle.dump(results, open('data/' + file_name + '_randSVD_benchmarks.pkl', 'wb'))
+            results = {
+                'iterated_array': iter_arr,
+                'solvers': solvers,
+                'means': means,
+                'stds': stds,
+                'n_oversamples': base_params['n_oversamples'],
+                'iterated_power': base_params['iterated_power']
+            }
+            pickle.dump(results, open('data/' + file_name + '_randSVD_benchmarks.pkl', 'wb'))
