@@ -506,7 +506,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
                 }
             }
 class ReducedRank(LowRankRegressor):
-    def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10, override_array_checks=False):
+    def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=1, n_oversamples=5, override_array_checks=False):
         """Reduced Rank Regression Estimator for the Koopman Operator
         Args:
             kernel (Kernel, optional): Kernel object implemented according to the specification found in the ``kernels``submodule. Defaults to None corresponds to a linear kernel.
@@ -562,7 +562,6 @@ class ReducedRank(LowRankRegressor):
         self.U_ = np.asfortranarray(U)
         self.V_ = np.asfortranarray(V)
         return self
-    @profile
     def _fit_regularized(self, K_X, K_Y):
         dim = K_X.shape[0]
         inv_dim = dim**(-1)
@@ -571,15 +570,15 @@ class ReducedRank(LowRankRegressor):
         if self.svd_solver =='randomized':
             K_reg_inv = IterInv(K_X, alpha)
             l = self.rank + self.n_oversamples
-            Om = np.random.randn(dim, l)
+            Om = np.asfortranarray(np.random.randn(dim, l))
             for _ in range(self.iterated_power):
                 #Powered randomized rangefinder
-                Om = np.asfortranarray((inv_dim*K_Y)@(Om - (alpha*K_reg_inv)@Om))
-            Om = np.asfortranarray(K_reg_inv@Om)
-
-            F_0 = (Om.T)@(norm_inducing_op@Om)
-            C = np.asfortranarray(K_X@Om)
-            F_1 = (C.T @ (K_Y @ C))
+                Om = np.asfortranarray((inv_dim*K_Y)@(Om - alpha*np.asfortranarray(K_reg_inv@Om)))
+            
+            KOmp = np.asfortranarray(Om - alpha*(K_reg_inv@Om))
+            
+            F_0 = (Om.T@KOmp)
+            F_1 = (KOmp.T @ (inv_dim*(K_Y @ KOmp)))
 
             #Generation of matrices U and V.   
             try:
@@ -588,12 +587,12 @@ class ReducedRank(LowRankRegressor):
                 sigma_sq, Q = eig(pinvh(F_0)@F_1) 
 
             _idxs = sort_and_crop(sigma_sq, self.rank)
-            sigma_sq = sigma_sq[_idxs]/(dim**2)
-            Q = Q[:,_idxs]
+            sigma_sq = sigma_sq[_idxs]
             
-            U = np.asfortranarray(Om @ Q)
-            V = K_X @ U
-            return U, V
+            Q = Q[:,_idxs] 
+            U = (dim**0.5)*np.asfortranarray((K_reg_inv@Om) @ Q)
+            V = (dim**0.5)*np.asfortranarray(KOmp @ Q)
+            return U.real, V.real
         else: # 'arnoldi' or 'full'
             K = inv_dim*(K_Y@K_X)
             #Find U via Generalized eigenvalue problem equivalent to the SVD. If K is ill-conditioned might be slow. Prefer svd_solver == 'randomized' in such a case.
