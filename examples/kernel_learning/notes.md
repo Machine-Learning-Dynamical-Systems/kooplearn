@@ -5,4 +5,4 @@
    - Finally, the last layer of the NN consists in a stereographic projection to map onto $\mathbb{S}^{n}$. Proposal: the square root of the softmax might do the job.
 2. Next, we have to define the loss functions.
    - Alignment between the dominant eigenspaces of the kernel and of the Koopman operator. Is this equivalent to maximizing the VAMP-score?
-   -  Forecasting-based objective functions.
+   - Forecasting-based objective functions.
