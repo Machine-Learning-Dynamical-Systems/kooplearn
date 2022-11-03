@@ -217,6 +217,7 @@ class KernelRidge(BaseEstimator, RegressorMixin):
             X = np.asarray(X)[None, None]
         _S = self.kernel(X, self.X_fit_, backend = self.backend)
         return _S@_Z
+        
     def _init_kernels(self, X, Y):
         K_X = self.kernel(X, backend=self.backend)
         K_Y = self.kernel(Y, backend=self.backend)
