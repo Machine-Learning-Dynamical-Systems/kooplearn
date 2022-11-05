@@ -562,7 +562,7 @@ class ReducedRank(LowRankRegressor):
         self.U_ = np.asfortranarray(U)
         self.V_ = np.asfortranarray(V)
         if _save_svals:
-            self.fit_sq_svals_ = sigma_sq
+            self.fit_sq_svals_ = np.real(sigma_sq)
         return self
     def _fit_regularized(self, K_X, K_Y):
         dim = K_X.shape[0]
