@@ -14,7 +14,6 @@ import scipy
 from time import perf_counter
 import pickle
 
-
 def time_fn_execution(f, args, num_repetitions):
     times = np.zeros(num_repetitions)
     for rep_idx in range(num_repetitions):
@@ -23,7 +22,6 @@ def time_fn_execution(f, args, num_repetitions):
         _stop = perf_counter()
         times[rep_idx] = _stop - _start
     return times
-
 def benchmark(map, sample_size, tikhonov_reg, params, num_repetitions, sample_kwargs = {}, solvers = ['full', 'randomized']):
     x, y = map.sample(size=sample_size, **sample_kwargs)
     x = (x - x.mean(axis=0)) / x.std(axis=0)
@@ -33,6 +31,66 @@ def benchmark(map, sample_size, tikhonov_reg, params, num_repetitions, sample_kw
         estimator = ReducedRank(**params, tikhonov_reg=tikhonov_reg, svd_solver=svd_solver)
         times[solver_idx,:] = time_fn_execution(estimator.fit, (x,y), num_repetitions)
     return times
+def error_bound(map, sample_size, params, num_repetitions, sample_kwargs = {}):
+    x, y = map.sample(size=sample_size, **sample_kwargs)
+    x = (x - x.mean(axis=0)) / x.std(axis=0)
+    y = (y - y.mean(axis=0)) / y.std(axis=0)
+    solvers = ['full', 'randomized']
+    estimator = ReducedRank(**params, svd_solver='full')
+    estimator.fit(x, y, _save_svals = True)
+    svals_sq = estimator.fit_sq_svals_
+    risk_full = estimator.risk()
+
+    estimator = ReducedRank(**params, svd_solver='randomized')
+    risk_delta = np.zeros(num_repetitions)
+    for rep_idx in range(num_repetitions):
+        estimator.fit(x, y)
+        risk_delta[rep_idx] = estimator.risk() - risk_full
+    return theoretical_error_estimate(svals_sq, params['rank'], params['n_oversamples'], params['iterated_power']), risk_delta
+def theoretical_error_estimate(svals_sq, rank, n_oversamples, iterated_power):
+    #Variable renaming to be consistend with paper notation.
+    svals_sq = np.sort(svals_sq)[::-1]
+    r = rank
+    s = n_oversamples
+    p = iterated_power
+    
+    svals_normed = svals_sq/svals_sq[r] #renormalization by sigma_{r + 1}
+    svals_pre = svals_normed[:r]**-1 #Invert to use in the def of a_r and b_r
+    svals_post = svals_normed[r:]
+
+    a_r = ((s - 1)**(-1))*np.sum(svals_pre**(2*p + 1))*np.sum(svals_post**(2*p + 1))
+    b_r = (svals_sq[r])*((s - 1)**(-1))*np.sum(svals_pre**(2*p))*np.sum(svals_post**(2*p + 1))
+
+    a = (r*a_r*svals_sq[0])/(r + a_r)
+    return np.maximum(a, b_r)
+
+"""
+Two modes: benchmark to test execution time and error_bound to empirically verify the error bounds.
+
+"""
+
+if __name__ == '__main__':
+    seed = 0
+    params = {
+        'kernel': Linear(coef0=0),
+        'rank': 10,
+        'backend': 'numpy',
+        'n_oversamples': 5,
+        'iterated_power': 1
+    }
+    num_repetitions = 5
+
+    """
+    Generation of the matrix A for the noisy linear example
+    """
+    ndim = 50
+    random_basis_change = scipy.stats.special_ortho_group.rvs(ndim, random_state=seed)
+    temperature = 0.2
+    eigenvalues = 0.5*(1 - np.tanh(np.linspace(-2, 2, ndim)/temperature))
+    A = random_basis_change.T.dot(np.diag(eigenvalues)).dot(random_basis_change)
+    ######################
+
+    map = NoisyLinear(stability = 0.999, A = A)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -111,7 +169,7 @@ if __name__ == '__main__':
                 elif args.mode == 'reg':
                     sample_size = sample_0
                     tikhonov_reg = item
-                
+                    
                 times = benchmark(map, sample_size, tikhonov_reg, base_params | params, num_repetitions, solvers=solvers)
                 means[:, iter_idx] = times.mean(axis=1)
                 stds[:, iter_idx] = times.std(axis=1)
