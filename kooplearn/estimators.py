@@ -532,7 +532,7 @@ class ReducedRank(LowRankRegressor):
         self.iterated_power = iterated_power
         self.n_oversamples = n_oversamples
         self.override_array_checks = override_array_checks
-    def fit(self, X, Y):
+    def fit(self, X, Y, _save_svals=False):
         """Fit the Koopman operator estimator.
         Args:
             X (ndarray): Input observations.
@@ -556,11 +556,13 @@ class ReducedRank(LowRankRegressor):
         self.Y_fit_ = Y
 
         if self.tikhonov_reg is None:
-            U, V = self._fit_unregularized(self.K_X_, self.K_Y_)
+            U, V, sigma_sq = self._fit_unregularized(self.K_X_, self.K_Y_)
         else:
-            U, V = self._fit_regularized(self.K_X_, self.K_Y_)     
+            U, V, sigma_sq = self._fit_regularized(self.K_X_, self.K_Y_)     
         self.U_ = np.asfortranarray(U)
         self.V_ = np.asfortranarray(V)
+        if _save_svals:
+            self.fit_sq_svals_ = sigma_sq
         return self
     def _fit_regularized(self, K_X, K_Y):
         dim = K_X.shape[0]
@@ -592,7 +594,7 @@ class ReducedRank(LowRankRegressor):
             Q = Q[:,_idxs] 
             U = (dim**0.5)*np.asfortranarray((K_reg_inv@Om) @ Q)
             V = (dim**0.5)*np.asfortranarray(KOmp @ Q)
-            return U.real, V.real
+            return U.real, V.real, sigma_sq
         else: # 'arnoldi' or 'full'
             K = inv_dim*(K_Y@K_X)
             #Find U via Generalized eigenvalue problem equivalent to the SVD. If K is ill-conditioned might be slow. Prefer svd_solver == 'randomized' in such a case.
@@ -628,7 +630,7 @@ class ReducedRank(LowRankRegressor):
             else:
                 U = U@np.diag(U_norms**-1) 
             V = K_X@np.asfortranarray(U)
-            return U, V
+            return U, V, sigma_sq
     def _fit_unregularized(self, K_X, K_Y):
         if self.svd_solver == 'randomized':
             warn("The 'randomized' svd_solver is equivalent to 'arnoldi' when tikhonov_reg = None.")
@@ -647,7 +649,7 @@ class ReducedRank(LowRankRegressor):
         U = np.zeros_like(V)
         for i in range(U.shape[1]):
             U[:,i] = lsqr(K_X, V[:,i])[0] #Not optimal with this explicit loop
-        return U, V
+        return U, V, sigma_sq
 class PrincipalComponent(LowRankRegressor):
     def __init__(self, kernel=None, rank=5, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10, override_array_checks=False):
         """Reduced Rank Regression Estimator for the Koopman Operator
