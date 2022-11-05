@@ -51,7 +51,7 @@ def theoretical_error_estimate(svals_sq, rank, n_oversamples, iterated_power):
     #Variable renaming to be consistend with paper notation.
     svals_sq = np.sort(svals_sq)[::-1]
     r = rank
-    s = n_oversamples
+    s = float(n_oversamples)
     p = iterated_power
     
     svals_normed = svals_sq/svals_sq[r] #renormalization by sigma_{r + 1}
@@ -71,14 +71,19 @@ Two modes: benchmark to test execution time and error_bound to empirically verif
 
 if __name__ == '__main__':
     seed = 0
+
+    num_repetitions = 5
+    sample_size = 500
+
     params = {
         'kernel': Linear(coef0=0),
-        'rank': 10,
         'backend': 'numpy',
+        'tikhonov_reg': 1e-5,
+        'rank': 7,
         'n_oversamples': 5,
         'iterated_power': 1
     }
-    num_repetitions = 5
+
 
     """
     Generation of the matrix A for the noisy linear example
@@ -91,7 +96,27 @@ if __name__ == '__main__':
     ######################
 
     map = NoisyLinear(stability = 0.999, A = A)
+    target_ranks = np.arange(10, dtype=int) + 2
 
+    theoretical_estimate = np.zeros(target_ranks.shape[0])
+    empirical_estimate_mean = np.zeros(target_ranks.shape[0])
+    empirical_estimate_std = np.zeros(target_ranks.shape[0])
+
+    for rk_idx, rank in enumerate(target_ranks):
+        params['rank'] = rank
+        th_estimate, risk_delta = error_bound(map, sample_size, params, num_repetitions)
+        theoretical_estimate[rk_idx] = th_estimate
+        empirical_estimate_mean[rk_idx] = np.mean(risk_delta)
+        empirical_estimate_std[rk_idx] = np.std(risk_delta)
+    results = {
+        'target_ranks': target_ranks,
+        'th_estimate': theoretical_estimate,
+        'means': empirical_estimate_mean,
+        'stds': empirical_estimate_std
+    }
+    pickle.dump(results, open('data/randSVD_errorbounds.pkl', 'wb'))
+
+"""
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("mode")
@@ -139,9 +164,7 @@ if __name__ == '__main__':
         }
     ]
 
-    """
-    Generation of the matrix A for the noisy linear example
-    """
+    ### Generation of the matrix A for the noisy linear example
     ndim = 50
     random_basis_change = scipy.stats.special_ortho_group.rvs(ndim, random_state=seed)
     temperature = 0.2
@@ -183,3 +206,4 @@ if __name__ == '__main__':
                 'iterated_power': base_params['iterated_power']
             }
             pickle.dump(results, open('data/' + file_name + '_randSVD_benchmarks.pkl', 'wb'))
+"""
