@@ -19,7 +19,7 @@ class NoisyLinear():
         nrm_A = np.linalg.norm(self.A, ord=2)
         self.A *=np.sqrt(self.stability_parameter)/nrm_A
         self.inverse_invariant_covariance = np.eye(self.ndim) - (self.A)@(self.A.T)
-        self.invariant_covariance = np.linalg.inv(self.inverse_invariant_covariance) #Ugly
+        self.invariant_covariance = np.linalg.pinv(self.inverse_invariant_covariance) #Ugly
             
     def sample(self, size=1, scale_output = True, iid=True):
 
