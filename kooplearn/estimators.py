@@ -532,7 +532,7 @@ class ReducedRank(LowRankRegressor):
         self.iterated_power = iterated_power
         self.n_oversamples = n_oversamples
         self.override_array_checks = override_array_checks
-    def fit(self, X, Y, _save_svals=False):
+    def fit(self, X, Y, _save_svals=False, _randomized_weighted_sampling=False):
         """Fit the Koopman operator estimator.
         Args:
             X (ndarray): Input observations.
@@ -558,13 +558,13 @@ class ReducedRank(LowRankRegressor):
         if self.tikhonov_reg is None:
             U, V, sigma_sq = self._fit_unregularized(self.K_X_, self.K_Y_)
         else:
-            U, V, sigma_sq = self._fit_regularized(self.K_X_, self.K_Y_)     
+            U, V, sigma_sq = self._fit_regularized(self.K_X_, self.K_Y_, _randomized_weighted_sampling)     
         self.U_ = np.asfortranarray(U)
         self.V_ = np.asfortranarray(V)
         if _save_svals:
             self.fit_sq_svals_ = np.real(sigma_sq)
         return self
-    def _fit_regularized(self, K_X, K_Y):
+    def _fit_regularized(self, K_X, K_Y,_randomized_weighted_sampling):
         dim = K_X.shape[0]
         inv_dim = dim**(-1)
         alpha = dim*self.tikhonov_reg
@@ -572,7 +572,12 @@ class ReducedRank(LowRankRegressor):
         if self.svd_solver =='randomized':
             K_reg_inv = IterInv(K_X, alpha)
             l = self.rank + self.n_oversamples
-            Om = np.asfortranarray(np.random.randn(dim, l))
+            if _randomized_weighted_sampling:
+                Cov = inv_dim*K_Y
+            else:
+                Cov = np.eye(dim, dtype = K_X.dtype)
+            
+            Om = np.asfortranarray(np.random.multivariate_normal(np.zeros(dim, dtype=K_X.dtype), Cov, size=l).T)
             for _ in range(self.iterated_power):
                 #Powered randomized rangefinder
                 Om = np.asfortranarray((inv_dim*K_Y)@(Om - alpha*np.asfortranarray(K_reg_inv@Om)))

@@ -31,89 +31,98 @@ def benchmark(map, sample_size, tikhonov_reg, params, num_repetitions, sample_kw
         estimator = ReducedRank(**params, tikhonov_reg=tikhonov_reg, svd_solver=svd_solver)
         times[solver_idx,:] = time_fn_execution(estimator.fit, (x,y), num_repetitions)
     return times
-def error_bound(map, sample_size, params, num_repetitions, sample_kwargs = {}):
-    x, y = map.sample(size=sample_size, **sample_kwargs)
-    x = (x - x.mean(axis=0)) / x.std(axis=0)
-    y = (y - y.mean(axis=0)) / y.std(axis=0)
-    solvers = ['full', 'randomized']
+def error_bound(x, y, params, num_repetitions, randomized_weighted_sampling = False):
     estimator = ReducedRank(**params, svd_solver='full')
-    estimator.fit(x, y, _save_svals = True)
+    estimator.fit(x, y, _save_svals = True, _randomized_weighted_sampling = randomized_weighted_sampling)
     svals_sq = estimator.fit_sq_svals_
+    evals = estimator.eig(left=False, right=False)
     risk_full = estimator.risk()
+    if randomized_weighted_sampling:
+        covariance_norm = None
+    else:
+        inv_dim = estimator.K_X_.shape[0]**-1
+        covariance_norm = np.linalg.norm(estimator.K_Y_, ord=2)
 
     estimator = ReducedRank(**params, svd_solver='randomized')
     risk_delta = np.zeros(num_repetitions)
     for rep_idx in range(num_repetitions):
         estimator.fit(x, y)
         risk_delta[rep_idx] = estimator.risk() - risk_full
-    return theoretical_error_estimate(svals_sq, params['rank'], params['n_oversamples'], params['iterated_power']), risk_delta
-def theoretical_error_estimate(svals_sq, rank, n_oversamples, iterated_power):
-    #Variable renaming to be consistend with paper notation.
+    return theoretical_error_estimate(svals_sq, params['rank'], params['n_oversamples'], params['iterated_power'], covariance_norm), risk_delta, svals_sq, evals
+def theoretical_error_estimate(svals_sq, rank, n_oversamples, iterated_power, covariance_norm = None):
+    #Variable renaming to be consistend with paper notation (Theorems 2 and 3).
     svals_sq = np.sort(svals_sq)[::-1]
     r = rank
     s = float(n_oversamples)
     p = iterated_power
-    
-    svals_normed = svals_sq/svals_sq[r] #renormalization by sigma_{r + 1}
-    svals_pre = svals_normed[:r]**-1 #Invert to use in the def of a_r and b_r
-    svals_post = svals_normed[r:]
-
-    a_r = ((s - 1)**(-1))*np.sum(svals_pre**(2*p + 1))*np.sum(svals_post**(2*p + 1))
-    b_r = (svals_sq[r])*((s - 1)**(-1))*np.sum(svals_pre**(2*p))*np.sum(svals_post**(2*p + 1))
-
+    if covariance_norm is not None:
+        L = covariance_norm
+        svals_normed = svals_sq/svals_sq[r-1] #renormalization by sigma_{r + 1}
+        svals_pre = svals_normed[:r]**-1 #Invert to use in the def of a_r and b_r
+        svals_post = svals_normed[r:]
+        c_r = np.sum(svals_post**(2*p))*L
+        a_r = (svals_sq[r-1]**-1)*c_r*( 1 + (s - 1)**(-1))*np.sum(svals_pre**(2*p + 1))
+        b_r = c_r*( svals_sq[0]/svals_sq[r-1] + (s - 1)**(-1))*np.sum(svals_pre**(2*p))
+    else:
+        svals_normed = svals_sq/svals_sq[r] #renormalization by sigma_{r + 1}
+        svals_pre = svals_normed[:r]**-1 #Invert to use in the def of a_r and b_r
+        svals_post = svals_normed[r:]
+        a_r = ((s - 1)**(-1))*np.sum(svals_pre**(2*p + 1))*np.sum(svals_post**(2*p + 1))
+        b_r = (svals_sq[r])*((s - 1)**(-1))*np.sum(svals_pre**(2*p))*np.sum(svals_post**(2*p + 1))
     a = (r*a_r*svals_sq[0])/(r + a_r)
-    return np.maximum(a, b_r)
+    return np.minimum(a, b_r)
 
-"""
-Two modes: benchmark to test execution time and error_bound to empirically verify the error bounds.
-
-"""
 
 if __name__ == '__main__':
     seed = 0
 
-    num_repetitions = 5
-    sample_size = 500
+    num_repetitions = 3
+    sample_size = 1000
 
     params = {
         'kernel': Linear(coef0=0),
         'backend': 'numpy',
-        'tikhonov_reg': 1e-5,
-        'rank': 7,
-        'n_oversamples': 5,
-        'iterated_power': 1
+        'tikhonov_reg': 1e-8,
+        'rank': 15,
+        'n_oversamples': 10,
+        'iterated_power': 2
     }
-
-
     """
     Generation of the matrix A for the noisy linear example
     """
-    ndim = 50
-    random_basis_change = scipy.stats.special_ortho_group.rvs(ndim, random_state=seed)
-    temperature = 0.2
-    eigenvalues = 0.5*(1 - np.tanh(np.linspace(-2, 2, ndim)/temperature))
-    A = random_basis_change.T.dot(np.diag(eigenvalues)).dot(random_basis_change)
+    ndim = 100
+    num_ones = 10
+    U = scipy.stats.special_ortho_group.rvs(ndim, random_state=seed)
+    eigenvalues = np.concatenate([np.ones(num_ones), np.arange(2, ndim - num_ones + 2)**-0.5])
+    
+    A = U.dot(np.diag(eigenvalues)).dot(U.T)
     ######################
 
-    map = NoisyLinear(stability = 0.999, A = A)
-    target_ranks = np.arange(10, dtype=int) + 2
+    map = NoisyLinear(stability = 1 - 1e-4, A = A)
+    target_ranks = np.arange(10, dtype=int) + 5
 
-    theoretical_estimate = np.zeros(target_ranks.shape[0])
-    empirical_estimate_mean = np.zeros(target_ranks.shape[0])
-    empirical_estimate_std = np.zeros(target_ranks.shape[0])
+    x, y = map.sample(size=sample_size)
 
-    for rk_idx, rank in enumerate(target_ranks):
-        params['rank'] = rank
-        th_estimate, risk_delta = error_bound(map, sample_size, params, num_repetitions)
-        theoretical_estimate[rk_idx] = th_estimate
-        empirical_estimate_mean[rk_idx] = np.mean(risk_delta)
-        empirical_estimate_std[rk_idx] = np.std(risk_delta)
-    results = {
-        'target_ranks': target_ranks,
-        'th_estimate': theoretical_estimate,
-        'means': empirical_estimate_mean,
-        'stds': empirical_estimate_std
-    }
+    results = []
+    for randomized_weighted_sampling in [True, False]:
+        theoretical_estimate = np.zeros(target_ranks.shape[0])
+        empirical_estimate_mean = np.zeros(target_ranks.shape[0])
+        empirical_estimate_std = np.zeros(target_ranks.shape[0])
+        for rk_idx, rank in enumerate(target_ranks):
+            params['rank'] = rank
+            th_estimate, risk_delta, svals_sq, evals = error_bound(x, y, params, num_repetitions, randomized_weighted_sampling=randomized_weighted_sampling)
+            theoretical_estimate[rk_idx] = th_estimate
+            empirical_estimate_mean[rk_idx] = np.mean(risk_delta)
+            empirical_estimate_std[rk_idx] = np.std(risk_delta)
+        
+        results.append({
+            'target_ranks': target_ranks.copy(),
+            'th_estimate': theoretical_estimate.copy(),
+            'means': empirical_estimate_mean.copy(),
+            'stds': empirical_estimate_std.copy(),
+            'svals_sq': svals_sq,
+            'evals': evals
+        })
     pickle.dump(results, open('data/randSVD_errorbounds.pkl', 'wb'))
 
 """
