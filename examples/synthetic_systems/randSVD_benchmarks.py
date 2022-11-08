@@ -48,7 +48,7 @@ def error_bound(x, y, params, num_repetitions, randomized_weighted_sampling = Fa
     for rep_idx in range(num_repetitions):
         estimator.fit(x, y)
         risk_delta[rep_idx] = estimator.risk() - risk_full
-    return theoretical_error_estimate_vladi(svals_sq, params['rank'], params['n_oversamples'], params['iterated_power'], covariance_norm), risk_delta, svals_sq, evals
+    return theoretical_error_estimate(svals_sq, params['rank'], params['n_oversamples'], params['iterated_power'], covariance_norm), risk_delta, svals_sq, evals
 def theoretical_error_estimate(svals_sq, rank, n_oversamples, iterated_power, covariance_norm = None):
     #Variable renaming to be consistend with paper notation (Theorems 2 and 3).
     svals_sq = np.sort(svals_sq)[::-1]
@@ -66,29 +66,6 @@ def theoretical_error_estimate(svals_sq, rank, n_oversamples, iterated_power, co
     else:
         svals_normed = svals_sq/svals_sq[r] #renormalization by sigma_{r + 1}
         svals_pre = svals_normed[:r]**-1 #Invert to use in the def of a_r and b_r
-        svals_post = svals_normed[r:]
-        a_r = ((s - 1)**(-1))*np.sum(svals_pre**(2*p + 1))*np.sum(svals_post**(2*p + 1))
-        b_r = (svals_sq[r])*((s - 1)**(-1))*np.sum(svals_pre**(2*p))*np.sum(svals_post**(2*p + 1))
-    a = (r*a_r*svals_sq[0])/(r + a_r)
-    return np.minimum(a, b_r)
-
-def theoretical_error_estimate_vladi(svals_sq, rank, n_oversamples, iterated_power, covariance_norm = None):
-    #Variable renaming to be consistend with paper notation (Theorems 2 and 3).
-    svals_sq = np.sort(svals_sq)[::-1]
-    r = rank
-    s = float(n_oversamples)
-    p = iterated_power
-    if covariance_norm is not None:
-        L = covariance_norm
-        svals_normed = svals_sq/svals_sq[r-1] #renormalization by sigma_{r}
-        svals_pre = svals_normed[:r-1]**-1 #Invert to use in the def of a_r and b_r
-        svals_post = svals_normed[r:]
-        c_r = np.sum(svals_post**(2*p))*L
-        a_r = (svals_sq[r-1]**-1)*c_r*( 1 + ((s - 1)**(-1))*np.sum(svals_pre**(2*p + 1)))
-        b_r = c_r*( svals_sq[0]/svals_sq[r-1] + ((s - 1)**(-1))*np.sum(svals_pre**(2*p)))
-    else:
-        svals_normed = svals_sq/svals_sq[r] #renormalization by sigma_{r + 1}
-        svals_pre = svals_normed[:r-1]**-1 #Invert to use in the def of a_r and b_r
         svals_post = svals_normed[r:]
         a_r = ((s - 1)**(-1))*np.sum(svals_pre**(2*p + 1))*np.sum(svals_post**(2*p + 1))
         b_r = (svals_sq[r])*((s - 1)**(-1))*np.sum(svals_pre**(2*p))*np.sum(svals_post**(2*p + 1))

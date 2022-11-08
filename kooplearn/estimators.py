@@ -574,10 +574,10 @@ class ReducedRank(LowRankRegressor):
             l = self.rank + self.n_oversamples
             if _randomized_weighted_sampling:
                 Cov = inv_dim*K_Y
+                Om = np.asfortranarray(np.random.multivariate_normal(np.zeros(dim, dtype=K_X.dtype), Cov, size=l).T)
             else:
-                Cov = np.eye(dim, dtype = K_X.dtype)
+                Om = np.asfortranarray(np.random.randn(dim, l))            
             
-            Om = np.asfortranarray(np.random.multivariate_normal(np.zeros(dim, dtype=K_X.dtype), Cov, size=l).T)
             for _ in range(self.iterated_power):
                 #Powered randomized rangefinder
                 Om = np.asfortranarray((inv_dim*K_Y)@(Om - alpha*np.asfortranarray(K_reg_inv@Om)))
