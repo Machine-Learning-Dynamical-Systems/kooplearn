@@ -161,6 +161,28 @@ class IterInv(LinearOperator):
     IterInv:
        helper class to repeatedly solve K*x=b. K is a symmetric positive definite matrix.
     """
+    def __init__(self, K,  alpha, tol=1e-6):
+        self.is_linop = False
+        self.K = K
+        self.dtype = K.dtype #Needed by LinearOperator superclass
+        self.shape = K.shape #Needed by LinearOperator superclass
+        if isinstance(K, LinearOperator): #Use CG method
+            self.K += aslinearoperator(diags(np.ones(K.shape[0], dtype=self.dtype)*alpha))
+        else:
+            self.K += alpha*np.eye(K.shape[0]) 
+        self.alpha = alpha
+        self.tol = tol
+
+    def _matvec(self, x):
+        b, _ = cg(self.K, np.ascontiguousarray(x), tol=self.tol, atol=self.tol)
+        return b
+
+class IterInvChol(LinearOperator):
+    """
+    Adapted from scipy.sparse.linalg._eigen.arpack.IterInv to support pykeops
+    IterInv:
+       helper class to repeatedly solve K*x=b. K is a symmetric positive definite matrix.
+    """
     def __init__(self, K,  alpha, tol=1e-3):
         self.is_linop = False
         if isinstance(K, LinearOperator): #Use CG method

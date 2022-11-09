@@ -574,15 +574,15 @@ class ReducedRank(LowRankRegressor):
             l = self.rank + self.n_oversamples
             if _randomized_weighted_sampling:
                 Cov = inv_dim*K_Y
-                Om = np.asfortranarray(np.random.multivariate_normal(np.zeros(dim, dtype=K_X.dtype), Cov, size=l).T)
+                Om = np.random.multivariate_normal(np.zeros(dim, dtype=K_X.dtype), Cov, size=l).T
             else:
-                Om = np.asfortranarray(np.random.randn(dim, l))            
+                Om = np.random.randn(dim, l)       
             
             for _ in range(self.iterated_power):
                 #Powered randomized rangefinder
-                Om = np.asfortranarray((inv_dim*K_Y)@(Om - alpha*np.asfortranarray(K_reg_inv@Om)))
-            
-            KOmp = np.asfortranarray(Om - alpha*(K_reg_inv@Om))
+                Om = (inv_dim*K_Y)@(Om - alpha*K_reg_inv@Om)    
+            KOm = K_reg_inv@Om
+            KOmp = Om - alpha*KOm
             
             F_0 = (Om.T@KOmp)
             F_1 = (KOmp.T @ (inv_dim*(K_Y @ KOmp)))
@@ -597,7 +597,7 @@ class ReducedRank(LowRankRegressor):
             sigma_sq = sigma_sq[_idxs]
             
             Q = Q[:,_idxs] 
-            U = (dim**0.5)*np.asfortranarray((K_reg_inv@Om) @ Q)
+            U = (dim**0.5)*np.asfortranarray(KOm @ Q)
             V = (dim**0.5)*np.asfortranarray(KOmp @ Q)
             return U.real, V.real, sigma_sq
         else: # 'arnoldi' or 'full'

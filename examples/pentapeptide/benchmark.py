@@ -47,10 +47,11 @@ if __name__ == "__main__":
         'rank': 5,
         'n_oversamples': 3,
         'iterated_power': 1,
-        'tikhonov_reg': 1e-8 #Should be adapted to the sample size.
+        'tikhonov_reg': 1e-6 #Should be adapted to the sample size.
     }
     num_repetitions = 3
-    iter_arr = [1000, 2500, 5000, 10000, 15000, 20000]
+    #iter_arr = [1000, 2500, 5000, 10000, 15000, 20000]
+    iter_arr = [100, 250, 500, 1000, 1500, 2000]
     solvers = ['arnoldi', 'randomized']
     test_sample = torsions_data[-1001:]
 
