@@ -161,7 +161,7 @@ class IterInv(LinearOperator):
     IterInv:
        helper class to repeatedly solve K*x=b. K is a symmetric positive definite matrix.
     """
-    def __init__(self, K,  alpha, tol=1e-6):
+    def __init__(self, K,  alpha, tol=1e-8):
         self.is_linop = False
         self.K = K
         self.dtype = K.dtype #Needed by LinearOperator superclass
