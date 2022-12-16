@@ -506,7 +506,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
                 }
             }
 class ReducedRank(LowRankRegressor):
-    def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=1, n_oversamples=5, optimal_sketching=False, override_array_checks=False):
+    def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=1, n_oversamples=5, optimal_sketching=False):
         """Reduced Rank Regression Estimator for the Koopman Operator
         Args:
             kernel (Kernel, optional): Kernel object implemented according to the specification found in the ``kernels``submodule. Defaults to None corresponds to a linear kernel.
@@ -532,9 +532,8 @@ class ReducedRank(LowRankRegressor):
         self.iterated_power = iterated_power
         self.n_oversamples = n_oversamples
         self.optimal_sketching = optimal_sketching
-        self.override_array_checks = override_array_checks
     
-    def fit(self, X, Y, _save_svals=False):
+    def fit(self, X, Y):
         """Fit the Koopman operator estimator.
         Args:
             X (ndarray): Input observations.
@@ -543,10 +542,9 @@ class ReducedRank(LowRankRegressor):
             self: Returns self.
         """
         self._check_backend_solver_compatibility()
-        if not self.override_array_checks:
-            X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
-            Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
-            check_X_y(X, Y, multi_output=True)
+        X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
+        Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
+        check_X_y(X, Y, multi_output=True)
 
         K_X, K_Y, K_YX = self._init_kernels(X, Y)
 
@@ -578,8 +576,8 @@ class ReducedRank(LowRankRegressor):
                 Cov = inv_dim*K_Y
                 Om = np.random.multivariate_normal(np.zeros(dim, dtype=K_X.dtype), Cov, size=l).T
             else:
-                Om = np.random.randn(dim, l)       
-        
+                Om = np.random.randn(dim, l)      
+             
             for _ in range(self.iterated_power):
                 #Powered randomized rangefinder
                 Om = (inv_dim*K_Y)@(Om - alpha*K_reg_inv@Om)    
@@ -594,9 +592,12 @@ class ReducedRank(LowRankRegressor):
                 sigma_sq, Q = eigh(F_1, F_0)
             except LinAlgError:  
                 sigma_sq, Q = eig(pinvh(F_0)@F_1) 
+            
+            Q_norm = np.sum(Q.conj()*(F_0@Q), axis=0)
+            Q = Q@np.diag(Q_norm**-0.5)
+            _idxs = sort_and_crop(sigma_sq.real, self.rank)
+            sigma_sq = sigma_sq[_idxs].real
 
-            _idxs = sort_and_crop(sigma_sq, self.rank)
-            sigma_sq = sigma_sq[_idxs]
             
             Q = Q[:,_idxs] 
             U = (dim**0.5)*np.asfortranarray(KOm @ Q)
@@ -607,14 +608,13 @@ class ReducedRank(LowRankRegressor):
             #Find U via Generalized eigenvalue problem equivalent to the SVD. If K is ill-conditioned might be slow. Prefer svd_solver == 'randomized' in such a case.
             if self.svd_solver == 'arnoldi':
                 tikhonov = aslinearoperator(diags(np.ones(dim, dtype=K_X.dtype)*alpha))
-                Minv = IterInv(K_X, alpha)
-                sigma_sq, U = eigs(K, self.rank, aslinearoperator(K_X) + tikhonov, Minv = Minv)  
+                sigma_sq, U = eigs(K, self.rank, aslinearoperator(K_X) + tikhonov)  
             else: #'full'
                 tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
                 sigma_sq, U = eig(K, K_X + tikhonov)
             
             #Post-process U. Promote numerical stability via additional QR decoposition if necessary.
-            U = U[:, sort_and_crop(sigma_sq, self.rank)]
+            U = U[:, sort_and_crop(sigma_sq.real, self.rank)]
 
             #Check that the eigenvectors are real
             if np.max(np.abs(U.imag)) > 1e-8:
@@ -658,7 +658,7 @@ class ReducedRank(LowRankRegressor):
             U[:,i] = lsqr(K_X, V[:,i])[0] #Not optimal with this explicit loop
         return U, V, sigma_sq
 class PrincipalComponent(LowRankRegressor):
-    def __init__(self, kernel=None, rank=5, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10, override_array_checks=False):
+    def __init__(self, kernel=None, rank=5, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10):
         """Reduced Rank Regression Estimator for the Koopman Operator
         Args:
             kernel (Kernel, optional): Kernel object implemented according to the specification found in the ``kernels``submodule. Defaults to None corresponds to a linear kernel.
@@ -682,7 +682,6 @@ class PrincipalComponent(LowRankRegressor):
         self.svd_solver = svd_solver
         self.iterated_power = iterated_power
         self.n_oversamples = n_oversamples
-        self.override_array_checks = override_array_checks
 
     def fit(self, X, Y):
         """Fit the Koopman operator estimator.
@@ -693,10 +692,9 @@ class PrincipalComponent(LowRankRegressor):
             self: Returns self.
         """
         self._check_backend_solver_compatibility()
-        if not self.override_array_checks:
-            X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
-            Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
-            check_X_y(X, Y, multi_output=True)
+        X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
+        Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
+        check_X_y(X, Y, multi_output=True)
     
         K_X, K_Y, K_YX = self._init_kernels(X, Y)
         

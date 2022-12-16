@@ -161,7 +161,7 @@ class IterInv(LinearOperator):
     IterInv:
        helper class to repeatedly solve K*x=b. K is a symmetric positive definite matrix.
     """
-    def __init__(self, K,  alpha, tol=1e-8):
+    def __init__(self, K,  alpha):
         self.is_linop = False
         self.K = K
         self.dtype = K.dtype #Needed by LinearOperator superclass
@@ -171,39 +171,10 @@ class IterInv(LinearOperator):
         else:
             self.K += alpha*np.eye(K.shape[0]) 
         self.alpha = alpha
-        self.tol = tol
 
     def _matvec(self, x):
-        b, _ = cg(self.K, np.ascontiguousarray(x), tol=self.tol, atol=self.tol)
+        b, _ = cg(self.K, np.ascontiguousarray(x))
         return b
-
-class IterInvChol(LinearOperator):
-    """
-    Adapted from scipy.sparse.linalg._eigen.arpack.IterInv to support pykeops
-    IterInv:
-       helper class to repeatedly solve K*x=b. K is a symmetric positive definite matrix.
-    """
-    def __init__(self, K,  alpha, tol=1e-3):
-        self.is_linop = False
-        if isinstance(K, LinearOperator): #Use CG method
-            self.K = K
-            self.is_linop = True
-        else: #Use scipy.linalg.cholesky_solve
-            self.cho_K = cho_factor(K + alpha*np.eye(K.shape[0]))
-        self.dtype = K.dtype #Needed by LinearOperator superclass
-        self.shape = K.shape #Needed by LinearOperator superclass
-        self.tikhonov_linop = aslinearoperator(diags(np.ones(K.shape[0], dtype=self.dtype)*alpha))
-        self.alpha = alpha
-        self.tol = tol
-
-    def _matvec(self, x):
-        if self.is_linop:
-            b, info = cg(self.K + self.tikhonov_linop, np.ascontiguousarray(x), tol=self.tol, maxiter=100, atol=self.tol)
-            if info > 0:
-                warn("CG solver did not converge after {} iterations.".format(info))
-            return b
-        else:
-            return cho_solve(self.cho_K, x, overwrite_b=False)
 
 class SquaredKernel(LinearOperator):
     """
