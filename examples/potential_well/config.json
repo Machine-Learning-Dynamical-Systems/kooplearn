@@ -1,13 +1,14 @@
 {
     "temperature": 1.0,
+    "gamma": 0.1,
     "time_step" : 1e-4,
     
-    "write_every": 100,
+    "timesteps_between_samples": 100,
     "num_simulations": 100,
-    "simulation_steps": 1e5,
+    "num_samples": 1000,
     
+    "sampling_scheme": "iid",
     "rank": 4,
-    "tikhonov_reg": 1e-4,
-    "RBF_length_scale" : 0.3,
-    "backend": "cpu"
+    "tikhonov_reg": 1e-5,
+    "RBF_length_scale" : 0.3
 }
