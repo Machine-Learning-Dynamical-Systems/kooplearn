@@ -8,10 +8,11 @@ import numpy as np
 from scipy.linalg import eig, eigh, lstsq, solve, LinAlgError, pinvh
 from scipy.sparse.linalg import aslinearoperator, eigs, eigsh, lsqr
 from scipy.sparse import diags
+from scipy.sparse.linalg._eigen.arpack.arpack import IterInv
 
 from warnings import warn
 
-from .utils import sort_and_crop, weighted_norm, modified_QR, IterInv, SquaredKernel
+from .utils import sort_and_crop, weighted_norm, modified_QR, SquaredKernel
 
 class KernelRidge(BaseEstimator, RegressorMixin):
     def __init__(self, kernel=None, tikhonov_reg = None, backend='numpy', num_modes = None):
@@ -570,7 +571,8 @@ class ReducedRank(LowRankRegressor):
         alpha = dim*self.tikhonov_reg
         norm_inducing_op = SquaredKernel(K_X, inv_dim, self.tikhonov_reg)
         if self.svd_solver =='randomized':
-            K_reg_inv = IterInv(K_X, alpha)
+            tikhonov = aslinearoperator(diags(np.ones(dim, dtype=K_X.dtype)*alpha))
+            K_reg_inv = IterInv(aslinearoperator(K_X) + tikhonov)
             l = self.rank + self.n_oversamples
             if self.optimal_sketching:
                 Cov = inv_dim*K_Y
