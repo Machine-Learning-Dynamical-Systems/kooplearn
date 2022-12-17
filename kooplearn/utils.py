@@ -155,27 +155,6 @@ def modified_QR(A, M = None, column_pivoting = False, rtol = 2.2e-16, verbose = 
     else:
         return Q[:,:effective_rank], R[:effective_rank]
 
-class IterInv(LinearOperator):
-    """
-    Adapted from scipy.sparse.linalg._eigen.arpack.IterInv to support pykeops
-    IterInv:
-       helper class to repeatedly solve K*x=b. K is a symmetric positive definite matrix.
-    """
-    def __init__(self, K,  alpha):
-        self.is_linop = False
-        self.K = K
-        self.dtype = K.dtype #Needed by LinearOperator superclass
-        self.shape = K.shape #Needed by LinearOperator superclass
-        if isinstance(K, LinearOperator): #Use CG method
-            self.K += aslinearoperator(diags(np.ones(K.shape[0], dtype=self.dtype)*alpha))
-        else:
-            self.K += alpha*np.eye(K.shape[0]) 
-        self.alpha = alpha
-
-    def _matvec(self, x):
-        b, _ = cg(self.K, np.ascontiguousarray(x))
-        return b
-
 class SquaredKernel(LinearOperator):
     """
     Adapted from scipy

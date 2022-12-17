@@ -1,26 +1,13 @@
 {
-    "physics": {
-        "temperature": {
-            "min" : 1.0,
-            "max" : 10.0,
-            "num": 1
-        },
-        "time_step" : 1e-4
-    },
-    "meta": {
-        "write_every": 100,
-        "num_simulations": 100,
-        "simulation_steps": 1e5
-    },
-    "ML": {
-        "rank": 4,
-        "tikhonov_reg": 1e-6,
-        "RBF_length_scale" : 0.3,
-        "backend": "cpu",
-        "eigenfunction_sample": {
-            "min": -1.5,
-            "max": 1.5,
-            "num": 100
-        }
-    }
+    "temperature": 1.0,
+    "time_step" : 1e-4,
+    
+    "write_every": 100,
+    "num_simulations": 100,
+    "simulation_steps": 1e5,
+    
+    "rank": 4,
+    "tikhonov_reg": 1e-4,
+    "RBF_length_scale" : 0.3,
+    "backend": "cpu"
 }
