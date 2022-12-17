@@ -14,8 +14,8 @@
     },
     "ML": {
         "rank": 4,
-        "tikhonov_reg": 1e-4,
-        "RBF_length_scale" : 0.03,
+        "tikhonov_reg": 1e-6,
+        "RBF_length_scale" : 0.3,
         "backend": "cpu",
         "eigenfunction_sample": {
             "min": -1.5,
