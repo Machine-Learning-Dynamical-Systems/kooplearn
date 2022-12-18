@@ -30,6 +30,8 @@ class SimulationData(NamedTuple):
     configs_dump: dict
     datasets: Tuple
     eigenvalues: np.ndarray
+    eta: np.ndarray #Eigenfunctions scalar products. Used to estimate data-dependent bounds
+    sval_B_rp1: np.ndarray #\sigma_{r + 1}(B) (r + 1)-th singular value of B = C^{-1/2}T. Used to estimate data-dependent bounds.
     benchmark: np.ndarray
     timestamp: datetime
 
@@ -162,7 +164,7 @@ def sample_iid(
     Y = einops.rearrange(Y, 's d f -> d s f') #[num_datasets, num_samples, 1]
     return (X, Y)
 
-def compute_eigenvalues(X: jnp.ndarray, Y: jnp.ndarray) -> np.ndarray:
+def compute_eigenvalues(X: jnp.ndarray, Y: jnp.ndarray) -> Tuple:
     X = np.asarray(X)
     Y = np.asarray(Y)
     assert X.shape == Y.shape
@@ -170,11 +172,16 @@ def compute_eigenvalues(X: jnp.ndarray, Y: jnp.ndarray) -> np.ndarray:
     estimator = ReducedRank(kernel, rank = configs["rank"], tikhonov_reg= configs["tikhonov_reg"], svd_solver= 'arnoldi')
     num_datasets = X.shape[0]
     eigenvalues = np.zeros((num_datasets, configs["rank"]), dtype=np.complex128)
+    eta = np.zeros((num_datasets, configs["rank"]), dtype=np.complex128)
+    sval_B_rp1 = np.zeros((num_datasets), dtype=np.float64)
     for ds_index in tqdm(range(num_datasets), desc="Computing eigenvalues", unit="dataset"):
         x, y = X[ds_index], Y[ds_index]
         estimator.fit(x, y)
-        eigenvalues[ds_index] = estimator.eig(left = False, right = False)
-    return eigenvalues
+        w, vr = estimator._eig(return_type='eigenvalues_error_bounds')
+        eta[ds_index] = np.sum(vr.conj()*vr)/(np.sum(vr.conj()*(estimator.U_.T@estimator.V_@vr)))
+        eigenvalues[ds_index] = w
+        sval_B_rp1[ds_index] = estimator.RRR_sq_svals_[configs["rank"]]
+    return (eigenvalues, eta, sval_B_rp1)
 
 if __name__ == "__main__":
     num_samples = configs["num_samples"]
@@ -184,13 +191,15 @@ if __name__ == "__main__":
 
     X, Y = sample(sampling_scheme, num_samples, timesteps_between_samples, num_datasets)
 
-    eigenvalues = compute_eigenvalues(X, Y)
+    eigenvalues, eta, sval_B_rp1 = compute_eigenvalues(X, Y)
     benchmark = koopman_eigenvalues(timesteps_between_samples)
 
     data = SimulationData(
         configs,
         (X, Y),
-        np.flip(np.sort(eigenvalues.real, axis=1), axis=1),
+        eigenvalues.real,
+        eta,
+        sval_B_rp1,
         benchmark.real,
         datetime.now()
     )

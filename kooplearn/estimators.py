@@ -299,7 +299,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         if evaluated_observable.ndim == 1:
             evaluated_observable = evaluated_observable[None, :]
         if _cached_results is None:
-            _, left_right_norms, vl, _ = self._eig(_for_koopman_modes=True)
+            _, left_right_norms, vl, _ = self._eig(return_type='koopman_modes')
         else:
             (left_right_norms, vl) = _cached_results
         
@@ -322,7 +322,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             ndarray: array of shape (n_t, n_samples, n_obs) containing the forecast of the observable(s) provided as argument. Here n_samples = len(X), n_obs = len(observable(x)), n_t = len(t) (if t is a scalar n_t = 1).
         """        
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
-        evals, left_right_norms, vl, _refuns = self._eig(_for_koopman_modes=True)
+        evals, left_right_norms, vl, _refuns = self._eig(return_type='koopman_modes')
         cached_results = (left_right_norms, vl)
         modes = self.modes(observable=observable, _cached_results = cached_results)
         
@@ -357,8 +357,8 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             fr (lambda function, only if right=True): Right eigenfunctions of the estimated Koopman Operator.
             fl (lambda function, only if left=True): Left eigenfunctions of the estimated Koopman Operator.
         """
-        return self._eig(left=left, right=right, _for_koopman_modes=False)    
-    def _eig(self, left=False, right=True, _for_koopman_modes = False):         
+        return self._eig(left=left, right=right, return_type = 'default')    
+    def _eig(self, left=False, right=True, return_type = 'default'):         
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
         dim_inv = (self.K_X_.shape[0])**(-1)
         sqrt_inv_dim = dim_inv**0.5
@@ -367,7 +367,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
 
         w, vl, vr =  eig(C, left=True, right=True) #Left -> V, Right -> U
 
-        if not (left or right):
+        if (not (left or right)) and (return_type == 'default'):
             return w
 
         # Sort the eigenvalues with respect to modulus 
@@ -390,16 +390,19 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         fr = lambda X:  sqrt_inv_dim*self.kernel(X, self.X_fit_, backend=self.backend)@self.U_@vr
         fl = lambda X:  sqrt_inv_dim*self.kernel(X, self.Y_fit_, backend=self.backend)@self.V_@vl    
         
-        #If _for_koopman_modes is True, override the normal returns.
-        if _for_koopman_modes:
+        #If return_type != 'default', override the normal returns.
+        if return_type == 'koopman_modes':
             left_right_norms = np.diag((w*left_right_dot)**-1)
             return w, left_right_norms, vl, fr
-        if left:
-            if right:
-                return w, fl, fr
-            return w, fl
-        else:
-            return w, fr
+        elif return_type == 'eigenvalues_error_bounds':
+            return w, vr
+        else:    
+            if left:
+                if right:
+                    return w, fl, fr
+                return w, fl
+            else:
+                return w, fr
     def predict(self, X):
         """Predict the state of the system at the next step using the estimated Koopman operator.
         Args:
@@ -562,7 +565,7 @@ class ReducedRank(LowRankRegressor):
             U, V, sigma_sq = self._fit_regularized(self.K_X_, self.K_Y_)     
         self.U_ = np.asfortranarray(U)
         self.V_ = np.asfortranarray(V)
-        self.RRR_sq_svals_ = np.sort(np.real(sigma_sq))[::-1] #byproduct of RRR: squared singular values of C_\reg^{-1/2}T. Saving them for convenience.
+        self.RRR_sq_svals_ = np.flip(np.sort(np.real(sigma_sq))) #byproduct of RRR: squared singular values of C_\reg^{-1/2}T. Saving them for convenience.
         return self
     
     def _fit_regularized(self, K_X, K_Y):
@@ -598,7 +601,7 @@ class ReducedRank(LowRankRegressor):
             Q_norm = np.sum(Q.conj()*(F_0@Q), axis=0)
             Q = Q@np.diag(Q_norm**-0.5)
             _idxs = sort_and_crop(sigma_sq.real, self.rank)
-            sigma_sq = sigma_sq[_idxs].real
+            sigma_sq = sigma_sq.real
 
             
             Q = Q[:,_idxs] 
@@ -610,7 +613,8 @@ class ReducedRank(LowRankRegressor):
             #Find U via Generalized eigenvalue problem equivalent to the SVD. If K is ill-conditioned might be slow. Prefer svd_solver == 'randomized' in such a case.
             if self.svd_solver == 'arnoldi':
                 tikhonov = aslinearoperator(diags(np.ones(dim, dtype=K_X.dtype)*alpha))
-                sigma_sq, U = eigs(K, self.rank, aslinearoperator(K_X) + tikhonov)  
+                #Adding a small buffer to the Arnoldi-computed eigenvalues.
+                sigma_sq, U = eigs(K, self.rank + 3, aslinearoperator(K_X) + tikhonov)  
             else: #'full'
                 tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
                 sigma_sq, U = eig(K, K_X + tikhonov)
