@@ -9,6 +9,6 @@
     
     "sampling_scheme": "iid",
     "rank": 4,
-    "tikhonov_reg": 1e-5,
+    "tikhonov_reg": 1e-2,
     "RBF_length_scale" : 0.3
 }
