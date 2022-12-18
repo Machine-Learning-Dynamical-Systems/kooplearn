@@ -18,7 +18,7 @@ import scipy.stats.sampling
 from tqdm import tqdm
 import jax_md
 from kooplearn.estimators import ReducedRank
-from kooplearn.kernels import RBF
+from kooplearn.kernels import RBF, Matern
 from discretize import TensorMesh
 
 with open("config.json", "r") as f:
