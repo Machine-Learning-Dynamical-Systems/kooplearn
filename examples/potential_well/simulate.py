@@ -18,16 +18,14 @@ import scipy.stats.sampling
 #MISC
 from tqdm import tqdm
 import jax_md
-from kooplearn.estimators import ReducedRank
-from kooplearn.kernels import RBF, Matern
 from discretize import TensorMesh
+kernel_module = importlib.import_module('kooplearn.kernels')
+estimator_module = importlib.import_module('kooplearn.estimators')
 
 with open("config.json", "r") as f:
     configs = json.load(f)
 
-kernel_module = importlib.import_module('kooplearn.kernels')
 kernel_class = getattr(kernel_module, configs["kernel"])
-estimator_module = importlib.import_module('kooplearn.estimators')
 estimator_class = getattr(estimator_module, configs["estimator"])
 
 T = TypeVar('T')
@@ -186,7 +184,10 @@ def compute_eigenvalues(X: jnp.ndarray, Y: jnp.ndarray) -> Tuple:
         w, vr = estimator._eig(return_type='eigenvalues_error_bounds')
         eta[ds_index] = np.sum(vr.conj()*vr)/(np.sum(vr.conj()*(estimator.U_.T@estimator.V_@vr)))
         eigenvalues[ds_index] = w
-        sval_B_rp1[ds_index] = estimator.RRR_sq_svals_[configs["estimator_kwargs"]["rank"]]
+        try:
+            sval_B_rp1[ds_index] = estimator.RRR_sq_svals_[configs["estimator_kwargs"]["rank"]]
+        except AttributeError:
+            sval_B_rp1[ds_index] = np.nan
     return (eigenvalues, eta, sval_B_rp1)
 
 if __name__ == "__main__":
@@ -210,5 +211,5 @@ if __name__ == "__main__":
         datetime.now()
     )
 
-    with open('data/eigenvalues', 'wb') as f:
+    with open('data/' + configs["file_name"], 'wb') as f:
         pickle.dump(data, f)

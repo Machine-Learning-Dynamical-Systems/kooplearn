@@ -46,6 +46,5 @@ def eigenvalue_errors(
     else:
         numerator = np.sqrt(tikhonov_reg)*E_n_1 + E_n_2 + sval_B_rp1*np.sqrt(E_n_1)
         denumerator = E_n_1*np.sqrt(eta - tikhonov_reg - hat_eps_n(X, kernel, _d, kernel_sup_norm=kernel_sup_norm))
-
         return numerator*(denumerator**-1)
 
