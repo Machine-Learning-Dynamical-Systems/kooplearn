@@ -8,7 +8,16 @@
     "num_samples": 1000,
     
     "sampling_scheme": "iid",
-    "rank": 4,
-    "tikhonov_reg": 1e-2,
-    "RBF_length_scale" : 0.3
+
+    "kernel": "RBF",
+    "kernel_kwargs": {
+        "length_scale": 0.3
+    },
+
+    "estimator": "ReducedRank",
+    "estimator_kwargs": {
+        "rank": 4, 
+        "tikhonov_reg": 1e-5, 
+        "svd_solver": "arnoldi"
+    }
 }
