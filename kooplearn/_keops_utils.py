@@ -7,15 +7,17 @@ except ImportError:
 else:
     __has_keops__ = True
 
-if __has_keops__:
-    try:
-        import torch 
-        from pykeops.torch import Vi as Vi_torch
-        from pykeops.torch import Vj as Vj_torch
-    except ImportError:
-        __has_torch__ = False
-    else:
-        __has_torch__ = True
+try:
+    import torch 
+except ImportError:
+    __has_torch__ = False
+else:
+    __has_torch__ = True
+
+if __has_keops__ and __has_torch__:
+    from pykeops.torch import Vi as Vi_torch
+    from pykeops.torch import Vj as Vj_torch
+    
 
 keops_import_error = ImportError("KeOps is required for this functionality.")
 
