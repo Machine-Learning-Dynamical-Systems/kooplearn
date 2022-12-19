@@ -182,7 +182,7 @@ def compute_eigenvalues(X: jnp.ndarray, Y: jnp.ndarray) -> Tuple:
         x, y = X[ds_index], Y[ds_index]
         estimator.fit(x, y)
         w, vr = estimator._eig(return_type='eigenvalues_error_bounds')
-        eta[ds_index] = np.sum(vr.conj()*vr)/(np.sum(vr.conj()*(estimator.U_.T@estimator.V_@vr)))
+        eta[ds_index] = np.sum(vr.conj()*vr, axis=0)/(np.sum(vr.conj()*(estimator.U_.T@estimator.V_@vr), axis=0))
         eigenvalues[ds_index] = w
         try:
             sval_B_rp1[ds_index] = estimator.RRR_sq_svals_[configs["estimator_kwargs"]["rank"]]
