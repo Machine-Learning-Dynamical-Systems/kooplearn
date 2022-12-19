@@ -6,6 +6,7 @@ import json
 from typing import TypeVar, Tuple, NamedTuple
 from datetime import datetime
 import pickle
+import importlib
 
 #ESSENTIALS
 import numpy as np
@@ -23,6 +24,11 @@ from discretize import TensorMesh
 
 with open("config.json", "r") as f:
     configs = json.load(f)
+
+kernel_module = importlib.import_module('kooplearn.kernels')
+kernel_class = getattr(kernel_module, configs["kernel"])
+estimator_module = importlib.import_module('kooplearn.estimators')
+estimator_class = getattr(estimator_module, configs["estimator"])
 
 T = TypeVar('T')
 
@@ -61,7 +67,7 @@ def koopman_eigenvalues(
     dt = configs['time_step']*timesteps_between_samples
     
     vals = np.exp(scipy.sparse.linalg.eigs(dt*generator, k = 15, return_eigenvectors=False, which='LR'))    
-    return np.flip(np.sort(np.unique(vals.round(decimals=5))))[:configs["rank"]]
+    return np.flip(np.sort(np.unique(vals.round(decimals=5))))[:configs["estimator_kwargs"]["rank"]]
 
 @jax.jit
 def potential(x):
@@ -168,11 +174,11 @@ def compute_eigenvalues(X: jnp.ndarray, Y: jnp.ndarray) -> Tuple:
     X = np.asarray(X)
     Y = np.asarray(Y)
     assert X.shape == Y.shape
-    kernel = RBF(length_scale = configs["RBF_length_scale"])
-    estimator = ReducedRank(kernel, rank = configs["rank"], tikhonov_reg= configs["tikhonov_reg"], svd_solver= 'arnoldi')
+    kernel = kernel_class(**configs["kernel_kwargs"])
+    estimator = estimator_class(kernel, **configs["estimator_kwargs"])
     num_datasets = X.shape[0]
-    eigenvalues = np.zeros((num_datasets, configs["rank"]), dtype=np.complex128)
-    eta = np.zeros((num_datasets, configs["rank"]), dtype=np.complex128)
+    eigenvalues = np.zeros((num_datasets, configs["estimator_kwargs"]["rank"]), dtype=np.complex128)
+    eta = np.zeros((num_datasets, configs["estimator_kwargs"]["rank"]), dtype=np.complex128)
     sval_B_rp1 = np.zeros((num_datasets), dtype=np.float64)
     for ds_index in tqdm(range(num_datasets), desc="Computing eigenvalues", unit="dataset"):
         x, y = X[ds_index], Y[ds_index]
@@ -180,7 +186,7 @@ def compute_eigenvalues(X: jnp.ndarray, Y: jnp.ndarray) -> Tuple:
         w, vr = estimator._eig(return_type='eigenvalues_error_bounds')
         eta[ds_index] = np.sum(vr.conj()*vr)/(np.sum(vr.conj()*(estimator.U_.T@estimator.V_@vr)))
         eigenvalues[ds_index] = w
-        sval_B_rp1[ds_index] = estimator.RRR_sq_svals_[configs["rank"]]
+        sval_B_rp1[ds_index] = estimator.RRR_sq_svals_[configs["estimator_kwargs"]["rank"]]
     return (eigenvalues, eta, sval_B_rp1)
 
 if __name__ == "__main__":
