@@ -602,7 +602,6 @@ class ReducedRank(LowRankRegressor):
             Q = Q@np.diag(Q_norm**-0.5)
             _idxs = sort_and_crop(sigma_sq.real, self.rank)
             sigma_sq = sigma_sq.real
-
             
             Q = Q[:,_idxs] 
             U = (dim**0.5)*np.asfortranarray(KOm @ Q)
