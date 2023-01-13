@@ -132,6 +132,7 @@ class KernelRidge(BaseEstimator, RegressorMixin):
             fl (lambda function, only if left=True): Left eigenfunctions of the estimated Koopman Operator. Returned only if self.num_modes == None.
         """
         return self._eig(left=left, right=right, _return_modes_to_invert=False)
+    
     def _eig(self, left=False, right=True, _return_modes_to_invert = False):         
         check_is_fitted(self, ['K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
         dim_inv = (self.K_X_.shape[0])**(-1)
@@ -218,6 +219,7 @@ class KernelRidge(BaseEstimator, RegressorMixin):
             X = np.asarray(X)[None, None]
         _S = self.kernel(X, self.X_fit_, backend = self.backend)
         return _S@_Z
+
     def _init_kernels(self, X, Y):
         K_X = self.kernel(X, backend=self.backend)
         K_Y = self.kernel(Y, backend=self.backend)

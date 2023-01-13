@@ -26,8 +26,8 @@ class MNIST_feature_map(torch.nn.Module):
         )
         # fully connected layer, output dim num_features
         self.lin = torch.nn.Sequential(
-            torch.nn.Linear(32 * 7 * 7, self.num_features - 1), #Out layer has num_features - 1 as the mapping to the sphere make us gain a dimension.
-            torch.nn.BatchNorm1d(self.num_features - 1)
+            torch.nn.Linear(32 * 7 * 7, self.num_features),
+            torch.nn.BatchNorm1d(self.num_features, affine = False)
         )
 
     def forward(self, x):
@@ -35,5 +35,5 @@ class MNIST_feature_map(torch.nn.Module):
         x = self.conv1(x)
         x = self.conv2(x)
         # flatten the output of conv2 to (batch_size, 32 * 7 * 7)
-        x = x.view(x.size(0), - 1)       
-        output = self.lin(x)
+        x = self.lin(x.view(x.size(0), - 1))
+        return x
