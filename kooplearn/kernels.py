@@ -3,6 +3,7 @@ import sklearn.gaussian_process.kernels as sk_kernels
 from sklearn.metrics.pairwise import polynomial_kernel as sk_poly
 from scipy.sparse.linalg import aslinearoperator
 from ._keops_utils import Pm, lazy_cdist, lazy_cprod, __has_keops__, keops_import_error, __has_torch__
+import numpy as np
 
  
 from math import sqrt
@@ -100,6 +101,21 @@ class RBF(Kernel):
             return aslinearoperator(K)
         else:
             return self._scikit_kernel(X, Y)
+
+class ExpSineSquared(Kernel):
+    def __init__(self, length_scale=1.0, periodicity=1.0):
+        self.length_scale = length_scale
+        self.periodicity = periodicity
+        self._scikit_kernel = sk_kernels.ExpSineSquared(length_scale=self.length_scale, periodicity=self.periodicity, length_scale_bounds='fixed', periodicity_bounds='fixed')
+    def __call__(self, X, Y=None, backend='numpy'):
+        backend = parse_backend(backend)
+        if backend == 'keops':
+            periodic = ((np.pi*lazy_cdist(X,Y)/Pm(self.periodicity)).sin()).square()
+            K = (-(2*periodic)/((Pm(self.length_scale)**2))).exp()
+            return aslinearoperator(K)
+        else:
+            return self._scikit_kernel(X, Y)
+
 class Matern(Kernel):
     def __init__(self, nu=1.5, length_scale=1.0):
         self.nu = nu
