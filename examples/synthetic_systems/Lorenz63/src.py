@@ -2,13 +2,15 @@ import numpy as np
 import scipy.integrate
 
 class Lorenz63():
-    def __init__(self, sigma=10, mu=28, beta=8/3, dt=0.01):
+    def __init__(self, sigma=10, mu=28, beta=8/3, dt=0.01, seed = None):
         self.sigma = sigma
         self.mu = mu
         self.beta = beta  
         self.dt = dt
         self.M_lin = np.array([[-self.sigma, self.sigma, 0], [self.mu, 0, 0], [0, 0, -self.beta]])
-        self.state = np.random.rand(3)
+        
+        self.rng = np.random.default_rng(seed)
+        self.state = self.rng.random(3)
         
         sol = scipy.integrate.solve_ivp(self.D, (0,100), self.state, method='RK45')
         self.state = sol.y[:,-1]

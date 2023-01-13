@@ -1,8 +1,6 @@
 import numpy as np
 
-from scipy.sparse.linalg import aslinearoperator, LinearOperator, cg
-from scipy.sparse import diags
-from scipy.linalg import cho_factor, cho_solve
+from scipy.sparse.linalg import aslinearoperator, LinearOperator
 
 from sklearn.utils import check_array, check_random_state
 
@@ -155,34 +153,6 @@ def modified_QR(A, M = None, column_pivoting = False, rtol = 2.2e-16, verbose = 
     else:
         return Q[:,:effective_rank], R[:effective_rank]
 
-class IterInv(LinearOperator):
-    """
-    Adapted from scipy.sparse.linalg._eigen.arpack.IterInv to support pykeops
-    IterInv:
-       helper class to repeatedly solve K*x=b. K is a symmetric positive definite matrix.
-    """
-    def __init__(self, K,  alpha, tol=1e-3):
-        self.is_linop = False
-        if isinstance(K, LinearOperator): #Use CG method
-            self.K = K
-            self.is_linop = True
-        else: #Use scipy.linalg.cholesky_solve
-            self.cho_K = cho_factor(K + alpha*np.eye(K.shape[0]))
-        self.dtype = K.dtype #Needed by LinearOperator superclass
-        self.shape = K.shape #Needed by LinearOperator superclass
-        self.tikhonov_linop = aslinearoperator(diags(np.ones(K.shape[0], dtype=self.dtype)*alpha))
-        self.alpha = alpha
-        self.tol = tol
-
-    def _matvec(self, x):
-        if self.is_linop:
-            b, info = cg(self.K + self.tikhonov_linop, np.ascontiguousarray(x), tol=self.tol, maxiter=100, atol=self.tol)
-            if info > 0:
-                warn("CG solver did not converge after {} iterations.".format(info))
-            return b
-        else:
-            return cho_solve(self.cho_K, x, overwrite_b=False)
-
 class SquaredKernel(LinearOperator):
     """
     Adapted from scipy
@@ -194,14 +164,19 @@ class SquaredKernel(LinearOperator):
         self.is_linop = False
         if isinstance(K, LinearOperator):
             self.is_linop = True
+        else:
+            self.M = (alpha*K + beta)@K
         self.dtype = K.dtype #Needed by LinearOperator superclass
         self.shape = K.shape #Needed by LinearOperator superclass
         self.alpha = alpha
         self.beta = beta
 
     def _matvec(self, x):
-        v = np.ascontiguousarray(self.K @ x)
-        return self.alpha * self.K @ v + self.beta * v
+        if self.is_linop:
+            v = np.ascontiguousarray(self.K @ x)
+            return self.alpha * self.K @ v + self.beta * v
+        else:
+            return self.M@x
 
 def randomized_range_finder(A_A_adj, size, n_iter, power_iteration_normalizer="none", M=None, random_state=None):
     """Randomized range finder. Adapted from sklearn.utils.extmath.randomized_range_finder
