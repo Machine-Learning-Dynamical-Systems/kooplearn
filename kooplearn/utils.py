@@ -1,8 +1,6 @@
 import numpy as np
 
-from scipy.sparse.linalg import aslinearoperator, LinearOperator, cg
-from scipy.sparse import diags
-from scipy.linalg import cho_factor, cho_solve
+from scipy.sparse.linalg import aslinearoperator, LinearOperator
 
 from sklearn.utils import check_array, check_random_state
 

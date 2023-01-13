@@ -18,7 +18,7 @@
     "estimator": "ReducedRank",
     "estimator_kwargs": {
         "rank": 4,
-        "tikhonov_reg": 1e-4, 
+        "tikhonov_reg": None, 
         "svd_solver": "arnoldi"
     }
 }
