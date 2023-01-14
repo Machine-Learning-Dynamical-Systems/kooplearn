@@ -50,20 +50,17 @@ dependencies = [
   "pytest-cov",
   "sphinx",
   "sphinx-book-theme",
-  "jinja2<3.1.0"
+  "jinja2<3.1.0",
+  "tqdm"
 ]
-
 
 [tool.hatch.envs.default.scripts]
 cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=kooplearn --cov=tests {args}"
 no-cov = "cov --no-cov {args}"
-apidoc = "sphinx-apidoc -f -o docs kooplearn"
-build_docs = "sphinx-build -b html docs docs/_build"
+apidoc = "sphinx-apidoc -f -o docs/_source kooplearn"
+build_docs = "sphinx-build -b html docs/_source docs/_build"
 
 [tool.hatch.envs.test]
-dependencies = [
-  'tqdm'
-]
 
 [[tool.hatch.envs.test.matrix]]
 python = ["37", "38", "39", "310", "311"]

@@ -38,7 +38,7 @@ class ScalarProduct(Kernel):
         else:
             phi_Y = self.__feature_map__(Y)
         if backend == 'numpy':
-                return phi_X@(phi_Y.T)
+            return phi_X@(phi_Y.T)
         return lazy_cprod(phi_X, phi_Y) #Backend == 'keops'
     def cov(self, X, Y = None):
         phi_X = self.__feature_map__(X)
@@ -165,10 +165,12 @@ class Poly(Kernel):
             else:
                 raise NotImplementedError("Poly kernel with degree != [1,2] not implemented (because of a bug on pow function).")
         else:
-            return sk_poly(X, Y, degree = self.degree, gamma = self.gamma, coef0 = self.coef0)           
+            return sk_poly(X, Y, degree = self.degree, gamma = self.gamma, coef0 = self.coef0)  
+                     
 class Linear(Poly):
     def __init__(self, gamma=None, coef0=1):
         super().__init__(degree=1, gamma=gamma, coef0=coef0)
+
 class Quadratic(Poly):
     def __init__(self, gamma=None, coef0=1):
         super().__init__(degree=2, gamma=gamma, coef0=coef0)

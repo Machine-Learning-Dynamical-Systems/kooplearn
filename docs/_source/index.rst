@@ -8,8 +8,9 @@ Welcome to kooplearn's documentation!
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
-
+   :caption: *INTRODUCTION*
+   installation
+   kooplearn
 
 
 Indices and tables
