@@ -154,10 +154,7 @@ def modified_QR(A, M = None, column_pivoting = False, rtol = 2.2e-16, verbose = 
         return Q[:,:effective_rank], R[:effective_rank]
 
 class SquaredKernel(LinearOperator):
-    """
-    Adapted from scipy
-    KernelSquared:
-       helper class to repeatedly apply alpha*K@K+beta*K.
+    """KernelSquared:helper class to repeatedly apply alpha*K@K+beta*K.
     """
     def __init__(self, K, alpha, beta):
         self.K = K

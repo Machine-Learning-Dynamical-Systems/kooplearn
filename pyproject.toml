@@ -49,13 +49,16 @@ dependencies = [
   "pytest",
   "pytest-cov",
   "sphinx",
+  "sphinx-book-theme",
+  "jinja2<3.1.0"
 ]
+
 
 [tool.hatch.envs.default.scripts]
 cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=kooplearn --cov=tests {args}"
 no-cov = "cov --no-cov {args}"
+apidoc = "sphinx-apidoc -f -o docs kooplearn"
 build_docs = "sphinx-build -b html docs docs/_build"
-
 
 [tool.hatch.envs.test]
 dependencies = [
