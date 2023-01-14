@@ -253,7 +253,7 @@ class KernelRidge(BaseEstimator, RegressorMixin):
         r_yy = np.squeeze(r_yy)*((_Y.shape[0])**(-1))             
         return K_yY, K_Xx, r_yy
     def risk(self, X = None, Y = None):
-        """Empirical risk of the model. :math:n^{-1}\sum_{i = 1}^{n} ||\phi(Y_i) - G^*\phi(X_i)||^{2}_{H}
+        """Empirical risk of the model. :math:`\\frac{1}{n}\sum_{i = 1}^{n} ||\phi(Y_i) - G^*\phi(X_i)||^{2}_{\mathcal{H}}`
 
         Args:
             X (ndarray, optional): Array of shape (num_test_points, num_features) of input observations. Defaults to None.
@@ -464,7 +464,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         r_yy = np.squeeze(r_yy)*((_Y.shape[0])**(-1))             
         return K_yY, K_Xx, r_yy
     def risk(self, X = None, Y = None):
-        """Empirical risk of the model. :math:n^{-1}\sum_{i = 1}^{n} ||\phi(Y_i) - G^*\phi(X_i)||^{2}_{H}
+        """Empirical risk of the model. :math:`\\frac{1}{n}\sum_{i = 1}^{n} ||\phi(Y_i) - G^*\phi(X_i)||^{2}_{\mathcal{H}}`
 
         Args:
             X (ndarray, optional): Array of shape (num_test_points, num_features) of input observations. Defaults to None.
