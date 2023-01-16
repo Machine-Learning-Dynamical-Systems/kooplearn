@@ -360,6 +360,19 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             fl (lambda function, only if left=True): Left eigenfunctions of the estimated Koopman Operator.
         """
         return self._eig(left=left, right=right, return_type = 'default')    
+    
+    def svals(self, k = 6):
+        check_is_fitted(self, ['K_X_', 'K_Y_'])
+        
+        dim = self.K_X_.shape[0]
+        inv_dim = dim**(-1)
+        alpha = dim*self.tikhonov_reg
+        K = inv_dim*(self.K_Y_@self.K_X_)
+        tikhonov = aslinearoperator(diags(np.ones(dim, dtype=self.K_X_.dtype)*alpha))
+        _S = eigs(K, k, aslinearoperator(self.K_X_) + tikhonov, return_eigenvectors = False)
+        assert np.max(np.abs(_S.imag)) < 1e-8, "The computed eigenvalues are not real. Possibly ill-conditioned problem"
+        return np.flip(np.sort(_S.real))
+
     def _eig(self, left=False, right=True, return_type = 'default'):         
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
         dim_inv = (self.K_X_.shape[0])**(-1)
@@ -567,7 +580,6 @@ class ReducedRank(LowRankRegressor):
             U, V, sigma_sq = self._fit_regularized(self.K_X_, self.K_Y_)     
         self.U_ = np.asfortranarray(U)
         self.V_ = np.asfortranarray(V)
-        self.RRR_sq_svals_ = np.flip(np.sort(np.real(sigma_sq))) #byproduct of RRR: squared singular values of C_\reg^{-1/2}T. Saving them for convenience.
         return self
     
     def _fit_regularized(self, K_X, K_Y):

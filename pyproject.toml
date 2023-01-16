@@ -81,3 +81,6 @@ exclude_lines = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["kooplearn"]
+
+[tool.ruff]
+line-length = 200
