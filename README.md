@@ -1,1 +1,2 @@
-## Kooplearn
+# Kooplearn
+The Koopman operator 
