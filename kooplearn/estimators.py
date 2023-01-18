@@ -7,6 +7,7 @@ import numpy as np
 
 from scipy.linalg import eig, eigh, LinAlgError, pinvh
 from scipy.sparse.linalg import aslinearoperator, eigs, eigsh, lsqr, cg
+from scipy.sparse.linalg import norm as spnorm
 from scipy.sparse import diags
 from scipy.sparse.linalg._eigen.arpack.arpack import IterInv
 
@@ -258,6 +259,32 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         U_X = U.T@(self.K_X_@U)
         V_Y = V.T@(self.K_Y_@V)
         return np.sqrt(np.trace(U_X@V_Y))        
+    def empirical_excess_risk(self, X, Y, norm = 'HS'):
+        check_is_fitted(self, ['K_X_', 'K_Y_', 'U_', 'V_'])
+        if norm == 'HS':
+            return self.risk(X = X, Y = Y)
+        elif norm == 'op':
+            X = np.asarray(self._validate_data(X=X, reset=True))
+            Y = np.asarray(self._validate_data(X=Y, reset=True))
+
+            #Everything processed on the numpy backend to avoid keops bugs
+            K_v_Y = self.kernel(Y, backend = 'numpy')
+            K_vt_Y = self.kernel(Y, self.Y_fit_, backend = 'numpy')
+            K_tv_X = self.kernel(self.X_fit_, X, backend = 'numpy')
+
+            val_dim, dim = K_vt_Y.shape
+            sqrt_inv_dim = dim**(-0.5)
+            V = sqrt_inv_dim*self.V_
+            U = sqrt_inv_dim*self.U_
+            
+            C = K_vt_Y@V
+            D = (K_tv_X.T@U).T
+            E = (V.T)@(self.K_Y_@V)
+
+            M = K_v_Y -(val_dim**(-1))*(C@D + (D.T)@(C.T)) + (val_dim**(-1))*((D.T)@E@(D))
+            return np.sqrt(spnorm(M, ord=2))
+        else:
+            raise ValueError(f"Accepted norms are 'HS' (Hilbert-Schmidt) or 'op' (Operator norm), while '{norm}' was provided.")
     def _more_tags(self):
         return {
             'multioutput_only': True,
