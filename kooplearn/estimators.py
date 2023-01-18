@@ -7,7 +7,6 @@ import numpy as np
 
 from scipy.linalg import eig, eigh, LinAlgError, pinvh
 from scipy.sparse.linalg import aslinearoperator, eigs, eigsh, lsqr, cg
-from scipy.sparse.linalg import norm as spnorm
 from scipy.sparse import diags
 from scipy.sparse.linalg._eigen.arpack.arpack import IterInv
 
@@ -282,7 +281,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             E = (V.T)@(self.K_Y_@V)
 
             M = K_v_Y -(val_dim**(-1))*(C@D + (D.T)@(C.T)) + (val_dim**(-1))*((D.T)@E@(D))
-            return np.sqrt(spnorm(M, ord=2))
+            return np.sqrt(np.linalg.norm(M, ord=2))
         else:
             raise ValueError(f"Accepted norms are 'HS' (Hilbert-Schmidt) or 'op' (Operator norm), while '{norm}' was provided.")
     def _more_tags(self):
