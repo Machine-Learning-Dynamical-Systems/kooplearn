@@ -261,7 +261,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
     def empirical_excess_risk(self, X, Y, norm = 'HS'):
         check_is_fitted(self, ['K_X_', 'K_Y_', 'U_', 'V_'])
         if norm == 'HS':
-            return self.risk(X = X, Y = Y)
+            return np.sqrt(self.risk(X = X, Y = Y))
         elif norm == 'op':
             X = np.asarray(self._validate_data(X=X, reset=True))
             Y = np.asarray(self._validate_data(X=Y, reset=True))
