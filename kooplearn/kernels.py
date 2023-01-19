@@ -30,7 +30,10 @@ class Kernel(metaclass=ABCMeta):
     def __repr__(self):
         _r = "[" + self.__class__.__name__ + "] " 
         for k, v in self.__dict__.items():
-            _r += f"{k}: {v} "
+            if k[0] == "_":
+                pass
+            else:
+                _r += f"{k}: {v} "
         return _r
 
 class ScalarProduct(Kernel):
