@@ -29,10 +29,10 @@ class Kernel(metaclass=ABCMeta):
         """
     def __repr__(self):
         _r = "[" + self.__class__.__name__ + "] " 
-        for k, v in self.__dict__:
+        for k, v in self.__dict__.items():
             _r += f"{k}: {v} "
         return _r
-        
+
 class ScalarProduct(Kernel):
     def __call__(self, X, Y = None, backend = 'numpy'):
         """Return the Kernel matrix k(x,y) := <Phi(x),Phi(y)>. Different samples are batched on the first dimension of X and Y."""
