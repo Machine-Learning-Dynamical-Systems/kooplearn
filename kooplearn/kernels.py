@@ -27,7 +27,12 @@ class Kernel(metaclass=ABCMeta):
         The method called with backend == ``numpy'' returns a numpy array of shape (X.shape[0], Y.shape[0]).
         The method called with backend == ``keops'' returns an instance of a scipy linearoperator of shape (X.shape[0], Y.shape[0])
         """
-
+    def __repr__(self):
+        _r = "[" + self.__class__.__name__ + "] " 
+        for k, v in self.__dict__:
+            _r += f"{k}: {v} "
+        return _r
+        
 class ScalarProduct(Kernel):
     def __call__(self, X, Y = None, backend = 'numpy'):
         """Return the Kernel matrix k(x,y) := <Phi(x),Phi(y)>. Different samples are batched on the first dimension of X and Y."""
