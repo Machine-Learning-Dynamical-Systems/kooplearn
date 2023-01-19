@@ -280,8 +280,9 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             D = (K_tv_X.T@U).T
             E = (V.T)@(self.K_Y_@V)
 
-            M = K_v_Y -(C@D + (D.T)@(C.T)) + (val_dim**(-1))*((D.T)@E@(D))
-            return np.sqrt(np.linalg.norm((val_dim**(-1))*M, ord=2))
+            M = (val_dim**(-1))*(K_v_Y -(C@D + (D.T)@(C.T)) + (val_dim**(-1))*((D.T)@E@(D)))
+            sigma_1_sq = np.max(np.linalg.eigvalsh(M))
+            return np.sqrt(sigma_1_sq)
         else:
             raise ValueError(f"Accepted norms are 'HS' (Hilbert-Schmidt) or 'op' (Operator norm), while '{norm}' was provided.")
     def _more_tags(self):
