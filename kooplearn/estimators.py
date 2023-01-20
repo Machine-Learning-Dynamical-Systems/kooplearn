@@ -410,22 +410,15 @@ class ReducedRank(LowRankRegressor):
             if np.max(np.abs(U.imag)) > 1e-8:
                 warn("Computed projector is not real. The Kernel matrix is either severely ill conditioned or non-symmetric, discarting imaginary parts.")
                 #[TODO] Actually, the projector might be ok and complex if a global phase is present. Fix this.
-            U = np.real(U)
-
-            #Orthogonalize through pivoted QR algorithm
-            U_norms = weighted_norm(U, M = norm_inducing_op)
-            max_U_norm = np.max(U_norms)
-
-            if any(U_norms < max_U_norm * 2.2e-16):  #Columns of U are too close to be linearly dependent. Perform QR factorization with pivoting to expose rank deficiency.
-                U, _, columns_permutation = modified_QR(U, M = norm_inducing_op, column_pivoting=True)
-                U = U[:,np.argsort(columns_permutation)]
-                if U.shape[1] < self.rank:
-                    warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - U.shape[1]} degrees of freedom will be ignored.")
-                    _zeroes = np.zeros((U.shape[0], self.rank - U.shape[1]))
-                    U = np.c_[U, _zeroes]
-                    assert U.shape[1] == self.rank
-            else:
-                U = U@np.diag(U_norms**-1) 
+            U = np.real(U)      
+            U, _, columns_permutation = modified_QR(U, M = norm_inducing_op, column_pivoting=True)
+            U = U[:,np.argsort(columns_permutation)]
+            if U.shape[1] < self.rank:
+                warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - U.shape[1]} degrees of freedom will be ignored.")
+                _zeroes = np.zeros((U.shape[0], self.rank - U.shape[1]))
+                U = np.c_[U, _zeroes]
+                assert U.shape[1] == self.rank
+            
             V = K_X@np.asfortranarray(U)
             return U, V, sigma_sq
     def _fit_unregularized(self, K_X, K_Y):
