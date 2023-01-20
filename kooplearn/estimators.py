@@ -280,7 +280,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             D = (K_tv_X.T@U).T
             E = (V.T)@(self.K_Y_@V)
 
-            M = (val_dim**(-1))*(K_v_Y -(C@D + (D.T)@(C.T)) + (val_dim**(-1))*((D.T)@E@(D)))
+            M = (val_dim**(-1))*(K_v_Y -(C@D + (D.T)@(C.T)) + ((D.T)@E@(D)))
             sigma_1_sq = np.max(np.linalg.eigvalsh(M))
             return np.sqrt(sigma_1_sq)
         else:
@@ -402,25 +402,22 @@ class ReducedRank(LowRankRegressor):
             else: #'full'
                 tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
                 sigma_sq, U = eig(K, K_X + tikhonov)
-            
+
             #Post-process U. Promote numerical stability via additional QR decoposition if necessary.
             U = U[:, sort_and_crop(sigma_sq.real, self.rank)]
-
-            #Check that the eigenvectors are real
-            if np.max(np.abs(U.imag)) > 1e-8:
-                warn("Computed projector is not real. The Kernel matrix is either severely ill conditioned or non-symmetric, discarting imaginary parts.")
-                #[TODO] Actually, the projector might be ok and complex if a global phase is present. Fix this.
-            U = np.real(U)      
-            U, _, columns_permutation = modified_QR(U, M = norm_inducing_op, column_pivoting=True)
-            U = U[:,np.argsort(columns_permutation)]
-            if U.shape[1] < self.rank:
-                warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - U.shape[1]} degrees of freedom will be ignored.")
-                _zeroes = np.zeros((U.shape[0], self.rank - U.shape[1]))
-                U = np.c_[U, _zeroes]
-                assert U.shape[1] == self.rank
+            U_norms = weighted_norm(U, norm_inducing_op)
+            U = U@np.diag(U_norms**-1) 
+            # U, _, columns_permutation = modified_QR(U, M = norm_inducing_op, column_pivoting=True)
+            # U = U[:,np.argsort(columns_permutation)]
+            # if U.shape[1] < self.rank:
+            #     warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - U.shape[1]} degrees of freedom will be ignored.")
+            #     _zeroes = np.zeros((U.shape[0], self.rank - U.shape[1]))
+            #     U = np.c_[U, _zeroes]
+            #     assert U.shape[1] == self.rank
             
             V = K_X@np.asfortranarray(U)
             return U, V, sigma_sq
+
     def _fit_unregularized(self, K_X, K_Y):
         if self.svd_solver == 'randomized':
             warn("The 'randomized' svd_solver is equivalent to 'arnoldi' when tikhonov_reg = None.")
