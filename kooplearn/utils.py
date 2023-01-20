@@ -160,7 +160,7 @@ class SquaredKernel(LinearOperator):
         if isinstance(K, LinearOperator):
             self.is_linop = True
         else:
-            self.M = (alpha*(K@(K.T)) + beta*K)
+            self.M = (alpha*(K@(K.T)) + beta*K) #Assuming that K is symmetric!
         self.dtype = K.dtype #Needed by LinearOperator superclass
         self.shape = K.shape #Needed by LinearOperator superclass
         self.alpha = alpha
