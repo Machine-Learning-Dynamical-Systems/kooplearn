@@ -285,6 +285,11 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             return np.sqrt(sigma_1_sq)
         else:
             raise ValueError(f"Accepted norms are 'HS' (Hilbert-Schmidt) or 'op' (Operator norm), while '{norm}' was provided.")
+    def reconstruction_error(self, X, Y):
+        Y_pred = self.predict(X)
+        inv_dim = X.shape[0]**(-1.)
+        return inv_dim*np.sum((Y - Y_pred)**2)
+        
     def _more_tags(self):
         return {
             'multioutput_only': True,
@@ -402,22 +407,21 @@ class ReducedRank(LowRankRegressor):
             else: #'full'
                 tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
                 sigma_sq, U = eig(K, K_X + tikhonov)
+            
+            max_imag_part = np.max(U.imag)
+            if max_imag_part >=2.2e-10:
+                warn(f"The computed projector is not real. The Kernel matrix is severely ill-conditioned.")
+            U = np.real(U)
 
             #Post-process U. Promote numerical stability via additional QR decoposition if necessary.
             U = U[:, sort_and_crop(sigma_sq.real, self.rank)]
-            U_norms = weighted_norm(U, norm_inducing_op)
-            U = U@np.diag(U_norms**-1)
-            if np.max(np.abs(U.imag)) > 1e-8:
-                warn("Computed projector is not real. The Kernel matrix is either severely ill conditioned or non-symmetric, discarting imaginary parts.")
-                #[TODO] Actually, the projector might be ok and complex if a global phase is present. Fix this.
-            U = np.real(U)
-            # U, _, columns_permutation = modified_QR(U, M = norm_inducing_op, column_pivoting=True)
-            # U = U[:,np.argsort(columns_permutation)]
-            # if U.shape[1] < self.rank:
-            #     warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - U.shape[1]} degrees of freedom will be ignored.")
-            #     _zeroes = np.zeros((U.shape[0], self.rank - U.shape[1]))
-            #     U = np.c_[U, _zeroes]
-            #     assert U.shape[1] == self.rank
+            U, _, columns_permutation = modified_QR(U, M = norm_inducing_op, column_pivoting=True)
+            U = U[:,np.argsort(columns_permutation)]
+            if U.shape[1] < self.rank:
+                warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - U.shape[1]} degrees of freedom will be ignored.")
+                _zeroes = np.zeros((U.shape[0], self.rank - U.shape[1]))
+                U = np.c_[U, _zeroes]
+                assert U.shape[1] == self.rank
             
             V = K_X@np.asfortranarray(U)
             return U, V, sigma_sq

@@ -42,14 +42,12 @@ def weighted_norm(A, M = None):
             _A = aslinearoperator(M).matvec(np.ascontiguousarray(A))
         else:
             _A = aslinearoperator(M).matmat(np.asfortranarray(A))  
-        norm = np.sqrt(
-                np.real(
-                    np.sum(
-                        np.conj(A)*_A, 
-                        axis=0)
-                    )
-                )
-    return norm
+        norm = np.real(
+                np.sum(
+                    np.conj(A)*_A, 
+                    axis=0)
+                )        
+    return np.sqrt(norm)
 
 def weighted_dot_product(A, B, M=None):
     """Weighted dot product between the columns of A and B. The output will be equivalent to np.conj(A).T@M@B
@@ -162,7 +160,7 @@ class SquaredKernel(LinearOperator):
         if isinstance(K, LinearOperator):
             self.is_linop = True
         else:
-            self.M = (alpha*K + beta)@K
+            self.M = (alpha*(K@(K.T)) + beta*K)
         self.dtype = K.dtype #Needed by LinearOperator superclass
         self.shape = K.shape #Needed by LinearOperator superclass
         self.alpha = alpha
