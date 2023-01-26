@@ -138,8 +138,8 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         W_X = self.U_.T @ ((self.K_X_ * dim_inv) @ self.U_)
         W_Y = self.V_.T @ ((self.K_Y_ * dim_inv) @ self.V_)
         
-        norm_r = weighted_norm(vr,W_X)
-        norm_l = weighted_norm(vl,W_Y)
+        norm_r = weighted_norm(vr,W_X) 
+        norm_l = weighted_norm(vl,W_Y) 
 
         vr = vr @ np.diag(norm_r**(-1))
         vl = vl @ np.diag(norm_l**(-1))
@@ -281,7 +281,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             E = (V.T)@(self.K_Y_@V)
 
             M = (val_dim**(-1))*(K_v_Y -(C@D + (D.T)@(C.T)) + ((D.T)@E@(D)))
-            sigma_1_sq = np.max(np.linalg.eigvalsh(M))
+            sigma_1_sq = np.max(eigsh(M, k = 3, return_eigenvectors=False))
             return np.sqrt(sigma_1_sq)
         else:
             raise ValueError(f"Accepted norms are 'HS' (Hilbert-Schmidt) or 'op' (Operator norm), while '{norm}' was provided.")
