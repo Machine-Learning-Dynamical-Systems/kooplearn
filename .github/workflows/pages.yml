@@ -1,0 +1,30 @@
+name: Publish Github Pages
+
+on:
+  push:
+    branches: [public]
+
+# Cancel any in-progress job or run
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#concurrency
+concurrency:
+  group: gh-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pages:
+    runs-on: ubuntu-20.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+    - run: |
+        sudo locale-gen en_US.UTF-8
+        sudo update-locale
+    - id: deployment
+      uses: sphinx-notes/pages@v3
+      with:
+        cache: true
