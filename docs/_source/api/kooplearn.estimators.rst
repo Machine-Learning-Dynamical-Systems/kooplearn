@@ -1,7 +1,14 @@
-kooplearn.estimators module
+Estimators
 ===========================
 
-.. automodule:: kooplearn.estimators
+.. autoclass:: kooplearn.estimators.LowRankRegressor
    :members:
    :undoc-members:
-   :show-inheritance:
+
+.. autoclass:: kooplearn.estimators.PrincipalComponent
+   :members:
+   :undoc-members:
+
+.. autoclass:: kooplearn.estimators.ReducedRank
+   :members:
+   :undoc-members:
