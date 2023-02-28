@@ -35,6 +35,9 @@ gpu_support = [
   "pykeops",
   "torch",
 ]
+docs = [
+  "sphinx-book-theme",
+]
 
 [project.urls]
 Documentation = "https://github.com/CSML-IIT-UCL/kooplearn#readme"
