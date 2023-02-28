@@ -28,3 +28,4 @@ jobs:
       uses: sphinx-notes/pages@v3
       with:
         cache: true
+        documentation_path: ./docs/_source
