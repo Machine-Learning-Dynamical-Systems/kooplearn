@@ -3,20 +3,23 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to kooplearn's documentation!
+Kooplearn's documentation.
 =====================================
 
 .. toctree::
    :maxdepth: 2
-   :caption: *INTRODUCTION*
+   :caption: ABOUT KOOPLEARN
    
+   getting_started
    installation
-   api/kooplearn
+   
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API REFERENCE
+
+   api/kooplearn.estimators
+   api/kooplearn.kernels
+   api/kooplearn.utils
 
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
