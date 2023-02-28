@@ -3,6 +3,7 @@ import sklearn.gaussian_process.kernels as sk_kernels
 from sklearn.metrics.pairwise import polynomial_kernel as sk_poly
 from scipy.sparse.linalg import aslinearoperator
 from ._keops_utils import Pm, lazy_cdist, lazy_cprod, __has_keops__, keops_import_error, __has_torch__
+import numpy as np
 
  
 from math import sqrt
@@ -26,6 +27,14 @@ class Kernel(metaclass=ABCMeta):
         The method called with backend == ``numpy'' returns a numpy array of shape (X.shape[0], Y.shape[0]).
         The method called with backend == ``keops'' returns an instance of a scipy linearoperator of shape (X.shape[0], Y.shape[0])
         """
+    def __repr__(self):
+        _r = "[" + self.__class__.__name__ + "] " 
+        for k, v in self.__dict__.items():
+            if k[0] == "_":
+                pass
+            else:
+                _r += f"{k}: {v} "
+        return _r
 
 class ScalarProduct(Kernel):
     def __call__(self, X, Y = None, backend = 'numpy'):
@@ -37,7 +46,7 @@ class ScalarProduct(Kernel):
         else:
             phi_Y = self.__feature_map__(Y)
         if backend == 'numpy':
-                return phi_X@(phi_Y.T)
+            return phi_X@(phi_Y.T)
         return lazy_cprod(phi_X, phi_Y) #Backend == 'keops'
     def cov(self, X, Y = None):
         phi_X = self.__feature_map__(X)
@@ -100,6 +109,21 @@ class RBF(Kernel):
             return aslinearoperator(K)
         else:
             return self._scikit_kernel(X, Y)
+
+class ExpSineSquared(Kernel):
+    def __init__(self, length_scale=1.0, periodicity=1.0):
+        self.length_scale = length_scale
+        self.periodicity = periodicity
+        self._scikit_kernel = sk_kernels.ExpSineSquared(length_scale=self.length_scale, periodicity=self.periodicity, length_scale_bounds='fixed', periodicity_bounds='fixed')
+    def __call__(self, X, Y=None, backend='numpy'):
+        backend = parse_backend(backend)
+        if backend == 'keops':
+            periodic = ((np.pi*lazy_cdist(X,Y)/Pm(self.periodicity)).sin()).square()
+            K = (-(2*periodic)/((Pm(self.length_scale)**2))).exp()
+            return aslinearoperator(K)
+        else:
+            return self._scikit_kernel(X, Y)
+
 class Matern(Kernel):
     def __init__(self, nu=1.5, length_scale=1.0):
         self.nu = nu
@@ -149,10 +173,12 @@ class Poly(Kernel):
             else:
                 raise NotImplementedError("Poly kernel with degree != [1,2] not implemented (because of a bug on pow function).")
         else:
-            return sk_poly(X, Y, degree = self.degree, gamma = self.gamma, coef0 = self.coef0)           
+            return sk_poly(X, Y, degree = self.degree, gamma = self.gamma, coef0 = self.coef0)  
+                     
 class Linear(Poly):
     def __init__(self, gamma=None, coef0=1):
         super().__init__(degree=1, gamma=gamma, coef0=coef0)
+
 class Quadratic(Poly):
     def __init__(self, gamma=None, coef0=1):
         super().__init__(degree=2, gamma=gamma, coef0=coef0)
