@@ -8,15 +8,14 @@ Kooplearn's documentation.
 
 .. toctree::
    :maxdepth: 2
-   :caption: ABOUT KOOPLEARN
+   :caption: About Kooplearn
    
    getting_started
-   installation
    
 
 .. toctree::
    :maxdepth: 2
-   :caption: API REFERENCE
+   :caption: API reference
 
    api/kooplearn.estimators
    api/kooplearn.kernels

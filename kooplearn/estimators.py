@@ -226,8 +226,8 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         Args:
             X (ndarray, optional): Array of shape (num_test_points, num_features) of input observations. Defaults to None.
             Y (ndarray, optional): Array of shape (num_test_points, num_features) of evolved observations. Defaults to None.
-            If X == Y == None, the traning data is used. And the sample training risk is returned.
-
+        
+        If X == Y == None, the traning data is used. And the sample training risk is returned.
         Returns:
             float: Risk of the Low Rank Regression estimator.
         """
@@ -248,7 +248,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         return r
     def norm(self):
         """
-            Hilbert-Schmidt norm of the estimator ||\hat{S}^{*}@U@V.T@\hat{Z}||_{HS} = n^{-2}tr(U.T@K_X@U@V.T@K_Y@V)
+            Hilbert-Schmidt norm of the estimator :math:`||\hat{S}^{*}UV^{\top}\hat{Z}||_{HS} = n^{-2}\text{tr}(U^{\top}K_{X}UV^{\top}K_{Y}V)`
         """
         check_is_fitted(self, ['K_X_', 'K_Y_', 'U_', 'V_'])
         dim = self.K_X_.shape[0]
