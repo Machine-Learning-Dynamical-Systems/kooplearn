@@ -1,5 +1,5 @@
-kooplearn.kernels module
-========================
+Kernels
+=======
 
 .. automodule:: kooplearn.kernels
    :members:

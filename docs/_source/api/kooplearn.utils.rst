@@ -1,4 +1,4 @@
-kooplearn.utils module
+Utilities
 ======================
 
 .. automodule:: kooplearn.utils

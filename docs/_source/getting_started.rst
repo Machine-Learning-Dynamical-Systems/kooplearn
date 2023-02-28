@@ -6,14 +6,18 @@ Welcome to the "Getting Started" page for the Python package kooplearn! This pac
 Installation
 ------------
 
-Before you can use kooplearn, you'll need to install it. You can do so using `pip`, the Python package manager::
+Before you can use kooplearn, you'll need to install it. You can do so using ``pip``, the Python package manager::
+    
     pip install kooplearn
 
 Basic Usage
 -----------
 
-Once you've installed "kooplearn", you can import it in your Python code and start using it. Here's an example of how to use the PrincipalComponent class to learn the Koopman operator:
+Once you've installed kooplearn, you can import it in your Python code and start using it. Here's an example of how to use the PrincipalComponent class to learn the Koopman operator:
+
 .. code-block:: python
+    :linenos:
+
     import numpy as np
     from kooplearn.estimators import PrincipalComponent
     from kooplearn.kernels import RBF
