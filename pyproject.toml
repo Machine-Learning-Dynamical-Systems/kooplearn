@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kooplearn"
-description = 'A python package implementing ML algorithms to learn the Koopman operator'
+description = 'A Python package implementing kernel-based algorithms to learn the Koopman operator.'
 readme = "README.md"
 requires-python = ">=3.7"
 license = "MIT"
@@ -37,9 +37,9 @@ gpu_support = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/unknown/kooplearn#readme"
-Issues = "https://github.com/unknown/kooplearn/issues"
-Source = "https://github.com/unknown/kooplearn"
+Documentation = "https://github.com/CSML-IIT-UCL/kooplearn#readme"
+Issues = "https://github.com/CSML-IIT-UCL/kooplearn/issues"
+Source = "https://github.com/CSML-IIT-UCL/kooplearn"
 
 [tool.hatch.version]
 path = "kooplearn/__about__.py"
@@ -57,7 +57,7 @@ dependencies = [
 [tool.hatch.envs.default.scripts]
 cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=kooplearn --cov=tests {args}"
 no-cov = "cov --no-cov {args}"
-apidoc = "sphinx-apidoc -f -o docs/_source kooplearn"
+apidoc = "sphinx-apidoc -f -T -e -o docs/_source/api kooplearn"
 build_docs = "sphinx-build -b html docs/_source docs/_build"
 
 [tool.hatch.envs.test]

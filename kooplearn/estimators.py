@@ -42,7 +42,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
 
         Args:
             X (ndarray): 2D array of shape (n_samples, n_features) containing the initial conditions.
-            t (scalar or ndarray, optional): Time(s) to forecast. Defaults to 1..
+            t (scalar or ndarray, optional): Time(s) to forecast. Defaults to 1.
             observable (lambda function, optional): Observable to forecast. Defaults to the identity map, corresponding to forecasting the state itself.
             which (None or array of integers, optional): If None, compute the forecast with all the modes of the observable. If which is an array of integers, the forecast is computed using only the modes corresponding to the indexes provided. The modes are arranged in decreasing order with respect to the eigenvalues. For example, if which = [0,2] only the first and third leading modes are used to forecast.  Defaults to None.
 
