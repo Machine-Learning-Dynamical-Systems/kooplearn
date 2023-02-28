@@ -30,4 +30,5 @@ html_sidebars = {
 html_theme_options = {
     "repository_url": "https://github.com/CSML-IIT-UCL/kooplearn",
     "use_repository_button": True,
+    "home_page_in_toc": True,
 }
