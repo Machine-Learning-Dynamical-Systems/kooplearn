@@ -1,4 +1,5 @@
 from sys import path
+import pytest
 path.append('../')
 from kooplearn.kernels import Kernel, parse_backend, RBF
 from kooplearn._keops_utils import Pm, lazy_cdist
@@ -184,6 +185,7 @@ def test_RRR_fit_numpy_arnoldi():
         W[solver] = np.dot(U, V.T)
     assert np.allclose(W['full'], W['arnoldi'])
 
+@pytest.mark.skip(reason="Keops not available at the moment")
 def test_RRR_fit_keops_arnoldi():
     N = 20
     logistic = LogisticMap(N)
