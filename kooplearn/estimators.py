@@ -92,7 +92,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
 
         Args:
             k (int, optional): Number of singular values to evaluate. Defaults to 6.
-            stabilizer ([float, None], optional): A float to stabilize the inversion of :math:`K_x`. It amounts to replaxe :math:`K_x \mapsto K_x + \rm{stabilizer}I`. Defaults to None, corresponding to the pre-specified Tikhonov regularization in the RRR algorithm and to :math:`\rm{num_points}^{-1/2}` in the PCR algorithm.
+            stabilizer ([float, None], optional): A float to stabilize the inversion of :math:`K_x`. It amounts to replaxe :math:`K_x \mapsto K_x + \rm{stabilizer}I`. Defaults to None, corresponding to the pre-specified Tikhonov regularization in the RRR algorithm and to :math:`{\rm num\_points}^{-1/2}` in the PCR algorithm.
 
         Returns:
             ndarray: Array of the computed singular values decreasingly ordered.

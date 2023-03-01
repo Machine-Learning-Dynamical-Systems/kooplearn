@@ -24,7 +24,7 @@ def sort_and_crop(vec, num_components = None):
         return sort_perm[:num_components]
     
 def weighted_norm(A, M = None):
-    """Weighted norm of the columns of A.
+    r"""Weighted norm of the columns of A.
 
     Args:
         A (ndarray): 1D or 2D array. If 2D, the columns are treated as vectors.
