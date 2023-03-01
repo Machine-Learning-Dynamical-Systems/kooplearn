@@ -7,7 +7,7 @@ from sklearn.utils import check_array, check_random_state
 from warnings import warn
 
 def sort_and_crop(vec, num_components = None):
-    """Return the i
+    """Return the indices of the largest ``num_components`` elements in vec in descending order.
 
     Args:
         vec (ndarray): 1D array of floats
