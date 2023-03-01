@@ -296,13 +296,16 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
                 "check_dict_unchanged": "Comparing ndarrays (input data + kernel) with == fails. Could be fixed by using np.allclose.",
                 }
             }
+    
+
 class ReducedRank(LowRankRegressor):
     def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=1, n_oversamples=5, optimal_sketching=False):
         """Reduced Rank Regression Estimator for the Koopman Operator
+
         Args:
-            kernel (Kernel, optional): Kernel object implemented according to the specification found in the ``kernels``submodule. Defaults to None corresponds to a linear kernel.
+            kernel (Kernel, optional): Kernel object implemented according to the specification found in the `kernels` submodule. Defaults to None.
             rank (int, optional): Rank of the estimator. Defaults to 5.
-            tikhonov_reg (_type_, optional): Tikhonov regularization parameter. Defaults to None.
+            tikhonov_reg (float, optional): Tikhonov regularization parameter. Defaults to None.
             backend (str, optional): 
                 If 'numpy' kernel matrices are formed explicitely and stored as numpy arrays. 
                 If 'keops', kernel matrices are computed on the fly and never stored in memory. Keops backend is GPU compatible and preferable for large scale problems. 
@@ -312,8 +315,9 @@ class ReducedRank(LowRankRegressor):
                 If 'arnoldi', run SVD truncated to rank calling ARPACK solver functions.
                 If 'randomized', run randomized SVD by the method of [add ref.]  
                 Defaults to 'full'.
-            iterated_power (int, optional): Number of iterations for the power method computed by svd_solver == 'randomized'. Must be of range [0, infinity). Defaults to 2.
-            n_oversamples (int, optional): This parameter is only relevant when svd_solver == 'randomized'. It corresponds to the additional number of random vectors to sample the range of X so as to ensure proper conditioning. Defaults to 10.
+            iterated_power (int, optional): Number of iterations for the power method computed by svd_solver = 'randomized'. Must be of range :math:`[0, \infty)`. Defaults to 2.
+            n_oversamples (int, optional): This parameter is only relevant when svd_solver = 'randomized'. It corresponds to the additional number of random vectors to sample the range of X so as to ensure proper conditioning. Defaults to 10.
+            optimal_sketching (bool, optional): Sketching strategy for the randomized solver. If true performs optimal sketching (computaitonally more expensive but more accurate). Defaults to False.
         """
         self.kernel = kernel
         self.rank = rank
@@ -441,10 +445,10 @@ class ReducedRank(LowRankRegressor):
         return U, V, sigma_sq
 class PrincipalComponent(LowRankRegressor):
     def __init__(self, kernel=None, rank=5, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10):
-        """Reduced Rank Regression Estimator for the Koopman Operator
+        """Principal Component Regression Estimator for the Koopman Operator
         
         Args:
-            kernel (Kernel, optional): Kernel object implemented according to the specification found in the ``kernels``submodule. Defaults to None corresponds to a linear kernel.
+            kernel (Kernel, optional): Kernel object implemented according to the specification found in the `kernels` submodule. Defaults to None corresponds to a linear kernel.
             rank (int, optional): Rank of the estimator. Defaults to 5.
             tikhonov_reg (_type_, optional): Tikhonov regularization parameter. Defaults to None.
             backend (str, optional): 
