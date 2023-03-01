@@ -88,11 +88,11 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         """
         return self._eig(left=left, right=right, return_type = 'default')        
     def svals(self, k = 6, stabilizer = None):
-        """Compute the largest singular values of Z = AS (A = Koopman operator, S = injection operator)
+        r"""Compute the largest singular values of Z = AS (A = Koopman operator, S = injection operator)
 
         Args:
             k (int, optional): Number of singular values to evaluate. Defaults to 6.
-            stabilizer ([float, None], optional): A float to stabilize the inversion of K_x. It amounts to replaxe K_x -> K_x + stabilizer*Id. Defaults to None, corresponding to the pre-specified Tikhonov regularization in the RRR algorithm and to :math:`\rm{num_points}^{-1/2}` in the PCR algorithm.
+            stabilizer ([float, None], optional): A float to stabilize the inversion of :math:`K_x`. It amounts to replaxe :math:`K_x \mapsto K_x + \rm{stabilizer}I`. Defaults to None, corresponding to the pre-specified Tikhonov regularization in the RRR algorithm and to :math:`\rm{num_points}^{-1/2}` in the PCR algorithm.
 
         Returns:
             ndarray: Array of the computed singular values decreasingly ordered.
