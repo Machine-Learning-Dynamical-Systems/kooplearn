@@ -152,7 +152,7 @@ def modified_QR(A, M = None, column_pivoting = False, rtol = 2.2e-16, verbose = 
         return Q[:,:effective_rank], R[:effective_rank]
 
 class SquaredKernel(LinearOperator):
-    """Helper class to repeatedly apply :math:`\alpha K^{2} + \beta K`.
+    r"""Helper class to repeatedly apply :math:`\alpha K^{2} + \beta K`.
     """    
     def __init__(self, K, alpha, beta):
         self.K = K
