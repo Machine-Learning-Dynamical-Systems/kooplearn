@@ -39,6 +39,9 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         return modes.T*inv_sqrt_dim            
     def forecast(self, X, t=1., observable = lambda x: x, which = None,):
         """Forecast an observable using the estimated Koopman operator.
+        
+        This method with t=1., observable = lambda x: x, and which = None is equivalent to self.predict(X).
+        Be aware of the unit of measurements: if the datapoints come from a continuous dynamical system disctretized every dt, the variable t in this function corresponds to the time t' = t*dt  of the continuous dynamical system.
 
         Args:
             X (ndarray): 2D array of shape (n_samples, n_features) containing the initial conditions.
@@ -46,12 +49,8 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             observable (lambda function, optional): Observable to forecast. Defaults to the identity map, corresponding to forecasting the state itself.
             which (None or array of integers, optional): If None, compute the forecast with all the modes of the observable. If which is an array of integers, the forecast is computed using only the modes corresponding to the indexes provided. The modes are arranged in decreasing order with respect to the eigenvalues. For example, if which = [0,2] only the first and third leading modes are used to forecast.  Defaults to None.
 
-            This method with t=1., observable = lambda x: x, and which = None is equivalent to self.predict(X).
-
-            Be aware of the unit of measurements: if the datapoints come from a continuous dynamical system disctretized every dt, the variable t in this function corresponds to the time t' = t*dt  of the continuous dynamical system.
-
         Returns:
-            ndarray: array of shape (n_t, n_samples, n_obs) containing the forecast of the observable(s) provided as argument. Here n_samples = len(X), n_obs = len(observable(x)), n_t = len(t) (if t is a scalar n_t = 1).
+            ndarray: Array of shape (n_t, n_samples, n_obs) containing the forecast of the observable(s) provided as argument. Here n_samples = len(X), n_obs = len(observable(x)), n_t = len(t) (if t is a scalar n_t = 1).
         """        
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
         evals, left_right_norms, vl, _refuns = self._eig(return_type='koopman_modes')
@@ -85,9 +84,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
             left (bool, optional): Whether to return the left eigenfunctions. Defaults to False.
             right (bool, optional): Wheter to return the right eigenfunctions. Defaults to True.
         Returns:
-            w (ndarray): Eigenvalues of the estimated Koopman Operator.
-            fr (lambda function, only if right=True): Right eigenfunctions of the estimated Koopman Operator.
-            fl (lambda function, only if left=True): Left eigenfunctions of the estimated Koopman Operator.
+            tuple: (evals, fr, fl) where evals is an array of shape (self.rank,) containing the eigenvalues of the estimated Koopman operator, fr is a lambda function returning the right eigenfunctions of the estimated Koopman operator, and fl is a lambda function returning the left eigenfunctions of the estimated Koopman operator. If left=False, fl is not returned. If right=False, fr is not returned.
         """
         return self._eig(left=left, right=right, return_type = 'default')        
     def svals(self, k = 6, stabilizer = None):
@@ -95,10 +92,10 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
 
         Args:
             k (int, optional): Number of singular values to evaluate. Defaults to 6.
-            stabilizer ([float, None], optional): A float to stabilize the inversion of K_x. It amounts to replaxe K_x -> K_x + stabilizer*Id. Defaults to None, corresponding to the pre-specified Tikhonov regularization in the RRR algorithm and to sqrt(num_points)^-1 in the PCR algorithm.
+            stabilizer ([float, None], optional): A float to stabilize the inversion of K_x. It amounts to replaxe K_x -> K_x + stabilizer*Id. Defaults to None, corresponding to the pre-specified Tikhonov regularization in the RRR algorithm and to :math:`\sqrt{num_points)}^-1` in the PCR algorithm.
 
         Returns:
-            NDArray: Array of the computed singular values decreasingly ordered.
+            ndarray: Array of the computed singular values decreasingly ordered.
         """
         check_is_fitted(self, ['K_X_', 'K_Y_'])
         
@@ -221,13 +218,12 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
         r_yy = np.squeeze(r_yy)*((_Y.shape[0])**(-1))             
         return K_yY, K_Xx, r_yy
     def risk(self, X = None, Y = None):
-        """Empirical risk of the model. :math:`\\frac{1}{n}\sum_{i = 1}^{n} ||\phi(Y_i) - G^*\phi(X_i)||^{2}_{\mathcal{H}}`
+        """Empirical risk of the model. :math:`\\frac{1}{n}\sum_{i = 1}^{n} ||\phi(Y_i) - G^*\phi(X_i)||^{2}_{\mathcal{H}}`. If X = Y = None, the traning data is used. And the sample training risk is returned.
 
         Args:
             X (ndarray, optional): Array of shape (num_test_points, num_features) of input observations. Defaults to None.
             Y (ndarray, optional): Array of shape (num_test_points, num_features) of evolved observations. Defaults to None.
         
-        If X == Y == None, the traning data is used. And the sample training risk is returned.
         Returns:
             float: Risk of the Low Rank Regression estimator.
         """
@@ -333,8 +329,6 @@ class ReducedRank(LowRankRegressor):
         Args:
             X (ndarray): Input observations.
             Y (ndarray): Evolved observations.
-        Returns:
-            self: Returns self.
         """
         self._check_backend_solver_compatibility()
         X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
@@ -448,6 +442,7 @@ class ReducedRank(LowRankRegressor):
 class PrincipalComponent(LowRankRegressor):
     def __init__(self, kernel=None, rank=5, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10):
         """Reduced Rank Regression Estimator for the Koopman Operator
+        
         Args:
             kernel (Kernel, optional): Kernel object implemented according to the specification found in the ``kernels``submodule. Defaults to None corresponds to a linear kernel.
             rank (int, optional): Rank of the estimator. Defaults to 5.
@@ -473,11 +468,10 @@ class PrincipalComponent(LowRankRegressor):
 
     def fit(self, X, Y):
         """Fit the Koopman operator estimator.
+        
         Args:
             X (ndarray): Input observations.
             Y (ndarray): Evolved observations.
-        Returns:
-            self: Returns self.
         """
         self._check_backend_solver_compatibility()
         X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
