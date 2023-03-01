@@ -28,10 +28,10 @@ def weighted_norm(A, M = None):
 
     Args:
         A (ndarray): 1D or 2D array. If 2D, the columns are treated as vectors.
-        M (ndarray or LinearOperator, optional): Weigthing matrix. the norm of the vector a is given by a.T@M@a. Defaults to None, corresponding to the Identity matrix. Warning: no checks are performed on M being a PSD operator. 
+        M (ndarray or LinearOperator, optional): Weigthing matrix. the norm of the vector :math:`a` is given by :math:`\langle a, Ma\rangle`. Defaults to None, corresponding to the Identity matrix. Warning: no checks are performed on M being a PSD operator. 
 
     Returns:
-        (ndarray or float): if A.ndim == 2 returns 1D array of floats corresponding to the norms of the columns of A. Else return a float.
+        (ndarray or float): If ``A.ndim == 2`` returns 1D array of floats corresponding to the norms of the columns of A. Else return a float.
     """    
     assert A.ndim <= 2, "'A' must be a vector or a 2D array"
     _1D = (A.ndim == 1)
@@ -50,14 +50,14 @@ def weighted_norm(A, M = None):
     return np.sqrt(norm)
 
 def weighted_dot_product(A, B, M=None):
-    """Weighted dot product between the columns of A and B. The output will be equivalent to np.conj(A).T@M@B
+    """Weighted dot product between the columns of A and B. The output will be equivalent to :math:`A^{*} M B` if A and B are 2D arrays.
 
     Args:
         A, B (ndarray): 1D or 2D arrays.
         M (ndarray or LinearOperator, optional): Weigthing matrix. Defaults to None, corresponding to the Identity matrix. Warning: no checks are performed on M being a PSD operator. 
 
     Returns:
-        (ndarray or float): the result of np.conj(A).T@M@B.
+        (ndarray or float): The result of :math:`A^{*} M B`.
     """    
     assert A.ndim <= 2, "'A' must be a vector or a 2D array"
     assert B.ndim <= 2, "'B' must be a vector or a 2D array"
@@ -94,11 +94,11 @@ def modified_QR(A, M = None, column_pivoting = False, rtol = 2.2e-16, verbose = 
         A (ndarray): 2D array whose columns are vectors to be orthogonalized.
         M (ndarray or LinearOperator, optional): PSD linear operator. If not None, the vectors are orthonormalized with respect to the scalar product induced by M. Defaults to None corresponding to Identity matrix.
         column_pivoting (bool, optional): Whether column pivoting is performed. Defaults to False.
-        rtol (float, optional): relative tolerance in determining the numerical rank of A. Defaults to 2.2e-16. This parameter is used only when column_pivoting == True.
+        rtol (float, optional): relative tolerance in determining the numerical rank of A. Defaults to 2.2e-16. This parameter is used only when ``column_pivoting == True``.
         verbose (bool, optional): Whether to print informations and warnings about the progress of the algorithm. Defaults to False.
 
     Returns:
-        Q, R: the matrices Q and R satisfying A = QR. If column_pivoting is True, the permutation of the columns of A is returned as well.
+        tuple: A tuple of the form (Q, R), where Q and R satisfy A = QR. If ``column_pivoting == True``, the permutation of the columns of A is returned as well.
     
     [1] A. Dax: 'A modified Gram–Schmidt algorithm with iterative orthogonalization and column pivoting', https://doi.org/10.1016/S0024-3795(00)00022-7. 
     """    
@@ -152,8 +152,8 @@ def modified_QR(A, M = None, column_pivoting = False, rtol = 2.2e-16, verbose = 
         return Q[:,:effective_rank], R[:effective_rank]
 
 class SquaredKernel(LinearOperator):
-    """KernelSquared:helper class to repeatedly apply alpha*K@K+beta*K.
-    """
+    """Helper class to repeatedly apply :math:`\alpha K^{2} + \beta K`.
+    """    
     def __init__(self, K, alpha, beta):
         self.K = K
         self.is_linop = False
@@ -177,18 +177,15 @@ def randomized_range_finder(A_A_adj, size, n_iter, power_iteration_normalizer="n
     """Randomized range finder. Adapted from sklearn.utils.extmath.randomized_range_finder
 
     Args:
-        A_A_adj (ndarray, LinearOperator): Object representing A@A_adj, where A is the matrix whose range is to be found.
+        A_A_adj (ndarray, LinearOperator): Object representing :math:`AA^{*}`, where :math:`A` is the matrix whose range is to be found.
         size (int): Number of vectors to be generated and used to find the range of A.
         n_iter (int): Number of power iterations to be used to estimate the matrix range.
         power_iteration_normalizer (str, optional): Scheme to normalize the power iterations at each step. Defaults to "none". Available options are: "QR" and "column_pivoted_QR".
         M (ndarray or LinearOperator, optional): PSD linear operator. If not None, the vectors are orthonormalized with respect to the scalar product induced by M. Defaults to None corresponding to Identity matrix, i.e. standard Euclidean norm.
-        random_state (int, optional):  int, RandomState instance or None, default=None
-        The seed of the pseudo random number generator to use when shuffling
-        the data, i.e. getting the random vectors to initialize the algorithm.
-        Pass an int for reproducible results across multiple function calls.
+        random_state (int, optional):  int, RandomState instance or None, default=None. The seed of the pseudo random number generator to use when shuffling the data, i.e. getting the random vectors to initialize the algorithm. Pass an int for reproducible results across multiple function calls.
 
     Returns:
-        ndarray: An (A_A_adj.shape[0], size) matrix the range of which approximates the range of A.
+        ndarray: An (A_A_adj.shape[0], size) array the range of which approximates the range of A.
     """    
     #Adapted from sklearn.utils.extmath.randomized_range_finder
     A = aslinearoperator(A_A_adj)
