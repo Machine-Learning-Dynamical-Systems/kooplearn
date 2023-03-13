@@ -31,10 +31,17 @@ dependencies = [
 dynamic = ["version"]
 
 [project.optional-dependencies]
-gpu_support = [
+gpu = [
   "pykeops",
   "torch",
 ]
+jax = [
+  "jax",
+  "jaxtyping",
+  "optax",
+  "einops"
+]
+
 docs = [
   "sphinx-book-theme",
 ]
