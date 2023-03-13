@@ -1,2 +1,2 @@
 # Kooplearn
-The Koopman operator 
+Koopman operator learning
