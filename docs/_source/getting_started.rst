@@ -18,6 +18,10 @@ Kooplearn also has a set of JAX-compatible estimators for the primal problem tha
 
     pip install kooplearn[jax]
 
+..as well as a set of torch-compatible estimators for the primal problem that can be installed with the following command::
+
+    pip install kooplearn[torch]
+
 Basic Usage
 -----------
 

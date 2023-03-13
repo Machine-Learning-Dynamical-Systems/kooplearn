@@ -135,7 +135,6 @@ def iterative_regression(
             writer.add_scalars("Eigenvalues/imaginary_part", dict(zip(['1','2','3'], _leading_vals.imag)), k)
     return estimator
 
-#Functions to add: training error, test error, reconstruction (naive and via pre-image)
 def eig(
     fitted_estimator: RealLinalgDecomposition, 
     cross_covariance: Float[Array, "d d"],
