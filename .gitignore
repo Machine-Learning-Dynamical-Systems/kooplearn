@@ -154,3 +154,4 @@ cython_debug/
 #VS code
 workspace.code-workspace
 .DS_Store
+.vscode
