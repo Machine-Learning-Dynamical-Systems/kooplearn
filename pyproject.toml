@@ -35,6 +35,12 @@ gpu = [
   "pykeops",
   "torch",
 ]
+
+torch = [
+  "torch",
+  "einops"
+]
+
 jax = [
   "jax",
   "jaxtyping",
