@@ -10,6 +10,14 @@ Before you can use kooplearn, you'll need to install it. You can do so using ``p
     
     pip install kooplearn
 
+Kooplearn requires a minimal set of dependencies to work. Tu unlock the GPU support one can install it with the following command::
+
+    pip install kooplearn[gpu]
+
+Kooplearn also has a set of JAX-compatible estimators for the primal problem that can be installed with the following command::
+
+    pip install kooplearn[jax]
+
 Basic Usage
 -----------
 

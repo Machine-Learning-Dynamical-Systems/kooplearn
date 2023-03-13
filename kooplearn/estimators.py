@@ -295,8 +295,7 @@ class LowRankRegressor(BaseEstimator, RegressorMixin):
                 # check_estimator checks that fail:
                 "check_dict_unchanged": "Comparing ndarrays (input data + kernel) with == fails. Could be fixed by using np.allclose.",
                 }
-            }
-    
+            }  
 
 class ReducedRank(LowRankRegressor):
     def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=1, n_oversamples=5, optimal_sketching=False):
