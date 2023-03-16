@@ -327,16 +327,20 @@ class ReducedRank(LowRankRegressor):
         self.n_oversamples = n_oversamples
         self.optimal_sketching = optimal_sketching
     
-    def fit(self, X, Y):
+    def fit(self, X, Y, _skip_checks=False):
         """Fit the Koopman operator estimator.
         Args:
             X (ndarray): Input observations.
             Y (ndarray): Evolved observations.
         """
         self._check_backend_solver_compatibility()
-        X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
-        Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
-        check_X_y(X, Y, multi_output=True)
+        if _skip_checks:
+            X = np.asarray(X)
+            Y = np.asarray(Y)
+        else:
+            X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
+            Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
+            check_X_y(X, Y, multi_output=True)
 
         K_X, K_Y, K_YX = self._init_kernels(X, Y)
 
@@ -469,7 +473,7 @@ class PrincipalComponent(LowRankRegressor):
         self.iterated_power = iterated_power
         self.n_oversamples = n_oversamples
 
-    def fit(self, X, Y):
+    def fit(self, X, Y, _skip_checks=False):
         """Fit the Koopman operator estimator.
         
         Args:
@@ -477,9 +481,13 @@ class PrincipalComponent(LowRankRegressor):
             Y (ndarray): Evolved observations.
         """
         self._check_backend_solver_compatibility()
-        X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
-        Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
-        check_X_y(X, Y, multi_output=True)
+        if _skip_checks:
+            X = np.asarray(X)
+            Y = np.asarray(Y)
+        else:
+            X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
+            Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
+            check_X_y(X, Y, multi_output=True)
     
         K_X, K_Y, K_YX = self._init_kernels(X, Y)
         
