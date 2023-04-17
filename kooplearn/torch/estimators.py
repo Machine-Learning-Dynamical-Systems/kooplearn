@@ -2,6 +2,7 @@ from typing import Optional
 import torch
 from torch import Tensor
 from einops import einsum
+from kooplearn.torch.typing import LinalgDecomposition, RealLinalgDecomposition
 
 def generalized_eigh(A: Tensor, B: Tensor) -> tuple:
      #A workaround to solve a real symmetric GEP Av = \lambda Bv problem in JAX. (!! Not numerically efficient)
@@ -11,7 +12,7 @@ def generalized_eigh(A: Tensor, B: Tensor) -> tuple:
      _A = 0.5*(sqrt_B.T@(A@sqrt_B) + sqrt_B.T@((A.T)@sqrt_B)) #Force Symmetrization
      values, _tmp_vecs = torch.linalg.eigh(_A) 
      vectors = Q@(rsqrt_Lambda@_tmp_vecs)
-     return values, vectors
+     return RealLinalgDecomposition(values, vectors)
 
 def spd_norm(vecs: Tensor, spd_matrix: Tensor) -> Tensor:
      _v = torch.mm(spd_matrix, vecs)
@@ -32,7 +33,7 @@ def reduced_rank_regression(
     
     _norms = spd_norm(_vectors, reg_input_covariance)
     vectors = _vectors*(1/_norms)
-    return _values, vectors
+    return RealLinalgDecomposition(_values, vectors)
 
 def tikhonov_regression(
     input_covariance: Tensor,
@@ -42,7 +43,7 @@ def tikhonov_regression(
     reg_input_covariance = input_covariance + tikhonov_reg*torch.eye(n, dtype=input_covariance.dtype, device=input_covariance.device)
 
     Lambda, Q = torch.linalg.eigh(reg_input_covariance)
-    return Lambda, Q@torch.diag(Lambda.rsqrt())
+    return RealLinalgDecomposition(Lambda, Q@torch.diag(Lambda.rsqrt()))
 
 def eig(
     fitted_estimator: Tensor, 
@@ -58,7 +59,7 @@ def eig(
     
     #U@(U.T)@Tw = v w -> (U.T)@T@Uq = vq and w = Uq 
     values, Q = torch.linalg.eig((U.T)@(cross_covariance@U))
-    return values, U@Q
+    return LinalgDecomposition(values, U@Q)
 
 
 def sq_error(
