@@ -50,16 +50,18 @@ def eig(
     cross_covariance: Tensor,
     rank: Optional[int] = None,
     ) -> tuple:
-      
     if rank is not None:
         _, idxs = torch.topk(fitted_estimator.values, rank)
-        U = fitted_estimator[:, idxs]
+        U = (fitted_estimator.vectors)[:, idxs]
     else:
-        U = fitted_estimator
+        U = fitted_estimator.vectors
     
     #U@(U.T)@Tw = v w -> (U.T)@T@Uq = vq and w = Uq 
     values, Q = torch.linalg.eig((U.T)@(cross_covariance@U))
-    return LinalgDecomposition(values, U@Q)
+    dtype = torch.promote_types(Q.dtype, U.dtype)
+    U = U.to(dtype)
+    Q = Q.to(dtype)
+    return LinalgDecomposition(values, torch.mm(U, Q))
 
 
 def sq_error(
@@ -90,9 +92,9 @@ def naive_predict(
 
     if rank is not None:
         _, idxs = torch.topk(fitted_estimator.values, rank)
-        U = fitted_estimator[:, idxs]
+        U = (fitted_estimator.vectors)[:, idxs]
     else:
-        U = fitted_estimator
+        U = fitted_estimator.vectors
 
     x = einsum(
         featurized_x,
