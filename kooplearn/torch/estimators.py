@@ -1,27 +1,13 @@
 from typing import Optional
 import torch
-from torch import Tensor
+import logging
 from einops import einsum
 from kooplearn.torch.typing import LinalgDecomposition, RealLinalgDecomposition
-
-def generalized_eigh(A: Tensor, B: Tensor) -> tuple:
-     #A workaround to solve a real symmetric GEP Av = \lambda Bv problem in JAX. (!! Not numerically efficient)
-     Lambda, Q = torch.linalg.eigh(B)
-     rsqrt_Lambda = torch.diag(Lambda.rsqrt())
-     sqrt_B = Q@rsqrt_Lambda
-     _A = 0.5*(sqrt_B.T@(A@sqrt_B) + sqrt_B.T@((A.T)@sqrt_B)) #Force Symmetrization
-     values, _tmp_vecs = torch.linalg.eigh(_A) 
-     vectors = Q@(rsqrt_Lambda@_tmp_vecs)
-     return RealLinalgDecomposition(values, vectors)
-
-def spd_norm(vecs: Tensor, spd_matrix: Tensor) -> Tensor:
-     _v = torch.mm(spd_matrix, vecs)
-     _v_T = torch.mm(spd_matrix.T, vecs)
-     return torch.sqrt(0.5*torch.linalg.vecdot(vecs, _v + _v_T, dim = 0).real)
+from kooplearn.torch.linalg import spd_norm, generalized_eigh
 
 def reduced_rank_regression(
-    input_covariance: Tensor,
-    cross_covariance: Tensor, #C_{XY}
+    input_covariance: torch.Tensor,
+    cross_covariance: torch.Tensor, #C_{XY}
     tikhonov_reg: float,
     ) -> tuple:
     
@@ -36,7 +22,7 @@ def reduced_rank_regression(
     return RealLinalgDecomposition(_values, vectors)
 
 def tikhonov_regression(
-    input_covariance: Tensor,
+    input_covariance: torch.Tensor,
     tikhonov_reg: float,
     ) -> tuple:
     n = input_covariance.shape[0]
@@ -46,8 +32,8 @@ def tikhonov_regression(
     return RealLinalgDecomposition(Lambda, Q@torch.diag(Lambda.rsqrt()))
 
 def eig(
-    fitted_estimator: Tensor, 
-    cross_covariance: Tensor,
+    fitted_estimator: RealLinalgDecomposition, 
+    cross_covariance: torch.Tensor,
     rank: Optional[int] = None,
     ) -> tuple:
     if rank is not None:
@@ -65,9 +51,9 @@ def eig(
 
 
 def sq_error(
-    input_data: Tensor,
-    output_data: Tensor,
-    estimator: Tensor
+    input_data: torch.Tensor,
+    output_data: torch.Tensor,
+    estimator: torch.Tensor
     ) -> float:
     """Mean squared error between the output data and the estimator applied to the input data.
 
@@ -83,13 +69,13 @@ def sq_error(
     return torch.mean(torch.linalg.vector_norm(err, ord=2, dim=0)**2)
 
 def naive_predict(
-    featurized_x: Tensor,
-    fitted_estimator: Tensor, 
-    input_data: Tensor,
-    output_raw_data: Tensor,
+    featurized_x: torch.Tensor,
+    fitted_estimator: RealLinalgDecomposition, 
+    input_data: torch.Tensor,
+    output_raw_data: torch.Tensor,
     rank: Optional[int] = None,
-    ) -> Tensor:
-
+    ) -> torch.Tensor:
+    logging.warn("This function is deprecated. Use predict instead.")
     if rank is not None:
         _, idxs = torch.topk(fitted_estimator.values, rank)
         U = (fitted_estimator.vectors)[:, idxs]
@@ -106,3 +92,27 @@ def naive_predict(
     )
     num_data = float(input_data.shape[0])
     return (num_data**-1)*x
+
+def predict(
+    phi_X: torch.Tensor,
+    fitted_estimator: RealLinalgDecomposition, 
+    phi_training_X: torch.Tensor,
+    phi_training_Y: torch.Tensor,
+    training_Y: torch.Tensor,
+    num_steps: int = 1,
+    rank: Optional[int] = None,
+) -> torch.Tensor:
+
+    if rank is not None:
+        _, idxs = torch.topk(fitted_estimator.values, rank)
+        U = fitted_estimator.vectors[:, idxs]
+    else:
+        U = fitted_estimator.vectors
+
+    phi_X_mul_U = torch.matmul(phi_X, U)
+    num_data = float(training_Y.shape[0])
+    phi_training_X_mul_training_Y = torch.reciprocal(num_data) * torch.matmul(phi_training_X.T, training_Y)
+    training_cross_cov = torch.matmul(phi_training_X.T, phi_training_Y) * torch.reciprocal(float(phi_training_X.shape[0]))
+    U_cross_U = torch.linalg.multi_dot([U.T, training_cross_cov, U])
+    M = torch.linalg.matrix_power(U_cross_U, num_steps - 1)
+    return torch.linalg.multi_dot([phi_X_mul_U, M, U.T, phi_training_X_mul_training_Y])

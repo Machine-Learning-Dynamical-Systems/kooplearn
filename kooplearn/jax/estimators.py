@@ -1,6 +1,7 @@
 ##Imports
 from typing import Optional
 import functools
+import logging
 #Scientific libs
 import numpy as np
 #JAX
@@ -9,12 +10,8 @@ import jax.scipy.optimize
 import jax.numpy as jnp
 import jax.lax
 import jax
-
 from jaxtyping import Float, Complex, Array
-
 import optax
-from torch.utils.tensorboard import SummaryWriter
-
 #MISC
 from einops import einsum 
 
@@ -108,7 +105,6 @@ def iterative_regression(
     learning_rate: float=1.0, 
     momentum: bool = None, 
     nesterov: bool = False,
-    tensorboard: bool = False
     ) -> Float[Array, "d d"]:    
     d = input_data.shape[1]
     estimator = jnp.zeros((d, d), dtype=input_data.dtype)
@@ -122,17 +118,8 @@ def iterative_regression(
         updates, opt_state = optimizer.update(grads, opt_state, estimator)
         estimator = optax.apply_updates(estimator, updates)
         return estimator, opt_state, loss_value
-    if tensorboard:
-        writer = SummaryWriter()
     for k in range(num_iterations):
         estimator, opt_state, loss_value = step(estimator, opt_state, input_data, output_data)
-        if tensorboard and (k%10 == 0):
-            writer.add_scalar("Loss/training", np.asarray(loss_value), k)
-            _estim = np.asarray(estimator)
-            _vals = np.linalg.eigvals(_estim)
-            _leading_vals = np.sort_complex(_vals)[::-1][:3]
-            writer.add_scalars("Eigenvalues/real_part", dict(zip(['1','2','3'], _leading_vals.real)), k)
-            writer.add_scalars("Eigenvalues/imaginary_part", dict(zip(['1','2','3'], _leading_vals.imag)), k)
     return estimator
 
 def eig(
@@ -197,7 +184,8 @@ def naive_predict(
     output_raw_data: Float[Array, "n dim"],
     rank: Optional[int] = None,
     ) -> Float[Array, "dim"]:
-
+    #Warning: legacy code:
+    logging.warning("This function is deprecated. Use predict instead.")
     if rank is not None:
         _, idxs = jax.lax.top_k(fitted_estimator.values, rank)
         U = (fitted_estimator.vectors)[:, idxs]
@@ -213,3 +201,30 @@ def naive_predict(
     )
     num_data = float(input_data.shape[0])
     return jax.lax.reciprocal(num_data)*x
+
+def predict(
+    phi_X: Float[Array, "n d"],
+    fitted_estimator: RealLinalgDecomposition, 
+    phi_training_X: Float[Array, "n d"],
+    phi_training_Y: Float[Array, "n d"],
+    training_Y: Float[Array, "n dim"],
+    num_steps: int = 1,
+    rank: Optional[int] = None,
+    ) -> Float[Array, "dim"]:
+
+    if rank is not None:
+        _, idxs = jax.lax.top_k(fitted_estimator.values, rank)
+        U = (fitted_estimator.vectors)[:, idxs]
+    else:
+        U = fitted_estimator.vectors
+
+    phi_X_mul_U = jnp.matmul(phi_X, U)
+    num_data = float(training_Y.shape[0])
+    phi_training_X_mul_training_Y = jax.lax.reciprocal(num_data)*jnp.matmul(phi_training_X.T, training_Y)
+    training_cross_cov = jnp.matmul(phi_training_X.T, phi_training_Y)*jax.lax.reciprocal(float(phi_training_X.shape[0]))
+    U_cross_U = jnp.linalg.multi_dot([U.T, training_cross_cov, U])
+    U_cross_U = np.asarray(U_cross_U)
+    #Ugly, but working.
+    M = np.linalg.matrix_power(U_cross_U, num_steps-1)
+    M = jnp.asarray(M)
+    return jnp.linalg.multi_dot([phi_X_mul_U, M, U.T, phi_training_X_mul_training_Y])
