@@ -22,17 +22,3 @@ def generalized_eigh(A: Float[Array, "n n"], B: Float[Array, "n n"]) -> RealLina
      values, _tmp_vecs = jnp.linalg.eigh(_A) 
      vectors = Q@(rsqrt_Lambda@_tmp_vecs)
      return RealLinalgDecomposition(values, vectors)
-
-def fro_norm(M:Float[Array, 'd d']) -> Float:
-     return jnp.linalg.norm(M, ord='fro')
-
-def op_norm(M:Float[Array, 'd d']) -> Float:
-     return jnp.linalg.norm(M, ord=2)
-
-def inv_sqrt(M:Float[Array, 'd d'], epsilon:float=1e-6, strategy:str = 'tikhonov') -> Float[Array, 'd d']:
-     vals, vecs = jnp.linalg.eigh(M)
-     if strategy == 'tikhonov':
-          inv_sqrt_vals = jnp.diag((vals + epsilon)**(-0.5))
-     elif strategy == 'trunc':     
-          inv_sqrt_vals = jnp.diag(jnp.clip(vals, a_min=epsilon)**(-0.5))
-     return jnp.linalg.multi_dot([vecs.T, inv_sqrt_vals, vecs]) 
