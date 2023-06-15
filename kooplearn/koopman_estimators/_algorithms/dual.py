@@ -5,7 +5,7 @@ from scipy.linalg import eig, eigh, LinAlgError, pinvh, lstsq
 from scipy.sparse.linalg import eigs, eigsh, cg, lsqr
 from scipy.sparse.linalg._eigen.arpack.arpack import IterInv
 from sklearn.utils.extmath import randomized_svd
-from .utils import topk, modified_QR
+from .utils import topk, modified_QR, weighted_norm
 
 def fit_reduced_rank_regression_tikhonov(K_X, K_Y, rank:int, tikhonov_reg:float, svd_solver:str = 'arnoldi'):
     dim = K_X.shape[0]
@@ -144,12 +144,35 @@ def fit_rand_tikhonov(K_X, rank: int, n_oversamples: int, iterated_power: int, r
     S, V = _postprocess_tikhonov_fit(S, V, rank, dim, rcond)
     return V, V, S
 
-def predict_low_rank(num_steps: int, U, V, K_YX, K_testX, obs_train_Y):
-    logging.warn("Normalizations not implemented. Fix it")
+def low_rank_predict(num_steps: int, U, V, K_YX, K_testX, obs_train_Y):
     # G = S UV.T Z
     # G^n = (SU)(V.T K_YX U)^(n-1)(V.T Z)
-    K_dot_U = K_testX@U
-    V_dot_obs = (V.T)@obs_train_Y
-    V_K_XY_U = np.linalg.multi_dot([V.T, K_YX, U])
+    dim = U.shape[0]
+    rsqrt_dim = dim**(-0.5)
+    K_dot_U = rsqrt_dim*K_testX@U
+    V_dot_obs = rsqrt_dim*(V.T)@obs_train_Y
+    V_K_XY_U = (dim**-1)*np.linalg.multi_dot([V.T, K_YX, U])
     M = np.linalg.matrix_power(V_K_XY_U, num_steps - 1)
     return np.linalg.multi_dot([K_dot_U, M, V_dot_obs])
+
+def low_rank_eig(U, V, K_X, K_Y, K_YX):
+    r_dim = (K_X.shape[0])**(-1)
+
+    W_YX = np.linalg.multi_dot([V.T, r_dim*K_YX, U])
+    W_X = np.linalg.multi_dot([U.T, r_dim*K_X, U])
+    W_Y = np.linalg.multi_dot([V.T, r_dim*K_Y, V])
+
+    w, vl, vr =  eig(W_YX, left=True, right=True) #Left -> V, Right -> U
+    
+    #Normalization
+    norm_r = weighted_norm(vr,W_X) 
+    norm_l = weighted_norm(vl,W_Y) 
+
+    vr = vr @ np.diag(norm_r**(-1))
+    vl = vl @ np.diag(norm_l**(-1))
+
+    return w, vl, vr
+
+def low_rank_eigfun_eval(K_testX, U_or_V, vr_or_vl):
+    rsqrt_dim = (U_or_V.shape[0])**(-0.5)
+    return np.linalg.multi_dot([rsqrt_dim*K_testX, U_or_V, vr_or_vl])
