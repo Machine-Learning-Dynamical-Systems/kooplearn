@@ -25,11 +25,19 @@ class GeneralModel():
     def fit_feature_map(self, X,Y):
         self.phi_.fit(X,Y)
 
+    def fit_decoder(self, X,Y):
+        self.decoder_.fit(X,Y)
+
     def fit_koop(self,X,Y):
         assert hasattr(self, 'koop'), 'No koopman operator has been found'
         Xp, Yp = self.phi_(X), self.phi_(Y)
         self.koop_.fit(Xp,Yp)
         self.is_koop_fitted = True
+
+    def fit(self, X,Y):
+        self.fit_feature_map(X,Y)
+        self.fit_koop(X,Y)
+        self.fit_decoder(X,Y)
 
     def forecast(self, t, X, f=lambda x:x):
         Xp = self.phi_(X)
