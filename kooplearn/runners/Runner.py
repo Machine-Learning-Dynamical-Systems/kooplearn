@@ -1,4 +1,4 @@
-class Trainer:
+class Runner:
     def __init__(self, feature_map, koopman_estimator, decoder, dataset):
         self.feature_map = feature_map
         self.koopman_estimator = koopman_estimator
@@ -14,8 +14,11 @@ class Trainer:
     def test(self):
         pass
 
+    def initialize(self):
+        pass
+
     def run(self):
+        self.initialize()
         self.fit_feature_map()
         self.fit_koopman()
         self.test()
-        
