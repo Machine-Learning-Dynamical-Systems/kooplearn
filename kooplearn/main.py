@@ -27,11 +27,19 @@ class GeneralModel():
         self.feature_map.initialize(self.koop_, self.decoder_, self.dataset)
         self.feature_map.fit(X, Y)
 
+    def fit_decoder(self, X,Y):
+        self.decoder_.fit(X,Y)
+
     def fit_koop(self,X,Y):
         assert hasattr(self, 'koop'), 'No koopman operator has been found'
         Xp, Yp = self.feature_map(X), self.feature_map(Y)
         self.koop_.fit(Xp,Yp)
         self.is_koop_fitted = True
+
+    def fit(self, X,Y):
+        self.fit_feature_map(X,Y)
+        self.fit_koop(X,Y)
+        self.fit_decoder(X,Y)
 
     def forecast(self, t, X, f=lambda x:x):
         Xp = self.feature_map(X)
