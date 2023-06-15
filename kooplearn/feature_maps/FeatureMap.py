@@ -1,9 +1,7 @@
-class BaseFeatureMap:
+class FeatureMap():
     def __init__(self):
-        pass
-
-    def fit(self):
-        pass
-
-    def __call__(self):
+        self.phi = lambda x: x
+    def __call__(self, X):
+        return self.phi(X)
+    def fit(self, X,Y):
         pass

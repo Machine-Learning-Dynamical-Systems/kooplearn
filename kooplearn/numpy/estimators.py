@@ -8,10 +8,6 @@ import numpy as np
 
 from scipy.linalg import eig
 
-from warnings import warn
-
-from .utils import sort_and_crop, weighted_norm, modified_QR, SquaredKernel
-
 # Net goes from X array to X' array
 
 def get_cov(X,Y):
