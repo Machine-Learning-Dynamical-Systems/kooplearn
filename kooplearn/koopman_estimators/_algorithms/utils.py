@@ -1,13 +1,19 @@
+from typing import NamedTuple
 import numpy as np
-
-from scipy.sparse.linalg import aslinearoperator, LinearOperator
-
 from sklearn.utils import check_array, check_random_state
-
 from warnings import warn
 
+
+class TopK_ReturnType(NamedTuple):
+    values: np.ndarray
+    indices: np.ndarray
+
 def topk(vec, k:int):
-    return sort_and_crop(vec, num_components=k)
+    assert np.ndim(vec) == 1, "'vec' must be a 1D array"
+    sort_perm = np.flip(np.argsort(vec)) # descending order
+    indices = sort_perm[:k]
+    values = vec[indices]
+    return TopK_ReturnType(values, indices)
 
 def sort_and_crop(vec, num_components = None):
     """Return the indices of the largest ``num_components`` elements in vec in descending order.
@@ -37,14 +43,10 @@ def weighted_norm(A, M = None):
         (ndarray or float): If ``A.ndim == 2`` returns 1D array of floats corresponding to the norms of the columns of A. Else return a float.
     """    
     assert A.ndim <= 2, "'A' must be a vector or a 2D array"
-    _1D = (A.ndim == 1)
     if M is None:
         norm = np.linalg.norm(A, axis=0)
     else:
-        if _1D:
-            _A = aslinearoperator(M).matvec(np.ascontiguousarray(A))
-        else:
-            _A = aslinearoperator(M).matmat(np.asfortranarray(A))  
+        _A = np.dot(M, A)
         norm = np.real(
                 np.sum(
                     np.conj(A)*_A, 
@@ -65,14 +67,10 @@ def weighted_dot_product(A, B, M=None):
     assert A.ndim <= 2, "'A' must be a vector or a 2D array"
     assert B.ndim <= 2, "'B' must be a vector or a 2D array"
     A_adj = np.conj(A.T)
-    _B_1D = (B.ndim == 1)
     if M is None:
         return np.dot(A_adj, B)
     else:
-        if _B_1D:
-            _B = aslinearoperator(M).matvec(np.ascontiguousarray(B))
-        else:
-            _B = aslinearoperator(M).matmat(np.asfortranarray(B))
+        _B = np.dot(M, B)
         return np.dot(A_adj, _B)
 
 def _column_pivot(Q, R, k, squared_norms, columns_permutation):
@@ -154,28 +152,6 @@ def modified_QR(A, M = None, column_pivoting = False, rtol = 2.2e-16, verbose = 
     else:
         return Q[:,:effective_rank], R[:effective_rank]
 
-class SquaredKernel(LinearOperator):
-    r"""Helper class to repeatedly apply :math:`\alpha K^{2} + \beta K`.
-    """    
-    def __init__(self, K, alpha, beta):
-        self.K = K
-        self.is_linop = False
-        if isinstance(K, LinearOperator):
-            self.is_linop = True
-        else:
-            self.M = (alpha*(K@(K.T)) + beta*K) #Assuming that K is symmetric!
-        self.dtype = K.dtype #Needed by LinearOperator superclass
-        self.shape = K.shape #Needed by LinearOperator superclass
-        self.alpha = alpha
-        self.beta = beta
-
-    def _matvec(self, x):
-        if self.is_linop:
-            v = np.ascontiguousarray(self.K @ x)
-            return self.alpha * self.K @ v + self.beta * v
-        else:
-            return self.M@x
-
 def randomized_range_finder(A_A_adj, size, n_iter, power_iteration_normalizer="none", M=None, random_state=None):
     """Randomized range finder. Adapted from sklearn.utils.extmath.randomized_range_finder
 
@@ -191,7 +167,6 @@ def randomized_range_finder(A_A_adj, size, n_iter, power_iteration_normalizer="n
         ndarray: An (A_A_adj.shape[0], size) array the range of which approximates the range of A.
     """    
     #Adapted from sklearn.utils.extmath.randomized_range_finder
-    A = aslinearoperator(A_A_adj)
     random_state = check_random_state(random_state)
     # Generating normal random vectors with shape: (A_A_adj.shape[0], size)
     assert size > 0, "Size must be greater than zero"
@@ -203,12 +178,12 @@ def randomized_range_finder(A_A_adj, size, n_iter, power_iteration_normalizer="n
     # singular vectors of A in Q
     for _ in range(n_iter):
         if power_iteration_normalizer == "none":
-            Q = A.matmat(Q)
+            Q = A_A_adj@Q
         elif power_iteration_normalizer == "QR":
-            Q, _ = modified_QR(A.matmat(Q), M=M)
+            Q, _ = modified_QR(A_A_adj@Q, M=M)
         elif power_iteration_normalizer == "column_pivoted_QR":
-            Q, _, _ = modified_QR(A.matmat(Q), M=M, column_pivoting=True)
+            Q, _, _ = modified_QR(A_A_adj@Q, M=M, column_pivoting=True)
     # Sample the range of A using by linear projection of Q
     # Extract an orthonormal basis
-    Q, _, _ = modified_QR(A.matmat(Q), M=M, column_pivoting=True)
+    Q, _, _ = modified_QR(A_A_adj@Q, M=M, column_pivoting=True)
     return Q
