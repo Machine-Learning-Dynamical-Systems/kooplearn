@@ -3,7 +3,9 @@
 - [ ] Add the possibility to compute left eigenvectors for the primal algorithms.
 - [x] Implement the prediction algorithm for the primal problem
 - [ ] Incapsulate every algorithm into `sklearn` estimators with proper checks etc
-- [ ] Implement methods to compute the `svd` for both primal and dual algorithms
+- [x] Implement methods to compute the `svd` for both primal and dual algorithms
 - [ ] Implement the following metrics:
     - [ ] Squared loss
     - [ ] Prediction error
+- [ ] Add tests for each of the algorithm
+    - [ ] Primal and dual should give the same results on the same data (e.g. linear kernel)

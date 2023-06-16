@@ -180,3 +180,14 @@ def low_rank_eig(U, V, K_X, K_Y, K_YX):
 def low_rank_eigfun_eval(K_testX, U_or_V, vr_or_vl):
     rsqrt_dim = (U_or_V.shape[0])**(-0.5)
     return np.linalg.multi_dot([rsqrt_dim*K_testX, U_or_V, vr_or_vl])
+
+def svdvals(U, V, K_X, K_Y):
+    #Inefficient implementation
+    rdim = (K_X.shape[0])**(-1)
+    A = np.linalg.multi_dot([V.T, rdim*K_Y, V])
+    B = np.linalg.multi_dot([U.T, rdim*K_X, U])
+    v = eig(A@B, left=False, right=False)
+    #Clip the negative values
+    v = v.real
+    v[v<0] = 0
+    return np.sqrt(v)

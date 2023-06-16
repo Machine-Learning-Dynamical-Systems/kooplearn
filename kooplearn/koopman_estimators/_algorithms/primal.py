@@ -1,10 +1,8 @@
 from typing import Optional
 import logging
 import numpy as np
-from scipy.linalg import eig, eigh, LinAlgError, pinvh, lstsq, solve
-from scipy.sparse.linalg import eigs, eigsh, cg, lsqr
-from scipy.sparse.linalg._eigen.arpack.arpack import IterInv
-from sklearn.utils.extmath import randomized_svd
+from scipy.linalg import eig, eigh, solve
+from scipy.sparse.linalg import eigsh
 from .utils import topk, weighted_norm
 
 def fit_reduced_rank_regression_tikhonov(C_X, C_XY, rank:int, tikhonov_reg:float, svd_solver: str = 'arnoldi'):
