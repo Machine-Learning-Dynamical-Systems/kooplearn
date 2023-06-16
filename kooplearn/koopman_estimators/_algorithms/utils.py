@@ -47,9 +47,10 @@ def weighted_norm(A, M = None):
         norm = np.linalg.norm(A, axis=0)
     else:
         _A = np.dot(M, A)
+        _A_T = np.dot(M.T, A)
         norm = np.real(
                 np.sum(
-                    np.conj(A)*_A, 
+                    0.5*(np.conj(A)*_A + np.conj(A)*_A_T), 
                     axis=0)
                 )        
     return np.sqrt(norm)
