@@ -1,7 +1,7 @@
-- [ ] Implement the `arnoldi` solver for primal algorithms
+- [x] Implement the `arnoldi` solver for primal algorithms
 - [ ] Implement the primal algorithm to fit RRR without tikhonov reg.
 - [ ] Add the possibility to compute left eigenvectors for the primal algorithms.
-- [ ] Implement the prediction algorithm for the primal problem
+- [x] Implement the prediction algorithm for the primal problem
 - [ ] Incapsulate every algorithm into `sklearn` estimators with proper checks etc
 - [ ] Implement methods to compute the `svd` for both primal and dual algorithms
 - [ ] Implement the following metrics:

@@ -7,15 +7,23 @@ from scipy.sparse.linalg._eigen.arpack.arpack import IterInv
 from sklearn.utils.extmath import randomized_svd
 from .utils import topk, weighted_norm
 
-def fit_reduced_rank_regression_tikhonov(C_X, C_XY, rank:int, tikhonov_reg:float):
+def fit_reduced_rank_regression_tikhonov(C_X, C_XY, rank:int, tikhonov_reg:float, svd_solver: str = 'arnoldi'):
     dim = C_X.shape[0]
     reg_input_covariance = C_X + tikhonov_reg*np.identity(dim, dtype=C_X.dtype)
     _crcov = C_XY@(C_XY.T) 
+    if svd_solver == 'arnoldi':
+        #Adding a small buffer to the Arnoldi-computed eigenvalues.
+        values, vectors = eigsh(_crcov, rank + 3, M = reg_input_covariance)
+    else:
+        values, vectors = eigh(_crcov, reg_input_covariance)
+    
+    top_eigs = topk(values, rank)
+    vectors = vectors[:, top_eigs.indices]
+    values = top_eigs.values
 
-    values, vectors = eigh(_crcov, reg_input_covariance)
     _norms = weighted_norm(vectors, reg_input_covariance)
     vectors = vectors@np.diag(_norms**(-1.0))
-    return vectors[:, topk(values, rank).indices]
+    return vectors
 
 def fit_rand_reduced_rank_regression_tikhonov(
         C_X, 
@@ -42,19 +50,30 @@ def fit_rand_reduced_rank_regression_tikhonov(
     vectors = vectors@np.diag(_norms**(-1.0))
     return vectors[:, topk(values, rank).indices]
 
-
-def _postprocess_tikhonov_fit(S, V, rank:int, dim:int, rcond:float):
-    pass
-
-def fit_tikhonov(C_X, tikhonov_reg:float, rank: Optional[int] = None, svd_solver:str = 'arnoldi', rcond:float = 2.2e-16):
+def fit_tikhonov(C_X, tikhonov_reg:float, rank: Optional[int] = None, svd_solver:str = 'arnoldi'):
     dim = C_X.shape[0]
     reg_input_covariance = C_X + tikhonov_reg*np.identity(dim, dtype=C_X.dtype)
-    Lambda, Q = eigh(reg_input_covariance)
-    rsqrt_Lambda = np.diag(Lambda**(-0.5))
-    return Q@rsqrt_Lambda
+    if svd_solver == 'arnoldi':
+        values, vectors = eigsh(reg_input_covariance, rank, which = 'LM')
+    else:
+        values, vectors = eigh(reg_input_covariance)
+    
+    top_eigs = topk(values, rank)
+    vectors = vectors[:, top_eigs.indices]
+    values = top_eigs.values
 
-def low_rank_predict(num_steps: int, U, V, K_YX, K_testX, obs_train_Y):
-    pass
+    rsqrt_evals = np.diag(values**(-0.5))
+    return vectors@rsqrt_evals
+
+def low_rank_predict(num_steps: int, U, C_XY, phi_testX, phi_trainX, obs_train_Y):
+    # G = U U.T C_XY
+    # G^n = (U)(U.T C_XY U)^(n-1)(U.T C_XY)
+    num_train = phi_trainX.shape[0]
+    phi_testX_dot_U = phi_testX@U
+    U_C_XY_U = np.linalg.multi_dot([U.T, C_XY, U])
+    U_phi_X_obs_Y = np.linalg.multi_dot([U.T, phi_trainX.T, obs_train_Y])*(num_train**-1)
+    M = np.linalg.matrix_power(U_C_XY_U, num_steps-1)
+    return np.linalg.multi_dot([phi_testX_dot_U, M, U_phi_X_obs_Y])
 
 def low_rank_eig(U, C_XY):
     M = np.linalg.multi_dot([U.T, C_XY, U])
@@ -63,3 +82,8 @@ def low_rank_eig(U, C_XY):
 
 def low_rank_eigfun_eval(phi_testX, vectors):
     return phi_testX@vectors
+
+def svdvals(U, C_XY):
+    M = np.linalg.multi_dot([U, U.T, C_XY])
+    return np.linalg.svd(M, compute_uv=False)
+                                 
