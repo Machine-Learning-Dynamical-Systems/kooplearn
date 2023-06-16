@@ -126,21 +126,25 @@ def _postprocess_tikhonov_fit(S, V, rank:int, dim:int, rcond:float):
         assert V.shape[1] == rank
     return S, V  
 
-def fit_tikhonov(K_X, rank: Optional[int] = None, svd_solver:str = 'arnoldi', rcond:float = 2.2e-16):
+def fit_tikhonov(K_X, tikhonov_reg:float, rank: Optional[int] = None, svd_solver:str = 'arnoldi', rcond:float = 2.2e-16):
     dim = K_X.shape[0]
     if rank is None:
         rank = dim
     assert rank <= dim, f"Rank too high. The maximum value for this problem is {dim}"
+    alpha = dim*tikhonov_reg
+    tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
     if svd_solver == 'arnoldi':
-        S, V = eigsh(K_X, rank)
+        S, V = eigsh(K_X + tikhonov, rank)
     elif svd_solver == 'full':
-        S, V = eigh(K_X)   
+        S, V = eigh(K_X + tikhonov)   
     S, V = _postprocess_tikhonov_fit(S, V, rank, dim, rcond)
     return V, V
 
-def fit_rand_tikhonov(K_X, rank: int, n_oversamples: int, iterated_power: int, rcond:float = 2.2e-16):
+def fit_rand_tikhonov(K_X, tikhonov_reg: float, rank: int, n_oversamples: int, iterated_power: int, rcond:float = 2.2e-16):
     dim = K_X.shape[0]
-    V, S, _ = randomized_svd(K_X, rank, n_oversamples=n_oversamples, n_iter=iterated_power, random_state=None)
+    alpha = dim*tikhonov_reg
+    tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
+    V, S, _ = randomized_svd(K_X + tikhonov, rank, n_oversamples=n_oversamples, n_iter=iterated_power, random_state=None)
     S, V = _postprocess_tikhonov_fit(S, V, rank, dim, rcond)
     return V, V, S
 
