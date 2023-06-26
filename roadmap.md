@@ -10,6 +10,7 @@
 5. `utils` folder: utilities + functions to interface with `torch`
  and `JAX`.
 6. Visualization section
+7. Adapt the quantiles + volatility functions on the covariance 
 
 Dependencies:
 1. numpy
