@@ -9,3 +9,12 @@
 4. `feature_map` contains everything needed to define a feature map
 5. `utils` folder: utilities + functions to interface with `torch`
  and `JAX`.
+6. Visualization section
+
+Dependencies:
+1. numpy
+2. scipy
+3. torch
+4. torch-lightning
+5. jax
+6. pandas
