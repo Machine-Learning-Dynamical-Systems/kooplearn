@@ -4,7 +4,6 @@ import lightning as L
 
 class DNNFeatureMap(FeatureMap):
     def __init__(self,
-                 datamodule_class, datamodule_kwargs,
                  dnn_model_module_class,
                  dnn_model_class, dnn_model_kwargs,
                  optimizer_fn, optimizer_kwargs,
@@ -16,8 +15,6 @@ class DNNFeatureMap(FeatureMap):
                  seed,
                  ):
         super().__init__()
-        self.datamodule_class = datamodule_class
-        self.datamodule_kwargs = datamodule_kwargs
         self.dnn_model_module_class = dnn_model_module_class
         self.dnn_model_class = dnn_model_class
         self.dnn_model_kwargs = dnn_model_kwargs
@@ -52,9 +49,6 @@ class DNNFeatureMap(FeatureMap):
         for kwargs in self.callbacks_kwargs:
             self.logger.log_hyperparams(kwargs)
 
-    def initialize_datamodule(self):
-        self.datamodule = self.datamodule_class(**self.datamodule_kwargs)
-
     def initialize_model_module(self):
         dnn_model_class = self.dnn_model_class
         self.datamodule.setup('fit')
@@ -75,7 +69,9 @@ class DNNFeatureMap(FeatureMap):
             optimizer_fn=self.optimizer_fn,
             optimizer_hyperparameters=self.optimizer_kwargs,
             koopman_estimator=self.koopman_estimator,
+            decoder=self.decoder,
             # koopman_estimator_hyperparameters=self.koopman_estimator_kwargs,
+            # decoder_hyperparameters=self.decoder_kwargs,
             scheduler_fn=self.scheduler_fn,
             scheduler_hyperparameters=self.scheduler_kwargs,
             scheduler_config=self.scheduler_config,
@@ -88,15 +84,19 @@ class DNNFeatureMap(FeatureMap):
     def initialize_trainer(self):
         self.trainer = L.Trainer(**self.trainer_kwargs, callbacks=self.callbacks, logger=self.logger)
 
-    def initialize(self, koopman_estimator, decoder, dataset):
+    def initialize(self, koopman_estimator, decoder, datamodule):
         self.koopman_estimator = koopman_estimator
         self.decoder = decoder
-        self.dataset = dataset
+        self.datamodule = datamodule
         self.initialize_logger()
-        self.initialize_datamodule()
         self.initialize_model_module()
         self.initialize_callbacks()
         self.initialize_trainer()
 
-    def fit(self):
+    def fit(self, X, Y):
+        if self.datamodule is None:
+            raise ValueError('Datamodule is required to use DNNFeatureMap.')
         self.trainer.fit(self.dnn_model_module, self.datamodule)
+
+    def __call__(self, X):
+        return self.dnn_model_module(X)

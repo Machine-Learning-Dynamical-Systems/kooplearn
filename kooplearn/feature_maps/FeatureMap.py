@@ -5,7 +5,7 @@ class FeatureMap:
     def __call__(self, X):
         pass
 
-    def fit(self, X,Y):
+    def fit(self, X, Y):
         pass
 
     def initialize(self, koopman_estimator, decoder, dataset):

@@ -2,11 +2,12 @@ from math import ceil
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
+import numpy as np
 
 
 class TimeseriesDataset(Dataset):
-    def __init__(self, df_series, idx_start, idx_end, lb_window_size, horizon_size, is_train=True, step=1, mean=None,
-                 std=None, idx_start_train=None):
+    def __init__(self, df_series, idx_start, idx_end, freq, lb_window_size, horizon_size, is_train=True, step=1,
+                 mean=None, std=None, idx_start_train=None, date_encoder_func=None):
         assert isinstance(df_series, pd.DataFrame)
         times = df_series['time_idx']
         dates = df_series['date']
@@ -15,6 +16,7 @@ class TimeseriesDataset(Dataset):
         self.values = torch.tensor(values.to_numpy(), dtype=torch.float32)
         self.idx_start = idx_start
         self.idx_end = idx_end
+        self.freq = freq
         self.is_train = is_train
         self.lb_window_size = lb_window_size
         self.horizon_size = horizon_size
@@ -46,6 +48,20 @@ class TimeseriesDataset(Dataset):
             shape_to_cat[0] = len(time_to_cat)
             value_to_cat = torch.zeros(shape_to_cat)
             self.values = torch.cat([self.values, value_to_cat])
+            first_date = self.times_idx[-1] + pd.Timedelta(self.freq)
+            last_date = first_date + pd.Timedelta(self.freq) * (step - remainder)
+            date_to_cat = pd.date_range(first_date, last_date, freq=self.freq)
+            dates = pd.concat([dates, pd.Series(date_to_cat)])
+        if date_encoder_func:
+            dates = date_encoder_func(pd.to_datetime(dates.values), freq=self.freq)
+        else:
+            dates = pd.DataFrame(dates, columns=['date'])
+            dates['month'] = dates['date'].dt.month
+            dates['day'] = dates['date'].dt.day
+            dates['weekday'] = dates['date'].dt.weekday
+            dates['hour'] = dates['date'].dt.hour
+            dates = dates.drop('date', axis=1)
+        self.dates = torch.tensor(dates.to_numpy(), dtype=torch.float32)
 
     def __len__(self):
         return ceil(((self.idx_end - self.real_idx_start) - (self.lb_window_size + self.horizon_size)) / self.step + 1)
@@ -75,3 +91,16 @@ class TimeseriesDataset(Dataset):
             'mask_out_of_series_right': mask_out_of_series_right.transpose(-1, -2),
         }
         return data
+
+    def get_X_Y_numpy_matrices(self):
+        # this is clearly not optimal, as we can construct the matrices directly shifting the original data,
+        # but for the moment we do this because it's easier (no problems with padding, step, etc.)
+        X = []
+        Y = []
+        for idx in range(len(self)):
+            data = self[idx]
+            X.append(data['x_value'].numpy())
+            Y.append(data['y_value'].numpy())
+        X = np.stack(X)
+        Y = np.stack(Y)
+        return X, Y

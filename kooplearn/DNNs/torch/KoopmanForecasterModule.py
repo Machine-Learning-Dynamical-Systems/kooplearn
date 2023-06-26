@@ -4,15 +4,18 @@ from lightning import LightningModule
 
 class KoopmanForecasterModule(LightningModule):
     def __init__(self, model_class, model_hyperparameters, optimizer_fn, optimizer_hyperparameters,
-                 koopman_estimator, koopman_estimator_hyperparameters, scheduler_fn=None,
-                 scheduler_hyperparameters=None, scheduler_config=None, loss_fn=F.mse_loss):
+                 koopman_estimator,  # koopman_estimator_hyperparameters,
+                 decoder,  # decoder_hyperparameters,
+                 scheduler_fn=None, scheduler_hyperparameters=None, scheduler_config=None, loss_fn=F.mse_loss):
         super().__init__()
         for k, v in model_hyperparameters.items():
             self.hparamsxz[k] = v
         for k, v in optimizer_hyperparameters.items():
             self.hparams[f'optim_{k}'] = v
-        for k, v in koopman_estimator_hyperparameters.items():
-            self.hparams[f'koop_{k}'] = v
+        # for k, v in koopman_estimator_hyperparameters.items():
+        #     self.hparams[f'koop_{k}'] = v
+        # for k, v in decoder_hyperparameters.items():
+        #     self.hparams[f'dec_{k}'] = v
         for k, v in scheduler_hyperparameters.items():
             self.hparams[f'sched_{k}'] = v
         for k, v in scheduler_config.items():
@@ -21,6 +24,7 @@ class KoopmanForecasterModule(LightningModule):
         self.model = model_class(**model_hyperparameters)
         self.optimizer_fn = optimizer_fn
         self.koopman_estimator = koopman_estimator
+        self.decoder = decoder
         self.scheduler_fn = scheduler_fn
         self.optimizer_hyperparameters = optimizer_hyperparameters
         self.scheduler_hyperparameters = scheduler_hyperparameters
@@ -45,11 +49,12 @@ class KoopmanForecasterModule(LightningModule):
         mask_out_of_series_left = batch['mask_out_of_series_left']
         mask_out_of_series_right = batch['mask_out_of_series_right']
         y_true = batch['y_value']
-        x_time = batch['x_time_idx']
-        x_value = batch['x_value']
-        y_time = batch['y_time_idx']
         model_output = self(batch)
-        y_pred = model_output['y_pred']
+        x_encoded = model_output['x_encoded']
+        # TODO properly
+        self.koopman_estimator.fit(x_encoded, y_encoded)
+        y_encoded = self.koopman_estimator(x_encoded)
+        y_pred = self.decoder(y_encoded)
         mask_out_of_series = mask_out_of_series_left + mask_out_of_series_right
         mask_in_series = ~mask_out_of_series
         y_pred = y_pred * mask_in_series
@@ -57,9 +62,6 @@ class KoopmanForecasterModule(LightningModule):
         loss = self.loss_fn(y_pred, y_true)
         outputs = {
             'loss': loss,
-            'x_time_idx': x_time,
-            'x_value': x_value,
-            'y_time_idx': y_time,
             'y_true': y_true,
             'y_pred': y_pred,
             'mask_out_of_series': mask_out_of_series
