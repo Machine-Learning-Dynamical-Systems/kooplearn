@@ -1,2 +1,0 @@
-# Kooplearn
-Koopman operator learning

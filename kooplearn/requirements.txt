@@ -1,5 +1,0 @@
-numpy==1.23.5
-pykeops==2.0
-scikit_learn==1.2.1
-scipy==1.7.3
-torch==1.11.0
