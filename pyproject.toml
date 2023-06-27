@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[project]
+name = "sampleproject"  # Required
+version = "0.0.1"  # Required
+description = "A sample Python project"  # Optional
+readme = "README.md" # Optional
+requires-python = ">=3.7"
+keywords = ["sample", "setuptools", "development"]  # Optional
+
+authors = [
+  {name = "A. Random Developer", email = "author@example.com" } # Optional
+]
+dependencies = [ # Optional
+  "numpy",
+  "scipy",
+  "torch",
+  "pytorch-lightning",
+  "pandas"
+]
+
+[project.optional-dependencies] # Optional
+test = ["pytest"]
+
+[project.urls]  # Optional
+"Homepage" = "https://github.com/CSML-IIT-UCL/kooplearn"
