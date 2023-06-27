@@ -7,6 +7,9 @@ from _algorithms import dual
 
 import numpy as np
 
+from _algorithms.utils import sort_and_crop
+from warnings import warn
+
 class KernelLowRankRegressor(BaseKoopmanEstimator, RegressorMixin):
 
     def modes(self, observable=lambda x : x, _cached_results=None):
@@ -46,35 +49,11 @@ class KernelLowRankRegressor(BaseKoopmanEstimator, RegressorMixin):
             ndarray: Array of shape (n_t, n_samples, n_obs) containing the forecast of the observable(s) provided as argument. Here n_samples = len(X), n_obs = len(observable(x)), n_t = len(t) (if t is a scalar n_t = 1).
         """        
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
-        if len(X.shape) == 1:
-            X = X.reshape(1,-1)
+        K_testX = self.kernel(X)
+        obs_train_Y = observable(self.Y_fit_)
+        return dual.low_rank_predict(t, self.U_, self.V_, self.K_YX_, K_testX, obs_train_Y )
 
-        evals, left_right_norms, vl, _refuns = self._eig(return_type='koopman_modes')
-        cached_results = (left_right_norms, vl)
-        modes = self.modes(observable=observable, _cached_results = cached_results)
-        
-        if which is not None:
-            evals = evals[which][:, None]           # [r,1]
-            refuns = _refuns(X)[:,which]            # [n,r]
-            modes = modes[which,:]                  # [r,n_obs]
-        else:
-            evals = evals[:, None]                  # [r,1]
-            refuns = _refuns(X)                     # [n,r]
-
-        if np.isscalar(t):
-            t = np.array([t], dtype=np.float64)[None,:] # [1, t]
-        elif np.ndim(t) == 1:
-            t = np.array(t, dtype=np.float64)[None,:]   # [1, t]
-        else:
-            raise ValueError("t must be a scalar or a 1D array.")
-        evals_t = np.power(evals, t) # [r,t]
-        forecasted = np.einsum('ro,rt,nr->tno', modes, evals_t, refuns)  # [t,n,n_obs]
-        if forecasted.shape[0] <= 1:
-            return np.real(forecasted[0])
-        else:
-            return np.real(forecasted)
-
-    def eig(self, left=False, right=True):
+    def eig(self):
         """Eigenvalue decomposition of the estimated Koopman operator.
         Args:
             left (bool, optional): Whether to return the left eigenfunctions. Defaults to False.
@@ -82,7 +61,19 @@ class KernelLowRankRegressor(BaseKoopmanEstimator, RegressorMixin):
         Returns:
             tuple: (evals, fr, fl) where evals is an array of shape (self.rank,) containing the eigenvalues of the estimated Koopman operator, fr is a lambda function returning the right eigenfunctions of the estimated Koopman operator, and fl is a lambda function returning the left eigenfunctions of the estimated Koopman operator. If left=False, fl is not returned. If right=False, fr is not returned.
         """
-        return self._eig(left=left, right=right, return_type = 'default')  
+        check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
+        return dual.low_rank_eig(self.U_, self.V_, self.K_X_, self.K_Y_, self.K_YX_)
+
+    def apply_eigfun(self, X, left=False):
+        _, vl, vr = self.eig()
+        K_testX = self.kernel(X)
+        if left:
+            return dual.low_rank_eigfun_eval(K_testX, self.V_, vl)
+        return dual.low_rank_eigfun_eval(K_testX, self.U_, vr)
+        
+    def svals(self):
+        check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_'])
+        return dual.svdvals(self.U_, self.V_, self.K_X_, self.K_Y_)
 
     def _init_kernels(self, X, Y):
         K_X = self.kernel(X, backend=self.backend)
@@ -118,13 +109,20 @@ class KernelPrincipalComponent(KernelLowRankRegressor):
         self.n_oversamples = n_oversamples
 
     def fit(self, X, Y):
-        # TODO
+        """Fit the Koopman operator estimator.
+        
+        Args:
+            X (ndarray): Input observations.
+            Y (ndarray): Evolved observations.
+        """
         self._check_backend_solver_compatibility()
         X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
         Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
         check_X_y(X, Y, multi_output=True)
-
+    
         K_X, K_Y, K_YX = self._init_kernels(X, Y)
+        
+        dim = K_X.shape[0]
 
         self.K_X_ = K_X
         self.K_Y_ = K_Y
@@ -133,9 +131,42 @@ class KernelPrincipalComponent(KernelLowRankRegressor):
         self.X_fit_ = X
         self.Y_fit_ = Y
 
-    def predict(self, X, t=1, observable=lambda x : x):
-        # TODO
-        pass
+        self.n_features_in_ = X.shape[1]
+
+        if self.svd_solver == 'arnoldi':
+            S, V = dual.eigsh(K_X, self.rank)
+        elif self.svd_solver == 'full':
+            S, V = dual.eigh(K_X)
+        else:
+            if self.backend == 'keops':
+                raise NotImplementedError('Randomized SVD solver is not implemented with the Keops backend yet.')
+            else:
+                V, S, _ = dual.randomized_svd(K_X, self.rank, n_oversamples=self.n_oversamples, n_iter=self.iterated_power, random_state=None)
+            
+        sigma_sq = S**2
+        sort_perm = sort_and_crop(sigma_sq, self.rank)   
+        sigma_sq = sigma_sq[sort_perm]
+        V = V[:,sort_perm]
+        S = S[sort_perm]
+        
+        _test = S>2.2e-16
+        if all(_test):            
+            V = V * np.sqrt(dim) 
+            U = V @ np.diag(S**-1)
+        else:
+            V = V[:,_test] *np.sqrt(dim) 
+            U = V @ np.diag(S[_test]**-1)
+
+            warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - V.shape[1]} degrees of freedom will be ignored.")
+            _zeroes = np.zeros((V.shape[0], self.rank - V.shape[1]))
+            V = np.c_[V, _zeroes]
+            U = np.c_[U, _zeroes]
+            assert U.shape[1] == self.rank
+            assert V.shape[1] == self.rank       
+           
+        self.U_ = np.asfortranarray(U)
+        self.V_ = np.asfortranarray(V)
+        return self
 
 class KernelReducedRank(KernelLowRankRegressor):
 
@@ -188,16 +219,12 @@ class KernelReducedRank(KernelLowRankRegressor):
         self.Y_fit_ = Y
 
         if self.tikhonov_reg == None:
-            U, V, sigma_eq = dual.fit_reduced_rank_regression_noreg(K_X, K_Y, self.rank, self.svd_solver)
+            U,V,_ = dual.fit_reduced_rank_regression_noreg(K_X, K_Y, self.rank, self.svd_solver)
         elif self.svd_solver == 'randomized':
-            U,V,sigma_eq = dual.fit_rand_reduced_rank_regression_tikhonov(K_X, K_Y, self.rank, self.tikhonov_reg, self.n_oversamples, self.optimal_sketching, self.iterated_power)
+            U,V,_ = dual.fit_rand_reduced_rank_regression_tikhonov(K_X, K_Y, self.rank, self.tikhonov_reg, self.n_oversamples, self.optimal_sketching, self.iterated_power)
         else:
-            U,V,sigma_eq = dual.fit_reduced_rank_regression_tikhonov(K_X, K_Y, self.rank, self.tikhonov_reg, self.svd_solver)
+            U,V,_ = dual.fit_reduced_rank_regression_tikhonov(K_X, K_Y, self.rank, self.tikhonov_reg, self.svd_solver)
 
         self.U_ = np.asfortranarray(U)
         self.V_ = np.asfortranarray(V)
         return self
-
-    def predict(self, X, t=1, observable=lambda x : x):
-        # TODO
-        pass

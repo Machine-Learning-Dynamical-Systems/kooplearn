@@ -1,13 +1,14 @@
 import numpy as np
+from sklearn.utils.validation import check_is_fitted, check_X_y
 
 from _algorithms import primal
 from BaseKoopmanEstimator import BaseKoopmanEstimator
 
+
 class DirectRegressor(BaseKoopmanEstimator):
-    def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=1, n_oversamples=5, optimal_sketching=False):
+    def __init__(self, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=1, n_oversamples=5, optimal_sketching=False):
         """Reduced Rank Regression Estimator for the Koopman Operator
         Args:
-            kernel (Kernel, optional): Kernel object implemented according to the specification found in the `kernels` submodule. Defaults to None.
             rank (int, optional): Rank of the estimator. Defaults to 5.
             tikhonov_reg (float, optional): Tikhonov regularization parameter. Defaults to None.
             backend (str, optional): 
@@ -23,7 +24,6 @@ class DirectRegressor(BaseKoopmanEstimator):
             n_oversamples (int, optional): This parameter is only relevant when svd_solver = 'randomized'. It corresponds to the additional number of random vectors to sample the range of X so as to ensure proper conditioning. Defaults to 10.
             optimal_sketching (bool, optional): Sketching strategy for the randomized solver. If true performs optimal sketching (computaitonally more expensive but more accurate). Defaults to False.
         """
-        self.kernel = kernel
         self.rank = rank
         self.tikhonov_reg = tikhonov_reg
         self.backend = backend
@@ -35,7 +35,7 @@ class DirectRegressor(BaseKoopmanEstimator):
     def fit(self, X, Y):
         self._check_backend_solver_compatibility()
 
-        self.C_X, self.C_Y, self.C_XY = self._get_cov(X, Y)
+        self.C_X_, self.C_Y_, self.C_XY_ = self._get_cov(X, Y)
 
         self.X_fit_ = X
         self.Y_fit_ = Y
@@ -50,7 +50,21 @@ class DirectRegressor(BaseKoopmanEstimator):
     def predict(self, X, t=1, observable=lambda x : x):
         f_X_new = observable(X)
         f_X_fit = observable(self.X_fit_)
-        return primal.low_rank_predict(t, self.vectors, self.C_XY, f_X_new, f_X_fit)
+        return primal.low_rank_predict(t, self.vectors, self.C_XY_, f_X_new, f_X_fit)
+
+    def eig(self):
+        check_is_fitted(self, ['U_','C_XY_'])
+        return primal.low_rank_eig(self.U_, self.C_XY_)
+
+    def apply_eigfun(self, X):
+        # TODO: what is phi_testX? should we apply a feature map?
+        _,vectors = self.eig()
+        phi_testX = X
+        return primal.low_rank_eigfun_eval(phi_testX, vectors)
+
+    def svd(self):
+        check_is_fitted(self, ['U_', 'C_XY_'])
+        return primal.svdvals(self.U_, self.C_XY_)
 
     def _get_cov(X,Y):
         C = np.cov(X.T,Y.T)
