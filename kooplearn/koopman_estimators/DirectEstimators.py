@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted, check_X_y
 
 from _algorithms import primal
@@ -32,21 +33,6 @@ class DirectRegressor(BaseKoopmanEstimator):
         self.n_oversamples = n_oversamples
         self.optimal_sketching = optimal_sketching
 
-    def fit(self, X, Y):
-        self._check_backend_solver_compatibility()
-
-        self.C_X_, self.C_Y_, self.C_XY_ = self._get_cov(X, Y)
-
-        self.X_fit_ = X
-        self.Y_fit_ = Y
-
-        if self.svd_solver == 'randomized':
-            vectors = primal.fit_rand_reduced_rank_regression_tikhonov(self.C_X, self.C_XY, self.rank, self.tikhonov_reg, self.n_oversamples, self.iterated_power)
-        else:
-            vectors = primal.fit_reduced_rank_regression_tikhonov(self.C_X, self.C_XY, self.rank, self.tikhonov_reg, self.svd_solver)
-
-        self.vectors = vectors
-
     def predict(self, X, t=1, observable=lambda x : x):
         f_X_new = observable(X)
         f_X_fit = observable(self.X_fit_)
@@ -71,3 +57,43 @@ class DirectRegressor(BaseKoopmanEstimator):
         d = X.shape[0]
         # C_X, then X_Y, then C_XY
         return C[:d, :d], C[d:, d:], C[:d, d:]
+
+class DirectReducedRank(DirectRegressor):
+
+    def fit(self, X, Y):
+        self._check_backend_solver_compatibility()
+        X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
+        Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
+        check_X_y(X, Y, multi_output=True)
+
+        self.C_X_, self.C_Y_, self.C_XY_ = self._get_cov(X, Y)
+
+        self.X_fit_ = X
+        self.Y_fit_ = Y
+
+        if self.svd_solver == 'randomized':
+            vectors = primal.fit_rand_reduced_rank_regression_tikhonov(self.C_X, self.C_XY, self.rank, self.tikhonov_reg, self.n_oversamples, self.iterated_power)
+        else:
+            vectors = primal.fit_reduced_rank_regression_tikhonov(self.C_X, self.C_XY, self.rank, self.tikhonov_reg, self.svd_solver)
+
+        self.vectors = vectors
+
+class DirectPrincipalComponent(DirectRegressor):
+
+    def fit(self, X, Y):
+        self._check_backend_solver_compatibility()
+        X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
+        Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
+        check_X_y(X, Y, multi_output=True)
+
+        self.C_X_, self.C_Y_, self.C_XY_ = self._get_cov(X, Y)
+
+        self.X_fit_ = X
+        self.Y_fit_ = Y
+
+        if self.svd_solver == 'randomized':
+            vectors = primal.fit_rand_tikhonov(self.C_X, self.C_XY, self.rank, self.tikhonov_reg, self.n_oversamples, self.iterated_power)
+        else:
+            vectors = primal.fit_tikhonov(self.C_X, self.C_XY, self.rank, self.tikhonov_reg, self.svd_solver)
+
+        self.vectors = vectors

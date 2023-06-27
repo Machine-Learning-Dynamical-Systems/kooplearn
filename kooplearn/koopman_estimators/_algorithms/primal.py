@@ -63,6 +63,10 @@ def fit_tikhonov(C_X, tikhonov_reg:float, rank: Optional[int] = None, svd_solver
     rsqrt_evals = np.diag(values**(-0.5))
     return vectors@rsqrt_evals
 
+def fit_rand_tikhonov(C_X, C_XY, rank:int, tikhonov_reg:float, n_oversamples:int, iterated_power:int):
+    # TODO
+    pass
+
 def low_rank_predict(num_steps: int, U, C_XY, phi_testX, phi_trainX, obs_train_Y):
     # G = U U.T C_XY
     # G^n = (U)(U.T C_XY U)^(n-1)(U.T C_XY)

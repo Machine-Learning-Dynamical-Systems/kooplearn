@@ -12,6 +12,34 @@ from warnings import warn
 
 class KernelLowRankRegressor(BaseKoopmanEstimator, RegressorMixin):
 
+    def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=1, n_oversamples=5, optimal_sketching=False):
+        """Low rank Estimator for the Koopman Operator
+        Args:
+            kernel (Kernel, optional): Kernel object implemented according to the specification found in the `kernels` submodule. Defaults to None.
+            rank (int, optional): Rank of the estimator. Defaults to 5.
+            tikhonov_reg (float, optional): Tikhonov regularization parameter. Defaults to None.
+            backend (str, optional): 
+                If 'numpy' kernel matrices are formed explicitely and stored as numpy arrays. 
+                If 'keops', kernel matrices are computed on the fly and never stored in memory. Keops backend is GPU compatible and preferable for large scale problems. 
+                Defaults to 'numpy'.
+            svd_solver (str, optional): 
+                If 'full', run exact SVD calling LAPACK solver functions. Warning: 'full' is not compatible with the 'keops' backend.
+                If 'arnoldi', run SVD truncated to rank calling ARPACK solver functions.
+                If 'randomized', run randomized SVD by the method of [add ref.]  
+                Defaults to 'full'.
+            iterated_power (int, optional): Number of iterations for the power method computed by svd_solver = 'randomized'. Must be of range :math:`[0, \infty)`. Defaults to 2.
+            n_oversamples (int, optional): This parameter is only relevant when svd_solver = 'randomized'. It corresponds to the additional number of random vectors to sample the range of X so as to ensure proper conditioning. Defaults to 10.
+            optimal_sketching (bool, optional): Sketching strategy for the randomized solver. If true performs optimal sketching (computaitonally more expensive but more accurate). Defaults to False. (RRR only)
+        """
+        self.kernel = kernel
+        self.rank = rank
+        self.tikhonov_reg = tikhonov_reg
+        self.backend = backend
+        self.svd_solver = svd_solver
+        self.iterated_power = iterated_power
+        self.n_oversamples = n_oversamples
+        self.optimal_sketching = optimal_sketching
+
     def modes(self, observable=lambda x : x, _cached_results=None):
         """Modes of the estimated Koopman operator.
 
@@ -82,31 +110,6 @@ class KernelLowRankRegressor(BaseKoopmanEstimator, RegressorMixin):
         return K_X, K_Y, K_XY
 
 class KernelPrincipalComponent(KernelLowRankRegressor):
-    def __init__(self, kernel=None, rank=5, backend='numpy', svd_solver='full', iterated_power=2, n_oversamples=10):
-        """Principal Component Regression Estimator for the Koopman Operator
-        
-        Args:
-            kernel (Kernel, optional): Kernel object implemented according to the specification found in the `kernels` submodule. Defaults to None corresponds to a linear kernel.
-            rank (int, optional): Rank of the estimator. Defaults to 5.
-            tikhonov_reg (_type_, optional): Tikhonov regularization parameter. Defaults to None.
-            backend (str, optional): 
-                If 'numpy' kernel matrices are formed explicitely and stored as numpy arrays. 
-                If 'keops', kernel matrices are computed on the fly and never stored in memory. Keops backend is GPU compatible and preferable for large scale problems. 
-                Defaults to 'numpy'.
-            svd_solver (str, optional): 
-                If 'full', run exact SVD calling LAPACK solver functions. Warning: 'full' is not compatible with the 'keops' backend.
-                If 'arnoldi', run SVD truncated to rank calling ARPACK solver functions.
-                If 'randomized', run randomized SVD by the method of [add ref.]  
-                Defaults to 'full'.
-            iterated_power (int, optional): Number of iterations for the power method computed by svd_solver == 'randomized'. Must be of range [0, infinity). Defaults to 2.
-            n_oversamples (int, optional): This parameter is only relevant when svd_solver == 'randomized'. It corresponds to the additional number of random vectors to sample the range of X so as to ensure proper conditioning. Defaults to 10.
-        """
-        self.kernel = kernel
-        self.rank = rank
-        self.backend = backend
-        self.svd_solver = svd_solver
-        self.iterated_power = iterated_power
-        self.n_oversamples = n_oversamples
 
     def fit(self, X, Y):
         """Fit the Koopman operator estimator.
@@ -133,70 +136,16 @@ class KernelPrincipalComponent(KernelLowRankRegressor):
 
         self.n_features_in_ = X.shape[1]
 
-        if self.svd_solver == 'arnoldi':
-            S, V = dual.eigsh(K_X, self.rank)
-        elif self.svd_solver == 'full':
-            S, V = dual.eigh(K_X)
+        if self.svd_solver == 'randomized':
+            U,V,_ = dual.fit_rand_tikhonov(self.K_X_, self.tikhonov_reg, self.rank, self.n_oversamples, self.iterated_power)
         else:
-            if self.backend == 'keops':
-                raise NotImplementedError('Randomized SVD solver is not implemented with the Keops backend yet.')
-            else:
-                V, S, _ = dual.randomized_svd(K_X, self.rank, n_oversamples=self.n_oversamples, n_iter=self.iterated_power, random_state=None)
-            
-        sigma_sq = S**2
-        sort_perm = sort_and_crop(sigma_sq, self.rank)   
-        sigma_sq = sigma_sq[sort_perm]
-        V = V[:,sort_perm]
-        S = S[sort_perm]
-        
-        _test = S>2.2e-16
-        if all(_test):            
-            V = V * np.sqrt(dim) 
-            U = V @ np.diag(S**-1)
-        else:
-            V = V[:,_test] *np.sqrt(dim) 
-            U = V @ np.diag(S[_test]**-1)
+            U,V,_ = dual.fit_tikhonov(self.K_X_, self.tikhonov_reg, self.rank, self.svd_solver)
 
-            warn(f"The numerical rank of the projector is smaller than the selected rank ({self.rank}). {self.rank - V.shape[1]} degrees of freedom will be ignored.")
-            _zeroes = np.zeros((V.shape[0], self.rank - V.shape[1]))
-            V = np.c_[V, _zeroes]
-            U = np.c_[U, _zeroes]
-            assert U.shape[1] == self.rank
-            assert V.shape[1] == self.rank       
-           
         self.U_ = np.asfortranarray(U)
         self.V_ = np.asfortranarray(V)
-        return self
+        return self   
 
 class KernelReducedRank(KernelLowRankRegressor):
-
-    def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=1, n_oversamples=5, optimal_sketching=False):
-        """Reduced Rank Regression Estimator for the Koopman Operator
-        Args:
-            kernel (Kernel, optional): Kernel object implemented according to the specification found in the `kernels` submodule. Defaults to None.
-            rank (int, optional): Rank of the estimator. Defaults to 5.
-            tikhonov_reg (float, optional): Tikhonov regularization parameter. Defaults to None.
-            backend (str, optional): 
-                If 'numpy' kernel matrices are formed explicitely and stored as numpy arrays. 
-                If 'keops', kernel matrices are computed on the fly and never stored in memory. Keops backend is GPU compatible and preferable for large scale problems. 
-                Defaults to 'numpy'.
-            svd_solver (str, optional): 
-                If 'full', run exact SVD calling LAPACK solver functions. Warning: 'full' is not compatible with the 'keops' backend.
-                If 'arnoldi', run SVD truncated to rank calling ARPACK solver functions.
-                If 'randomized', run randomized SVD by the method of [add ref.]  
-                Defaults to 'full'.
-            iterated_power (int, optional): Number of iterations for the power method computed by svd_solver = 'randomized'. Must be of range :math:`[0, \infty)`. Defaults to 2.
-            n_oversamples (int, optional): This parameter is only relevant when svd_solver = 'randomized'. It corresponds to the additional number of random vectors to sample the range of X so as to ensure proper conditioning. Defaults to 10.
-            optimal_sketching (bool, optional): Sketching strategy for the randomized solver. If true performs optimal sketching (computaitonally more expensive but more accurate). Defaults to False.
-        """
-        self.kernel = kernel
-        self.rank = rank
-        self.tikhonov_reg = tikhonov_reg
-        self.backend = backend
-        self.svd_solver = svd_solver
-        self.iterated_power = iterated_power
-        self.n_oversamples = n_oversamples
-        self.optimal_sketching = optimal_sketching
 
     def fit(self, X, Y):
         """Fit the Koopman operator estimator.

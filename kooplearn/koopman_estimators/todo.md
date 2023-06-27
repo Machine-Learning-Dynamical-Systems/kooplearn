@@ -9,3 +9,5 @@
     - [ ] Prediction error
 - [ ] Add tests for each of the algorithm
     - [ ] Primal and dual should give the same results on the same data (e.g. linear kernel)
+- [ ] Implement fit_rand_tikhonov in primal.py
+- [ ] Complete eigfun in DirectEstimators.py (what is phi_testX? should we apply a feature map? If so, isn't it something at the general class level?)
