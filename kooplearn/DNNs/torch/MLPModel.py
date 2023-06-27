@@ -1,5 +1,5 @@
 import torch.nn as nn
-from .TimeseriesDataset import TimeseriesDataset
+from kooplearn.Datasets.TimeseriesDataset import TimeseriesDataset
 
 
 class MLPModel(nn.Module):
@@ -18,7 +18,10 @@ class MLPModel(nn.Module):
         self.sequential = nn.Sequential(*module_list)
 
     def forward(self, x):
-        return self.sequential(x)
+        model_output = {
+            'x_encoded': self.sequential(x),
+        }
+        return model_output
 
     @staticmethod
     def time_series_dataset_to_model_kwargs(dataset: TimeseriesDataset):

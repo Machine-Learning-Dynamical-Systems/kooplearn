@@ -1,12 +1,23 @@
 import pytorch_lightning as pl
 import pandas as pd
 from torch.utils.data import DataLoader
-from dl_forecast.datasets import TimeseriesDataset
-from dl_forecast.datasets import EmptyDataset
+from kooplearn.Datasets.TimeseriesDataset import TimeseriesDataset
+from torch.utils.data import Dataset
+
+
+class EmptyDataset(Dataset):
+    def __init__(self):
+        super().__init__()
+
+    def __len__(self):
+        return 0
+
+    def __getitem__(self, idx):
+        return None
 
 
 class TimeseriesDataModule(pl.LightningDataModule):
-    def __init__(self, df_series, n_train, n_valid, n_test, batch_size, lb_window_size, horizon_size, step=1,
+    def __init__(self, df_series, n_train, n_valid, n_test, lb_window_size, horizon_size, batch_size=1, step=1,
                  num_workers=0, dataset_name=None):
         super().__init__()
         self.save_hyperparameters(ignore=['df_series'])
