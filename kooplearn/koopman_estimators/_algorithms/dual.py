@@ -156,6 +156,8 @@ def low_rank_predict(num_steps: int, U, V, K_YX, K_testX, obs_train_Y):
     K_dot_U = rsqrt_dim*K_testX@U
     V_dot_obs = rsqrt_dim*(V.T)@obs_train_Y
     V_K_XY_U = (dim**-1)*np.linalg.multi_dot([V.T, K_YX, U])
+    if num_steps-1 == 0:
+        return np.linalg.multi_dot([K_dot_U, V_K_XY_U, V_dot_obs])
     M = np.linalg.matrix_power(V_K_XY_U, num_steps - 1)
     return np.linalg.multi_dot([K_dot_U, M, V_dot_obs])
 

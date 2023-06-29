@@ -1,6 +1,7 @@
 from sklearn.base import RegressorMixin
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted, check_X_y
+from kernels import Linear
 
 from BaseKoopmanEstimator import BaseKoopmanEstimator
 from _algorithms import dual
@@ -12,7 +13,7 @@ from warnings import warn
 
 class KernelLowRankRegressor(BaseKoopmanEstimator, RegressorMixin):
 
-    def __init__(self, kernel=None, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=1, n_oversamples=5, optimal_sketching=False):
+    def __init__(self, kernel=Linear(), rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=1, n_oversamples=5, optimal_sketching=False):
         """Low rank Estimator for the Koopman Operator
         Args:
             kernel (Kernel, optional): Kernel object implemented according to the specification found in the `kernels` submodule. Defaults to None.
@@ -77,7 +78,7 @@ class KernelLowRankRegressor(BaseKoopmanEstimator, RegressorMixin):
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
         K_testX = self.kernel(X)
         if observables is None:
-            dual.low_rank_predict(t, self.U_, self.V_, self.K_YX_, K_testX, self.Y_fit_)
+            return dual.low_rank_predict(t, self.U_, self.V_, self.K_YX_, K_testX, self.Y_fit_)
         return dual.low_rank_predict(t, self.U_, self.V_, self.K_YX_, K_testX, observables)
 
     def eig(self):

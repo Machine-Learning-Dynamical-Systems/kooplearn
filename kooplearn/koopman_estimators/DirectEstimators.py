@@ -4,10 +4,11 @@ from sklearn.utils.validation import check_is_fitted, check_X_y
 
 from _algorithms import primal
 from BaseKoopmanEstimator import BaseKoopmanEstimator
+from kernels import Linear
 
 
 class DirectRegressor(BaseKoopmanEstimator):
-    def __init__(self, rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=1, n_oversamples=5, optimal_sketching=False):
+    def __init__(self, kernel=Linear(), rank=5, tikhonov_reg=None, backend='numpy', svd_solver='full', iterated_power=1, n_oversamples=5, optimal_sketching=False):
         """Reduced Rank Regression Estimator for the Koopman Operator
         Args:
             rank (int, optional): Rank of the estimator. Defaults to 5.
@@ -45,8 +46,8 @@ class DirectRegressor(BaseKoopmanEstimator):
             ndarray: Array of shape (n_t, n_samples, n_obs) containing the forecast of the observable(s) provided as argument. Here n_samples = len(X), n_obs = len(observable(x)), n_t = len(t) (if t is a scalar n_t = 1).
         """ 
         if observables is None:
-            primal.low_rank_predict(t, self.vectors, self.C_XY_, X, self.X_fit_, self.Y_fit_)
-        return primal.low_rank_predict(t, self.vectors, self.C_XY_, X, self.X_fit_, observables)
+            return primal.low_rank_predict(t, self.vectors.T, self.C_XY_, X, self.X_fit_, self.Y_fit_)
+        return primal.low_rank_predict(t, self.vectors.T, self.C_XY_, X, self.X_fit_, observables)
 
     def eig(self):
         check_is_fitted(self, ['U_','C_XY_'])
@@ -61,8 +62,9 @@ class DirectRegressor(BaseKoopmanEstimator):
         return primal.svdvals(self.U_, self.C_XY_)
 
     def _get_cov(self,X,Y):
-        C = np.cov(X.T,Y.T)
-        d = X.shape[0]
+        # remember X and Y of shape (n_samples, n_features)
+        C = self.kernel.cov(X.T,Y.T)
+        d = X.shape[1]
         # C_X, then X_Y, then C_XY
         return C[:d, :d], C[d:, d:], C[:d, d:]
 
