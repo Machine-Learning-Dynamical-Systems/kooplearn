@@ -19,8 +19,7 @@ class KernelLowRankRegressor(BaseKoopmanEstimator, RegressorMixin):
             rank (int, optional): Rank of the estimator. Defaults to 5.
             tikhonov_reg (float, optional): Tikhonov regularization parameter. Defaults to None.
             backend (str, optional): 
-                If 'numpy' kernel matrices are formed explicitely and stored as numpy arrays. 
-                If 'keops', kernel matrices are computed on the fly and never stored in memory. Keops backend is GPU compatible and preferable for large scale problems. 
+                If 'numpy' kernel matrices are formed explicitely and stored as numpy arrays.
                 Defaults to 'numpy'.
             svd_solver (str, optional): 
                 If 'full', run exact SVD calling LAPACK solver functions. Warning: 'full' is not compatible with the 'keops' backend.
@@ -63,29 +62,28 @@ class KernelLowRankRegressor(BaseKoopmanEstimator, RegressorMixin):
         modes = evaluated_observable@self.V_@vl.conj()@left_right_norms
         return modes.T*inv_sqrt_dim
 
-    def forecast(self, X, t=1., observable = lambda x: x, which = None,):
-        """Forecast an observable using the estimated Koopman operator.
+    def predict(self, X, observables=None, t=1.):
+        """Predict an observable using the estimated Koopman operator.
         
         This method with t=1., observable = lambda x: x, and which = None is equivalent to self.predict(X).
         Be aware of the unit of measurements: if the datapoints come from a continuous dynamical system disctretized every dt, the variable t in this function corresponds to the time t' = t*dt  of the continuous dynamical system.
         Args:
             X (ndarray): 2D array of shape (n_samples, n_features) containing the initial conditions.
+            observables (ndarray, optional): 2D array of observables computed on previously seen data. If None, uses the test Y dataset instead.
             t (scalar or ndarray, optional): Time(s) to forecast. Defaults to 1.
-            observable (lambda function, optional): Observable to forecast. Defaults to the identity map, corresponding to forecasting the state itself.
-            which (None or array of integers, optional): If None, compute the forecast with all the modes of the observable. If which is an array of integers, the forecast is computed using only the modes corresponding to the indexes provided. The modes are arranged in decreasing order with respect to the eigenvalues. For example, if which = [0,2] only the first and third leading modes are used to forecast.  Defaults to None.
         Returns:
             ndarray: Array of shape (n_t, n_samples, n_obs) containing the forecast of the observable(s) provided as argument. Here n_samples = len(X), n_obs = len(observable(x)), n_t = len(t) (if t is a scalar n_t = 1).
         """        
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
         K_testX = self.kernel(X)
-        obs_train_Y = observable(self.Y_fit_)
-        return dual.low_rank_predict(t, self.U_, self.V_, self.K_YX_, K_testX, obs_train_Y )
+        if observables is None:
+            dual.low_rank_predict(t, self.U_, self.V_, self.K_YX_, K_testX, self.Y_fit_)
+        return dual.low_rank_predict(t, self.U_, self.V_, self.K_YX_, K_testX, observables)
 
     def eig(self):
         """Eigenvalue decomposition of the estimated Koopman operator.
         Args:
-            left (bool, optional): Whether to return the left eigenfunctions. Defaults to False.
-            right (bool, optional): Wheter to return the right eigenfunctions. Defaults to True.
+            None
         Returns:
             tuple: (evals, fr, fl) where evals is an array of shape (self.rank,) containing the eigenvalues of the estimated Koopman operator, fr is a lambda function returning the right eigenfunctions of the estimated Koopman operator, and fl is a lambda function returning the left eigenfunctions of the estimated Koopman operator. If left=False, fl is not returned. If right=False, fr is not returned.
         """
@@ -124,8 +122,6 @@ class KernelPrincipalComponent(KernelLowRankRegressor):
         check_X_y(X, Y, multi_output=True)
     
         K_X, K_Y, K_YX = self._init_kernels(X, Y)
-        
-        dim = K_X.shape[0]
 
         self.K_X_ = K_X
         self.K_Y_ = K_Y
@@ -139,7 +135,7 @@ class KernelPrincipalComponent(KernelLowRankRegressor):
         if self.svd_solver == 'randomized':
             U,V,_ = dual.fit_rand_tikhonov(self.K_X_, self.tikhonov_reg, self.rank, self.n_oversamples, self.iterated_power)
         else:
-            U,V,_ = dual.fit_tikhonov(self.K_X_, self.tikhonov_reg, self.rank, self.svd_solver)
+            U,V = dual.fit_tikhonov(self.K_X_, self.tikhonov_reg, self.rank, self.svd_solver)
 
         self.U_ = np.asfortranarray(U)
         self.V_ = np.asfortranarray(V)

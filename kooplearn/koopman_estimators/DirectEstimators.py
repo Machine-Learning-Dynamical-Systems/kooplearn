@@ -14,7 +14,6 @@ class DirectRegressor(BaseKoopmanEstimator):
             tikhonov_reg (float, optional): Tikhonov regularization parameter. Defaults to None.
             backend (str, optional): 
                 If 'numpy' kernel matrices are formed explicitely and stored as numpy arrays. 
-                If 'keops', kernel matrices are computed on the fly and never stored in memory. Keops backend is GPU compatible and preferable for large scale problems. 
                 Defaults to 'numpy'.
             svd_solver (str, optional): 
                 If 'full', run exact SVD calling LAPACK solver functions. Warning: 'full' is not compatible with the 'keops' backend.
@@ -33,26 +32,35 @@ class DirectRegressor(BaseKoopmanEstimator):
         self.n_oversamples = n_oversamples
         self.optimal_sketching = optimal_sketching
 
-    def predict(self, X, t=1, observable=lambda x : x):
-        f_X_new = observable(X)
-        f_X_fit = observable(self.X_fit_)
-        return primal.low_rank_predict(t, self.vectors, self.C_XY_, f_X_new, f_X_fit)
+    def predict(self, X, t=1, observables=None):
+        """Predict an observable using the estimated Koopman operator.
+        
+        This method with t=1., observable = lambda x: x, and which = None is equivalent to self.predict(X).
+        Be aware of the unit of measurements: if the datapoints come from a continuous dynamical system disctretized every dt, the variable t in this function corresponds to the time t' = t*dt  of the continuous dynamical system.
+        Args:
+            X (ndarray): 2D array of shape (n_samples, n_features) containing the initial conditions.
+            observables (ndarray, optional): 2D array of observables computed on previously seen data. If None, uses the test Y dataset instead.
+            t (scalar or ndarray, optional): Time(s) to forecast. Defaults to 1.
+        Returns:
+            ndarray: Array of shape (n_t, n_samples, n_obs) containing the forecast of the observable(s) provided as argument. Here n_samples = len(X), n_obs = len(observable(x)), n_t = len(t) (if t is a scalar n_t = 1).
+        """ 
+        if observables is None:
+            primal.low_rank_predict(t, self.vectors, self.C_XY_, X, self.X_fit_, self.Y_fit_)
+        return primal.low_rank_predict(t, self.vectors, self.C_XY_, X, self.X_fit_, observables)
 
     def eig(self):
         check_is_fitted(self, ['U_','C_XY_'])
         return primal.low_rank_eig(self.U_, self.C_XY_)
 
     def apply_eigfun(self, X):
-        # TODO: what is phi_testX? should we apply a feature map?
         _,vectors = self.eig()
-        phi_testX = X
-        return primal.low_rank_eigfun_eval(phi_testX, vectors)
+        return primal.low_rank_eigfun_eval(X, vectors)
 
     def svd(self):
         check_is_fitted(self, ['U_', 'C_XY_'])
         return primal.svdvals(self.U_, self.C_XY_)
 
-    def _get_cov(X,Y):
+    def _get_cov(self,X,Y):
         C = np.cov(X.T,Y.T)
         d = X.shape[0]
         # C_X, then X_Y, then C_XY
@@ -72,9 +80,9 @@ class DirectReducedRank(DirectRegressor):
         self.Y_fit_ = Y
 
         if self.svd_solver == 'randomized':
-            vectors = primal.fit_rand_reduced_rank_regression_tikhonov(self.C_X, self.C_XY, self.rank, self.tikhonov_reg, self.n_oversamples, self.iterated_power)
+            vectors = primal.fit_rand_reduced_rank_regression_tikhonov(self.C_X_, self.C_XY_, self.rank, self.tikhonov_reg, self.n_oversamples, self.iterated_power)
         else:
-            vectors = primal.fit_reduced_rank_regression_tikhonov(self.C_X, self.C_XY, self.rank, self.tikhonov_reg, self.svd_solver)
+            vectors = primal.fit_reduced_rank_regression_tikhonov(self.C_X_, self.C_XY_, self.rank, self.tikhonov_reg, self.svd_solver)
 
         self.vectors = vectors
 
@@ -92,8 +100,8 @@ class DirectPrincipalComponent(DirectRegressor):
         self.Y_fit_ = Y
 
         if self.svd_solver == 'randomized':
-            vectors = primal.fit_rand_tikhonov(self.C_X, self.C_XY, self.rank, self.tikhonov_reg, self.n_oversamples, self.iterated_power)
+            vectors = primal.fit_rand_tikhonov(self.C_X_, self.C_XY_, self.rank, self.tikhonov_reg, self.n_oversamples, self.iterated_power)
         else:
-            vectors = primal.fit_tikhonov(self.C_X, self.C_XY, self.rank, self.tikhonov_reg, self.svd_solver)
+            vectors = primal.fit_tikhonov(self.C_X_, self.C_XY_, self.rank, self.tikhonov_reg, self.svd_solver)
 
         self.vectors = vectors
