@@ -1,6 +1,7 @@
 import abc
+from numpy.typing import ArrayLike
 
-class FeatureMap:
+class FeatureMap(abc.ABC):
     def __init__(self):
         pass
 

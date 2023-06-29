@@ -1,4 +1,6 @@
 import abc
+from numpy.typing import ArrayLike
+from typing import Optional
 import sklearn.gaussian_process.kernels as sk_kernels
 from sklearn.metrics.pairwise import polynomial_kernel as sk_poly
 import numpy as np
@@ -7,7 +9,7 @@ from torch.nn import Module
 
 class BaseKernel(abc.ABC):
     @abc.abstractmethod
-    def __call__(self, X, Y=None):
+    def __call__(self, X: ArrayLike, Y: Optional[ArrayLike] = None):
         """
         Evaluate the kernel. 
         The method called with backend == ``numpy'' returns a numpy array of shape (X.shape[0], Y.shape[0]).
