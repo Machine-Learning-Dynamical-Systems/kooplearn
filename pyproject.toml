@@ -4,15 +4,17 @@ build-backend = "hatchling.build"
 
 
 [project]
-name = "sampleproject"  # Required
+name = "kooplearn"  # Required
 version = "0.0.1"  # Required
-description = "A sample Python project"  # Optional
+description = "A package to learn Koopman operators"  # Optional
 readme = "README.md" # Optional
 requires-python = ">=3.7"
 keywords = ["sample", "setuptools", "development"]  # Optional
 
 authors = [
-  {name = "A. Random Developer", email = "author@example.com" } # Optional
+  {name = "Pietro Novelli", email = "pietronvll@gmail.com" },
+  {name = "Grégoire Pacreau"},
+  {name = "Bruno Teixeira"},
 ]
 dependencies = [ # Optional
   "numpy",
@@ -27,3 +29,6 @@ test = ["pytest"]
 
 [project.urls]  # Optional
 "Homepage" = "https://github.com/CSML-IIT-UCL/kooplearn"
+
+[tool.ruff]
+line-length = 300

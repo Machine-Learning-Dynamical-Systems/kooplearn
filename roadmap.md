@@ -12,6 +12,9 @@
 6. Visualization section
 7. Adapt the quantiles + volatility functions on the covariance 
 
+## On the structure of models:
+The proposed `encoder->koop_estimation->decoder` paradigm does not fit well to every case. For example, the Kernel models are not expressed as such. In general, also the Primal models with fixed feature map.
+
 Dependencies:
 1. numpy
 2. scipy

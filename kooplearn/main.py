@@ -1,4 +1,4 @@
-# main class, encompasses all kooplearn models
+# Main abstract class, encompasses all kooplearn models
 
 from feature_maps.FeatureMap import FeatureMap
 from feature_maps.Decoder import Decoder
