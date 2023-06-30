@@ -38,7 +38,10 @@ def fit_rand_reduced_rank_regression_tikhonov(
         _tmp_sketch = solve(reg_input_covariance, sketch, assume_a='pos')
         sketch = _crcov@_tmp_sketch
 
-    sketch_p =  solve(reg_input_covariance, sketch, assume_a='pos')  
+
+    sketch_p = solve(reg_input_covariance, sketch, assume_a='pos')  
+
+    
     F_0 = (sketch_p.T)@sketch
     F_1 = (sketch_p.T)@(_crcov@sketch_p)
     
