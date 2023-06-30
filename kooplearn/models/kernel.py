@@ -100,8 +100,8 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
     def _init_kernels(self, X: ArrayLike, Y: ArrayLike):
         K_X = self.kernel(X)
         K_Y = self.kernel(Y)
-        K_XY = self.kernel(X,Y)
-        return K_X, K_Y, K_XY
+        K_YX = self.kernel(Y, X)
+        return K_X, K_Y, K_YX
     
     def pre_fit_checks(self, X: ArrayLike, Y: ArrayLike):
         X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
@@ -117,10 +117,9 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
         self.X_fit_ = X
         self.Y_fit_ = Y
 
-class KernelPrincipalComponent(KernelLowRankRegressor):
+class KernelDMD(KernelLowRankRegressor):
     def fit(self, X, Y):
-        """Fit the Koopman operator estimator.
-        
+        """Fit the Koopman operator estimator. 
         Args:
             X (ndarray): Input observations.
             Y (ndarray): Evolved observations.

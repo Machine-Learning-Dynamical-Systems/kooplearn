@@ -3,7 +3,6 @@ import numpy as np
 from sklearn.utils import check_array, check_random_state
 from warnings import warn
 
-
 class TopK_ReturnType(NamedTuple):
     values: np.ndarray
     indices: np.ndarray
