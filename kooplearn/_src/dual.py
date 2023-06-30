@@ -50,18 +50,20 @@ def fit_rand_reduced_rank_regression_tikhonov(
         tikhonov_reg:float, 
         n_oversamples:int, 
         optimal_sketching:bool, 
-        iterated_power:int):
+        iterated_power:int,
+        rng_seed: int = 0):
     dim = K_X.shape[0]
     inv_dim = dim**(-1.0)
     alpha = dim*tikhonov_reg
     tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
-    K_reg_inv = IterInv(K_X + tikhonov, ifunc = cg)
+    K_reg_inv = IterInv(K_X + tikhonov)
     l = rank + n_oversamples
+    rng = np.random.default_rng(rng_seed)
     if optimal_sketching:
         Cov = inv_dim*K_Y
-        Om = np.random.multivariate_normal(np.zeros(dim, dtype=K_X.dtype), Cov, size=l).T
+        Om = rng.multivariate_normal(np.zeros(dim, dtype=K_X.dtype), Cov, size=l).T
     else:
-        Om = np.random.randn(dim, l)      
+        Om = rng.standard_normal(size = (dim, l))
         
     for _ in range(iterated_power):
         #Powered randomized rangefinder
@@ -134,7 +136,7 @@ def fit_tikhonov(K_X, tikhonov_reg:float, rank: Optional[int] = None, svd_solver
     alpha = dim*tikhonov_reg
     tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
     if svd_solver == 'arnoldi':
-        S, V = eigsh(K_X + tikhonov, rank)
+        S, V = eigsh(K_X + tikhonov, k = rank)
     elif svd_solver == 'full':
         S, V = eigh(K_X + tikhonov)   
     S, V = _postprocess_tikhonov_fit(S, V, rank, dim, rcond)
