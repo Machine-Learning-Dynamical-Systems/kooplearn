@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Optional
+from typing import Optional, Callable, Union
 from numpy.typing import ArrayLike
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted, check_X_y
@@ -33,7 +33,7 @@ class PrimalRegressor(BaseModel):
         self.n_oversamples = n_oversamples
         self.optimal_sketching = optimal_sketching
 
-    def predict(self, X: ArrayLike, t: int = 1):
+    def predict(self, X: ArrayLike, t: int = 1, observables: Optional[Union[Callable, ArrayLike]] = None):
         """Predict an observable using the estimated Koopman operator.
         
         This method with t=1., observable = lambda x: x, and which = None is equivalent to self.predict(X).
@@ -42,12 +42,22 @@ class PrimalRegressor(BaseModel):
             X (ndarray): 2D array of shape (n_samples, n_features) containing the initial conditions.
             observables (ndarray, optional): 2D array of observables computed on previously seen data. If None, uses the test Y dataset instead.
             t (scalar or ndarray, optional): Time(s) to forecast. Defaults to 1.
+            observables (Optional[Union[Callable, ArrayLike]], optional): Observable(s) to forecast. If None, predicts the state itself. Defaults to None.
         Returns:
             ndarray: Array of shape (n_t, n_samples, n_obs) containing the forecast of the observable(s) provided as argument. Here n_samples = len(X), n_obs = len(observable(x)), n_t = len(t) (if t is a scalar n_t = 1).
         """ 
         if observables is None:
-            return primal.low_rank_predict(t, self.U_, self.C_XY_, X, self.X_fit_, self.Y_fit_)
-        return primal.low_rank_predict(t, self.U_, self.C_XY_, X, self.X_fit_, observables)
+            _obs = self.Y_fit_
+        if callable(observables):
+            _obs = observables(self.Y_fit_)
+        elif isinstance(observables, np.ndarray):
+            _obs = observables
+        else:
+            raise ValueError("observables must be either None, a callable or a Numpy array of the observable evaluated at the Y training points.")
+        
+        phi_testX = self.feature_map(X)
+        phi_trainX = self.feature_map(self.X_fit_)
+        return primal.low_rank_predict(t, self.U_, self.C_XY_, phi_testX, phi_trainX, _obs)
     
     def eig(self, eval_left_on: Optional[ArrayLike]=None,  eval_right_on: Optional[ArrayLike]=None):
         """Eigenvalues and eigenvectors of the estimated Koopman operator.
@@ -69,7 +79,7 @@ class PrimalRegressor(BaseModel):
                 phi_textX = self.feature_map(eval_right_on)
                 return w, primal.low_rank_eigfun_eval(phi_textX, vr)
         else:
-            raise NotImplementedError("Left eigenfunctions are not implemented yet")
+            raise NotImplementedError("Left eigenfunctions are not implemented yet.")
 
     def svd(self):
         check_is_fitted(self, ['U_', 'C_XY_'])

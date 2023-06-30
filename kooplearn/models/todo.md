@@ -13,6 +13,7 @@
 - [x] Complete eigfun in DirectEstimators.py (what is phi_testX? should we apply a feature map? If so, isn't it something at the general class level?)
 - [ ] The `ScalarProduct` kernels are not interfaced with `FeatureMap`. Fix this.
 - [ ] In the Kernel estimators, double check that I need $K_{YX}$ and not its transpose.
+- [ ] Add Brunton's method to the `encoder_decoder` models.
 
 ### Notes/questions for Grégoire:
 1. (done) The `keops` backend has been dropped. You should remove every reference to it, starting from the function `BaseKoopmanEstimator._check_backend_solver_compatibility()` and backwards to every estimator you implemented.

@@ -1,7 +1,8 @@
 import abc
+import torch
 from typing import Optional
 from numpy.typing import ArrayLike
-import lightning as L
+from kooplearn.nn.torch.MLPModel import MLPModel
 
 class FeatureMap(abc.ABC):
     @abc.abstractmethod
@@ -23,9 +24,32 @@ class IdentityFeatureMap(FeatureMap):
         return X
 
 class TrainableFeatureMap(FeatureMap):
+    #Trainable feature maps should accept numpy arrays and return numpy arrays. Internally thay can do whatever.
     @abc.abstractmethod
     def fit(self, X: Optional[ArrayLike], Y: Optional[ArrayLike]):
         pass
+
+class DPnetsMLP(TrainableFeatureMap):
+    def __init__(self, input_dim, output_dim, hidden_dims):
+        super().__init__()
+        self.mlp_model = MLPModel(input_dim, output_dim, hidden_dims)
+    
+    def __call__(self, X: ArrayLike):
+        if not torch.is_tensor(X):
+            X = torch.tensor(X)
+        return self.mlp_model(X)['x_encoded'].detach().numpy()
+    
+    def fit(self, X: Optional[ArrayLike], Y: Optional[ArrayLike]):
+        if X is None:
+            raise ValueError('X is None')
+        if Y is None:
+            raise ValueError('Y is None')
+        
+        if not torch.is_tensor(X):
+            X = torch.tensor(X)
+        if not torch.is_tensor(Y):
+            Y = torch.tensor(Y)
+        #Add training loop. 
 
 class LightningFeatureMap(TrainableFeatureMap):
     def __init__(self,
@@ -124,9 +148,12 @@ class LightningFeatureMap(TrainableFeatureMap):
         self.trainer.fit(self.dnn_model_module, self.datamodule)
 
     def __call__(self, X):
-        return self.dnn_model_module(X)
+        if not torch.is_tensor(X):
+            X = torch.tensor(X, dtype=torch.float32)
+        return self.dnn_model_module(X).detach().numpy() #Everything should be outputted as a Numpy array
 
-class Decoder():
+
+class Decoder(abc.ABC):
     """
     Decoder class, inverse operation of the feature map.
 

@@ -1,7 +1,6 @@
 import torch.nn as nn
 from kooplearn.Datasets.TimeseriesDataset import TimeseriesDataset
 
-
 class MLPModel(nn.Module):
     def __init__(self, input_dim, output_dim, hidden_dims, output_activation_fn=nn.Identity(), activation_fn=nn.ReLU()):
         super().__init__()
