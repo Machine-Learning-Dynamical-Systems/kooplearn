@@ -63,7 +63,7 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
 
         if observables is None:
             _obs = self.Y_fit_
-        if callable(observables):
+        elif callable(observables):
             _obs = observables(self.Y_fit_)
         elif isinstance(observables, np.ndarray):
             _obs = observables
