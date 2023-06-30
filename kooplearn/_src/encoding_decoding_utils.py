@@ -2,7 +2,6 @@ import abc
 import torch
 from typing import Optional
 from numpy.typing import ArrayLike
-from kooplearn.nn.torch.MLPModel import MLPModel
 
 class FeatureMap(abc.ABC):
     @abc.abstractmethod
@@ -28,28 +27,6 @@ class TrainableFeatureMap(FeatureMap):
     @abc.abstractmethod
     def fit(self, X: Optional[ArrayLike], Y: Optional[ArrayLike]):
         pass
-
-class DPnetsMLP(TrainableFeatureMap):
-    def __init__(self, input_dim, output_dim, hidden_dims):
-        super().__init__()
-        self.mlp_model = MLPModel(input_dim, output_dim, hidden_dims)
-    
-    def __call__(self, X: ArrayLike):
-        if not torch.is_tensor(X):
-            X = torch.tensor(X)
-        return self.mlp_model(X)['x_encoded'].detach().numpy()
-    
-    def fit(self, X: Optional[ArrayLike], Y: Optional[ArrayLike]):
-        if X is None:
-            raise ValueError('X is None')
-        if Y is None:
-            raise ValueError('Y is None')
-        
-        if not torch.is_tensor(X):
-            X = torch.tensor(X)
-        if not torch.is_tensor(Y):
-            Y = torch.tensor(Y)
-        #Add training loop. 
 
 class LightningFeatureMap(TrainableFeatureMap):
     def __init__(self,
@@ -152,7 +129,7 @@ class LightningFeatureMap(TrainableFeatureMap):
             X = torch.tensor(X, dtype=torch.float32)
         return self.dnn_model_module(X).detach().numpy() #Everything should be outputted as a Numpy array
 
-
+#!! Implement this
 class Decoder(abc.ABC):
     """
     Decoder class, inverse operation of the feature map.

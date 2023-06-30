@@ -6,42 +6,20 @@ from sklearn.utils.validation import check_is_fitted, check_X_y
 
 from kooplearn.models.base import BaseModel
 from kooplearn._src import primal
-from kooplearn._src.encoding_decoding_utils import TrainableFeatureMap, IdentityFeatureMap
-
+from kooplearn._src.encoding_decoding_utils import TrainableFeatureMap, Decoder
 
 class EncoderModel(BaseModel):
-    def __init__(self, feature_map: TrainableFeatureMap = IdentityFeatureMap(), tikhonov_reg=None):
-        """Reduced Rank Regression Estimator for the Koopman Operator
+    def __init__(self, feature_map: TrainableFeatureMap, tikhonov_reg: Optional[float] = None):
+        """A generic model for the Koopman Operator based on a trainable encoding of the state and on Tikhonov-regularized least squares for the estimation of Koopman in the encoded space
+
         Args:
-            rank (int, optional): Rank of the estimator. Defaults to 5.
-            tikhonov_reg (float, optional): Tikhonov regularization parameter. Defaults to None.
-        
-            svd_solver (str, optional): 
-                If 'full', run exact SVD calling LAPACK solver functions.
-                If 'arnoldi', run SVD truncated to rank calling ARPACK solver functions.
-                If 'randomized', run randomized SVD by the method of [add ref.]  
-                Defaults to 'full'.
-            iterated_power (int, optional): Number of iterations for the power method computed by svd_solver = 'randomized'. Must be of range :math:`[0, \infty)`. Defaults to 2.
-            n_oversamples (int, optional): This parameter is only relevant when svd_solver = 'randomized'. It corresponds to the additional number of random vectors to sample the range of X so as to ensure proper conditioning. Defaults to 10.
-            optimal_sketching (bool, optional): Sketching strategy for the randomized solver. If true performs optimal sketching (computaitonally more expensive but more accurate). Defaults to False.
-        """
+            feature_map (TrainableFeatureMap): A trainable feature map. Should accept and return Numpy arrays. I
+            tikhonov_reg (float, optional): Tikhonov regularization to apply on the least squares Koopman estimator. Defaults to None.
+        """        
         self.feature_map = feature_map 
         self.tikhonov_reg = tikhonov_reg
 
-
     def predict(self, X: ArrayLike, t: int = 1, observables: Optional[Union[Callable, ArrayLike]] = None):
-        """Predict an observable using the estimated Koopman operator.
-        
-        This method with t=1., observable = lambda x: x, and which = None is equivalent to self.predict(X).
-        Be aware of the unit of measurements: if the datapoints come from a continuous dynamical system disctretized every dt, the variable t in this function corresponds to the time t' = t*dt  of the continuous dynamical system.
-        Args:
-            X (ndarray): 2D array of shape (n_samples, n_features) containing the initial conditions.
-            observables (ndarray, optional): 2D array of observables computed on previously seen data. If None, uses the test Y dataset instead.
-            t (scalar or ndarray, optional): Time(s) to forecast. Defaults to 1.
-            observables (Optional[Union[Callable, ArrayLike]], optional): Observable(s) to forecast. If None, predicts the state itself. Defaults to None.
-        Returns:
-            ndarray: Array of shape (n_t, n_samples, n_obs) containing the forecast of the observable(s) provided as argument. Here n_samples = len(X), n_obs = len(observable(x)), n_t = len(t) (if t is a scalar n_t = 1).
-        """ 
         if observables is None:
             _obs = self.Y_fit_
         if callable(observables):
@@ -55,17 +33,7 @@ class EncoderModel(BaseModel):
         phi_trainX = self.feature_map(self.X_fit_)
         return primal.low_rank_predict(t, self.U_, self.C_XY_, phi_testX, phi_trainX, _obs)
     
-    def eig(self, eval_left_on: Optional[ArrayLike]=None,  eval_right_on: Optional[ArrayLike]=None):
-        """Eigenvalues and eigenvectors of the estimated Koopman operator.
-        
-
-        Args:
-            left (Optional[ArrayLike], optional): _description_. Defaults to None.
-            right (Optional[ArrayLike], optional): _description_. Defaults to None.
-
-        Returns:
-            tuple: (evals, fl, fr) where evals is an array of shape (self.rank,) containing the eigenvalues of the estimated Koopman operator, fl and fr are arrays containing the evaluation of the left and right eigenfunctions of the estimated Koopman operator on the data passed to the arguments eval_left_on and eval_right_on respectively.
-        """        
+    def eig(self, eval_left_on: Optional[ArrayLike]=None,  eval_right_on: Optional[ArrayLike]=None):      
         check_is_fitted(self, ['U_','C_XY_'])
         w, vr  = primal.low_rank_eig(self.U_, self.C_XY_)
         if eval_left_on is None:
@@ -109,4 +77,21 @@ class EncoderModel(BaseModel):
         _rank = self.C_X_.shape[0]
         vectors = primal.fit_tikhonov(self.C_X_, self.C_XY_, _rank, self.tikhonov_reg, 'full')
         self.U_ = vectors
+
+class EncoderDecoderModel(BaseModel):
+    def __init__(self, feature_map: TrainableFeatureMap, decoder: Decoder, tikhonov_reg=None):
+        self.feature_map = feature_map 
+        self.tikhonov_reg = tikhonov_reg
+        self.decoder = decoder
+
+    def predict(self, X: ArrayLike, t: int = 1, observables: Optional[Union[Callable, ArrayLike]] = None):    
+        raise NotImplementedError("TODO: Implement")
+        
     
+    def eig(self, eval_left_on: Optional[ArrayLike]=None,  eval_right_on: Optional[ArrayLike]=None):
+       raise NotImplementedError("TODO: Implement")
+    
+    def fit(self, X: ArrayLike, Y: ArrayLike):
+        #Fitting the feature map
+        self.feature_map.fit(X, Y)
+        raise NotImplementedError("TODO: Implement")
