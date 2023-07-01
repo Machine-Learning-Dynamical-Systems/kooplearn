@@ -1,5 +1,5 @@
 import abc
-from typing import Optional
+from typing import Optional, Union, Callable
 from numpy.typing import ArrayLike
 
 class BaseModel(abc.ABC):
@@ -8,7 +8,7 @@ class BaseModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def predict(self, X: ArrayLike, t: int = 1):
+    def predict(self, X: ArrayLike, t: int = 1, observables: Optional[Union[Callable, ArrayLike]] = None):
         pass
 
     @abc.abstractmethod

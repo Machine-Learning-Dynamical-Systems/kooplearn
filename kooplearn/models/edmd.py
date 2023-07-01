@@ -6,18 +6,17 @@ from sklearn.utils.validation import check_is_fitted, check_X_y
 
 from kooplearn.models.base import BaseModel
 from kooplearn._src import primal
-from kooplearn._src.encoding_decoding_utils import TrainableFeatureMap, Decoder
+from kooplearn._src.encoding_decoding_utils import FeatureMap, IdentityFeatureMap
 
-class EncoderModel(BaseModel):
-    def __init__(self, feature_map: TrainableFeatureMap, tikhonov_reg: Optional[float] = None):
-        """A generic model for the Koopman Operator based on a trainable encoding of the state and on Tikhonov-regularized least squares for the estimation of Koopman in the encoded space
-
-        Args:
-            feature_map (TrainableFeatureMap): A trainable feature map. Should accept and return Numpy arrays. I
-            tikhonov_reg (float, optional): Tikhonov regularization to apply on the least squares Koopman estimator. Defaults to None.
-        """        
-        self.feature_map = feature_map 
+class PrimalRegressor(BaseModel):
+    def __init__(self, feature_map: FeatureMap = IdentityFeatureMap(), rank=5, tikhonov_reg=None, svd_solver='full', iterated_power=1, n_oversamples=5, optimal_sketching=False):
+        self.feature_map = feature_map
+        self.rank = rank
         self.tikhonov_reg = tikhonov_reg
+        self.svd_solver = svd_solver
+        self.iterated_power = iterated_power
+        self.n_oversamples = n_oversamples
+        self.optimal_sketching = optimal_sketching
 
     def predict(self, X: ArrayLike, t: int = 1, observables: Optional[Union[Callable, ArrayLike]] = None):
         if observables is None:
@@ -68,30 +67,21 @@ class EncoderModel(BaseModel):
 
         self.X_fit_ = X
         self.Y_fit_ = Y
-    
-    def fit(self, X: ArrayLike, Y: ArrayLike):
-        #Fitting the feature map
-        self.feature_map.fit(X, Y)
-        #Fitting the Koopman operator
+
+class EDMDReducedRank(PrimalRegressor):
+    def fit(self, X, Y):
         self.pre_fit_checks(X, Y)
-        _rank = self.C_X_.shape[0]
-        vectors = primal.fit_tikhonov(self.C_X_, self.C_XY_, _rank, self.tikhonov_reg, 'full')
+        if self.svd_solver == 'randomized':
+            vectors = primal.fit_rand_reduced_rank_regression_tikhonov(self.C_X_, self.C_XY_, self.rank, self.tikhonov_reg, self.n_oversamples, self.iterated_power)
+        else:
+            vectors = primal.fit_reduced_rank_regression_tikhonov(self.C_X_, self.C_XY_, self.rank, self.tikhonov_reg, self.svd_solver)
         self.U_ = vectors
 
-class EncoderDecoderModel(BaseModel):
-    def __init__(self, feature_map: TrainableFeatureMap, decoder: Decoder, tikhonov_reg=None):
-        self.feature_map = feature_map 
-        self.tikhonov_reg = tikhonov_reg
-        self.decoder = decoder
-
-    def predict(self, X: ArrayLike, t: int = 1, observables: Optional[Union[Callable, ArrayLike]] = None):    
-        raise NotImplementedError("TODO: Implement")
-        
-    
-    def eig(self, eval_left_on: Optional[ArrayLike]=None,  eval_right_on: Optional[ArrayLike]=None):
-       raise NotImplementedError("TODO: Implement")
-    
-    def fit(self, X: ArrayLike, Y: ArrayLike):
-        #Fitting the feature map
-        self.feature_map.fit(X, Y)
-        raise NotImplementedError("TODO: Implement")
+class EDMD(PrimalRegressor):
+    def fit(self, X, Y):
+        self.pre_fit_checks(X, Y)
+        if self.svd_solver == 'randomized':
+            vectors = primal.fit_rand_tikhonov(self.C_X_, self.C_XY_, self.rank, self.tikhonov_reg, self.n_oversamples, self.iterated_power)
+        else:
+            vectors = primal.fit_tikhonov(self.C_X_, self.C_XY_, self.rank, self.tikhonov_reg, self.svd_solver)
+        self.U_ = vectors

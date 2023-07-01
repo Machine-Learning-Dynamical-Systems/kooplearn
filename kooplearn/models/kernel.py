@@ -1,6 +1,6 @@
 import numpy as np
 from numpy.typing import ArrayLike
-from typing import Optional
+from typing import Optional, Union, Callable
 from sklearn.base import RegressorMixin
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted, check_X_y
@@ -47,7 +47,7 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
     def fit(self, X:ArrayLike, Y:ArrayLike):
         raise NotImplementedError("This is an abstract class. Use a subclass instead.")
 
-    def predict(self, X: ArrayLike, t:int = 1):
+    def predict(self, X: ArrayLike, t:int = 1, observables: Optional[Union[Callable, ArrayLike]] = None):
         """Predict an observable using the estimated Koopman operator.
         
         This method with t=1., observable = lambda x: x, and which = None is equivalent to self.predict(X).
@@ -60,10 +60,18 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
             ndarray: Array of shape (n_t, n_samples, n_obs) containing the forecast of the observable(s) provided as argument. Here n_samples = len(X), n_obs = len(observable(x)), n_t = len(t) (if t is a scalar n_t = 1).
         """        
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
-        K_testX = self.kernel(X, self.X_fit_)
+
         if observables is None:
-            return dual.low_rank_predict(t, self.U_, self.V_, self.K_YX_, K_testX, self.Y_fit_)
-        return dual.low_rank_predict(t, self.U_, self.V_, self.K_YX_, K_testX, observables)
+            _obs = self.Y_fit_
+        if callable(observables):
+            _obs = observables(self.Y_fit_)
+        elif isinstance(observables, np.ndarray):
+            _obs = observables
+        else:
+            raise ValueError("observables must be either None, a callable or a Numpy array of the observable evaluated at the Y training points.")
+        
+        K_testX = self.kernel(X, self.X_fit_)
+        return dual.low_rank_predict(t, self.U_, self.V_, self.K_YX_, K_testX, _obs)
 
     def eig(self, eval_left_on: Optional[ArrayLike]=None,  eval_right_on: Optional[ArrayLike]=None):
         """Eigenvalues and eigenvectors of the estimated Koopman operator.
@@ -100,8 +108,8 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
     def _init_kernels(self, X: ArrayLike, Y: ArrayLike):
         K_X = self.kernel(X)
         K_Y = self.kernel(Y)
-        K_XY = self.kernel(X,Y)
-        return K_X, K_Y, K_XY
+        K_YX = self.kernel(Y, X)
+        return K_X, K_Y, K_YX
     
     def pre_fit_checks(self, X: ArrayLike, Y: ArrayLike):
         X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
@@ -117,10 +125,9 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
         self.X_fit_ = X
         self.Y_fit_ = Y
 
-class KernelPrincipalComponent(KernelLowRankRegressor):
+class KernelDMD(KernelLowRankRegressor):
     def fit(self, X, Y):
-        """Fit the Koopman operator estimator.
-        
+        """Fit the Koopman operator estimator. 
         Args:
             X (ndarray): Input observations.
             Y (ndarray): Evolved observations.

@@ -12,9 +12,10 @@ class BaseKernel(abc.ABC):
     def __call__(self, X: ArrayLike, Y: Optional[ArrayLike] = None):
         """
         Evaluate the kernel. 
-        The method called with backend == ``numpy'' returns a numpy array of shape (X.shape[0], Y.shape[0]).
+        Returns a numpy array of shape (X.shape[0], Y.shape[0]).
         """
-    
+        pass
+
     @property
     @abc.abstractmethod
     def is_inf_dimensional(self):
