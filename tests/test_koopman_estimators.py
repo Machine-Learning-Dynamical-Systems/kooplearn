@@ -1,6 +1,6 @@
 from ..kooplearn.koopman_estimators.DirectEstimators import DirectReducedRank
 from ..kooplearn.koopman_estimators.KernelEstimators import KernelReducedRank, KernelPrincipalComponent
-from ..kooplearn._legacy_code.kernels import Linear
+from ..kooplearn._src.kernels import Linear
 from scipy.stats import ortho_group
 import numpy as np
 
