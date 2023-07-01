@@ -21,6 +21,7 @@
 1. `Datasets` files moved to `data/utils`
 2. Added random number generator seed to the randomized algos (for my mental sanity).
 3. Added some consistency tests for `primal/dual` algorithms. Skipping the tests of the `randomized` algorithms, as unclear what assertion to ask.
+4. Added tests for Kernel estimators.
 
 ### Additional notes by Grégoire:
 1. maybe the predict function should accept both behaviours (arrays of observables and functions), but it might be a bit ugly.
