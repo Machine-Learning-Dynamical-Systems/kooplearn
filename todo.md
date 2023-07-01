@@ -16,7 +16,8 @@
 - [X] In the Kernel estimators, double check that I need $K_{YX}$ and not its transpose.
 - [ ] Add Brunton's method to the `encoder_decoder` models.
 - [ ] Test primal-dual matching on eigenfunctions (on top of eigenvalues).
-- [ ] Add 
+- [ ] Modify the determinisc systems to be solved with ODE integration
+- [ ] Finish the implementation of the triple well.
 ### Changelog
 1. `Datasets` files moved to `data/utils`
 2. Added random number generator seed to the randomized algos (for my mental sanity).
