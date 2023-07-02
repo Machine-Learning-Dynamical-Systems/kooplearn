@@ -17,7 +17,12 @@
 - [ ] Add Brunton's method to the `encoder_decoder` models.
 - [ ] Test primal-dual matching on eigenfunctions (on top of eigenvalues).
 - [ ] Modify the determinisc systems to be solved with ODE integration
-- [ ] Finish the implementation of the triple well.
+- [X] Finish the implementation of the triple well.
+    - [ ] Define the force function.
+    - [ ] Add the eigenvalue decomposition.
+- [ ] Muller-Brown should be integrated without any dependencies.
+- [ ] Duffing Oscillator
+
 ### Changelog
 1. `Datasets` files moved to `data/utils`
 2. Added random number generator seed to the randomized algos (for my mental sanity).

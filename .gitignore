@@ -145,7 +145,6 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-**/data
 **/figs
 **/_image_factory
 **/runs

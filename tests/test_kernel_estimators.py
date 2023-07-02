@@ -1,6 +1,6 @@
 import pytest
 from kooplearn._src.kernels import Linear, RBF, Matern
-from kooplearn.data.datasets import mock_trajectory
+from kooplearn.data.datasets import MockData
 from kooplearn.models import KernelDMD, KernelReducedRank
 
 
@@ -12,7 +12,9 @@ def test_kernelDMD(kernel, svd_solver, tikhonov_reg):
     num_features = 10
     num_samples = 100
 
-    X, Y = mock_trajectory(num_features=num_features, num_samples=num_samples)
+    dataset = MockData(num_features=num_features, rng_seed = 42)
+    _Z = dataset.generate(None, num_samples)
+    X, Y = _Z[:-1], _Z[1:]
 
     model = KernelDMD(kernel=kernel, tikhonov_reg=tikhonov_reg, svd_solver=svd_solver)
 
@@ -27,7 +29,9 @@ def test_kernelReducedRank(kernel, svd_solver, tikhonov_reg):
     num_features = 10
     num_samples = 100
 
-    X, Y = mock_trajectory(num_features=num_features, num_samples=num_samples)
+    dataset = MockData(num_features=num_features, rng_seed = 42)
+    _Z = dataset.generate(None, num_samples)
+    X, Y = _Z[:-1], _Z[1:]
 
     model = KernelReducedRank(kernel=kernel, tikhonov_reg=tikhonov_reg, svd_solver=svd_solver)
 

@@ -1,1 +1,1 @@
-from kooplearn.data.datasets import mock_trajectory
+from kooplearn.data.datasets import MockData

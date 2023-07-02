@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from kooplearn._src import primal, dual
-from kooplearn.data.datasets import mock_trajectory
+from kooplearn.data.datasets import MockData
 
 @pytest.mark.parametrize('svd_solver', ['full', 'arnoldi'])
 @pytest.mark.parametrize('dt', [1, 5, 10])
@@ -10,8 +10,11 @@ def test_reduced_rank(dt, svd_solver):
     num_test_pts = 200
     rank = 10
     tikhonov_reg = 1e-3
+    
+    dataset = MockData(num_features=num_features, rng_seed = 42)
+    _Z = dataset.generate(None, num_test_pts)
+    X, Y = _Z[:-1], _Z[1:]
 
-    X, Y = mock_trajectory(num_features=num_features)
     rng = np.random.default_rng(42)
     X_test = rng.random((num_test_pts, num_features))
     
@@ -54,7 +57,10 @@ def test_tikhonov(dt, svd_solver, rank):
     num_test_pts = 200
     tikhonov_reg = 1e-3
 
-    X, Y = mock_trajectory(num_features=num_features)
+    dataset = MockData(num_features=num_features, rng_seed = 42)
+    _Z = dataset.generate(None, num_test_pts)
+    X, Y = _Z[:-1], _Z[1:]
+
     rng = np.random.default_rng(42)
     X_test = rng.random((num_test_pts, num_features))
     
@@ -100,7 +106,10 @@ def test_rand_reduced_rank(dt):
     n_oversamples = 20
     iterated_power = 2
 
-    X, Y = mock_trajectory(num_features=num_features)
+    dataset = MockData(num_features=num_features, rng_seed = 42)
+    _Z = dataset.generate(None, num_test_pts)
+    X, Y = _Z[:-1], _Z[1:]
+
     rng = np.random.default_rng(42)
     X_test = rng.random((num_test_pts, num_features))
     
@@ -144,7 +153,10 @@ def test_rand_reduced_rank_primal(dt):
     n_oversamples = 20
     iterated_power = 3
 
-    X, Y = mock_trajectory(num_features=num_features)
+    dataset = MockData(num_features=num_features, rng_seed = 42)
+    _Z = dataset.generate(None, num_test_pts)
+    X, Y = _Z[:-1], _Z[1:]
+
     rng = np.random.default_rng(42)
     X_test = rng.random((num_test_pts, num_features))
     
@@ -185,7 +197,10 @@ def test_rand_reduced_rank_dual(dt):
     n_oversamples = 10
     iterated_power = 2
 
-    X, Y = mock_trajectory(num_features=num_features)
+    dataset = MockData(num_features=num_features, rng_seed = 42)
+    _Z = dataset.generate(None, num_test_pts)
+    X, Y = _Z[:-1], _Z[1:]
+    
     rng = np.random.default_rng(42)
     X_test = rng.random((num_test_pts, num_features))
     
