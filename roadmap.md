@@ -4,10 +4,12 @@
 **[Grégoire]**: 
 1. Add few synthetic financial datasets
 2. Add a minimal implementation of the viz functionality (`matplotlib` for the moment. Look into `dask` and `gradio`)
+
 **[Bruno]**
 1. Implement a functioning `DPnets` feature map
 2. Implement utility functions to: data loading (`data/utils`), and `numpy/torch` interface (`_src/`) if, needed.
 3. If it goes well start looking at `encoder-decoder` architectures (e.g. Brunton)
+
 **[Pietro]**
 1. Add tests to cover most of the implemented code
 2. Implement Nyström solvers
