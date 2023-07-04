@@ -8,8 +8,7 @@
 - [ ] Implement the following metrics:
     - [ ] Squared loss
     - [ ] Prediction error
-- [ ] Add tests for each of the algorithm
-- [ ] Primal and dual should give the same results on the same data (e.g. linear kernel)
+- [X] Primal and dual should give the same results on the same data (e.g. linear kernel)
 - [ ] Implement fit_rand_tikhonov in primal.py
 - [x] Complete eigfun in DirectEstimators.py (what is phi_testX? should we apply a feature map? If so, isn't it something at the general class level?)
 - [ ] The `ScalarProduct` kernels are not interfaced with `FeatureMap`. Fix this.
@@ -21,7 +20,24 @@
     - [ ] Define the force function.
     - [ ] Add the eigenvalue decomposition.
 - [ ] Muller-Brown should be integrated without any dependencies.
-- [ ] Duffing Oscillator
+- [ ] Add reference Koopman eigenvalues on stochastic problems.
+    - [ ] Linear
+    - [X] Logistic
+    - [ ] 1D triple well
+    - [ ] Muller Brown
+- [X] Duffing Oscillator
+- [ ] Langevin driven by $\alpha$-stable noise.
+
+### Tests to add:
+In general, study how coverage works. 
+- [ ] Test data generation for each one of the methods
+    - [ ] Duffing
+    - [ ] Lorenz63
+    - [ ] Linear
+    - [ ] Logistic
+    - [ ] Muller-Brown
+    - [ ] 1D Triple Well
+
 
 ### Changelog
 1. `Datasets` files moved to `data/utils`

@@ -218,7 +218,7 @@ class LangevinTripleWell1D(DiscreteTimeDynamics):
         self.dt = dt
     
     def _step(self, X: ArrayLike):
-        F = self.force_fn(X,)
+        F = self.force_fn(X)
         xi = self.rng.standard_normal(X.shape)
         dX = F*self._inv_gamma + np.sqrt(2.0 * self.kt*self.dt*self._inv_gamma)*xi
         return X + dX
