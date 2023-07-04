@@ -6,7 +6,9 @@
     - [ ] Squared loss
     - [ ] Prediction error
 - [ ] The `ScalarProduct` kernels are not interfaced with `FeatureMap`. Fix this.
-### Data generation/Examples
+
+### Data generation/Examples
+
 - [ ] Add Brunton's method to the `encoder_decoder` models.
 - [X] Finish the implementation of the triple well.
     - [ ] Define the force function.
@@ -20,16 +22,14 @@
 - [X] Duffing Oscillator
 - [ ] Langevin driven by $\alpha$-stable noise.
 - [ ] Add or check that is added a RNG for every stochastic term for reproducibility.
-
-### Testing
+### Testing
 - [ ] Document functions
-- [ ] Test primal-dual matching on eigenfunctions (on top of eigenvalues).
-In general, study how coverage works. 
-- [ ] Test data generation for each one of the methods
+- [ ] Test primal-dual matching on eigenfunctions (on top of eigenvalues). In general, study how coverage works.
+- Test data generation for each one of the methods
     - [ ] Duffing
     - [ ] Lorenz63
     - [ ] Linear
     - [ ] Logistic
     - [ ] Muller-Brown
     - [ ] 1D Triple Well
-- [ ] Test _randomized_ algorithms (not clear how to do that now).
+- [ ] Test _randomized_ algorithms (not clear how to do that now).

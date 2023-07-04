@@ -1,5 +1,6 @@
 from typing import Optional
 import numpy as np
+from numpy.typing import ArrayLike
 from scipy.linalg import eig, eigh, solve
 from scipy.sparse.linalg import eigsh
 from kooplearn._src.utils import topk, weighted_norm

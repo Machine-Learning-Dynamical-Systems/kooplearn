@@ -25,7 +25,10 @@ dependencies = [ # Optional
 ]
 
 [project.optional-dependencies] # Optional
-test = ["pytest"]
+test = [
+  "pytest",
+  "pytest-cov"
+]
 
 [project.urls]  # Optional
 "Homepage" = "https://github.com/CSML-IIT-UCL/kooplearn"
