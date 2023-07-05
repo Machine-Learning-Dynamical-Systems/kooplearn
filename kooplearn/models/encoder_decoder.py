@@ -5,7 +5,7 @@ from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted, check_X_y
 
 from kooplearn.models.base import BaseModel
-from kooplearn._src import primal
+from kooplearn._src.operator_regression import primal
 from kooplearn._src.encoding_decoding_utils import TrainableFeatureMap, Decoder
 
 class EncoderModel(BaseModel):
@@ -29,21 +29,26 @@ class EncoderModel(BaseModel):
         else:
             raise ValueError("observables must be either None, a callable or a Numpy array of the observable evaluated at the Y training points.")
         
-        phi_testX = self.feature_map(X)
-        phi_trainX = self.feature_map(self.X_fit_)
-        return primal.low_rank_predict(t, self.U_, self.C_XY_, phi_testX, phi_trainX, _obs)
+        phi_Xin = self.feature_map(X)
+        phi_X = self.feature_map(self.X_fit_)
+        return primal.predict(t, self.U_, self.C_XY_, phi_Xin, phi_X, _obs)
     
     def eig(self, eval_left_on: Optional[ArrayLike]=None,  eval_right_on: Optional[ArrayLike]=None):      
         check_is_fitted(self, ['U_','C_XY_'])
-        w, vr  = primal.low_rank_eig(self.U_, self.C_XY_)
+        w, vl, vr  = primal.estimator_eig(self.U_, self.C_XY_)
         if eval_left_on is None:
             if eval_right_on is None:
                 return w
             else:
-                phi_textX = self.feature_map(eval_right_on)
-                return w, primal.low_rank_eigfun_eval(phi_textX, vr)
+                phi_Xin = self.feature_map(eval_right_on)
+                return w, primal.evaluate_eigenfunction(phi_Xin, vr)
         else:
-            raise NotImplementedError("Left eigenfunctions are not implemented yet.")
+            if eval_right_on is None:
+                phi_Xin = self.feature_map(eval_right_on)
+                return w, primal.evaluate_eigenfunction(phi_Xin, vl)
+            else:
+                phi_Xin = self.feature_map(eval_right_on)
+                return w, primal.evaluate_eigenfunction(phi_Xin, vl), primal.evaluate_eigenfunction(phi_Xin, vr)
 
     def svd(self):
         check_is_fitted(self, ['U_', 'C_XY_'])
@@ -74,8 +79,7 @@ class EncoderModel(BaseModel):
         self.feature_map.fit(X, Y)
         #Fitting the Koopman operator
         self.pre_fit_checks(X, Y)
-        _rank = self.C_X_.shape[0]
-        vectors = primal.fit_tikhonov(self.C_X_, self.C_XY_, _rank, self.tikhonov_reg, 'full')
+        vectors = primal.fit_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg, svd_solver = 'full')
         self.U_ = vectors
 
 class EncoderDecoderModel(BaseModel):

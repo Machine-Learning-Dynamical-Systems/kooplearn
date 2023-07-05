@@ -5,7 +5,13 @@ from scipy.linalg import eig, eigh, solve
 from scipy.sparse.linalg import eigsh
 from kooplearn._src.utils import topk, weighted_norm
 
-def fit_reduced_rank_regression_tikhonov(C_X, C_XY, rank:int, tikhonov_reg:float, svd_solver: str = 'arnoldi'):
+def fit_reduced_rank_regression_tikhonov(
+        C_X: ArrayLike, #Input covariance matrix
+        C_XY: ArrayLike, #Cross-covariance matrix
+        tikhonov_reg:float, #Tikhonov regularization parameter
+        rank:int, #Rank of the estimator
+        svd_solver: str = 'arnoldi' #SVD solver to use. Arnoldi is faster for low ranks.
+    ):
     dim = C_X.shape[0]
     reg_input_covariance = C_X + tikhonov_reg*np.identity(dim, dtype=C_X.dtype)
     _crcov = C_XY@(C_XY.T) 
@@ -24,13 +30,14 @@ def fit_reduced_rank_regression_tikhonov(C_X, C_XY, rank:int, tikhonov_reg:float
     return vectors
 
 def fit_rand_reduced_rank_regression_tikhonov(
-        C_X, 
-        C_XY, 
-        rank:int, 
-        tikhonov_reg:float, 
-        n_oversamples:int, 
-        iterated_power:int,
-        rng_seed: int = 0):
+        C_X: ArrayLike, #Input covariance matrix
+        C_XY: ArrayLike, #Cross-covariance matrix
+        tikhonov_reg:float, #Tikhonov regularization parameter
+        rank:int, #Rank of the estimator
+        n_oversamples:int, #Number of oversamples
+        iterated_power:int, #Number of power iterations
+        rng_seed: Optional[int] = None #Random seed
+    ):
     dim = C_X.shape[0]
     reg_input_covariance = C_X + tikhonov_reg*np.identity(dim, dtype=C_X.dtype)
     _crcov = C_XY@(C_XY.T) 
@@ -40,7 +47,6 @@ def fit_rand_reduced_rank_regression_tikhonov(
     for _ in range(iterated_power):
         _tmp_sketch = solve(reg_input_covariance, sketch, assume_a='pos')
         sketch = _crcov@_tmp_sketch
-
 
     sketch_p = solve(reg_input_covariance, sketch, assume_a='pos')  
 
@@ -52,7 +58,12 @@ def fit_rand_reduced_rank_regression_tikhonov(
     vectors = vectors@np.diag(_norms**(-1.0))
     return sketch_p@vectors[:, topk(values, rank).indices]
 
-def fit_tikhonov(C_X, tikhonov_reg:float, rank: Optional[int] = None, svd_solver:str = 'arnoldi'):
+def fit_tikhonov(
+        C_X: ArrayLike, #Input covariance matrix
+        tikhonov_reg:float, #Tikhonov regularization parameter
+        rank: Optional[int] = None, #Rank of the estimator
+        svd_solver:str = 'arnoldi' #SVD solver to use. Arnoldi is faster for low ranks.
+    ):
     dim = C_X.shape[0]
     if rank is None:
         rank = dim
@@ -70,28 +81,48 @@ def fit_tikhonov(C_X, tikhonov_reg:float, rank: Optional[int] = None, svd_solver
     rsqrt_evals = np.diag(values**(-0.5))
     return vectors@rsqrt_evals
 
-def fit_rand_tikhonov(C_X, C_XY, rank:int, tikhonov_reg:float, n_oversamples:int, iterated_power:int):
+def fit_rand_tikhonov(
+        C_X: ArrayLike, #Input covariance matrix
+        C_XY: ArrayLike, #Cross-covariance matrix
+        tikhonov_reg:float, #Tikhonov regularization parameter
+        rank:int, #Rank of the estimator
+        n_oversamples:int, #Number of oversamples
+        iterated_power:int, #Number of power iterations
+        rng_seed:Optional[int] = None #Random seed
+    ):
     raise NotImplementedError
 
-def low_rank_predict(num_steps: int, U, C_XY, phi_testX, phi_trainX, obs_train_Y):
+def predict(
+        num_steps: int, #Number of steps to predict (return the last one)
+        U: ArrayLike, #Projection matrix, as returned by the fit functions defined above 
+        C_XY: ArrayLike, #Cross-covariance matrix
+        phi_Xin: ArrayLike, #Feature map evaluated on the initial conditions
+        phi_X: ArrayLike, #Feature map evaluated on the training input data
+        obs_train_Y: ArrayLike #Observable to be predicted evaluated on the output training data
+    ):
     # G = U U.T C_XY
     # G^n = (U)(U.T C_XY U)^(n-1)(U.T C_XY)
-    num_train = phi_trainX.shape[0]
-    phi_testX_dot_U = phi_testX@U
+    num_train = phi_X.shape[0]
+    phi_Xin_dot_U = phi_Xin@U
     U_C_XY_U = np.linalg.multi_dot([U.T, C_XY, U])
-    U_phi_X_obs_Y = np.linalg.multi_dot([U.T, phi_trainX.T, obs_train_Y])*(num_train**-1)
+    U_phi_X_obs_Y = np.linalg.multi_dot([U.T, phi_X.T, obs_train_Y])*(num_train**-1)
     M = np.linalg.matrix_power(U_C_XY_U, num_steps-1)
-    return np.linalg.multi_dot([phi_testX_dot_U, M, U_phi_X_obs_Y])
+    return np.linalg.multi_dot([phi_Xin_dot_U, M, U_phi_X_obs_Y])
 
-def low_rank_eig(U, C_XY):
+def estimator_eig(
+        U: ArrayLike, #Projection matrix, as returned by the fit functions defined above 
+        C_XY: ArrayLike, #Cross-covariance matrix
+    ):
     M = np.linalg.multi_dot([U.T, C_XY, U])
-    values, vectors = eig(M)
-    return values, U@vectors
+    values, lv, rv = eig(M, left = True, right = True)
+    return values, U@lv, U@rv
 
-def low_rank_eigfun_eval(phi_testX, vectors):
-    return phi_testX@vectors
+def evaluate_eigenfunction(
+        phi_Xin: ArrayLike, #Feature map evaluated on the initial conditions
+        lv_or_rv: ArrayLike, #Left or right eigenvector, as returned by estimator_eig
+    ):
+    return phi_Xin@lv_or_rv
 
 def svdvals(U, C_XY):
     M = np.linalg.multi_dot([U, U.T, C_XY])
-    return np.linalg.svd(M, compute_uv=False)
-                                 
+    return np.linalg.svd(M, compute_uv=False)                                
