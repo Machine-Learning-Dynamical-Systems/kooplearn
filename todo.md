@@ -34,5 +34,5 @@
     - [ ] 1D Triple Well
 - [ ] Test _randomized_ algorithms (not clear how to do that now).
 - [ ] Test `nystrom` estimators
-- [ ] Test the left eigenfunctions of the primal algorithm
-- [ ] Handle the case of 0 Tikhonov regularization.
+- [ ] Test the left eigenfunctions of the primal algorithm: FAILING.
+- [x] Handle the case of 0 Tikhonov regularization.

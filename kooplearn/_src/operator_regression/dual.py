@@ -282,7 +282,7 @@ def estimator_eig(
 
     w, vl, vr =  eig(W_YX, left=True, right=True) #Left -> V, Right -> U
     
-    #Normalization
+    #Normalization in RKHS
     norm_r = weighted_norm(vr,W_X) 
     norm_l = weighted_norm(vl,W_Y) 
 

@@ -115,7 +115,18 @@ def estimator_eig(
     ):
     M = np.linalg.multi_dot([U.T, C_XY, U])
     values, lv, rv = eig(M, left = True, right = True)
-    return values, U@lv, U@rv
+
+    #Normalization in RKHS norm
+    rv = U@rv
+    lv = U@lv
+
+    r_norm = np.linalg.norm(rv, axis = 0, keepdims = True)
+    l_norm = np.linalg.norm(lv, axis = 0, keepdims = True)
+
+    rv = rv/r_norm
+    lv = lv/l_norm
+
+    return values, lv, rv
 
 def evaluate_eigenfunction(
         phi_Xin: ArrayLike, #Feature map evaluated on the initial conditions

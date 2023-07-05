@@ -30,9 +30,11 @@ def test_kernelReducedRank(kernel, solver, tikhonov_reg):
     dataset = MockData(num_features=num_features, rng_seed = 42)
     _Z = dataset.generate(None, num_samples)
     X, Y = _Z[:-1], _Z[1:]
-    
     model = KernelReducedRank(kernel=kernel, tikhonov_reg=tikhonov_reg, solver=solver)
-
-    model.fit(X, Y)
-    model.eig(eval_left_on = X, eval_right_on= X)
-    model.predict(X)
+    if (tikhonov_reg is None) and (solver == 'randomized'):
+        with pytest.raises(ValueError):
+            model.fit(X, Y)
+    else:
+        model.fit(X, Y)   
+        model.eig(eval_left_on = X, eval_right_on= X)
+        model.predict(X)

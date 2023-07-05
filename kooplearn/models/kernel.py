@@ -169,7 +169,7 @@ class KernelReducedRank(KernelLowRankRegressor):
                 tikhonov_reg = 0
             else:
                 tikhonov_reg = self.tikhonov_reg
-            U,V = dual.fit_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, tikhonov_reg, self.rank, self.svd_solver)    
+            U,V = dual.fit_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, tikhonov_reg, self.rank, self.solver)    
         self.U_ = U
         self.V_ = V
         return self
