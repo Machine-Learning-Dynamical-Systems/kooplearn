@@ -1,17 +1,32 @@
 import pytest
+from typing import NamedTuple
 import numpy as np
-from kooplearn._src import primal, dual
+from kooplearn._src.operator_regression import primal, dual
 from kooplearn.data.datasets import MockData
+
+class EigenDecomposition(NamedTuple):
+    values: np.ndarray
+    left: np.ndarray
+    right: np.ndarray
+
+def _compare_evd(evd_1:EigenDecomposition, evd_2:EigenDecomposition) -> bool:
+    evd_1_sort = np.argsort(evd_1.values)
+    evd_2_sort = np.argsort(evd_2.values)
+    assert np.allclose(evd_1.values[evd_1_sort], evd_2.values[evd_2_sort])
+    assert np.allclose(evd_1.left[:,evd_1_sort], evd_2.left[:,evd_2_sort])
+    assert np.allclose(evd_1.right[:,evd_1_sort], evd_2.right[:,evd_2_sort])
+    return True
+
 
 @pytest.mark.parametrize('svd_solver', ['full', 'arnoldi'])
 @pytest.mark.parametrize('dt', [1, 5, 10])
 def test_reduced_rank(dt, svd_solver):
-    num_features = 50
-    num_test_pts = 200
-    rank = 10
+    num_features = 10
+    num_test_pts = 100
+    rank = 5
     tikhonov_reg = 1e-3
     
-    dataset = MockData(num_features=num_features, rng_seed = 42)
+    dataset = MockData(num_features = num_features, rng_seed = 42)
     _Z = dataset.generate(None, num_test_pts)
     X, Y = _Z[:-1], _Z[1:]
 
@@ -30,18 +45,24 @@ def test_reduced_rank(dt, svd_solver):
     K_testX = X_test@(X.T)
     
     #Dual
-    U, V, _ = dual.fit_reduced_rank_regression_tikhonov(K_X, K_Y, rank, tikhonov_reg, svd_solver = svd_solver)
+    U, V, _ = dual.fit_reduced_rank_regression_tikhonov(K_X, K_Y, tikhonov_reg, rank, svd_solver = svd_solver)
 
-    dual_predict = dual.low_rank_predict(dt, U, V, K_YX, K_testX, Y)
-    dual_eig, _, _ = dual.low_rank_eig(U, V, K_X, K_Y, K_YX)
+    dual_predict = dual.predict(dt, U, V, K_YX, K_testX, Y)
+    dual_eig, dual_lv, dual_rv = dual.estimator_eig(U, V, K_X, K_Y, K_YX)
+
+    evd_dual = EigenDecomposition(
+        dual_eig,
+        dual.evaluate_eigenfunction(X_test@(Y.T), V, dual_lv),
+        dual.evaluate_eigenfunction(X_test@(X.T), U, dual_rv)
+    )
 
     assert dual_predict.shape == (num_test_pts, num_features)
 
     #Primal
-    U = primal.fit_reduced_rank_regression_tikhonov(C_X, C_XY, rank, tikhonov_reg, svd_solver = svd_solver)
+    U = primal.fit_reduced_rank_regression_tikhonov(C_X, C_XY, tikhonov_reg, rank, svd_solver = svd_solver)
 
     primal_predict = primal.low_rank_predict(dt, U, C_XY, X_test, X, Y)
-    primal_eig, _ = primal.low_rank_eig(U, C_XY)
+    primal_eig, primal_lv, primal_rv = primal.low_rank_eig(U, C_XY)
 
     assert dual_predict.shape == (num_test_pts, num_features)
 
