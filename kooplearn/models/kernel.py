@@ -165,9 +165,9 @@ class KernelReducedRank(KernelLowRankRegressor):
                 U,V = dual.fit_reduced_rank_regression(self.K_X_, self.K_Y_, self.rank, self.solver)
         else:
             if self.solver == 'randomized':
-                U,V = dual.fit_rand_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.rank, self.tikhonov_reg, self.n_oversamples, self.optimal_sketching, self.iterated_power)
+                U,V = dual.fit_rand_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.tikhonov_reg, self.rank, self.n_oversamples, self.optimal_sketching, self.iterated_power)
             else:
-                U,V = dual.fit_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.rank, self.tikhonov_reg, self.svd_solver)
+                U,V = dual.fit_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.tikhonov_reg, self.rank, self.svd_solver)
         self.U_ = U
         self.V_ = V
         return self

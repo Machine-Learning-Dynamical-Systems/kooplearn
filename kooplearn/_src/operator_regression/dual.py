@@ -21,8 +21,8 @@ def regularize(M: ArrayLike, reg:float):
 def fit_reduced_rank_regression_tikhonov(
     K_X: ArrayLike, #Kernel matrix of the input data
     K_Y:ArrayLike, #Kernel matrix of the output data
-    rank:int, #Rank of the estimator
     tikhonov_reg:float, #Tikhonov regularization parameter
+    rank:int, #Rank of the estimator
     svd_solver:str = 'arnoldi', #SVD solver to use. 'arnoldi' is faster but might be numerically unstable.
     _return_singular_values: bool = False #Whether to return the singular values of the projector. (Development purposes)
 ) -> tuple[ArrayLike, ArrayLike]:  
@@ -68,14 +68,14 @@ def fit_nystrom_reduced_rank_regression_tikhonov(
     N_Y: ArrayLike, #Kernel matrix of the output inducing points
     KN_X:ArrayLike, #Kernel matrix between the input data and the input inducing points
     KN_Y:ArrayLike, #Kernel matrix between the output data and the output inducing points
-    rank:int, #Rank of the estimator
     tikhonov_reg:float, #Tikhonov regularization parameter
+    rank:int, #Rank of the estimator 
 ) -> tuple[ArrayLike, ArrayLike]:
-    num_inducing_pts = N_X.shape[0]
+    num_training_pts = KN_X.shape[0]
     NKy_KNx = (KN_Y.T)@KN_X
     _B = lstsq(N_Y, NKy_KNx)[0]
     NKN = (NKy_KNx.T)@_B
-    G = (KN_X.T)@KN_X + tikhonov_reg*num_inducing_pts*N_X
+    G = (KN_X.T)@KN_X + tikhonov_reg*num_training_pts*N_X
     S, W = eigh(NKN, G)
     #Low-rank projection
     W = W[:, topk(S, rank).indices]
@@ -89,8 +89,8 @@ def fit_nystrom_reduced_rank_regression_tikhonov(
 def fit_rand_reduced_rank_regression_tikhonov(
         K_X: ArrayLike, #Kernel matrix of the input data
         K_Y: ArrayLike, #Kernel matrix of the output data
-        rank:int, #Rank of the estimator
         tikhonov_reg:float, #Tikhonov regularization parameter
+        rank:int, #Rank of the estimator     
         n_oversamples:int, #Number of oversamples
         optimal_sketching:bool, #Whether to use optimal sketching (slower but more accurate) or not.
         iterated_power:int, #Number of iterations of the power method
@@ -191,26 +191,18 @@ def fit_tikhonov(
 def fit_nystrom_tikhonov(
         N_X: ArrayLike, #Kernel matrix of the input inducing points
         N_Y: ArrayLike, #Kernel matrix of the output inducing points
-        KN_X: ArrayLike, #Kernel matrix between the input data and the input inducing points
-        KN_Y: ArrayLike, #Kernel matrix between the output data and the output inducing points
-
-        tikhonov_reg:float = 0.0, #Tikhonov regularization parameter, can be zero
-        rank: Optional[int] = None, #Rank of the estimator
-        svd_solver:str = 'arnoldi', #Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
-        rcond:float = 2.2e-16 #Threshold for the singular values
+        KN_X:ArrayLike, #Kernel matrix between the input data and the input inducing points
+        KN_Y:ArrayLike, #Kernel matrix between the output data and the output inducing points
+        tikhonov_reg:float = 0.0, #Tikhonov regularization parameter (can be 0)
+        rank:Optional[int] = None, #Rank of the estimator   
+        rcond:float = 2.2e-16, #Threshold for the singular values
     ) -> tuple[ArrayLike, ArrayLike]:
-        alpha = N_X.shape[0]*tikhonov_reg
-        KN_X_sq = (KN_X.T)@KN_X
-        #Add a small buffer of further eigenvectors for improved accuracy
-        if rank < KN_X_sq.shape[0]*0.1:
-            logging.warn("Make this choice more robust")
-            S, U = eigsh(KN_X_sq, M = N_X + alpha*np.identity(N_X.shape[0], dtype=N_X.dtype), k = rank + 3, which = 'LM')
-        else:
-            S, U = eigh(KN_X_sq, N_X + alpha*np.identity(N_X.shape[0], dtype=N_X.dtype))
-        S, U = _postprocess_tikhonov_fit(S, U, rank, 1.0, rcond)
-        V = KN_X@U
-        V = (KN_Y.T)@V
-        V = lstsq(N_Y + alpha*np.identity(N_Y.shape[0], dtype=N_Y.dtype), V)[0]
+        #Not using the Rank parameter fix it.        
+        num_training_pts = KN_X.shape[0]
+        NKy_KNx = (KN_Y.T)@KN_X
+        G = (KN_X.T)@KN_X + tikhonov_reg*num_training_pts*N_X
+        U = lstsq(G, NKy_KNx)[0]
+        V = lstsq(N_Y, U)[0]
         return U, V
 
 def fit_rand_tikhonov(
