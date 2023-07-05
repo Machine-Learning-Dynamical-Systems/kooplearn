@@ -156,18 +156,20 @@ class KernelReducedRank(KernelLowRankRegressor):
             Y (ndarray): Evolved observations.
         """
         self.pre_fit_checks(X, Y)
+        
         if self.solver == 'nystrom':
             raise NotImplementedError()
-        if self.tikhonov_reg is None:
-            if self.solver == 'randomized':
+        elif self.solver == 'randomized':
+            if self.tikhonov_reg is None:
                 raise ValueError("tikhonov_reg must be specified when solver is randomized.")
             else:
-                U,V = dual.fit_reduced_rank_regression(self.K_X_, self.K_Y_, self.rank, self.solver)
-        else:
-            if self.solver == 'randomized':
                 U,V = dual.fit_rand_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.tikhonov_reg, self.rank, self.n_oversamples, self.optimal_sketching, self.iterated_power)
+        else:
+            if self.tikhonov_reg is None:
+                tikhonov_reg = 0
             else:
-                U,V = dual.fit_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.tikhonov_reg, self.rank, self.svd_solver)
+                tikhonov_reg = self.tikhonov_reg
+            U,V = dual.fit_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, tikhonov_reg, self.rank, self.svd_solver)    
         self.U_ = U
         self.V_ = V
         return self

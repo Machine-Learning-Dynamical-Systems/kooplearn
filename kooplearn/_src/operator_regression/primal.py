@@ -8,7 +8,7 @@ from kooplearn._src.utils import topk, weighted_norm
 def fit_reduced_rank_regression_tikhonov(
         C_X: ArrayLike, #Input covariance matrix
         C_XY: ArrayLike, #Cross-covariance matrix
-        tikhonov_reg:float, #Tikhonov regularization parameter
+        tikhonov_reg:float, #Tikhonov regularization parameter, can be 0.0
         rank:int, #Rank of the estimator
         svd_solver: str = 'arnoldi' #SVD solver to use. Arnoldi is faster for low ranks.
     ):
@@ -60,7 +60,7 @@ def fit_rand_reduced_rank_regression_tikhonov(
 
 def fit_tikhonov(
         C_X: ArrayLike, #Input covariance matrix
-        tikhonov_reg:float, #Tikhonov regularization parameter
+        tikhonov_reg:float, #Tikhonov regularization parameter, can be 0
         rank: Optional[int] = None, #Rank of the estimator
         svd_solver:str = 'arnoldi' #SVD solver to use. Arnoldi is faster for low ranks.
     ):

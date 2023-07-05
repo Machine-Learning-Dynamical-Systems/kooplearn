@@ -21,43 +21,75 @@ def regularize(M: ArrayLike, reg:float):
 def fit_reduced_rank_regression_tikhonov(
     K_X: ArrayLike, #Kernel matrix of the input data
     K_Y:ArrayLike, #Kernel matrix of the output data
-    tikhonov_reg:float, #Tikhonov regularization parameter
+    tikhonov_reg:float, #Tikhonov regularization parameter, can be 0
     rank:int, #Rank of the estimator
     svd_solver:str = 'arnoldi', #SVD solver to use. 'arnoldi' is faster but might be numerically unstable.
     _return_singular_values: bool = False #Whether to return the singular values of the projector. (Development purposes)
 ) -> tuple[ArrayLike, ArrayLike]:  
-    dim = K_X.shape[0]
-    rsqrt_dim = dim**(-0.5)
-    #Rescaled Kernel matrices
-    K_Xn = K_X*rsqrt_dim
-    K_Yn = K_Y*rsqrt_dim
+    if tikhonov_reg == 0.:
+        return _fit_reduced_rank_regression_noreg(K_X, K_Y, rank, svd_solver=svd_solver, _return_singular_values=_return_singular_values)
+    else:
+        dim = K_X.shape[0]
+        rsqrt_dim = dim**(-0.5)
+        #Rescaled Kernel matrices
+        K_Xn = K_X*rsqrt_dim
+        K_Yn = K_Y*rsqrt_dim
 
-    K = K_Yn@K_Xn
-    #Find U via Generalized eigenvalue problem equivalent to the SVD. If K is ill-conditioned might be slow. Prefer svd_solver == 'randomized' in such a case.
+        K = K_Yn@K_Xn
+        #Find U via Generalized eigenvalue problem equivalent to the SVD. If K is ill-conditioned might be slow. Prefer svd_solver == 'randomized' in such a case.
+        if svd_solver == 'arnoldi':
+            #Adding a small buffer to the Arnoldi-computed eigenvalues.
+            sigma_sq, U = eigs(K, rank + 3, regularize(K_X, tikhonov_reg))  
+        else: #'full'     
+            sigma_sq, U = eig(K, regularize(K_X, tikhonov_reg))
+        
+        max_imag_part = np.max(U.imag)
+        if max_imag_part >=2.2e-10:
+            logging.warn(f"The computed projector is not real. The Kernel matrix is severely ill-conditioned.")
+        U = np.real(U)
+
+        #Post-process U. Promote numerical stability via additional QR decoposition if necessary.
+        U = U[:, topk(sigma_sq.real, rank).indices]
+
+        norm_inducing_op = (K_Xn@(K_Xn.T)) + tikhonov_reg*K_X
+        U, _, columns_permutation = modified_QR(U, M = norm_inducing_op, column_pivoting=True)
+        U = U[:,np.argsort(columns_permutation)]
+        if U.shape[1] < rank:
+            logging.warn(f"The numerical rank of the projector is smaller than the selected rank ({rank}). {rank - U.shape[1]} degrees of freedom will be ignored.")
+            _zeroes = np.zeros((U.shape[0], rank - U.shape[1]))
+            U = np.c_[U, _zeroes]
+            assert U.shape[1] == rank
+        V = K_X@np.asfortranarray(U)
+        if _return_singular_values:
+            return U, V, sigma_sq
+        else:
+            return U, V
+
+def _fit_reduced_rank_regression_noreg(
+        K_X: ArrayLike, #Kernel matrix of the input data
+        K_Y: ArrayLike, #Kernel matrix of the output data
+        rank: int, #Rank of the estimator
+        svd_solver:str = 'arnoldi', #Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
+        _return_singular_values: bool = False #Whether to return the singular values of the projector. (Development purposes)
+    ) -> tuple[ArrayLike, ArrayLike]:
+    #Solve the Hermitian eigenvalue problem to find V
+    if svd_solver != 'full':
+        sigma_sq, V = eigsh(K_Y, rank)
+    else:
+        sigma_sq, V = eigh(K_Y)
+        V = V[:, topk(sigma_sq, rank).indices]
     
-    if svd_solver == 'arnoldi':
-        #Adding a small buffer to the Arnoldi-computed eigenvalues.
-        sigma_sq, U = eigs(K, rank + 3, regularize(K_X, tikhonov_reg))  
-    else: #'full'     
-        sigma_sq, U = eig(K, regularize(K_X, tikhonov_reg))
-    
-    max_imag_part = np.max(U.imag)
-    if max_imag_part >=2.2e-10:
-        logging.warn(f"The computed projector is not real. The Kernel matrix is severely ill-conditioned.")
-    U = np.real(U)
+    #Normalize V
+    _V_norm = np.linalg.norm(V,ord=2,axis=0)/np.sqrt(V.shape[0])
+    V = V@np.diag(_V_norm**-1)
 
-    #Post-process U. Promote numerical stability via additional QR decoposition if necessary.
-    U = U[:, topk(sigma_sq.real, rank).indices]
-
-    norm_inducing_op = (K_Xn@(K_Xn.T)) + tikhonov_reg*K_X
-    U, _, columns_permutation = modified_QR(U, M = norm_inducing_op, column_pivoting=True)
-    U = U[:,np.argsort(columns_permutation)]
-    if U.shape[1] < rank:
-        logging.warn(f"The numerical rank of the projector is smaller than the selected rank ({rank}). {rank - U.shape[1]} degrees of freedom will be ignored.")
-        _zeroes = np.zeros((U.shape[0], rank - U.shape[1]))
-        U = np.c_[U, _zeroes]
-        assert U.shape[1] == rank
-    V = K_X@np.asfortranarray(U)
+    #Solve the least squares problem to determine U
+    if svd_solver != 'full':
+        U = np.zeros_like(V)
+        for i in range(U.shape[1]):
+            U[:,i] = lsqr(K_X, V[:,i])[0] #Not optimal with this explicit loop
+    else:
+        U = lstsq(K_X, V)[0]
     if _return_singular_values:
         return U, V, sigma_sq
     else:
@@ -136,37 +168,7 @@ def fit_rand_reduced_rank_regression_tikhonov(
     if _return_singular_values:
         return U.real, V.real, sigma_sq
     else:
-        return U.real, V.real
-
-def fit_reduced_rank_regression(
-        K_X: ArrayLike, #Kernel matrix of the input data
-        K_Y: ArrayLike, #Kernel matrix of the output data
-        rank: int, #Rank of the estimator
-        svd_solver:str = 'arnoldi', #Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
-        _return_singular_values: bool = False #Whether to return the singular values of the projector. (Development purposes)
-    ) -> tuple[ArrayLike, ArrayLike]:
-    #Solve the Hermitian eigenvalue problem to find V
-    if svd_solver != 'full':
-        sigma_sq, V = eigsh(K_Y, rank)
-    else:
-        sigma_sq, V = eigh(K_Y)
-        V = V[:, topk(sigma_sq, rank).indices]
-    
-    #Normalize V
-    _V_norm = np.linalg.norm(V,ord=2,axis=0)/np.sqrt(V.shape[0])
-    V = V@np.diag(_V_norm**-1)
-
-    #Solve the least squares problem to determine U
-    if svd_solver != 'full':
-        U = np.zeros_like(V)
-        for i in range(U.shape[1]):
-            U[:,i] = lsqr(K_X, V[:,i])[0] #Not optimal with this explicit loop
-    else:
-        U = lstsq(K_X, V)[0]
-    if _return_singular_values:
-        return U, V, sigma_sq
-    else:
-        return U, V  
+        return U.real, V.real  
 
 def fit_tikhonov(
         K_X: ArrayLike, #Kernel matrix of the input data
