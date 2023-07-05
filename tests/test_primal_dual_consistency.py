@@ -17,7 +17,7 @@ def _compare_evd(evd_1:EigenDecomposition, evd_2:EigenDecomposition) -> bool:
     assert np.allclose(evd_1.right[:,evd_1_sort], evd_2.right[:,evd_2_sort])
     return True
 
-@pytest.mark.parametrize('tikhonov_reg'[0.0, 1e-3])
+@pytest.mark.parametrize('tikhonov_reg', [0.0, 1e-3])
 @pytest.mark.parametrize('svd_solver', ['full', 'arnoldi'])
 @pytest.mark.parametrize('dt', [1, 2, 3])
 def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_reg):
@@ -73,7 +73,7 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
     assert np.allclose(primal_predict, dual_predict)
     assert _compare_evd(evd_primal, evd_dual)
 
-@pytest.mark.parametrize('tikhonov_reg'[0.0, 1e-3])
+@pytest.mark.parametrize('tikhonov_reg', [0.0, 1e-3])
 @pytest.mark.parametrize('rank', [5, None])
 @pytest.mark.parametrize('svd_solver', ['full', 'arnoldi'])
 @pytest.mark.parametrize('dt', [1, 2, 3])
