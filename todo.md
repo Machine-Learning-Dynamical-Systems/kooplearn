@@ -35,4 +35,5 @@
 - [ ] Test _randomized_ algorithms (not clear how to do that now).
 - [ ] Test `nystrom` estimators
 - [ ] Test the left eigenfunctions of the primal algorithm: FAILING.
+- [ ] Add tests for the `ScalarProduct` abstract class and `TorchScalarProduct` class.
 - [x] Handle the case of 0 Tikhonov regularization.
