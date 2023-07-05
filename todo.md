@@ -33,3 +33,4 @@
     - [ ] Muller-Brown
     - [ ] 1D Triple Well
 - [ ] Test _randomized_ algorithms (not clear how to do that now).
+- [ ] Test `nystrom` estimators

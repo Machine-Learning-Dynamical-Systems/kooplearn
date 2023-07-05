@@ -8,6 +8,16 @@ from scipy.sparse.linalg._eigen.arpack.arpack import IterInv
 from sklearn.utils.extmath import randomized_svd
 from kooplearn._src.utils import topk, modified_QR, weighted_norm
 
+def regularize(M: ArrayLike, reg:float):
+    """Regularize a matrix by adding a multiple of the identity matrix to it.
+    Args:
+        M (ArrayLike): Matrix to regularize.
+        reg (float): Regularization parameter.
+    Returns:
+        ArrayLike: Regularized matrix.
+    """
+    return M + reg*M.shape[0]*np.identity(M.shape[0], dtype=M.dtype)
+
 def fit_reduced_rank_regression_tikhonov(
     K_X: ArrayLike, #Kernel matrix of the input data
     K_Y:ArrayLike, #Kernel matrix of the output data
@@ -15,23 +25,21 @@ def fit_reduced_rank_regression_tikhonov(
     tikhonov_reg:float, #Tikhonov regularization parameter
     svd_solver:str = 'arnoldi', #SVD solver to use. 'arnoldi' is faster but might be numerically unstable.
     _return_singular_values: bool = False #Whether to return the singular values of the projector. (Development purposes)
-) -> tuple[ArrayLike, ArrayLike]:
-    
+) -> tuple[ArrayLike, ArrayLike]:  
     dim = K_X.shape[0]
     rsqrt_dim = dim**(-0.5)
-    alpha = dim*tikhonov_reg
     #Rescaled Kernel matrices
     K_Xn = K_X*rsqrt_dim
     K_Yn = K_Y*rsqrt_dim
 
     K = K_Yn@K_Xn
     #Find U via Generalized eigenvalue problem equivalent to the SVD. If K is ill-conditioned might be slow. Prefer svd_solver == 'randomized' in such a case.
-    tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
+    
     if svd_solver == 'arnoldi':
         #Adding a small buffer to the Arnoldi-computed eigenvalues.
-        sigma_sq, U = eigs(K, rank + 3, K_X + tikhonov)  
+        sigma_sq, U = eigs(K, rank + 3, regularize(K_X, tikhonov_reg))  
     else: #'full'     
-        sigma_sq, U = eig(K, K_X + tikhonov)
+        sigma_sq, U = eig(K, regularize(K_X, tikhonov_reg))
     
     max_imag_part = np.max(U.imag)
     if max_imag_part >=2.2e-10:
@@ -56,24 +64,26 @@ def fit_reduced_rank_regression_tikhonov(
         return U, V
     
 def fit_nystrom_reduced_rank_regression_tikhonov(
-    N_X: ArrayLike, #Input data
-    KN_X:ArrayLike, #Kernel matrix of the input data
-    KN_Y:ArrayLike, #Kernel matrix of the output data
-    N_Y:ArrayLike, #Output data
+    N_X: ArrayLike, #Kernel matrix of the input inducing points
+    N_Y: ArrayLike, #Kernel matrix of the output inducing points
+    KN_X:ArrayLike, #Kernel matrix between the input data and the input inducing points
+    KN_Y:ArrayLike, #Kernel matrix between the output data and the output inducing points
     rank:int, #Rank of the estimator
     tikhonov_reg:float, #Tikhonov regularization parameter
-    _return_singular_values: bool = False #Whether to return the singular values of the projector. (Development purposes)
 ) -> tuple[ArrayLike, ArrayLike]:
-    NK_Y_KN_X = (KN_Y.T)@KN_X
-    tikhonov = np.identity(N_X.shape[0], dtype=KN_X.dtype) * tikhonov_reg * N_X.shape[0]
-    _B = lstsq(N_Y + tikhonov, NK_Y_KN_X)[0]
-    M = (NK_Y_KN_X.T)@_B
-    G = (KN_X.T)@KN_X + tikhonov_reg*N_X*N_X.shape[0]
-    S, T = eigh(M, G)
-    T = T@np.diag(weighted_norm(T, G)**-1)
-    V = _B@T
-    U = (NK_Y_KN_X.T)@T
-    U =lstsq(G, U)[0]
+    num_inducing_pts = N_X.shape[0]
+    NKy_KNx = (KN_Y.T)@KN_X
+    _B = lstsq(N_Y, NKy_KNx)[0]
+    NKN = (NKy_KNx.T)@_B
+    G = (KN_X.T)@KN_X + tikhonov_reg*num_inducing_pts*N_X
+    S, W = eigh(NKN, G)
+    #Low-rank projection
+    W = W[:, topk(S, rank).indices]
+    #Normalize the eigenvectors
+    W = W@np.diag(weighted_norm(W, NKN)**-1)
+    V = _B@W
+    U = NKN@W
+    U = lstsq(G, U)[0]
     return U, V
 
 def fit_rand_reduced_rank_regression_tikhonov(
@@ -179,10 +189,11 @@ def fit_tikhonov(
     return V, V
 
 def fit_nystrom_tikhonov(
-        N_X: ArrayLike, #Kernel matrix of the input data
-        KN_X: ArrayLike, #Kernel matrix of the input data
-        N_Y: ArrayLike, #Kernel matrix of the output data
-        NK_Y: ArrayLike, #Kernel matrix of the output data
+        N_X: ArrayLike, #Kernel matrix of the input inducing points
+        N_Y: ArrayLike, #Kernel matrix of the output inducing points
+        KN_X: ArrayLike, #Kernel matrix between the input data and the input inducing points
+        KN_Y: ArrayLike, #Kernel matrix between the output data and the output inducing points
+
         tikhonov_reg:float = 0.0, #Tikhonov regularization parameter, can be zero
         rank: Optional[int] = None, #Rank of the estimator
         svd_solver:str = 'arnoldi', #Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
@@ -198,10 +209,9 @@ def fit_nystrom_tikhonov(
             S, U = eigh(KN_X_sq, N_X + alpha*np.identity(N_X.shape[0], dtype=N_X.dtype))
         S, U = _postprocess_tikhonov_fit(S, U, rank, 1.0, rcond)
         V = KN_X@U
-        V = NK_Y@V
+        V = (KN_Y.T)@V
         V = lstsq(N_Y + alpha*np.identity(N_Y.shape[0], dtype=N_Y.dtype), V)[0]
         return U, V
-
 
 def fit_rand_tikhonov(
         K_X:ArrayLike,  #Kernel matrix of the input data
