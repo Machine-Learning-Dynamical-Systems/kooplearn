@@ -38,3 +38,36 @@ def test_primal_eig_decomposition(tikhonov_reg, svd_solver):
     assert _primal_right_normalization(rv)
     assert _primal_eigenvalue_equation(eig, lv, rv, estimator)
     assert _primal_biortogonality(lv, rv)
+
+def _dual_right_normalization(right_vectors: ArrayLike, K_X: ArrayLike):
+    return False
+
+def _dual_eigenvalue_equation(eigenvalues: ArrayLike, left_vectors: ArrayLike, right_vectors: ArrayLike, estimator: ArrayLike):
+    return False
+
+def _dual_biortogonality(left_vectors: ArrayLike, right_vectors: ArrayLike):
+    return False
+
+@pytest.mark.parametrize('tikhonov_reg', [1e-3])
+@pytest.mark.parametrize('svd_solver', ['full', 'arnoldi'])
+def test_dual_eig_decomposition(tikhonov_reg, svd_solver):
+    num_features = 20
+    num_test_pts = 200
+    rank = 5
+    
+    dataset = MockData(num_features = num_features, rng_seed = 42)
+    _Z = dataset.generate(None, num_test_pts)
+    X, Y = _Z[:-1], _Z[1:]
+
+    K_X = X@(X.T)
+    K_Y = Y@(Y.T)
+    K_YX = Y@(X.T)
+    
+    #Dual
+    U, V = dual.fit_tikhonov(K_X, tikhonov_reg, rank = rank, svd_solver = svd_solver)
+
+    eig, lv, rv = dual.estimator_eig(U, V, K_X, K_Y, K_YX)
+
+    assert _dual_right_normalization(rv, K_X)
+    assert _dual_eigenvalue_equation(eig, lv, rv, estimator)
+    assert _dual_biortogonality(lv, rv)
