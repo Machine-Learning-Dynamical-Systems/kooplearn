@@ -118,12 +118,12 @@ def estimator_eig(
 
     #Normalization in RKHS norm
     rv = U@rv
-    lv = U@lv
+    lv = np.linalg.multi_dot([C_XY.T, U, lv])
 
     r_norm = np.linalg.norm(rv, axis = 0, keepdims = True)
-    l_norm = np.linalg.norm(lv, axis = 0, keepdims = True)
-
     rv = rv/r_norm
+
+    l_norm = np.sum((lv.conj())*rv, axis = 0)
     lv = lv/l_norm
 
     return values, lv, rv

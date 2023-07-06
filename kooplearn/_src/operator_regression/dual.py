@@ -278,16 +278,16 @@ def estimator_eig(
 
     W_YX = np.linalg.multi_dot([V.T, r_dim*K_YX, U])
     W_X = np.linalg.multi_dot([U.T, r_dim*K_X, U])
-    W_Y = np.linalg.multi_dot([V.T, r_dim*K_Y, V])
+    #W_Y = np.linalg.multi_dot([V.T, r_dim*K_Y, V])
 
     w, vl, vr =  eig(W_YX, left=True, right=True) #Left -> V, Right -> U
     
     #Normalization in RKHS
     norm_r = weighted_norm(vr,W_X) 
-    norm_l = weighted_norm(vl,W_Y) 
-
     vr = vr @ np.diag(norm_r**(-1))
-    vl = vl @ np.diag(norm_l**(-1))
+    #Bi-orthogonality of left eigenfunctions
+    norm_l = ((vl.conj().T)@vr)@np.diag(w) #This matrix should be diagonal.
+    vl = vl @ np.diag(norm_l.conj()**(-1))
 
     return w, vl, vr
 

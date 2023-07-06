@@ -28,7 +28,6 @@ def test_reduced_rank_tikhonov_primal_scale_invariance(svd_solver, tikhonov_reg,
     G = np.linalg.multi_dot([U, U.T, C_XY])
     G_scaled = np.linalg.multi_dot([U_scaled, U_scaled.T, scale_factor*C_XY])
     assert np.allclose(G, G_scaled)
-
     
 @pytest.mark.parametrize('scale_factor', [0.1, 10])
 @pytest.mark.parametrize('tikhonov_reg', [1e-3])
