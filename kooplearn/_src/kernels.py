@@ -1,6 +1,7 @@
 import abc
+import logging
 from numpy.typing import ArrayLike
-from typing import Optional
+from typing import Optional, Union
 import sklearn.gaussian_process.kernels as sk_kernels
 from sklearn.metrics.pairwise import polynomial_kernel as sk_poly
 import numpy as np
@@ -20,6 +21,20 @@ class BaseKernel(abc.ABC):
     @abc.abstractmethod
     def is_inf_dimensional(self):
         pass
+    
+    def _check_dims(self, X: Optional[ArrayLike] = None):
+        if X is None:
+            return None
+        else:
+            X = np.asarray(X)
+            if np.ndim(X) == 0:
+                X = X[None, None] # One sample, one feature
+            elif np.ndim(X) == 1:
+                logging.info("Detected 1-dimensional input in kernel evaluation. The first dimension is _always_ assumed to be the number of samples. If you want to evaluate a kernel on a single sample, input X[None, :] as argument.")
+                X = X[:, None] # The first dimension is always assumed to be the number of samples
+            else:
+                pass
+            return X
 
     def __repr__(self):
         _r = "[" + self.__class__.__name__ + "] " 
@@ -34,10 +49,12 @@ class ScalarProduct(BaseKernel):
     #A base class for scalar product kernels, to be subclassed specifying the feature map. !! Covariance matrices are averaged, but kernels are not!!
     def __call__(self, X, Y = None):
         """Return the Kernel matrix k(x,y) := <Phi(x),Phi(y)>. Different samples are batched on the first dimension of X and Y."""
+        X = self._check_dims(X)
         phi_X = self.__feature_map__(X)
         if Y is None:
             phi_Y = phi_X
         else:
+            Y = self._check_dims(Y)
             phi_Y = self.__feature_map__(Y)
         return phi_X@(phi_Y.T)
     
@@ -46,23 +63,25 @@ class ScalarProduct(BaseKernel):
         return False
     
     def cov(self, X, Y = None):
+        X = self._check_dims(X)
         phi_X = self.__feature_map__(X)
         if Y is None:
             c = phi_X.T@phi_X
             c *= np.true_divide(1, X.shape[0])
             return c
         else:
+            Y = self._check_dims(Y)
             if X.shape[0] != Y.shape[0]:
                 raise ValueError("Shape mismatch: cross-covariances can be computed only if X.shape[0] == Y.shape[0] ")
             phi_Y = self.__feature_map__(Y)
             c = phi_X.T@phi_Y
             c *= np.true_divide(1, X.shape[0])
             return c
-        
+      
     @abc.abstractmethod
     def __feature_map__(self, X):
         """Evaluate the feature map. The output should be a numpy array in _any_ case.""" 
-        return X #Linear Kernel 
+        pass
 
 class TorchScalarProduct(BaseKernel, Module):
     def __init__(self, feature_map: Module):
@@ -115,6 +134,8 @@ class RBF(BaseKernel):
         return True
         
     def __call__(self, X, Y=None):
+        X = self._check_dims(X)
+        Y = self._check_dims(Y)
         return self._scikit_kernel(X, Y)
 
 class ExpSineSquared(BaseKernel):
@@ -126,6 +147,8 @@ class ExpSineSquared(BaseKernel):
     def is_inf_dimensional(self):
         return True
     def __call__(self, X, Y=None):
+        X = self._check_dims(X)
+        Y = self._check_dims(Y)
         return self._scikit_kernel(X, Y)
 
 class Matern(BaseKernel):
@@ -138,6 +161,8 @@ class Matern(BaseKernel):
         return True
     
     def __call__(self, X, Y=None):
+        X = self._check_dims(X)
+        Y = self._check_dims(Y)
         return self._scikit_kernel(X, Y)
     
 class Poly(BaseKernel):
@@ -155,6 +180,8 @@ class Poly(BaseKernel):
         return False
 
     def __call__(self, X, Y=None):
+        X = self._check_dims(X)
+        Y = self._check_dims(Y)
         return sk_poly(X, Y, degree = self.degree, gamma = self.gamma, coef0 = self.coef0)  
                      
 class Linear(Poly):

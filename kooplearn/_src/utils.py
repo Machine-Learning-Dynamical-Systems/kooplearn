@@ -151,39 +151,3 @@ def modified_QR(A, M = None, column_pivoting = False, rtol = 2.2e-16, verbose = 
         return Q[:,:effective_rank], R[:effective_rank], columns_permutation[:effective_rank]
     else:
         return Q[:,:effective_rank], R[:effective_rank]
-
-def randomized_range_finder(A_A_adj, size, n_iter, power_iteration_normalizer="none", M=None, random_state=None):
-    """Randomized range finder. Adapted from sklearn.utils.extmath.randomized_range_finder
-
-    Args:
-        A_A_adj (ndarray, LinearOperator): Object representing :math:`AA^{*}`, where :math:`A` is the matrix whose range is to be found.
-        size (int): Number of vectors to be generated and used to find the range of A.
-        n_iter (int): Number of power iterations to be used to estimate the matrix range.
-        power_iteration_normalizer (str, optional): Scheme to normalize the power iterations at each step. Defaults to "none". Available options are: "QR" and "column_pivoted_QR".
-        M (ndarray or LinearOperator, optional): PSD linear operator. If not None, the vectors are orthonormalized with respect to the scalar product induced by M. Defaults to None corresponding to Identity matrix, i.e. standard Euclidean norm.
-        random_state (int, optional):  int, RandomState instance or None, default=None. The seed of the pseudo random number generator to use when shuffling the data, i.e. getting the random vectors to initialize the algorithm. Pass an int for reproducible results across multiple function calls.
-
-    Returns:
-        ndarray: An (A_A_adj.shape[0], size) array the range of which approximates the range of A.
-    """    
-    #Adapted from sklearn.utils.extmath.randomized_range_finder
-    random_state = check_random_state(random_state)
-    # Generating normal random vectors with shape: (A_A_adj.shape[0], size)
-    assert size > 0, "Size must be greater than zero"
-    Q = random_state.normal(size=(A_A_adj.shape[0], size))
-    if hasattr(A_A_adj, "dtype") and A_A_adj.dtype.kind == "f":
-        # Ensure f32 is preserved as f32
-        Q = Q.astype(A_A_adj.dtype, copy=False)
-    # Perform power iterations with Q to further 'imprint' the top
-    # singular vectors of A in Q
-    for _ in range(n_iter):
-        if power_iteration_normalizer == "none":
-            Q = A_A_adj@Q
-        elif power_iteration_normalizer == "QR":
-            Q, _ = modified_QR(A_A_adj@Q, M=M)
-        elif power_iteration_normalizer == "column_pivoted_QR":
-            Q, _, _ = modified_QR(A_A_adj@Q, M=M, column_pivoting=True)
-    # Sample the range of A using by linear projection of Q
-    # Extract an orthonormal basis
-    Q, _, _ = modified_QR(A_A_adj@Q, M=M, column_pivoting=True)
-    return Q

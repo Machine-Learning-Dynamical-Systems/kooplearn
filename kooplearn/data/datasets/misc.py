@@ -7,6 +7,7 @@ class LinalgDecomposition(NamedTuple):
     values: ArrayLike
     x: ArrayLike
     functions: ArrayLike
+    
 #General utility classes
 class DataGenerator(abc.ABC):
     @abc.abstractmethod
