@@ -15,7 +15,7 @@ class DataGenerator(abc.ABC):
 
 class DiscreteTimeDynamics(DataGenerator):
     def generate(self, X0: ArrayLike, T:int=1):
-        memory = np.zeros((T+1,) + X0.shape)
+        memory = np.zeros((T+1, X0.shape))
         memory[0] = X0
         for t in range(T):
             memory[t+1] = self._step(memory[t])
