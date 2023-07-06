@@ -274,22 +274,28 @@ def estimator_eig(
         K_Y: ArrayLike, #Kernel matrix of the output data
         K_YX: ArrayLike #Kernel matrix between the output data and the input data
     ) -> tuple[ArrayLike, ArrayLike, ArrayLike]:
+    # SUV.TZ -> V.T K_YX U (right ev = SUvr, left ev = ZVvl)
     r_dim = (K_X.shape[0])**(-1)
 
     W_YX = np.linalg.multi_dot([V.T, r_dim*K_YX, U])
     W_X = np.linalg.multi_dot([U.T, r_dim*K_X, U])
-    #W_Y = np.linalg.multi_dot([V.T, r_dim*K_Y, V])
 
-    w, vl, vr =  eig(W_YX, left=True, right=True) #Left -> V, Right -> U
+    values, vl, vr =  eig(W_YX, left=True, right=True) #Left -> V, Right -> U
+
+    r_perm = np.argsort(values)
+    vr = vr[:, r_perm]
+    l_perm = np.argsort(values.conj())
+    vl = vl[:, l_perm]
+    values = values[r_perm]
     
     #Normalization in RKHS
     norm_r = weighted_norm(vr,W_X) 
     vr = vr @ np.diag(norm_r**(-1))
-    #Bi-orthogonality of left eigenfunctions
-    norm_l = ((vl.conj().T)@vr)@np.diag(w) #This matrix should be diagonal.
-    vl = vl @ np.diag(norm_l.conj()**(-1))
 
-    return w, vl, vr
+    #Bi-orthogonality of left eigenfunctions
+    norm_l = np.diag(np.linalg.multi_dot([vl.T, W_YX, vr]))
+    vl = vl / norm_l
+    return values, vl, vr
 
 def evaluate_eigenfunction(
         K_Xin_X_or_Y: ArrayLike, #Kernel matrix between the initial conditions and the input data (right eigenfunctions) or the output data (left eigenfunctions)

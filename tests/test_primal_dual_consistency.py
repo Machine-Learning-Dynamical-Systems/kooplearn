@@ -17,8 +17,7 @@ def _compare_evd(evd_1:EigenDecomposition, evd_2:EigenDecomposition) -> bool:
     evd_1_sort = np.argsort(evd_1.values)
     evd_2_sort = np.argsort(evd_2.values)
     assert np.allclose(evd_1.values[evd_1_sort], evd_2.values[evd_2_sort])
-    # assert _compare_up_to_sign(evd_1.left[:,evd_1_sort], evd_2.left[:,evd_2_sort])
-    logging.warn('Left eigenvectors are not tested, fix this behavior eventually.')
+    assert _compare_up_to_sign(evd_1.left[:,evd_1_sort], evd_2.left[:,evd_2_sort])
     assert _compare_up_to_sign(evd_1.right[:,evd_1_sort], evd_2.right[:,evd_2_sort])
     return True
 

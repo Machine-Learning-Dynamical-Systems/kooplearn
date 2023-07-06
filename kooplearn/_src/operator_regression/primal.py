@@ -113,17 +113,22 @@ def estimator_eig(
         U: ArrayLike, #Projection matrix, as returned by the fit functions defined above 
         C_XY: ArrayLike, #Cross-covariance matrix
     ):
+    #Using the trick described in https://arxiv.org/abs/1905.11490
     M = np.linalg.multi_dot([U.T, C_XY, U])
     values, lv, rv = eig(M, left = True, right = True)
 
+    r_perm = np.argsort(values)
+    l_perm = np.argsort(values.conj())
+    values = values[r_perm]
+    
     #Normalization in RKHS norm
     rv = U@rv
+    rv = rv[:, r_perm]
+    rv = rv/np.linalg.norm(rv, axis = 0)
+    #Biorthogonalization
     lv = np.linalg.multi_dot([C_XY.T, U, lv])
-
-    r_norm = np.linalg.norm(rv, axis = 0, keepdims = True)
-    rv = rv/r_norm
-
-    l_norm = np.sum((lv.conj())*rv, axis = 0)
+    lv = lv[:, l_perm]
+    l_norm = np.sum(lv*rv, axis=0)
     lv = lv/l_norm
 
     return values, lv, rv
@@ -136,4 +141,4 @@ def evaluate_eigenfunction(
 
 def svdvals(U, C_XY):
     M = np.linalg.multi_dot([U, U.T, C_XY])
-    return np.linalg.svd(M, compute_uv=False)                                
+    return np.linalg.svd(M, compute_uv=False)                         
