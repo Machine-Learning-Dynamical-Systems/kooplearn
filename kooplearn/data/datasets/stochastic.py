@@ -28,6 +28,24 @@ class LinearModel(DiscreteTimeDynamics):
     def _step(self, X: ArrayLike): 
         return self.A@X + self.noise*self.rng.standard_normal(size = X.shape)
 
+class RegimeChangeVAR(DiscreteTimeDynamics):
+    def __init__(self, phi1: ArrayLike, phi2:ArrayLike, transition:ArrayLike, noise: float = 0., rng_seed: Optional[int] = None):
+        self.phi1=phi1
+        self.phi2=phi2
+        self.transition=transition
+        self.noise=noise
+        self.rng = np.random.default_rng(rng_seed)
+        self.current_state=0
+    def _step(self, X:ArrayLike):
+        rand_trans = np.random.uniform(0,1)
+        if rand_trans<self.transition[self.current_state, 0]:
+            self.current_state=0
+            return self.phi1@X + self.noise*self.rng.standard_normal(size = X.shape)
+        else:
+            self.current_state=1
+            return self.phi2@X + self.noise*self.rng.standard_normal(size = X.shape)
+
+
 #Noisy Logistic Map  
 class CosineDistribution:
     def __init__(self, N):
