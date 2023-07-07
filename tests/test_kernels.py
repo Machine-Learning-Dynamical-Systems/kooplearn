@@ -3,12 +3,15 @@ import numpy as np
 from kooplearn._src import kernels
 from kooplearn.data.datasets import MockData
 
+
 @pytest.mark.parametrize('size_x', [0, 1, 3])
 @pytest.mark.parametrize('size_y', [-1, 0, 1, 3])
-@pytest.mark.parametrize('kernel', [kernels.RBF(), kernels.ExpSineSquared(), kernels.Matern(), kernels.Poly(), kernels.Linear(), kernels.Quadratic()])
+@pytest.mark.parametrize('kernel',
+                         [kernels.RBF(), kernels.ExpSineSquared(), kernels.Matern(), kernels.Poly(), kernels.Linear(),
+                          kernels.Quadratic()])
 def test_predefined_kernels(size_x, size_y, kernel):
     num_features = 1
-    dataset = MockData(num_features = num_features, rng_seed = 42)
+    dataset = MockData(num_features=num_features, rng_seed=42)
     print(kernel)
 
     if type(kernel) in [kernels.Poly, kernels.Linear, kernels.Quadratic]:

@@ -9,15 +9,17 @@ from scipy.special import binom
 from scipy.stats.sampling import NumericalInversePolynomial
 from tqdm import tqdm
 import math
-import sdeint #Optional dependency
+import sdeint  # Optional dependency
+
 
 class MockData(DataGenerator):
     def __init__(self, num_features: int = 50, rng_seed: Optional[int] = None):
         self.rng = np.random.default_rng(rng_seed)
         self.num_features = num_features
-    
+
     def generate(self, X0: ArrayLike, T: int = 1):
         return self.rng.random((T + 1, self.num_features))
+
 
 class LinearModel(DiscreteTimeDynamics):
     def __init__(self, A: ArrayLike, noise: float = 0., rng_seed: Optional[int] = None):
@@ -25,10 +27,11 @@ class LinearModel(DiscreteTimeDynamics):
         self.noise = noise
         self.rng = np.random.default_rng(rng_seed)
 
-    def _step(self, X: ArrayLike): 
-        return self.A@X + self.noise*self.rng.standard_normal(size = X.shape)
+    def _step(self, X: ArrayLike):
+        return self.A @ X + self.noise * self.rng.standard_normal(size=X.shape)
 
-#Noisy Logistic Map  
+
+# Noisy Logistic Map
 class CosineDistribution:
     def __init__(self, N):
         self.N = N
@@ -36,15 +39,16 @@ class CosineDistribution:
 
     def pdf(self, x):
         return self.C_N * ((np.cos(np.pi * x)) ** self.N)
-    
+
+
 class LogisticMap(DiscreteTimeDynamics):
-    def __init__(self, r:float = 4.0, N:Optional[int]=None, rng_seed: Optional[int] = None):
+    def __init__(self, r: float = 4.0, N: Optional[int] = None, rng_seed: Optional[int] = None):
         self._noisy = False
         self.ndim = 1
         self.rng_seed = rng_seed
         self.r = r
         if N is not None:
-            assert N%2 == 0
+            assert N % 2 == 0
             # Noisy case
             self._noisy = True
             self.N = N
@@ -72,14 +76,14 @@ class LogisticMap(DiscreteTimeDynamics):
             ref_evd = LinalgDecomposition(
                 self._evals,
                 _x,
-                phi_X@self._Koop_evecs
+                phi_X @ self._Koop_evecs
             )
             return ref_evd
         else:
             return self._evals
 
     def _step(self, X_0: ArrayLike):
-        return self.map(X_0, noisy = self._noisy)
+        return self.map(X_0, noisy=self._noisy)
 
     def pdf(self, x):
         if self._noisy:
@@ -141,7 +145,8 @@ class LogisticMap(DiscreteTimeDynamics):
             PF_largest_evec = rv[:, invariant_eig_idx]
             if not np.all(np.isreal(PF_largest_evec)):
                 print(
-                    f"Largest eigenvector is not real, largest absolute imaginary part is {np.abs(np.imag(PF_largest_evec)).max()}. Forcing it to be real.")
+                    f"Largest eigenvector is not real, largest absolute imaginary part is "
+                    f"{np.abs(np.imag(PF_largest_evec)).max()}. Forcing it to be real.")
             return ev, np.real(PF_largest_evec), lv
 
         else:
@@ -165,7 +170,8 @@ class LogisticMap(DiscreteTimeDynamics):
             return np.mod(y + xi, 1)
         else:
             return self.r * x * (1 - x)
-        
+
+
 class MullerBrownPotential(DataGenerator):
     def __init__(self, kt: float = 1.5e3, rng_seed: Optional[int] = None):
         self.a = np.array([-1, -1, -6.5, 0.7])
@@ -175,9 +181,9 @@ class MullerBrownPotential(DataGenerator):
         self.X = np.array([1, 0, -0.5, -1])
         self.Y = np.array([0, 0.5, 1.5, 1])
         self.kt = kt
-        self. rng = np.random.default_rng(rng_seed)
+        self.rng = np.random.default_rng(rng_seed)
 
-    def generate(self, X0: ArrayLike, T:int=1):
+    def generate(self, X0: ArrayLike, T: int = 1):
         tspan = np.arange(0, 0.1 * T, 0.1)
         result = sdeint.itoint(self.neg_grad_potential, self.noise_term, X0, tspan, self.rng)
         return result
@@ -188,7 +194,7 @@ class MullerBrownPotential(DataGenerator):
         tinexp = self.a * (t1 ** 2) + self.b * t1 * t2 + self.c * (t2 ** 2)
         return np.dot(self.A, np.exp(tinexp))
 
-    def neg_grad_potential(self, x:ArrayLike, t:ArrayLike):
+    def neg_grad_potential(self, x: ArrayLike, t: ArrayLike):
         """
         A_j * exp[a_j * (x1^2 - 2 * x1 * X_j) + b_j * (x1 * x2 - x1 * Y_j)]
 
@@ -206,22 +212,24 @@ class MullerBrownPotential(DataGenerator):
             np.dot(self.A, tinexp * grad_inner_exp_x2),
         ]) / self.kt
 
-    def noise_term(self, x:ArrayLike, t:ArrayLike):
-        return np.diag([math.sqrt(2 * 1e-2), math.sqrt(2 * 1e-2)])   
-      
+    def noise_term(self, x: ArrayLike, t: ArrayLike):
+        return np.diag([math.sqrt(2 * 1e-2), math.sqrt(2 * 1e-2)])
+
+
 class LangevinTripleWell1D(DiscreteTimeDynamics):
-    def __init__(self, gamma:float = 0.1, kt: float = 1.0, dt: float=1e-4, rng_seed: Optional[int] = None):
+    def __init__(self, gamma: float = 0.1, kt: float = 1.0, dt: float = 1e-4, rng_seed: Optional[int] = None):
         self.gamma = gamma
-        self._inv_gamma = (self.gamma)**-1
+        self._inv_gamma = (self.gamma) ** -1
         self.kt = kt
         self.rng = np.random.default_rng(rng_seed)
         self.dt = dt
-    
+
     def _step(self, X: ArrayLike):
         F = self.force_fn(X)
         xi = self.rng.standard_normal(X.shape)
-        dX = F*self._inv_gamma + np.sqrt(2.0 * self.kt*self.dt*self._inv_gamma)*xi
+        dX = F * self._inv_gamma + np.sqrt(2.0 * self.kt * self.dt * self._inv_gamma) * xi
         return X + dX
 
     def force_fn(self, x: ArrayLike):
-        return -1.*(-128*np.exp(-80*((-0.5 + x)**2))*(-0.5 + x) - 512*np.exp(-80*(x**2))*x + 32*(x**7) - 160*np.exp(-40*((0.5 + x)**2))*(0.5 + x))
+        return -1. * (-128 * np.exp(-80 * ((-0.5 + x) ** 2)) * (-0.5 + x) - 512 * np.exp(-80 * (x ** 2)) * x + 32 * (
+                    x ** 7) - 160 * np.exp(-40 * ((0.5 + x) ** 2)) * (0.5 + x))
