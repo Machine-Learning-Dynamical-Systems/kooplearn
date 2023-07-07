@@ -36,4 +36,5 @@
 - [ ] Test `nystrom` estimators
 - [ ] Test the left eigenfunctions of the primal algorithm: FAILING.
 - [ ] Add tests for the `ScalarProduct` abstract class and `TorchScalarProduct` class.
+- [ ] Add pre-computed assets for the eigenfunctions/eigenvalues of the 1D triple well as well as Muller-Brown if possible.
 - [x] Handle the case of 0 Tikhonov regularization.

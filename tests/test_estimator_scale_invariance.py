@@ -23,12 +23,12 @@ def test_reduced_rank_tikhonov_primal_scale_invariance(svd_solver, tikhonov_reg,
 
     #Primal
     U = primal.fit_reduced_rank_regression_tikhonov(C_X, C_XY, tikhonov_reg, rank, svd_solver = svd_solver)
-    U_scaled = primal.fit_reduced_rank_regression_tikhonov(scale_factor*C_X, scale_factor*C_XY, tikhonov_reg*scale_factor, rank, svd_solver = svd_solver)
+    U_scaled = primal.fit_reduced_rank_regression_tikhonov(scale_factor*C_X, scale_factor*C_XY,
+                                                           tikhonov_reg*scale_factor, rank, svd_solver = svd_solver)
 
     G = np.linalg.multi_dot([U, U.T, C_XY])
     G_scaled = np.linalg.multi_dot([U_scaled, U_scaled.T, scale_factor*C_XY])
     assert np.allclose(G, G_scaled)
-
     
 @pytest.mark.parametrize('scale_factor', [0.1, 10])
 @pytest.mark.parametrize('tikhonov_reg', [1e-3])
@@ -47,7 +47,9 @@ def test_reduced_rank_tikhonov_dual_scale_invariance(svd_solver, tikhonov_reg, s
     
     #Dual
     U, V = dual.fit_reduced_rank_regression_tikhonov(K_X, K_Y, tikhonov_reg, rank, svd_solver = svd_solver)
-    U_scaled, V_scaled = dual.fit_reduced_rank_regression_tikhonov(scale_factor*K_X, scale_factor*K_Y, tikhonov_reg*scale_factor, rank, svd_solver = svd_solver)
+    U_scaled, V_scaled = dual.fit_reduced_rank_regression_tikhonov(scale_factor*K_X, scale_factor*K_Y,
+                                                                   tikhonov_reg*scale_factor, rank,
+                                                                   svd_solver = svd_solver)
 
     G = np.linalg.multi_dot([U, V.T])
     G_scaled = np.linalg.multi_dot([U_scaled, V_scaled.T])
