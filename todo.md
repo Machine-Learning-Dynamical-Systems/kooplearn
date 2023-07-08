@@ -8,7 +8,6 @@
 - [ ] The `ScalarProduct` kernels are not interfaced with `FeatureMap`. Fix this.
 
 ### Data generation/Examples
-- [ ] Add mode calculation
 - [ ] Add Brunton's method to the `encoder_decoder` models.
 - [X] Finish the implementation of the triple well.
     - [x] Define the force function.
@@ -23,9 +22,10 @@
 - [X] Duffing Oscillator
 - [ ] Langevin driven by $\alpha$-stable noise.
 - [ ] Add or check that is added a RNG for every stochastic term for reproducibility.
+- [ ] Can be cool to add fluid-dynamics simulation. See, e.g. [JAX-FLUIDS](https://github.com/tumaer/JAXFLUIDS/) for an easy way to generate them.
 ### Testing
 - [ ] Document functions
-- [ ] Test primal-dual matching on eigenfunctions (on top of eigenvalues). In general, study how coverage works.
+- [x] Test primal-dual matching on eigenfunctions (on top of eigenvalues). In general, study how coverage works.
 - Test data generation for each one of the methods
     - [ ] Duffing
     - [ ] Lorenz63
@@ -34,7 +34,7 @@
     - [ ] Muller-Brown
     - [ ] 1D Triple Well
 - [ ] Test _randomized_ algorithms (not clear how to do that now).
-- [ ] Test `nystrom` estimators
+- [ ] Test `nystrom` estimators (not clear how to do that).
 - [x] Test the left eigenfunctions of the primal algorithm: FAILING.
 - [ ] Add tests for the `ScalarProduct` abstract class and `TorchScalarProduct` class.
 - [x] Add pre-computed assets for the eigenfunctions/eigenvalues of the 1D triple well as well as Muller-Brown if possible.
