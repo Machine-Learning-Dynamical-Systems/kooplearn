@@ -81,7 +81,6 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
     assert np.allclose(primal_predict, dual_predict)
     assert _compare_evd(evd_primal, evd_dual)
 
-
 @pytest.mark.parametrize('tikhonov_reg', [1e-3])
 @pytest.mark.parametrize('rank', [5, None])
 @pytest.mark.parametrize('svd_solver', ['full', 'arnoldi'])
