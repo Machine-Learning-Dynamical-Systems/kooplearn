@@ -254,13 +254,13 @@ class LangevinTripleWell1D(DiscreteTimeDynamics):
             self._ref_evd = LinalgDecomposition(
                 values = self._ref_eigenvalues,
                 x = self._ref_domain_sample,
-                vectors = self._ref_eigenfunctions
+                functions = self._ref_eigenfunctions
             )
 
     def _step(self, X: ArrayLike):
         F = self.force_fn(X)
         xi = self.rng.standard_normal(X.shape)
-        dX = F * self._inv_gamma + np.sqrt(2.0 * self.kt * self.dt * self._inv_gamma) * xi
+        dX = F * self._inv_gamma*self.dt + np.sqrt(2.0 * self.kt * self.dt * self._inv_gamma) * xi
         return X + dX
 
     def force_fn(self, x: ArrayLike):

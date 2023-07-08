@@ -19,6 +19,8 @@ authors = [
 dependencies = [ # Optional
   "numpy",
   "scipy",
+  "scikit-learn",
+  "tqdm",
   "torch",
   "pytorch-lightning",
   "pandas"

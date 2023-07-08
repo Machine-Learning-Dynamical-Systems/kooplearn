@@ -287,7 +287,6 @@ def predict(
     M = np.linalg.matrix_power(V_K_XY_U, num_steps - 1)
     return np.linalg.multi_dot([K_dot_U, M, V_dot_obs])
 
-
 def estimator_eig(
         U: ArrayLike,  # Projection matrix: first output of the fit functions defined above
         V: ArrayLike,  # Projection matrix: second output of the fit functions defined above
