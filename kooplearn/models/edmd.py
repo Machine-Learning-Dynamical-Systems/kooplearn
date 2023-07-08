@@ -36,6 +36,23 @@ class PrimalRegressor(BaseModel):
         phi_X = self.feature_map(self.X_fit_)
         return primal.predict(t, self.U_, self.C_XY_, phi_Xin, phi_X, _obs)
 
+    def modes(self, observables: Optional[Union[Callable, ArrayLike]] = None):
+        if observables is None:
+            _obs = self.Y_fit_
+        if callable(observables):
+            _obs = observables(self.Y_fit_)
+        elif isinstance(observables, np.ndarray):
+            _obs = observables
+        else:
+            raise ValueError(
+                "observables must be either None, a callable or a Numpy array of the observable evaluated at the "
+                "Y training points.")
+        
+        check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_YX_', 'X_fit_', 'Y_fit_'])
+        phi_X = self.feature_map(self.X_fit_)
+        _gamma = primal.estimator_modes(self.U_, self.C_XY_, phi_X)
+        return _gamma@_obs
+
     def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
         check_is_fitted(self, ['U_', 'C_XY_'])
         w, vl, vr = primal.estimator_eig(self.U_, self.C_XY_)

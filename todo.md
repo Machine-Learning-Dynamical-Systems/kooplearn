@@ -8,16 +8,17 @@
 - [ ] The `ScalarProduct` kernels are not interfaced with `FeatureMap`. Fix this.
 
 ### Data generation/Examples
-
+- [ ] Add mode calculation
 - [ ] Add Brunton's method to the `encoder_decoder` models.
 - [X] Finish the implementation of the triple well.
-    - [ ] Define the force function.
+    - [x] Define the force function.
     - [ ] Add the eigenvalue decomposition.
+        - [ ] Added from reference calculations, the domain sample is fixed. Consider whether to use `scipy`'s interpolation algorithms to make it callable at arbitrary points.
 - [ ] Muller-Brown should be integrated without any dependencies.
 - [ ] Add reference Koopman eigenvalues on stochastic problems.
     - [ ] Linear
     - [X] Logistic
-    - [ ] 1D triple well
+    - [x] 1D triple well
     - [ ] Muller Brown
 - [X] Duffing Oscillator
 - [ ] Langevin driven by $\alpha$-stable noise.
@@ -34,7 +35,7 @@
     - [ ] 1D Triple Well
 - [ ] Test _randomized_ algorithms (not clear how to do that now).
 - [ ] Test `nystrom` estimators
-- [ ] Test the left eigenfunctions of the primal algorithm: FAILING.
+- [x] Test the left eigenfunctions of the primal algorithm: FAILING.
 - [ ] Add tests for the `ScalarProduct` abstract class and `TorchScalarProduct` class.
-- [ ] Add pre-computed assets for the eigenfunctions/eigenvalues of the 1D triple well as well as Muller-Brown if possible.
+- [x] Add pre-computed assets for the eigenfunctions/eigenvalues of the 1D triple well as well as Muller-Brown if possible.
 - [x] Handle the case of 0 Tikhonov regularization.

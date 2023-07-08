@@ -11,10 +11,8 @@ class EigenDecomposition(NamedTuple):
     left: np.ndarray
     right: np.ndarray
 
-
 def _compare_up_to_sign(a: np.ndarray, b: np.ndarray) -> bool:
     return np.allclose(np.abs(a), np.abs(b))
-
 
 def _compare_evd(evd_1: EigenDecomposition, evd_2: EigenDecomposition) -> bool:
     evd_1_sort = np.argsort(evd_1.values)
@@ -23,7 +21,6 @@ def _compare_evd(evd_1: EigenDecomposition, evd_2: EigenDecomposition) -> bool:
     assert _compare_up_to_sign(evd_1.left[:, evd_1_sort], evd_2.left[:, evd_2_sort])
     assert _compare_up_to_sign(evd_1.right[:, evd_1_sort], evd_2.right[:, evd_2_sort])
     return True
-
 
 @pytest.mark.parametrize('tikhonov_reg', [1e-3])
 @pytest.mark.parametrize('svd_solver', ['full', 'arnoldi'])
@@ -55,7 +52,8 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
     U, V = dual.fit_reduced_rank_regression_tikhonov(K_X, K_Y, tikhonov_reg, rank, svd_solver=svd_solver)
 
     dual_predict = dual.predict(dt, U, V, K_YX, K_testX, Y)
-    dual_eig, dual_lv, dual_rv = dual.estimator_eig(U, V, K_X, K_Y, K_YX)
+    dual_eig, dual_lv, dual_rv = dual.estimator_eig(U, V, K_X, K_YX)
+    dual_modes = dual.estimator_modes(dual_lv)
 
     evd_dual = EigenDecomposition(
         dual_eig,
@@ -70,6 +68,7 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
 
     primal_predict = primal.predict(dt, U, C_XY, X_test, X, Y)
     primal_eig, primal_lv, primal_rv = primal.estimator_eig(U, C_XY)
+    primal_modes = primal.estimator_modes(U, C_XY, X)
 
     evd_primal = EigenDecomposition(
         primal_eig,
@@ -78,6 +77,7 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
     )
 
     assert dual_predict.shape == (num_test_pts, num_features)
+    assert _compare_up_to_sign(primal_modes, dual_modes)
     assert np.allclose(primal_predict, dual_predict)
     assert _compare_evd(evd_primal, evd_dual)
 
@@ -101,8 +101,6 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
     K_X = X @ (X.T)
     C_X = rdim * ((X.T) @ X)
 
-    K_Y = Y @ (Y.T)
-
     K_YX = Y @ (X.T)
     C_XY = rdim * ((X.T) @ Y)
 
@@ -112,7 +110,8 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
     U, V = dual.fit_tikhonov(K_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
 
     dual_predict = dual.predict(dt, U, V, K_YX, K_testX, Y)
-    dual_eig, dual_lv, dual_rv = dual.estimator_eig(U, V, K_X, K_Y, K_YX)
+    dual_eig, dual_lv, dual_rv = dual.estimator_eig(U, V, K_X, K_YX)
+    dual_modes = dual.estimator_modes(dual_lv)
 
     evd_dual = EigenDecomposition(
         dual_eig,
@@ -127,6 +126,7 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
 
     primal_predict = primal.predict(dt, U, C_XY, X_test, X, Y)
     primal_eig, primal_lv, primal_rv = primal.estimator_eig(U, C_XY)
+    primal_modes = primal.estimator_modes(U, C_XY, X)
 
     evd_primal = EigenDecomposition(
         primal_eig,
@@ -138,6 +138,7 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
 
     assert np.allclose(primal_predict, dual_predict)
     if rank is not None:
+        assert _compare_up_to_sign(primal_modes, dual_modes)
         assert _compare_evd(evd_primal, evd_dual)
 
 

@@ -62,12 +62,11 @@ def test_dual_eig_decomposition(tikhonov_reg, svd_solver):
     X, Y = _Z[:-1], _Z[1:]
 
     K_X = X @ (X.T)
-    K_Y = Y @ (Y.T)
     K_YX = Y @ (X.T)
 
     # Dual
     U, V = dual.fit_tikhonov(K_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
-    eig, lv, rv = dual.estimator_eig(U, V, K_X, K_Y, K_YX)
+    eig, lv, rv = dual.estimator_eig(U, V, K_X, K_YX)
 
     assert _dual_right_normalization(rv, K_X)
     assert _dual_biortogonality(lv, rv, K_YX)

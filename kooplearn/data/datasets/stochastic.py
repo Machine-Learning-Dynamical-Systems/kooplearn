@@ -3,13 +3,14 @@ from kooplearn.data.datasets.misc import DataGenerator, DiscreteTimeDynamics, Li
 import numpy as np
 from numpy.typing import ArrayLike
 import scipy
-from scipy.integrate import quad
+from scipy.integrate import quad, romb
 from scipy.stats import beta
 from scipy.special import binom
 from scipy.stats.sampling import NumericalInversePolynomial
 from tqdm import tqdm
 import math
 import sdeint  # Optional dependency
+from pathlib import Path
 
 
 class MockData(DataGenerator):
@@ -188,7 +189,6 @@ class LogisticMap(DiscreteTimeDynamics):
         else:
             return self.r * x * (1 - x)
 
-
 class MullerBrownPotential(DataGenerator):
     def __init__(self, kt: float = 1.5e3, rng_seed: Optional[int] = None):
         self.a = np.array([-1, -1, -6.5, 0.7])
@@ -232,7 +232,6 @@ class MullerBrownPotential(DataGenerator):
     def noise_term(self, x: ArrayLike, t: ArrayLike):
         return np.diag([math.sqrt(2 * 1e-2), math.sqrt(2 * 1e-2)])
 
-
 class LangevinTripleWell1D(DiscreteTimeDynamics):
     def __init__(self, gamma: float = 0.1, kt: float = 1.0, dt: float = 1e-4, rng_seed: Optional[int] = None):
         self.gamma = gamma
@@ -240,6 +239,23 @@ class LangevinTripleWell1D(DiscreteTimeDynamics):
         self.kt = kt
         self.rng = np.random.default_rng(rng_seed)
         self.dt = dt
+        self._load_ref_evd()
+
+    def eig(self):
+        return self._ref_evd
+    
+    def _load_ref_evd(self):
+        asset_path = Path(__file__).parent / "assets" / "TripleWell1D_ref_evd_2049_points.npz"
+        with np.load(asset_path) as data:
+            self._ref_eigenvalues = data["values"]
+            self._ref_eigenfunctions = data["vectors"]
+            self._ref_boltzmann_density = data["density"]
+            self._ref_domain_sample = data["domain_sample"]
+            self._ref_evd = LinalgDecomposition(
+                values = self._ref_eigenvalues,
+                x = self._ref_domain_sample,
+                vectors = self._ref_eigenfunctions
+            )
 
     def _step(self, X: ArrayLike):
         F = self.force_fn(X)
@@ -250,3 +266,41 @@ class LangevinTripleWell1D(DiscreteTimeDynamics):
     def force_fn(self, x: ArrayLike):
         return -1. * (-128 * np.exp(-80 * ((-0.5 + x) ** 2)) * (-0.5 + x) - 512 * np.exp(-80 * (x ** 2)) * x + 32 * (
                     x ** 7) - 160 * np.exp(-40 * ((0.5 + x) ** 2)) * (0.5 + x))
+    
+    def _eigfun_sign_phase(self, estimated, true):
+        norm_p = np.linalg.norm(estimated + true)
+        norm_m = np.linalg.norm(estimated - true)
+        if norm_p <= norm_m:
+            return -1.0
+        else:
+            return 1.0
+
+    def _standardize_evd(self, evd: LinalgDecomposition, dx:float, density: Optional[ArrayLike] = None) -> LinalgDecomposition:
+        #Sorting and normalizing
+        sort_perm = np.flip(np.argsort(evd.values.real))
+        functions = (evd.vectors[:, sort_perm]).real
+        abs2_eigfun = (np.abs(functions)**2).T
+        if density is not None:
+            abs2_eigfun *= density
+        #Norms
+        funcs_norm = np.sqrt(romb(abs2_eigfun, dx = dx, axis = -1))
+        functions *= (funcs_norm**-1.0)
+        values = (evd.values.real)[sort_perm]
+        return LinalgDecomposition(values, functions)
+
+    def standardize_eigenfunction_phase(self, evd:LinalgDecomposition) -> LinalgDecomposition:
+        assert np.allclose(evd.x, self._ref_domain_sample)
+        
+        ref_evd = self._ref_evd
+        density = self._ref_boltzmann_density
+        dx = self._ref_domain_sample[1] - self._ref_domain_sample[0]
+
+        #ref_evd is assumed already standardized
+        evd = self._standardize_evd(evd, dx, density=density)
+        phase_aligned_funcs = evd.vectors.copy()
+        num_funcs = evd.vectors.shape[1]
+        for r in range(num_funcs):
+            estimated = evd.vectors[:, r]
+            true = ref_evd.vectors[:, r]
+            phase_aligned_funcs[:, r] = self._eigfun_sign_phase(estimated*density, true*density)*estimated
+        return LinalgDecomposition(evd.values, phase_aligned_funcs)

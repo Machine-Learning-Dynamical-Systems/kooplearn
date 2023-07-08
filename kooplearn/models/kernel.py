@@ -84,6 +84,23 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
 
         K_Xin_X = self.kernel(X, self.X_fit_)
         return dual.predict(t, self.U_, self.V_, self.K_YX_, K_Xin_X, _obs)
+    
+    def modes(self, observables: Optional[Union[Callable, ArrayLike]] = None):
+        if observables is None:
+            _obs = self.Y_fit_
+        elif callable(observables):
+            _obs = observables(self.Y_fit_)
+        elif isinstance(observables, np.ndarray):
+            _obs = observables
+        else:
+            raise ValueError(
+                "observables must be either None, a callable or a Numpy array of the observable evaluated at the "
+                "Y training points.")
+        
+        check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_YX_', 'X_fit_', 'Y_fit_'])
+        _, vl, _ = dual.estimator_eig(self.U_, self.V_, self.K_X_, self.K_YX_)
+        _gamma = dual.estimator_modes(vl)
+        return _gamma@_obs
 
     def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
         """Eigenvalues and eigenvectors of the estimated Koopman operator.
@@ -100,7 +117,7 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
             and eval_right_on respectively.
         """
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
-        w, vl, vr = dual.estimator_eig(self.U_, self.V_, self.K_X_, self.K_Y_, self.K_YX_)
+        w, vl, vr = dual.estimator_eig(self.U_, self.V_, self.K_X_, self.K_YX_)
         if eval_left_on is None:
             if eval_right_on is None:
                 return w

@@ -292,7 +292,6 @@ def estimator_eig(
         U: ArrayLike,  # Projection matrix: first output of the fit functions defined above
         V: ArrayLike,  # Projection matrix: second output of the fit functions defined above
         K_X: ArrayLike,  # Kernel matrix of the input data
-        K_Y: ArrayLike,  # Kernel matrix of the output data
         K_YX: ArrayLike  # Kernel matrix between the output data and the input data
 ) -> tuple[ArrayLike, ArrayLike, ArrayLike]:
     # SUV.TZ -> V.T K_YX U (right ev = SUvr, left ev = ZVvl)
@@ -318,6 +317,9 @@ def estimator_eig(
     vl = vl / norm_l
     return values, V@vl, U@vr
 
+def estimator_modes(lv: ArrayLike):
+    r_dim = lv.shape[0]**-0.5
+    return r_dim*lv.T
 
 def evaluate_eigenfunction(
         K_Xin_X_or_Y: ArrayLike,

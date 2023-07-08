@@ -139,13 +139,37 @@ def estimator_eig(
 
     return values, lv, rv
 
+def estimator_modes(
+    U: ArrayLike, # Projection matrix, as returned by the fit functions defined above
+    C_XY: ArrayLike,  # Cross-covariance matrix
+    phi_X: ArrayLike,  # Feature map evaluated on the training input data      
+):
+    # Using the trick described in https://arxiv.org/abs/1905.11490
+    M = np.linalg.multi_dot([U.T, C_XY, U])
+    values, lv, rv = eig(M, left=True, right=True)
+
+    r_perm = np.argsort(values)
+    l_perm = np.argsort(values.conj())
+    values = values[r_perm]
+
+    # Normalization in RKHS norm
+    rv = U @ rv
+    rv = rv[:, r_perm]
+    rv = rv / np.linalg.norm(rv, axis=0)
+    # Biorthogonalization
+    lv_full = np.linalg.multi_dot([C_XY.T, U, lv])
+    lv_full = lv_full[:, l_perm]
+    lv = lv[:, l_perm]
+    l_norm = np.sum(lv_full * rv, axis=0)
+    lv = lv / l_norm
+    r_dim = (phi_X.shape[0]**-1.)
+    return np.linalg.multi_dot([r_dim*phi_X, U, lv]).T  #This should be multiplied on the right by the observable evaluated at the output training data
 
 def evaluate_eigenfunction(
         phi_Xin: ArrayLike,  # Feature map evaluated on the initial conditions
         lv_or_rv: ArrayLike,  # Left or right eigenvector, as returned by estimator_eig
 ):
     return phi_Xin @ lv_or_rv
-
 
 def svdvals(U, C_XY):
     M = np.linalg.multi_dot([U, U.T, C_XY])
