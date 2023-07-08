@@ -59,8 +59,8 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
 
     evd_dual = EigenDecomposition(
         dual_eig,
-        dual.evaluate_eigenfunction(X_test @ (Y.T), V, dual_lv),
-        dual.evaluate_eigenfunction(X_test @ (X.T), U, dual_rv)
+        dual.evaluate_eigenfunction(X_test @ (Y.T), dual_lv),
+        dual.evaluate_eigenfunction(X_test @ (X.T), dual_rv)
     )
 
     assert dual_predict.shape == (num_test_pts, num_features)
@@ -116,8 +116,8 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
 
     evd_dual = EigenDecomposition(
         dual_eig,
-        dual.evaluate_eigenfunction(X_test @ (Y.T), V, dual_lv),
-        dual.evaluate_eigenfunction(X_test @ (X.T), U, dual_rv)
+        dual.evaluate_eigenfunction(X_test @ (Y.T), dual_lv),
+        dual.evaluate_eigenfunction(X_test @ (X.T), dual_rv)
     )
 
     assert dual_predict.shape == (num_test_pts, num_features)

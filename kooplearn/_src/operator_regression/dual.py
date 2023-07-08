@@ -316,20 +316,17 @@ def estimator_eig(
     # Bi-orthogonality of left eigenfunctions
     norm_l = np.diag(np.linalg.multi_dot([vl.T, W_YX, vr]))
     vl = vl / norm_l
-    return values, vl, vr
+    return values, V@vl, U@vr
 
 
 def evaluate_eigenfunction(
         K_Xin_X_or_Y: ArrayLike,
         # Kernel matrix between the initial conditions and the input data (right eigenfunctions) or the output data
         # (left eigenfunctions)
-        U_or_V: ArrayLike,
-        # Projection matrix: first output of the fit functions defined above (right eigenfunctions) or second output
-        # (left eigenfunctions)
         vr_or_vl: ArrayLike  # Right eigenvectors or left eigenvectors, as returned by the estimator_eig function
 ):
-    rsqrt_dim = (U_or_V.shape[0]) ** (-0.5)
-    return np.linalg.multi_dot([rsqrt_dim * K_Xin_X_or_Y, U_or_V, vr_or_vl])
+    rsqrt_dim = (K_Xin_X_or_Y.shape[1]) ** (-0.5)
+    return np.linalg.multi_dot([rsqrt_dim * K_Xin_X_or_Y, vr_or_vl])
 
 
 def svdvals(

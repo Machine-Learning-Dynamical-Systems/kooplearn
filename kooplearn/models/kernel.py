@@ -106,16 +106,16 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
                 return w
             else:
                 K_X_in_X_or_Y = self.kernel(eval_right_on, self.X_fit_)
-                return w, dual.evaluate_eigenfunction(K_X_in_X_or_Y, self.U_, vr)
+                return w, dual.evaluate_eigenfunction(K_X_in_X_or_Y, vr)
         else:
             if eval_right_on is None:
                 K_X_in_X_or_Y = self.kernel(eval_left_on, self.Y_fit_)
-                return w, dual.evaluate_eigenfunction(K_X_in_X_or_Y, self.V_, vl)
+                return w, dual.evaluate_eigenfunction(K_X_in_X_or_Y, vl)
             else:
                 K_X_in_X_or_Y_left = self.kernel(eval_left_on, self.Y_fit_)
                 K_X_in_X_or_Y_right = self.kernel(eval_right_on, self.X_fit_)
-                return w, dual.evaluate_eigenfunction(K_X_in_X_or_Y_left, self.V_, vl), dual.evaluate_eigenfunction(
-                    K_X_in_X_or_Y_right, self.U_, vr)
+                return w, dual.evaluate_eigenfunction(K_X_in_X_or_Y_left, vl), dual.evaluate_eigenfunction(
+                    K_X_in_X_or_Y_right, vr)
 
     def svals(self):
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_'])
