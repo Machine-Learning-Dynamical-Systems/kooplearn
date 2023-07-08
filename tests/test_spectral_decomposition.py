@@ -9,12 +9,10 @@ def _primal_right_normalization(right_vectors: ArrayLike):
     _norms = np.sum(right_vectors.conj() * right_vectors, axis=0)
     return np.allclose(_norms, np.ones(_norms.shape[0]))
 
-
 def _primal_eigenvalue_equation(eigenvalues: ArrayLike, left_vectors: ArrayLike, right_vectors: ArrayLike,
                                 estimator: ArrayLike):
     reconstruction = np.linalg.multi_dot([right_vectors, np.diag(eigenvalues), left_vectors.T])
     return np.allclose(estimator, reconstruction)
-
 
 def _primal_biortogonality(left_vectors: ArrayLike, right_vectors: ArrayLike):
     return np.allclose((left_vectors.T) @ right_vectors, np.eye(left_vectors.shape[1]))
