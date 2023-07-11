@@ -9,8 +9,12 @@ from scipy.special import binom
 from scipy.stats.sampling import NumericalInversePolynomial
 from tqdm import tqdm
 import math
-import sdeint  # Optional dependency
 from pathlib import Path
+try:
+    import sdeint
+    _has_sdeint = True
+except ImportError:
+    _has_sdeint = False
 
 
 class MockData(DataGenerator):
@@ -191,6 +195,8 @@ class LogisticMap(DiscreteTimeDynamics):
 
 class MullerBrownPotential(DataGenerator):
     def __init__(self, kt: float = 1.5e3, rng_seed: Optional[int] = None):
+        if not _has_sdeint:
+            raise ImportError("sdeint not found, please install it to use this class")
         self.a = np.array([-1, -1, -6.5, 0.7])
         self.b = np.array([0.0, 0.0, 11.0, 0.6])
         self.c = np.array([-10, -10, -6.5, 0.7])
