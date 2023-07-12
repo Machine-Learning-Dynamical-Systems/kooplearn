@@ -99,9 +99,9 @@ def main(cfg: BaseConfigs):
         np.array([0.0]),
         ref_density,
         domain_sample,
-        scale = (eigenvalues[-1].real)**-1,
+        time_horizon=2.0,
         duration_in_seconds= 10.0,
-        fps = 1
+        fps = 24
     )
 
 if __name__ == "__main__":
