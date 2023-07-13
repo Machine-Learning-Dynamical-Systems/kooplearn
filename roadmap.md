@@ -1,4 +1,10 @@
 # Roadmap
+## Jul 13 '23
+**[Pietro]**
+1. Add to the abstract `BaseModel` class two methods: `load` and `save` to save the estimators. Implement them for the `edmd` and `kernel` models.
+2. Add a **robust** function that, given a list of complex numbers containing only pure reals and couples of complex conjugates, return two masks, one with the indices of the real numbers and one with the indices of only one of the elements of the CC pair.
+   1. Add complementary function to perform checks and sum reductions
+3. Modify the mode function to return **everything** (i.e. including the initial condition) except of the eigenvalue.
 
 ## Jul 3 '23
 **[Grégoire]**: 
