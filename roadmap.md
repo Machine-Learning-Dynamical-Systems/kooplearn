@@ -6,6 +6,9 @@
    1. Add complementary function to perform checks and sum reductions
 3. Modify the mode function to return **everything** (i.e. including the initial condition) except of the eigenvalue.
 
+**[Vladi]**
+1. Study how the spectral filtering regularization schemes interact with the estimation of the eigenvalues **especially** if they are complex. 
+
 ## Jul 3 '23
 **[Grégoire]**: 
 1. Add few synthetic financial datasets
