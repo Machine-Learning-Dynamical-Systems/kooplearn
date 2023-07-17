@@ -7,7 +7,7 @@ from pathlib import Path
 from kme_utils import make_movie
 from functools import partial
 from kooplearn.models.kernel import KernelDMD
-from kooplearn._src.kernels import RBF
+from kooplearn._src.kernels import RBF, Matern
 from kooplearn.data.datasets import LangevinTripleWell1D as TriWell
 import optuna
 
@@ -42,7 +42,7 @@ def generate_dataset(cfg: BaseConfigs, rng_seed: int = 42):
 def objective(trial: optuna.Trial, training_traj: ArrayLike, ref_eigenvalues: ArrayLike):
     length_scale = trial.suggest_float("length_scale", 0.001, 0.2)
     tikhonov_reg = trial.suggest_float("tikhonov_reg", 1e-7, 1e-3, log=True)
-    kernel = NormalizedRBF(length_scale=length_scale)
+    kernel = Matern(nu = 0.5, length_scale=length_scale)
     
     model = KernelDMD(
         kernel = kernel,
@@ -80,28 +80,25 @@ def main(cfg: BaseConfigs):
 
     length_scale = 0.05
     tikhonov_reg = 1e-5
-    kernel = NormalizedRBF(length_scale=length_scale)
+    kernel = Matern(nu = 0.5, length_scale=length_scale)
     
     model = KernelDMD(
         kernel = kernel,
-        rank = len(ref_eigenvalues),
+        rank = 25,
         tikhonov_reg = tikhonov_reg,
         solver = 'arnoldi'
     )
     
     model = model.fit(traj_in, traj_out)
-    eigenvalues = np.sort(model.eig())
-    print(eigenvalues)
-    print(np.sort(ref_eigenvalues))
     #Make a movie
     make_movie(
         model,
         np.array([0.0]),
         ref_density,
         domain_sample,
-        scale = (eigenvalues[-1].real)**-1,
+        time_horizon=2.0,
         duration_in_seconds= 10.0,
-        fps = 1
+        fps = 24
     )
 
 if __name__ == "__main__":

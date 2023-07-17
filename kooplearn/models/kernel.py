@@ -117,7 +117,12 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
             and eval_right_on respectively.
         """
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
-        w, vl, vr = dual.estimator_eig(self.U_, self.V_, self.K_X_, self.K_YX_)
+        if hasattr(self, '_eig_cache'):
+            w, vl, vr = self._eig_cache
+        else:
+            w, vl, vr = dual.estimator_eig(self.U_, self.V_, self.K_X_, self.K_YX_)
+            self._eig_cache = (w, vl, vr)
+
         if eval_left_on is None:
             if eval_right_on is None:
                 return w
@@ -157,6 +162,8 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
 
         self.X_fit_ = X
         self.Y_fit_ = Y
+        if hasattr(self, '_eig_cache'):
+            del self._eig_cache
 
 
 class KernelDMD(KernelLowRankRegressor):

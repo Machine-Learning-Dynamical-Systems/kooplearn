@@ -55,7 +55,11 @@ class PrimalRegressor(BaseModel):
 
     def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
         check_is_fitted(self, ['U_', 'C_XY_'])
-        w, vl, vr = primal.estimator_eig(self.U_, self.C_XY_)
+        if hasattr(self, '_eig_cache'):
+            w, vl, vr = self._eig_cache
+        else:
+            w, vl, vr = primal.estimator_eig(self.U_, self.C_XY_)
+            self._eig_cache = (w, vl, vr)
         if eval_left_on is None:
             if eval_right_on is None:
                 return w
@@ -93,7 +97,8 @@ class PrimalRegressor(BaseModel):
 
         self.X_fit_ = X
         self.Y_fit_ = Y
-
+        if hasattr(self, '_eig_cache'):
+            del self._eig_cache
 
 class EDMDReducedRank(PrimalRegressor):
     def fit(self, X, Y):
