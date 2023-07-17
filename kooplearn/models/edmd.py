@@ -115,5 +115,5 @@ class EDMD(PrimalRegressor):
             vectors = primal.fit_rand_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg, self.rank, self.n_oversamples,
                                                self.iterated_power)
         else:
-            vectors = primal.fit_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg, self.rank, self.svd_solver)
+            vectors = primal.fit_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg, self.rank, self.svd_solver) # NOT WORKING
         self.U_ = vectors

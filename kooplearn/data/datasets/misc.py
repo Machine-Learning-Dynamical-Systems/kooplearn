@@ -17,9 +17,10 @@ class DataGenerator(abc.ABC):
     def generate(self, X0: ArrayLike, T: int = 1):
         pass
 
+
 class DiscreteTimeDynamics(DataGenerator):
     def generate(self, X0: ArrayLike, T: int = 1, show_progress: bool = False):
-        memory = np.zeros((T + 1,) +  X0.shape)
+        memory = np.zeros((T + 1,) + X0.shape)
         memory[0] = X0
         if show_progress:
             _iter = tqdm(range(T), desc='Generating data', unit='step', leave=False)
