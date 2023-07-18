@@ -3,11 +3,9 @@ import numpy as np
 from sklearn.utils import check_array, check_random_state
 from warnings import warn
 
-
 class TopK_ReturnType(NamedTuple):
     values: np.ndarray
     indices: np.ndarray
-
 
 def topk(vec, k: int):
     assert np.ndim(vec) == 1, "'vec' must be a 1D array"
@@ -15,7 +13,6 @@ def topk(vec, k: int):
     indices = sort_perm[:k]
     values = vec[indices]
     return TopK_ReturnType(values, indices)
-
 
 def sort_and_crop(vec, num_components=None):
     """Return the indices of the largest ``num_components`` elements in vec in descending order.
@@ -33,7 +30,6 @@ def sort_and_crop(vec, num_components=None):
         return sort_perm
     else:
         return sort_perm[:num_components]
-
 
 def weighted_norm(A, M=None):
     r"""Weighted norm of the columns of A.

@@ -1,10 +1,8 @@
 import pytest
-import logging
 from typing import NamedTuple
 import numpy as np
 from kooplearn._src.operator_regression import primal, dual
 from kooplearn.data.datasets import MockData
-
 
 class EigenDecomposition(NamedTuple):
     values: np.ndarray
@@ -140,7 +138,6 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
         assert _compare_up_to_sign(primal_modes, dual_modes)
         assert _compare_evd(evd_primal, evd_dual)
 
-
 @pytest.mark.skip()
 @pytest.mark.parametrize('dt', [1, 5, 10])
 def test_rand_reduced_rank(dt):
@@ -188,7 +185,6 @@ def test_rand_reduced_rank(dt):
     assert np.allclose(primal_predict, dual_predict)
     assert np.allclose(np.sort(dual_eig.real), np.sort(primal_eig.real))
     assert np.allclose(np.sort(dual_eig.imag), np.sort(primal_eig.imag))
-
 
 @pytest.mark.skip()
 @pytest.mark.parametrize('dt', [1, 5, 10])

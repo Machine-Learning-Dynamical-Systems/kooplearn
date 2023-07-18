@@ -1,3 +1,4 @@
+from os import PathLike
 import numpy as np
 from typing import Optional, Callable, Union
 from numpy.typing import ArrayLike
@@ -99,6 +100,12 @@ class PrimalRegressor(BaseModel):
         self.Y_fit_ = Y
         if hasattr(self, '_eig_cache'):
             del self._eig_cache
+    
+    def save(self, path: PathLike):
+        raise NotImplementedError("This is an abstract class. Use a subclass instead.")
+    
+    def load(self, path: PathLike):
+        raise NotImplementedError("This is an abstract class. Use a subclass instead.")
 
 class EDMDReducedRank(PrimalRegressor):
     def fit(self, X, Y):
