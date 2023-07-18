@@ -10,8 +10,10 @@ from scipy.stats.sampling import NumericalInversePolynomial
 from tqdm import tqdm
 import math
 from pathlib import Path
+
 try:
     import sdeint
+
     _has_sdeint = True
 except ImportError:
     _has_sdeint = False
@@ -35,25 +37,28 @@ class LinearModel(DiscreteTimeDynamics):
     def _step(self, X: ArrayLike):
         return self.A @ X + self.noise * self.rng.standard_normal(size=X.shape)
 
+
 class RegimeChangeVAR(DiscreteTimeDynamics):
-    def __init__(self, phi1: ArrayLike, phi2:ArrayLike, transition:ArrayLike, noise: float = 0., rng_seed: Optional[int] = None):
-        self.phi1=phi1
-        self.phi2=phi2
-        self.transition=transition
-        self.noise=noise
+    def __init__(self, phi1: ArrayLike, phi2: ArrayLike, transition: ArrayLike, noise: float = 0.,
+                 rng_seed: Optional[int] = None):
+        self.phi1 = phi1
+        self.phi2 = phi2
+        self.transition = transition
+        self.noise = noise
         self.rng = np.random.default_rng(rng_seed)
-        self.current_state=0
-    def _step(self, X:ArrayLike):
-        rand_trans = np.random.uniform(0,1)
-        if rand_trans<self.transition[self.current_state, 0]:
-            self.current_state=0
-            return self.phi1@X + self.noise*self.rng.standard_normal(size = X.shape)
+        self.current_state = 0
+
+    def _step(self, X: ArrayLike):
+        rand_trans = np.random.uniform(0, 1)
+        if rand_trans < self.transition[self.current_state, 0]:
+            self.current_state = 0
+            return self.phi1 @ X + self.noise * self.rng.standard_normal(size=X.shape)
         else:
-            self.current_state=1
-            return self.phi2@X + self.noise*self.rng.standard_normal(size = X.shape)
+            self.current_state = 1
+            return self.phi2 @ X + self.noise * self.rng.standard_normal(size=X.shape)
 
 
-#Noisy Logistic Map  
+# Noisy Logistic Map
 class CosineDistribution:
     def __init__(self, N):
         self.N = N
@@ -193,6 +198,7 @@ class LogisticMap(DiscreteTimeDynamics):
         else:
             return self.r * x * (1 - x)
 
+
 class MullerBrownPotential(DataGenerator):
     def __init__(self, kt: float = 1.5e3, rng_seed: Optional[int] = None):
         if not _has_sdeint:
@@ -238,6 +244,7 @@ class MullerBrownPotential(DataGenerator):
     def noise_term(self, x: ArrayLike, t: ArrayLike):
         return np.diag([math.sqrt(2 * 1e-2), math.sqrt(2 * 1e-2)])
 
+
 class LangevinTripleWell1D(DiscreteTimeDynamics):
     def __init__(self, gamma: float = 0.1, kt: float = 1.0, dt: float = 1e-4, rng_seed: Optional[int] = None):
         self.gamma = gamma
@@ -249,7 +256,7 @@ class LangevinTripleWell1D(DiscreteTimeDynamics):
 
     def eig(self):
         return self._ref_evd
-    
+
     def _load_ref_evd(self):
         asset_path = Path(__file__).parent / "assets" / "TripleWell1D_ref_evd_2049_points.npz"
         with np.load(asset_path) as data:
@@ -258,21 +265,21 @@ class LangevinTripleWell1D(DiscreteTimeDynamics):
             self._ref_boltzmann_density = data["density"]
             self._ref_domain_sample = data["domain_sample"]
             self._ref_evd = LinalgDecomposition(
-                values = self._ref_eigenvalues,
-                x = self._ref_domain_sample,
-                functions = self._ref_eigenfunctions
+                values=self._ref_eigenvalues,
+                x=self._ref_domain_sample,
+                functions=self._ref_eigenfunctions
             )
 
     def _step(self, X: ArrayLike):
         F = self.force_fn(X)
         xi = self.rng.standard_normal(X.shape)
-        dX = F * self._inv_gamma*self.dt + np.sqrt(2.0 * self.kt * self.dt * self._inv_gamma) * xi
+        dX = F * self._inv_gamma * self.dt + np.sqrt(2.0 * self.kt * self.dt * self._inv_gamma) * xi
         return X + dX
 
     def force_fn(self, x: ArrayLike):
         return -1. * (-128 * np.exp(-80 * ((-0.5 + x) ** 2)) * (-0.5 + x) - 512 * np.exp(-80 * (x ** 2)) * x + 32 * (
-                    x ** 7) - 160 * np.exp(-40 * ((0.5 + x) ** 2)) * (0.5 + x))
-    
+                x ** 7) - 160 * np.exp(-40 * ((0.5 + x) ** 2)) * (0.5 + x))
+
     def _eigfun_sign_phase(self, estimated, true):
         norm_p = np.linalg.norm(estimated + true)
         norm_m = np.linalg.norm(estimated - true)
@@ -281,32 +288,33 @@ class LangevinTripleWell1D(DiscreteTimeDynamics):
         else:
             return 1.0
 
-    def _standardize_evd(self, evd: LinalgDecomposition, dx:float, density: Optional[ArrayLike] = None) -> LinalgDecomposition:
-        #Sorting and normalizing
+    def _standardize_evd(self, evd: LinalgDecomposition, dx: float,
+                         density: Optional[ArrayLike] = None) -> LinalgDecomposition:
+        # Sorting and normalizing
         sort_perm = np.flip(np.argsort(evd.values.real))
         functions = (evd.vectors[:, sort_perm]).real
-        abs2_eigfun = (np.abs(functions)**2).T
+        abs2_eigfun = (np.abs(functions) ** 2).T
         if density is not None:
             abs2_eigfun *= density
-        #Norms
-        funcs_norm = np.sqrt(romb(abs2_eigfun, dx = dx, axis = -1))
-        functions *= (funcs_norm**-1.0)
+        # Norms
+        funcs_norm = np.sqrt(romb(abs2_eigfun, dx=dx, axis=-1))
+        functions *= (funcs_norm ** -1.0)
         values = (evd.values.real)[sort_perm]
         return LinalgDecomposition(values, functions)
 
-    def standardize_eigenfunction_phase(self, evd:LinalgDecomposition) -> LinalgDecomposition:
+    def standardize_eigenfunction_phase(self, evd: LinalgDecomposition) -> LinalgDecomposition:
         assert np.allclose(evd.x, self._ref_domain_sample)
-        
+
         ref_evd = self._ref_evd
         density = self._ref_boltzmann_density
         dx = self._ref_domain_sample[1] - self._ref_domain_sample[0]
 
-        #ref_evd is assumed already standardized
+        # ref_evd is assumed already standardized
         evd = self._standardize_evd(evd, dx, density=density)
         phase_aligned_funcs = evd.vectors.copy()
         num_funcs = evd.vectors.shape[1]
         for r in range(num_funcs):
             estimated = evd.vectors[:, r]
             true = ref_evd.vectors[:, r]
-            phase_aligned_funcs[:, r] = self._eigfun_sign_phase(estimated*density, true*density)*estimated
+            phase_aligned_funcs[:, r] = self._eigfun_sign_phase(estimated * density, true * density) * estimated
         return LinalgDecomposition(evd.values, phase_aligned_funcs)
