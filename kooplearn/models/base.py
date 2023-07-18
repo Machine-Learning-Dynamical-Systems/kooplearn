@@ -16,11 +16,3 @@ class BaseModel(abc.ABC):
     @abc.abstractmethod
     def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
         pass
-
-    @abc.abstractmethod
-    def save(self, path: PathLike):
-        pass
-
-    @abc.abstractmethod
-    def load(self, path: PathLike):
-        pass

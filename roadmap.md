@@ -1,4 +1,34 @@
 # Roadmap
+## Jul 18 '23
+**[Bruno]**
+1. Implement the [code for the paper](https://github.com/BethanyL/DeepKoopman) "Deep learning for universal linear embeddings of nonlinear dynamics" by Bethany Lusch, J. Nathan Kutz, and Steven L. Brunton
+
+**[Grégoire]**
+1. Finish visualization tools for modes
+
+**[Pie]**
+1. Review Bruno's code for `dpnets`
+    1. Add a `JAX` analogue model
+    2. Test Bruno's implementation on an easy dataset
+2. Everything from the [Jul 13](#jul-13-23) list
+
+**[Vladi]**
+1. Impact of the pre-processing/windowing steps on the estimators
+2. Study how the spectral filtering regularization schemes interact with the estimation of the eigenvalues **especially** if they are complex.
+
+### Features to add before private release:
+
+- [ ] Visualization tools using `dash`
+- [ ] I/O utilities
+     - [ ] Time-series dataloader for `torch`, `jax`, and `numpy`
+     - [ ] Context windows, chunking of the trajectory
+     - [ ] Adding time-related features
+- [ ] Metrics
+    - [ ] Reconstruction losses
+    - [ ] Probabilistic losses
+
+- [ ] Confidence intervals with quantiles
+
 ## Jul 13 '23
 **[Pietro]**
 1. Add to the abstract `BaseModel` class two methods: `load` and `save` to save the estimators. Implement them for the `edmd` and `kernel` models.
