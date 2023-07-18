@@ -11,6 +11,7 @@
     1. Add a `JAX` analogue model
     2. Test Bruno's implementation on an easy dataset
 2. Everything from the [Jul 13](#jul-13-23) list
+3. Add the possiblity to set a seed for the randomized algorithms in `kernel` and `edmd` models.
 
 **[Vladi]**
 1. Impact of the pre-processing/windowing steps on the estimators
@@ -18,7 +19,7 @@
 
 ### Features to add before private release:
 
-- [ ] Visualization tools using `dash`
+- [ ] Visualization tools using `dash`.
 - [ ] I/O utilities
      - [ ] Time-series dataloader for `torch`, `jax`, and `numpy`
      - [ ] Context windows, chunking of the trajectory

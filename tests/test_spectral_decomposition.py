@@ -4,7 +4,6 @@ from numpy.typing import ArrayLike
 from kooplearn.data.datasets import MockData
 from kooplearn._src.operator_regression import primal, dual
 
-
 def _primal_right_normalization(right_vectors: ArrayLike):
     _norms = np.sum(right_vectors.conj() * right_vectors, axis=0)
     return np.allclose(_norms, np.ones(_norms.shape[0]))

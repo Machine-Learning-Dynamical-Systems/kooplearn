@@ -1,35 +1,3 @@
-import abc
-import torch
-from typing import Optional
-from numpy.typing import ArrayLike
-
-
-class FeatureMap(abc.ABC):
-    @abc.abstractmethod
-    def __call__(self, X: ArrayLike):
-        pass
-
-    def cov(self, X: ArrayLike, Y: Optional[ArrayLike] = None):
-        phi_X = self.__call__(X)
-        if Y is None:
-            c = phi_X.T @ phi_X
-        else:
-            phi_Y = self.__call__(Y)
-            c = phi_X.T @ phi_Y
-        c *= (X.shape[0]) ** (-1)
-        return c
-
-
-class IdentityFeatureMap(FeatureMap):
-    def __call__(self, X: ArrayLike):
-        return X
-
-
-class TrainableFeatureMap(FeatureMap):
-    # Trainable feature maps should accept numpy arrays and return numpy arrays. Internally thay can do whatever.
-    @abc.abstractmethod
-    def fit(self, X: Optional[ArrayLike], Y: Optional[ArrayLike]):
-        pass
 
 
 class LightningFeatureMap(TrainableFeatureMap):

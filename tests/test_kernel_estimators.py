@@ -1,11 +1,12 @@
 import pytest
 from kooplearn._src.kernels import Linear, RBF, Matern
+from kooplearn._src.models import KernelDMD, KernelReducedRank
 from kooplearn.data.datasets import MockData
-from kooplearn.models import KernelDMD, KernelReducedRank
+
 
 
 @pytest.mark.parametrize('kernel', [Linear(), RBF(), Matern()])
-@pytest.mark.parametrize('solver', ['full', 'arnoldi', 'randomized'])
+@pytest.mark.parametrize('solver', ['full', 'arnoldi', 'randomized', 'nystrom'])
 @pytest.mark.parametrize('tikhonov_reg', [None, 1e-3])
 def test_kernelDMD(kernel, solver, tikhonov_reg):
     num_features = 10
@@ -23,7 +24,7 @@ def test_kernelDMD(kernel, solver, tikhonov_reg):
 
 
 @pytest.mark.parametrize('kernel', [Linear(), RBF(), Matern()])
-@pytest.mark.parametrize('solver', ['full', 'arnoldi', 'randomized'])
+@pytest.mark.parametrize('solver', ['full', 'arnoldi', 'randomized', 'nystrom'])
 @pytest.mark.parametrize('tikhonov_reg', [None, 1e-3])
 def test_kernelReducedRank(kernel, solver, tikhonov_reg):
     num_features = 10
@@ -34,6 +35,9 @@ def test_kernelReducedRank(kernel, solver, tikhonov_reg):
     X, Y = _Z[:-1], _Z[1:]
     model = KernelReducedRank(kernel=kernel, tikhonov_reg=tikhonov_reg, solver=solver)
     if (tikhonov_reg is None) and (solver == 'randomized'):
+        with pytest.raises(ValueError):
+            model.fit(X, Y)
+    elif (tikhonov_reg is None) and (solver == 'nystrom'):
         with pytest.raises(ValueError):
             model.fit(X, Y)
     else:

@@ -5,10 +5,8 @@ from numpy.typing import ArrayLike
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted, check_X_y
 
-from kooplearn.models.base import BaseModel
+from kooplearn._src.models.abc import BaseModel, FeatureMap, IdentityFeatureMap
 from kooplearn._src.operator_regression import primal
-from kooplearn._src.encoding_decoding_utils import FeatureMap, IdentityFeatureMap
-
 
 class PrimalRegressor(BaseModel):
     def __init__(self, feature_map: FeatureMap = IdentityFeatureMap(), rank=5, tikhonov_reg=None, svd_solver='full',

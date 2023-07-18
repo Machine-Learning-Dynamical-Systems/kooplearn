@@ -6,8 +6,7 @@ from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted, check_X_y
 from kooplearn._src.kernels import BaseKernel, Linear
 from kooplearn._src.operator_regression import dual
-from kooplearn.models.base import BaseModel
-
+from kooplearn._src.models.abc import BaseModel
 
 class KernelLowRankRegressor(BaseModel, RegressorMixin):
     def __init__(
@@ -154,17 +153,36 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
         Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
         check_X_y(X, Y, multi_output=True)
 
-        K_X, K_Y, K_YX = self._init_kernels(X, Y)
+        if self.solver == 'nystrom':
+            rng = np.random.default_rng()
 
-        self.K_X_ = K_X
-        self.K_Y_ = K_Y
-        self.K_YX_ = K_YX
+            _data_dim = X.shape[0]
+            _centers_idxs = rng.choice(_data_dim, int(_data_dim*self.frac_inducing_points))
+            
+            X_subset = X[_centers_idxs]
+            Y_subset = Y[_centers_idxs]
 
-        self.X_fit_ = X
-        self.Y_fit_ = Y
+            self.K_X_ = self.kernel(X_subset)
+            self.K_Y_ = self.kernel(Y_subset)
+            self.K_YX_ = self.kernel(Y_subset, X_subset)
+
+            self.KN_X_ = self.kernel(X, X_subset)
+            self.KN_Y_ = self.kernel(Y, Y_subset)
+
+            self.X_fit_ = X_subset
+            self.Y_fit_ = Y_subset
+
+        else:
+            K_X, K_Y, K_YX = self._init_kernels(X, Y)
+
+            self.K_X_ = K_X
+            self.K_Y_ = K_Y
+            self.K_YX_ = K_YX
+
+            self.X_fit_ = X
+            self.Y_fit_ = Y
         if hasattr(self, '_eig_cache'):
             del self._eig_cache
-
 
 class KernelDMD(KernelLowRankRegressor):
     def fit(self, X, Y):
@@ -174,6 +192,7 @@ class KernelDMD(KernelLowRankRegressor):
             Y (ndarray): Evolved observations.
         """
         self.pre_fit_checks(X, Y)
+        
         if self.tikhonov_reg is None:
             reg = 0
         else:
@@ -181,13 +200,16 @@ class KernelDMD(KernelLowRankRegressor):
 
         if self.solver == 'randomized':
             U, V = dual.fit_rand_tikhonov(self.K_X_, reg, self.rank, self.n_oversamples, self.iterated_power)
+        elif self.solver == 'nystrom':
+            U, V = dual.fit_nystrom_tikhonov(self.K_X_, self.K_Y_, self.KN_X_, self.KN_Y_, reg)
+            del self.KN_X_ # Free memory
+            del self.KN_Y_ # Free memory
         else:
             U, V = dual.fit_tikhonov(self.K_X_, reg, self.rank, self.solver)
 
         self.U_ = U
         self.V_ = V
         return self
-
 
 class KernelReducedRank(KernelLowRankRegressor):
     def fit(self, X, Y):
@@ -199,14 +221,18 @@ class KernelReducedRank(KernelLowRankRegressor):
         self.pre_fit_checks(X, Y)
 
         if self.solver == 'nystrom':
-            raise NotImplementedError()
+            if self.tikhonov_reg is None:
+                raise ValueError("tikhonov_reg must be specified when solver is nystrom.")
+            else:
+                U, V = dual.fit_nystrom_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.KN_X_, self.KN_Y_, self.tikhonov_reg, self.rank)
+            del self.KN_X_ # Free memory
+            del self.KN_Y_ # Free memory
+
         elif self.solver == 'randomized':
             if self.tikhonov_reg is None:
                 raise ValueError("tikhonov_reg must be specified when solver is randomized.")
             else:
-                U, V = dual.fit_rand_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.tikhonov_reg,
-                                                                      self.rank, self.n_oversamples,
-                                                                      self.optimal_sketching, self.iterated_power)
+                U, V = dual.fit_rand_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.tikhonov_reg, self.rank, self.n_oversamples, self.optimal_sketching, self.iterated_power)
         else:
             if self.tikhonov_reg is None:
                 tikhonov_reg = 0

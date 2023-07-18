@@ -3,7 +3,6 @@ import torch
 from kooplearn._src.dpnet_utils.TimeseriesDataModule import TimeseriesDataModule
 from .DPNetModule import DPNetModule
 
-
 class DPNetFeatureMap:
     def __init__(self,
                  dnn_model_class, dnn_model_kwargs,
