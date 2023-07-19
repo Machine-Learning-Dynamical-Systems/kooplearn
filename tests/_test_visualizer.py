@@ -1,4 +1,4 @@
-from kooplearn.visualizer.utils import create_plot_eigs, create_frequency_plot
+from kooplearn.visualizer.visualizer import Visualizer
 from kooplearn.models.kernel import KernelReducedRank
 from kooplearn._src.kernels import Linear
 from kooplearn.data.datasets import MockData
@@ -11,8 +11,13 @@ model = KernelReducedRank(Linear())
 model.fit(X,Y)
 eigs = model.eig()
 
-fig = create_plot_eigs(eigs)
+vis = Visualizer(model)
+
+fig = vis.plot_eigs()
 fig.show()
 
-fig = create_frequency_plot(eigs)
+fig = vis.plot_freqs()
+fig.show()
+
+fig = vis.plot_modes()
 fig.show()
