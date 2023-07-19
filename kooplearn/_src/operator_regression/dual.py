@@ -6,8 +6,8 @@ from scipy.linalg import eig, eigh, LinAlgError, pinvh, lstsq
 from scipy.sparse.linalg import eigs, eigsh, lsqr
 from scipy.sparse.linalg._eigen.arpack.arpack import IterInv
 from sklearn.utils.extmath import randomized_svd
-from kooplearn._src.utils import topk, modified_QR, weighted_norm
-
+from kooplearn._src.utils import topk
+from kooplearn._src.linalg import modified_QR, weighted_norm
 
 def regularize(M: ArrayLike, reg: float):
     """Regularize a matrix by adding a multiple of the identity matrix to it.
@@ -18,7 +18,6 @@ def regularize(M: ArrayLike, reg: float):
         ArrayLike: Regularized matrix.
     """
     return M + reg * M.shape[0] * np.identity(M.shape[0], dtype=M.dtype)
-
 
 def fit_reduced_rank_regression_tikhonov(
         K_X: ArrayLike,  # Kernel matrix of the input data
@@ -72,7 +71,6 @@ def fit_reduced_rank_regression_tikhonov(
         else:
             return U, V
 
-
 def _fit_reduced_rank_regression_noreg(
         K_X: ArrayLike,  # Kernel matrix of the input data
         K_Y: ArrayLike,  # Kernel matrix of the output data
@@ -104,7 +102,6 @@ def _fit_reduced_rank_regression_noreg(
     else:
         return U, V
 
-
 def fit_nystrom_reduced_rank_regression_tikhonov(
         N_X: ArrayLike,  # Kernel matrix of the input inducing points
         N_Y: ArrayLike,  # Kernel matrix of the output inducing points
@@ -127,7 +124,6 @@ def fit_nystrom_reduced_rank_regression_tikhonov(
     U = NKN @ W
     U = lstsq(G, U)[0]
     return U, V
-
 
 def fit_rand_reduced_rank_regression_tikhonov(
         K_X: ArrayLike,  # Kernel matrix of the input data
@@ -182,7 +178,6 @@ def fit_rand_reduced_rank_regression_tikhonov(
     else:
         return U.real, V.real
 
-
 def fit_tikhonov(
         K_X: ArrayLike,  # Kernel matrix of the input data
         tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter, can be zero
@@ -203,7 +198,6 @@ def fit_tikhonov(
     S, V = _postprocess_tikhonov_fit(S, V, rank, dim, rcond)
     return V, V
 
-
 def fit_nystrom_tikhonov(
         N_X: ArrayLike,  # Kernel matrix of the input inducing points
         N_Y: ArrayLike,  # Kernel matrix of the output inducing points
@@ -220,7 +214,6 @@ def fit_nystrom_tikhonov(
     U = lstsq(G, NKy_KNx)[0]
     V = lstsq(N_Y, U)[0]
     return U, V
-
 
 def fit_rand_tikhonov(
         K_X: ArrayLike,  # Kernel matrix of the input data
@@ -244,7 +237,6 @@ def fit_rand_tikhonov(
     else:
         return V, V
 
-
 def _postprocess_tikhonov_fit(
         S: ArrayLike,  # Singular values
         V: ArrayLike,  # Eigenvectors
@@ -267,7 +259,6 @@ def _postprocess_tikhonov_fit(
         V = np.c_[V, _zeroes]
         assert V.shape[1] == rank
     return S, V
-
 
 def predict(
         num_steps: int,  # Number of steps to predict (return the last one)
@@ -328,7 +319,6 @@ def evaluate_eigenfunction(
 ):
     rsqrt_dim = (K_Xin_X_or_Y.shape[1]) ** (-0.5)
     return np.linalg.multi_dot([rsqrt_dim * K_Xin_X_or_Y, vr_or_vl])
-
 
 def svdvals(
         U: ArrayLike,  # Projection matrix: first output of the fit functions defined above

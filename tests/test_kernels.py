@@ -3,7 +3,6 @@ import numpy as np
 from kooplearn._src import kernels
 from kooplearn.data.datasets import MockData
 
-
 @pytest.mark.parametrize('size_x', [0, 1, 3])
 @pytest.mark.parametrize('size_y', [-1, 0, 1, 3])
 @pytest.mark.parametrize('kernel',

@@ -1,8 +1,10 @@
-import pytorch_lightning as pl
+import lightning as L
 import pandas as pd
 from torch.utils.data import DataLoader
-from kooplearn.Datasets.TimeseriesDataset import TimeseriesDataset
 from torch.utils.data import Dataset
+
+from kooplearn._src.dpnet_utils.TimeseriesDataset import TimeseriesDataset
+
 
 class EmptyDataset(Dataset):
     def __init__(self):
@@ -14,9 +16,11 @@ class EmptyDataset(Dataset):
     def __getitem__(self, idx):
         return None
 
-class TimeseriesDataModule(pl.LightningDataModule):
-    def __init__(self, df_series, n_train, n_valid, n_test, lb_window_size, horizon_size, batch_size=1, step=1,
-                 num_workers=0, dataset_name=None):
+
+class TimeseriesDataModule(L.LightningDataModule):
+    def __init__(self, df_series, n_train, n_valid, n_test, lb_window_size, horizon_size, freq_date=None, step=1,
+                 date_encoder_func=None,
+                 batch_size=1, num_workers=0):
         super().__init__()
         self.save_hyperparameters(ignore=['df_series'])
         assert isinstance(df_series, pd.DataFrame)
@@ -29,7 +33,8 @@ class TimeseriesDataModule(pl.LightningDataModule):
         self.lb_window_size = lb_window_size
         self.horizon_size = horizon_size
         self.step = step
-        self.dataset_name = dataset_name
+        self.freq_date = freq_date
+        self.date_encoder_func = date_encoder_func
         self.train_dataset = None
         self.valid_dataset = None
         self.test_dataset = None
@@ -50,6 +55,8 @@ class TimeseriesDataModule(pl.LightningDataModule):
                 idx_end=idx_end_train,
                 lb_window_size=self.lb_window_size,
                 horizon_size=self.horizon_size,
+                freq_date=self.freq_date,
+                date_encoder_func=self.date_encoder_func,
                 is_train=True,
                 step=self.step,
                 mean=None,
@@ -66,6 +73,8 @@ class TimeseriesDataModule(pl.LightningDataModule):
                     idx_end=idx_end_valid,
                     lb_window_size=self.lb_window_size,
                     horizon_size=self.horizon_size,
+                    freq_date=self.freq_date,
+                    date_encoder_func=self.date_encoder_func,
                     is_train=False,
                     step=self.step,
                     mean=self.mean,
@@ -84,6 +93,8 @@ class TimeseriesDataModule(pl.LightningDataModule):
                     idx_end=idx_end_test,
                     lb_window_size=self.lb_window_size,
                     horizon_size=self.horizon_size,
+                    freq_date=self.freq_date,
+                    date_encoder_func=self.date_encoder_func,
                     is_train=False,
                     step=self.step,
                     mean=self.mean,

@@ -4,10 +4,8 @@ from numpy.typing import ArrayLike
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted, check_X_y
 
-from kooplearn.models.base import BaseModel
+from kooplearn._src.models.abc import BaseModel, TrainableFeatureMap
 from kooplearn._src.operator_regression import primal
-from kooplearn._src.encoding_decoding_utils import TrainableFeatureMap, Decoder
-
 
 class EncoderModel(BaseModel):
     def __init__(self, feature_map: TrainableFeatureMap, tikhonov_reg: Optional[float] = None):
@@ -38,9 +36,30 @@ class EncoderModel(BaseModel):
         phi_X = self.feature_map(self.X_fit_)
         return primal.predict(t, self.U_, self.C_XY_, phi_Xin, phi_X, _obs)
 
+    def modes(self, observables: Optional[Union[Callable, ArrayLike]] = None):
+        if observables is None:
+            _obs = self.Y_fit_
+        if callable(observables):
+            _obs = observables(self.Y_fit_)
+        elif isinstance(observables, np.ndarray):
+            _obs = observables
+        else:
+            raise ValueError(
+                "observables must be either None, a callable or a Numpy array of the observable evaluated at the "
+                "Y training points.")
+        
+        check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_YX_', 'X_fit_', 'Y_fit_'])
+        phi_X = self.feature_map(self.X_fit_)
+        _gamma = primal.estimator_modes(self.U_, self.C_XY_, phi_X)
+        return _gamma@_obs
+
     def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
         check_is_fitted(self, ['U_', 'C_XY_'])
-        w, vl, vr = primal.estimator_eig(self.U_, self.C_XY_)
+        if hasattr(self, '_eig_cache'):
+            w, vl, vr = self._eig_cache
+        else:
+            w, vl, vr = primal.estimator_eig(self.U_, self.C_XY_)
+            self._eig_cache = (w, vl, vr)
         if eval_left_on is None:
             if eval_right_on is None:
                 return w
@@ -78,6 +97,8 @@ class EncoderModel(BaseModel):
 
         self.X_fit_ = X
         self.Y_fit_ = Y
+        if hasattr(self, '_eig_cache'):
+            del self._eig_cache
 
     def fit(self, X: ArrayLike, Y: ArrayLike):
         # Fitting the feature map
@@ -89,7 +110,7 @@ class EncoderModel(BaseModel):
 
 
 class EncoderDecoderModel(BaseModel):
-    def __init__(self, feature_map: TrainableFeatureMap, decoder: Decoder, tikhonov_reg=None):
+    def __init__(self, feature_map: TrainableFeatureMap, decoder, tikhonov_reg=None):
         self.feature_map = feature_map
         self.tikhonov_reg = tikhonov_reg
         self.decoder = decoder

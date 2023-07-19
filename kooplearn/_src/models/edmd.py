@@ -1,13 +1,12 @@
+from os import PathLike
 import numpy as np
 from typing import Optional, Callable, Union
 from numpy.typing import ArrayLike
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted, check_X_y
 
-from kooplearn.models.base import BaseModel
+from kooplearn._src.models.abc import BaseModel, FeatureMap, IdentityFeatureMap
 from kooplearn._src.operator_regression import primal
-from kooplearn._src.encoding_decoding_utils import FeatureMap, IdentityFeatureMap
-
 
 class PrimalRegressor(BaseModel):
     def __init__(self, feature_map: FeatureMap = IdentityFeatureMap(), rank=5, tikhonov_reg=None, svd_solver='full',
@@ -55,7 +54,11 @@ class PrimalRegressor(BaseModel):
 
     def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
         check_is_fitted(self, ['U_', 'C_XY_'])
-        w, vl, vr = primal.estimator_eig(self.U_, self.C_XY_)
+        if hasattr(self, '_eig_cache'):
+            w, vl, vr = self._eig_cache
+        else:
+            w, vl, vr = primal.estimator_eig(self.U_, self.C_XY_)
+            self._eig_cache = (w, vl, vr)
         if eval_left_on is None:
             if eval_right_on is None:
                 return w
@@ -93,7 +96,14 @@ class PrimalRegressor(BaseModel):
 
         self.X_fit_ = X
         self.Y_fit_ = Y
-
+        if hasattr(self, '_eig_cache'):
+            del self._eig_cache
+    
+    def save(self, path: PathLike):
+        raise NotImplementedError("This is an abstract class. Use a subclass instead.")
+    
+    def load(self, path: PathLike):
+        raise NotImplementedError("This is an abstract class. Use a subclass instead.")
 
 class EDMDReducedRank(PrimalRegressor):
     def fit(self, X, Y):
@@ -115,5 +125,5 @@ class EDMD(PrimalRegressor):
             vectors = primal.fit_rand_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg, self.rank, self.n_oversamples,
                                                self.iterated_power)
         else:
-            vectors = primal.fit_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg, self.rank, self.svd_solver)
+            vectors = primal.fit_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg, self.rank, self.svd_solver) # NOT WORKING
         self.U_ = vectors

@@ -1,177 +1,51 @@
 from typing import NamedTuple
 import numpy as np
-from sklearn.utils import check_array, check_random_state
-from warnings import warn
-
+from numpy.typing import ArrayLike
 
 class TopK_ReturnType(NamedTuple):
     values: np.ndarray
     indices: np.ndarray
 
-
-def topk(vec, k: int):
+def topk(vec: ArrayLike, k: int):
     assert np.ndim(vec) == 1, "'vec' must be a 1D array"
+    assert k > 0, "k should be greater than 0"
     sort_perm = np.flip(np.argsort(vec))  # descending order
     indices = sort_perm[:k]
     values = vec[indices]
     return TopK_ReturnType(values, indices)
 
+def parse_cplx_eig(vec: ArrayLike):
+    _real_eigs_mask = (vec.imag == 0.)
+    real_eigs = vec[_real_eigs_mask]
+    _cplx_eigs_mask = np.logical_not(_real_eigs_mask)
+    cplx_eigs = vec[_cplx_eigs_mask]
+    cplx_conj_pairs_idxs = _parse_cplx_conj_pairs(cplx_eigs)
+    return np.concatenate([np.sort(real_eigs), np.sort(cplx_eigs[cplx_conj_pairs_idxs])])
 
-def sort_and_crop(vec, num_components=None):
-    """Return the indices of the largest ``num_components`` elements in vec in descending order.
+def _parse_cplx_conj_pairs(cplx_conj_vec: ArrayLike):
+    if not cplx_conj_vec.shape[0] % 2 == 0:
+        raise ValueError(f"The array must consist in a set of complex conjugate pairs, but its shape ({cplx_conj_vec.shape[0]} is odd).")
+    _v_sort = np.argsort(cplx_conj_vec)
+    _v_cj_sort = np.argsort(cplx_conj_vec.conj())
 
-    Args:
-        vec (ndarray): 1D array of floats
-        num_component (int, optional): Number of indices to retain. Defaults to None corresponding to every indices.
+    _diff = cplx_conj_vec[_v_sort] - cplx_conj_vec.conj()[_v_cj_sort]
+    if not np.allclose(_diff, np.zeros_like(_diff)):
+        raise ValueError("The provided array does not consists of complex conjugate pairs")
 
-    Returns:
-        ndarray: array of integers corresponding to the indices of the largest num_components elements in vec.
-    """
-    assert np.ndim(vec) == 1, "'vec' must be a 1D array"
-    sort_perm = np.argsort(vec)[::-1]  # descending order
-    if num_components is None:
-        return sort_perm
-    else:
-        return sort_perm[:num_components]
+    _v = cplx_conj_vec[_v_sort]
 
-
-def weighted_norm(A, M=None):
-    r"""Weighted norm of the columns of A.
-
-    Args:
-        A (ndarray): 1D or 2D array. If 2D, the columns are treated as vectors.
-        M (ndarray or LinearOperator, optional): Weigthing matrix. the norm of the vector :math:`a` is given by
-        :math:`\langle a, Ma\rangle`. Defaults to None, corresponding to the Identity matrix. Warning: no checks are
-        performed on M being a PSD operator.
-
-    Returns:
-        (ndarray or float): If ``A.ndim == 2`` returns 1D array of floats corresponding to the norms of
-        the columns of A. Else return a float.
-    """
-    assert A.ndim <= 2, "'A' must be a vector or a 2D array"
-    if M is None:
-        norm = np.linalg.norm(A, axis=0)
-    else:
-        _A = np.dot(M, A)
-        _A_T = np.dot(M.T, A)
-        norm = np.real(
-            np.sum(
-                0.5 * (np.conj(A) * _A + np.conj(A) * _A_T),
-                axis=0)
-        )
-    return np.sqrt(norm)
-
-
-def weighted_dot_product(A, B, M=None):
-    """Weighted dot product between the columns of A and B. The output will be equivalent to :math:`A^{*} M B`
-    if A and B are 2D arrays.
-
-    Args:
-        A, B (ndarray): 1D or 2D arrays.
-        M (ndarray or LinearOperator, optional): Weigthing matrix. Defaults to None, corresponding to the
-        Identity matrix. Warning: no checks are performed on M being a PSD operator.
-
-    Returns:
-        (ndarray or float): The result of :math:`A^{*} M B`.
-    """
-    assert A.ndim <= 2, "'A' must be a vector or a 2D array"
-    assert B.ndim <= 2, "'B' must be a vector or a 2D array"
-    A_adj = np.conj(A.T)
-    if M is None:
-        return np.dot(A_adj, B)
-    else:
-        _B = np.dot(M, B)
-        return np.dot(A_adj, _B)
-
-
-def _column_pivot(Q, R, k, squared_norms, columns_permutation):
-    """
-        Helper function to perform column pivoting on the QR decomposition at the k iteration. No checks are performed.
-        For internal use only.
-    """
-    _arg_max = np.argmax(squared_norms[k:])
-    j = k + _arg_max
-    _in = [k, j]
-    _swap = [j, k]
-    # Column pivoting
-    columns_permutation[_in] = columns_permutation[_swap]
-    Q[:, _in] = Q[:, _swap]
-    R[:k, _in] = R[:k, _swap]
-    squared_norms[_in] = squared_norms[_swap]
-    return Q, R, squared_norms, columns_permutation
-
-
-def modified_QR(A, M=None, column_pivoting=False, rtol=2.2e-16, verbose=False):
-    """Modified QR algorithm with column pivoting. Implementation follows the algorithm described in [1].
-
-    Args:
-        A (ndarray): 2D array whose columns are vectors to be orthogonalized.
-        M (ndarray or LinearOperator, optional): PSD linear operator. If not None, the vectors are orthonormalized with
-         respect to the scalar product induced by M. Defaults to None corresponding to Identity matrix.
-        column_pivoting (bool, optional): Whether column pivoting is performed. Defaults to False.
-        rtol (float, optional): relative tolerance in determining the numerical rank of A. Defaults to 2.2e-16.
-        This parameter is used only when ``column_pivoting == True``.
-        verbose (bool, optional): Whether to print informations and warnings about the progress of the algorithm.
-        Defaults to False.
-
-    Returns:
-        tuple: A tuple of the form (Q, R), where Q and R satisfy A = QR. If ``column_pivoting == True``, the permutation
-         of the columns of A is returned as well.
-    
-    [1] A. Dax: 'A modified Gram–Schmidt algorithm with iterative orthogonalization and column pivoting',
-    https://doi.org/10.1016/S0024-3795(00)00022-7.
-    """
-    A = check_array(A)  # Ensure A is non-empty 2D array containing only finite values.
-    num_vecs = A.shape[1]
-    effective_rank = num_vecs
-    dtype = A.dtype
-    Q = np.copy(A)
-    R = np.zeros((num_vecs, num_vecs), dtype=dtype)
-
-    _roundoff = 1e-8  # From reference paper
-    _tau = 1e-2  # From reference paper
-
-    if column_pivoting:  # Initialize variables for fast pivoting, without re-evaluation of the norm at each step.
-        squared_norms = weighted_norm(Q, M=M) ** 2
-        max_norm = np.sqrt(np.max(squared_norms))
-        columns_permutation = np.arange(num_vecs)
-
-    for k in range(num_vecs):
-        if column_pivoting:
-            Q, R, squared_norms, columns_permutation = _column_pivot(Q, R, k, squared_norms, columns_permutation)
-            norms_error_estimate = squared_norms * _roundoff
-        if k != 0:  # Reorthogonalization of the column k+1 of A with respect to the previous orthonormal k vectors.
-            alpha = weighted_dot_product(Q[:, :k], Q[:, k], M=M)  # alpha = Q[:,:k].T@M@Q[:,k]
-            R[:k, k] += alpha
-            Q[:, k] -= np.dot(Q[:, :k], alpha)
-
-        # Numerical rank detection, performed only when column_pivoting == True
-        norm_at_iter_k = weighted_norm(Q[:, k], M=M)
-        if column_pivoting:
-            if norm_at_iter_k < rtol * max_norm:
-                effective_rank = k
-                if verbose:
-                    warn(
-                        "Numerical rank of A has been reached with a relative tolerance rtol = {:.2e}. "
-                        "Effective rank = {}. Stopping Orthogonalization procedure.".format(
-                            rtol, effective_rank))
-                break
-                # Normalization of the column k + 1
-        R[k, k] = norm_at_iter_k
-        Q[:, k] = Q[:, k] / R[k, k]
-        # Orthogonalization of the remaining columns with respect to Q[:,k], i.e. the k+1 column of Q.
-        if k < num_vecs - 1:
-            R[k, k + 1:] = weighted_dot_product(Q[:, k + 1:], Q[:, k], M=M)
-            Q[:, k + 1:] -= np.outer(Q[:, k], R[k, k + 1:])
-            # Try fast update of the squared norms, recompute if numerical criteria are not attained.
-            if column_pivoting:
-                squared_norms[k + 1:] -= R[k, k + 1:] ** 2  # Update norms using Phythagorean Theorem
-                update_error_mask = _tau * squared_norms[k + 1:] < norms_error_estimate[
-                                                                   k + 1:]  # Check if the error estimate is too large
-                if any(update_error_mask):
-                    squared_norms[k + 1:][update_error_mask] = weighted_norm(Q[:, k + 1:][:, update_error_mask],
-                                                                             M=M)  # Recompute the norms if necessary.
-    if column_pivoting:
-        return Q[:, :effective_rank], R[:effective_rank], columns_permutation[:effective_rank]
-    else:
-        return Q[:, :effective_rank], R[:effective_rank]
+    idx_list = []
+    for i in range(cplx_conj_vec.shape[0]):
+        _idx_tuple = (_v_sort[i], _v_cj_sort[i])
+        _idx_tuple_r = (_idx_tuple[1], _idx_tuple[0])
+        if _idx_tuple in idx_list:
+            continue
+        elif _idx_tuple_r in idx_list:
+            continue
+        else:
+            if np.angle(_v[i]) >= 0:
+                idx_list.append(_idx_tuple)
+            else:
+                idx_list.append(_idx_tuple_r)
+    _pos_phase_idxs = [i[0] for i in idx_list]
+    return np.asarray(_pos_phase_idxs, dtype=int)

@@ -3,8 +3,8 @@ import numpy as np
 from numpy.typing import ArrayLike
 from scipy.linalg import eig, eigh, solve
 from scipy.sparse.linalg import eigsh
-from kooplearn._src.utils import topk, weighted_norm
-
+from kooplearn._src.utils import topk
+from kooplearn._src.linalg import weighted_norm
 
 def fit_reduced_rank_regression_tikhonov(
         C_X: ArrayLike,  # Input covariance matrix
@@ -29,7 +29,6 @@ def fit_reduced_rank_regression_tikhonov(
     _norms = weighted_norm(vectors, reg_input_covariance)
     vectors = vectors @ np.diag(_norms ** (-1.0))
     return vectors
-
 
 def fit_rand_reduced_rank_regression_tikhonov(
         C_X: ArrayLike,  # Input covariance matrix
@@ -60,7 +59,6 @@ def fit_rand_reduced_rank_regression_tikhonov(
     vectors = vectors @ np.diag(_norms ** (-1.0))
     return sketch_p @ vectors[:, topk(values, rank).indices]
 
-
 def fit_tikhonov(
         C_X: ArrayLike,  # Input covariance matrix
         tikhonov_reg: float,  # Tikhonov regularization parameter, can be 0
@@ -84,7 +82,6 @@ def fit_tikhonov(
     rsqrt_evals = np.diag(values ** (-0.5))
     return vectors @ rsqrt_evals
 
-
 def fit_rand_tikhonov(
         C_X: ArrayLike,  # Input covariance matrix
         C_XY: ArrayLike,  # Cross-covariance matrix
@@ -95,7 +92,6 @@ def fit_rand_tikhonov(
         rng_seed: Optional[int] = None  # Random seed
 ):
     raise NotImplementedError
-
 
 def predict(
         num_steps: int,  # Number of steps to predict (return the last one)
@@ -113,7 +109,6 @@ def predict(
     U_phi_X_obs_Y = np.linalg.multi_dot([U.T, phi_X.T, obs_train_Y]) * (num_train ** -1)
     M = np.linalg.matrix_power(U_C_XY_U, num_steps - 1)
     return np.linalg.multi_dot([phi_Xin_dot_U, M, U_phi_X_obs_Y])
-
 
 def estimator_eig(
         U: ArrayLike,  # Projection matrix, as returned by the fit functions defined above
