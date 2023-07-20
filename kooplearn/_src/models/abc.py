@@ -19,7 +19,7 @@ class BaseModel(abc.ABC):
 
 class FeatureMap(abc.ABC):
     @abc.abstractmethod
-    def __call__(self, X: ArrayLike):
+    def __call__(self, X: ArrayLike) -> ArrayLike:
         pass
 
     def cov(self, X: ArrayLike, Y: Optional[ArrayLike] = None):
@@ -37,7 +37,12 @@ class IdentityFeatureMap(FeatureMap):
         return X
 
 class TrainableFeatureMap(FeatureMap):
-    # Trainable feature maps should accept numpy arrays and return numpy arrays. Internally thay can do whatever.
+    # Trainable feature maps should be callable with numpy arrays and return numpy arrays (see FeatureMap abc). Internally thay can do whatever.
     @abc.abstractmethod
-    def fit(self, X: Optional[ArrayLike], Y: Optional[ArrayLike]):
+    def fit(self, *a, **kw) -> None:
+        pass
+    
+    @property
+    @abc.abstractmethod
+    def is_fitted(self) -> bool:
         pass

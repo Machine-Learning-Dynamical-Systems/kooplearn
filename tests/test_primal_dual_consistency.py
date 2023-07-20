@@ -51,7 +51,7 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
 
     dual_predict = dual.predict(dt, U, V, K_YX, K_testX, Y)
     dual_eig, dual_lv, dual_rv = dual.estimator_eig(U, V, K_X, K_YX)
-    dual_modes = dual.estimator_modes(dual_lv)
+    dual_modes = dual.estimator_modes(X_test @ (X.T), dual_rv, dual_lv)
 
     evd_dual = EigenDecomposition(
         dual_eig,
@@ -66,7 +66,7 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
 
     primal_predict = primal.predict(dt, U, C_XY, X_test, X, Y)
     primal_eig, primal_lv, primal_rv = primal.estimator_eig(U, C_XY)
-    primal_modes = primal.estimator_modes(U, C_XY, X)
+    primal_modes = primal.estimator_modes(U, C_XY, X, X_test)
 
     evd_primal = EigenDecomposition(
         primal_eig,
@@ -75,7 +75,7 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
     )
 
     assert dual_predict.shape == (num_test_pts, num_features)
-    assert _compare_up_to_sign(primal_modes, dual_modes)
+    assert np.allclose(primal_modes, dual_modes)
     assert np.allclose(primal_predict, dual_predict)
     assert _compare_evd(evd_primal, evd_dual)
 
@@ -108,7 +108,7 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
 
     dual_predict = dual.predict(dt, U, V, K_YX, K_testX, Y)
     dual_eig, dual_lv, dual_rv = dual.estimator_eig(U, V, K_X, K_YX)
-    dual_modes = dual.estimator_modes(dual_lv)
+    dual_modes = dual.estimator_modes(X_test @ (X.T), dual_rv, dual_lv)
 
     evd_dual = EigenDecomposition(
         dual_eig,
@@ -123,7 +123,7 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
 
     primal_predict = primal.predict(dt, U, C_XY, X_test, X, Y)
     primal_eig, primal_lv, primal_rv = primal.estimator_eig(U, C_XY)
-    primal_modes = primal.estimator_modes(U, C_XY, X)
+    primal_modes = primal.estimator_modes(U, C_XY, X, X_test)
 
     evd_primal = EigenDecomposition(
         primal_eig,
@@ -135,7 +135,7 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
 
     assert np.allclose(primal_predict, dual_predict)
     if rank is not None:
-        assert _compare_up_to_sign(primal_modes, dual_modes)
+        assert np.allclose(primal_modes, dual_modes)
         assert _compare_evd(evd_primal, evd_dual)
 
 @pytest.mark.skip()

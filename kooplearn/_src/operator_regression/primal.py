@@ -137,7 +137,8 @@ def estimator_eig(
 def estimator_modes(
     U: ArrayLike, # Projection matrix, as returned by the fit functions defined above
     C_XY: ArrayLike,  # Cross-covariance matrix
-    phi_X: ArrayLike,  # Feature map evaluated on the training input data      
+    phi_X: ArrayLike,  # Feature map evaluated on the training input data
+    phi_Xin: ArrayLike,  # Feature map evaluated on the initial conditions      
 ):
     # Using the trick described in https://arxiv.org/abs/1905.11490
     M = np.linalg.multi_dot([U.T, C_XY, U])
@@ -158,7 +159,11 @@ def estimator_modes(
     l_norm = np.sum(lv_full * rv, axis=0)
     lv = lv / l_norm
     r_dim = (phi_X.shape[0]**-1.)
-    return np.linalg.multi_dot([r_dim*phi_X, U, lv]).T  #This should be multiplied on the right by the observable evaluated at the output training data
+
+    #Initial conditions
+    rv_in = (phi_Xin @ rv).T # [rank, num_init_conditions]
+    lv_obs =  np.linalg.multi_dot([r_dim*phi_X, U, lv]).T  #This should be multiplied on the right by the observable evaluated at the output training data
+    return rv_in[:, :, None]*lv_obs[:, None, :] # [rank, num_init_conditions, num_training_points]
 
 def evaluate_eigenfunction(
         phi_Xin: ArrayLike,  # Feature map evaluated on the initial conditions

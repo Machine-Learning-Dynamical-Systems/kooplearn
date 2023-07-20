@@ -35,7 +35,7 @@ class PrimalRegressor(BaseModel):
         phi_X = self.feature_map(self.X_fit_)
         return primal.predict(t, self.U_, self.C_XY_, phi_Xin, phi_X, _obs)
 
-    def modes(self, observables: Optional[Union[Callable, ArrayLike]] = None):
+    def modes(self, Xin: ArrayLike, observables: Optional[Union[Callable, ArrayLike]] = None):
         if observables is None:
             _obs = self.Y_fit_
         if callable(observables):
@@ -49,8 +49,9 @@ class PrimalRegressor(BaseModel):
         
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_YX_', 'X_fit_', 'Y_fit_'])
         phi_X = self.feature_map(self.X_fit_)
-        _gamma = primal.estimator_modes(self.U_, self.C_XY_, phi_X)
-        return _gamma@_obs
+        phi_Xin = self.feature_map(Xin)
+        _gamma = primal.estimator_modes(self.U_, self.C_XY_, phi_X, phi_Xin)
+        return np.squeeze(np.matmul(_gamma, _obs)) # [rank, num_initial_conditions, num_observables]
 
     def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
         check_is_fitted(self, ['U_', 'C_XY_'])

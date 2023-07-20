@@ -1,4 +1,6 @@
+from numpy.typing import ArrayLike
 from kooplearn._src.models.abc import TrainableFeatureMap
+
 try:
     import lightning
 except ImportError:
@@ -8,16 +10,31 @@ class DPNetFeatureMap(TrainableFeatureMap):
     def __init__(self, trainer: lightning.Trainer, *args, **kw):
         self.trainer = trainer
         self.lightning_module = _DPNetLightningModule(*args, **kw)
+        self._is_fitted = False
     
-    def fit(self, X, Y):
-        self.trainer.fit(self.lightning_module, )
+    def __call__(self, X: ArrayLike) -> ArrayLike:
+        raise NotImplementedError
+
+    def fit(self, *a, **kw):
+        self.trainer.fit(*a, **kw)
+        self._is_fitted = True
+    
+    def is_fitted(self):
+        return self._is_fitted
 
 class _DPNetLightningModule(lightning.LightningModule):
-    def __init__(self, model_class, model_hyperparameters,
-                 optimizer_fn, optimizer_hyperparameters, loss_fn,
-                 scheduler_fn=None, scheduler_hyperparameters=None, scheduler_config=None,
-                 model_class_2=None, model_hyperparameters_2=None,
-                 ):
+    def __init__(self, 
+                 model_class, 
+                 model_hyperparameters,
+                 optimizer_fn, 
+                 optimizer_hyperparameters, 
+                 loss_fn,
+                 scheduler_fn=None, 
+                 scheduler_hyperparameters=None, 
+                 scheduler_config=None,
+                 model_class_2=None, 
+                 model_hyperparameters_2=None
+        ):
         super().__init__()
         for k, v in model_hyperparameters.items():
             self.hparams[k] = v

@@ -36,7 +36,7 @@ class EncoderModel(BaseModel):
         phi_X = self.feature_map(self.X_fit_)
         return primal.predict(t, self.U_, self.C_XY_, phi_Xin, phi_X, _obs)
 
-    def modes(self, observables: Optional[Union[Callable, ArrayLike]] = None):
+    def modes(self, Xin: ArrayLike, observables: Optional[Union[Callable, ArrayLike]] = None):
         if observables is None:
             _obs = self.Y_fit_
         if callable(observables):
@@ -50,8 +50,9 @@ class EncoderModel(BaseModel):
         
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_YX_', 'X_fit_', 'Y_fit_'])
         phi_X = self.feature_map(self.X_fit_)
-        _gamma = primal.estimator_modes(self.U_, self.C_XY_, phi_X)
-        return _gamma@_obs
+        phi_Xin = self.feature_map(Xin)
+        _gamma = primal.estimator_modes(self.U_, self.C_XY_, phi_X, phi_Xin)
+        return np.squeeze(np.matmul(_gamma, _obs)) # [rank, num_initial_conditions, num_observables]
 
     def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
         check_is_fitted(self, ['U_', 'C_XY_'])
@@ -102,12 +103,12 @@ class EncoderModel(BaseModel):
 
     def fit(self, X: ArrayLike, Y: ArrayLike):
         # Fitting the feature map
-        self.feature_map.fit(X, Y)
+        if not self.feature_map.is_fitted:
+            self.feature_map.fit()
         # Fitting the Koopman operator
         self.pre_fit_checks(X, Y)
         vectors = primal.fit_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg, svd_solver='full')
         self.U_ = vectors
-
 
 class EncoderDecoderModel(BaseModel):
     def __init__(self, feature_map: TrainableFeatureMap, decoder, tikhonov_reg=None):
