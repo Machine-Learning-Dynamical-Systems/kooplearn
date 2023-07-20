@@ -3,6 +3,7 @@ from kooplearn._src.models.abc import TrainableFeatureMap
 
 try:
     import lightning
+    import torch
 except ImportError:
     raise ImportError(f"Unable to import pytorch-lightning")
 
@@ -13,7 +14,23 @@ class DPNetFeatureMap(TrainableFeatureMap):
         self._is_fitted = False
     
     def __call__(self, X: ArrayLike) -> ArrayLike:
-        raise NotImplementedError
+        is_reshaped = False
+        if not torch.is_tensor(X):
+            X = torch.tensor(X, dtype=torch.float32)
+        if X.shape[-1] == self.datamodule.lb_window_size*self.datamodule.train_dataset.values.shape[-1]:
+            # In this case X is (n_samples, n_features*lb_window_size), but we want
+            # (n_samples, n_features, lb_window_size)
+            X = X.reshape(X.shape[0], -1, self.datamodule.lb_window_size)
+            is_reshaped = True
+        data = {'x_value': X}
+        self.lightning_module.dnn_model_module.eval()
+        with torch.no_grad():
+            model_output = self.lightning_module.dnn_model_module(data)
+        if is_reshaped:
+            return model_output['x_encoded'].reshape(X.shape[0], -1).detach().numpy()
+        return model_output['x_encoded'].detach().numpy()  # Everything should be outputted as a Numpy array
+    # In the case where X is the entire dataset, we should implement a dataloader to avoid memory issues
+    # (prediction on batches). For this we should implement a predict_step and call predict on the trainer.
 
     def fit(self, *a, **kw):
         self.trainer.fit(*a, **kw)
