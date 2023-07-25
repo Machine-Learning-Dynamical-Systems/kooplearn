@@ -1,6 +1,9 @@
+from numpy.typing import ArrayLike
 from kooplearn._src.models.abc import TrainableFeatureMap
+
 try:
     import lightning
+    import torch
 except ImportError:
     raise ImportError(f"Unable to import pytorch-lightning")
 
@@ -8,16 +11,47 @@ class DPNetFeatureMap(TrainableFeatureMap):
     def __init__(self, trainer: lightning.Trainer, *args, **kw):
         self.trainer = trainer
         self.lightning_module = _DPNetLightningModule(*args, **kw)
+        self._is_fitted = False
     
-    def fit(self, X, Y):
-        self.trainer.fit(self.lightning_module, )
+    def __call__(self, X: ArrayLike) -> ArrayLike:
+        is_reshaped = False
+        if not torch.is_tensor(X):
+            X = torch.tensor(X, dtype=torch.float32)
+        if X.shape[-1] == self.datamodule.lb_window_size*self.datamodule.train_dataset.values.shape[-1]:
+            # In this case X is (n_samples, n_features*lb_window_size), but we want
+            # (n_samples, n_features, lb_window_size)
+            X = X.reshape(X.shape[0], -1, self.datamodule.lb_window_size)
+            is_reshaped = True
+        data = {'x_value': X}
+        self.lightning_module.dnn_model_module.eval()
+        with torch.no_grad():
+            model_output = self.lightning_module.dnn_model_module(data)
+        if is_reshaped:
+            return model_output['x_encoded'].reshape(X.shape[0], -1).detach().numpy()
+        return model_output['x_encoded'].detach().numpy()  # Everything should be outputted as a Numpy array
+    # In the case where X is the entire dataset, we should implement a dataloader to avoid memory issues
+    # (prediction on batches). For this we should implement a predict_step and call predict on the trainer.
+
+    def fit(self, *a, **kw):
+        self.trainer.fit(*a, **kw)
+        self._is_fitted = True
+    
+    def is_fitted(self):
+        return self._is_fitted
 
 class _DPNetLightningModule(lightning.LightningModule):
-    def __init__(self, model_class, model_hyperparameters,
-                 optimizer_fn, optimizer_hyperparameters, loss_fn,
-                 scheduler_fn=None, scheduler_hyperparameters=None, scheduler_config=None,
-                 model_class_2=None, model_hyperparameters_2=None,
-                 ):
+    def __init__(self, 
+                 model_class, 
+                 model_hyperparameters,
+                 optimizer_fn, 
+                 optimizer_hyperparameters, 
+                 loss_fn,
+                 scheduler_fn=None, 
+                 scheduler_hyperparameters=None, 
+                 scheduler_config=None,
+                 model_class_2=None, 
+                 model_hyperparameters_2=None
+        ):
         super().__init__()
         for k, v in model_hyperparameters.items():
             self.hparams[k] = v

@@ -307,9 +307,11 @@ def estimator_eig(
     vl = vl / norm_l
     return values, V@vl, U@vr
 
-def estimator_modes(lv: ArrayLike):
+def estimator_modes(K_Xin_X: ArrayLike, rv: ArrayLike, lv: ArrayLike):
     r_dim = lv.shape[0]**-0.5
-    return r_dim*lv.T
+    rv_in = evaluate_eigenfunction(K_Xin_X, rv).T # [rank, num_initial_conditions]
+    lv_obs = r_dim*lv.T # [rank, num_observations]
+    return rv_in[:, :, None]*lv_obs[:, None, :] # [rank, num_init_conditions, num_training_points]
 
 def evaluate_eigenfunction(
         K_Xin_X_or_Y: ArrayLike,

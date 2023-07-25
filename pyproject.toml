@@ -2,7 +2,6 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-
 [project]
 name = "kooplearn"  # Required
 version = "0.0.1"  # Required
@@ -20,16 +19,26 @@ dependencies = [ # Optional
   "numpy",
   "scipy",
   "scikit-learn",
-  "tqdm",
-  "torch",
-  "pytorch-lightning",
-  "pandas"
+  "tqdm"
 ]
 
 [project.optional-dependencies] # Optional
 test = [
   "pytest",
-  "pytest-cov"
+  "pytest-cov",
+  "optuna",
+  "matplotlib",
+  "pandas"
+]
+
+torch = [
+  "torch",
+  "pytorch-lightning"
+]
+
+jax = [
+  "flax",
+  "ml-confs"
 ]
 
 [project.urls]  # Optional

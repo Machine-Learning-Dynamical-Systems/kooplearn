@@ -84,7 +84,7 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
         K_Xin_X = self.kernel(X, self.X_fit_)
         return dual.predict(t, self.U_, self.V_, self.K_YX_, K_Xin_X, _obs)
     
-    def modes(self, observables: Optional[Union[Callable, ArrayLike]] = None):
+    def modes(self, Xin: ArrayLike, observables: Optional[Union[Callable, ArrayLike]] = None):
         if observables is None:
             _obs = self.Y_fit_
         elif callable(observables):
@@ -97,9 +97,10 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
                 "Y training points.")
         
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_YX_', 'X_fit_', 'Y_fit_'])
-        _, vl, _ = dual.estimator_eig(self.U_, self.V_, self.K_X_, self.K_YX_)
-        _gamma = dual.estimator_modes(vl)
-        return _gamma@_obs
+        _, lv, rv = dual.estimator_eig(self.U_, self.V_, self.K_X_, self.K_YX_)
+        K_Xin_X = self.kernel(Xin, self.X_fit_)
+        _gamma = dual.estimator_modes(K_Xin_X, rv, lv)
+        return np.squeeze(np.matmul(_gamma,_obs)) # [rank, num_initial_conditions, num_observables]
 
     def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
         """Eigenvalues and eigenvectors of the estimated Koopman operator.
