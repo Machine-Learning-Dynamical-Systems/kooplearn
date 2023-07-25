@@ -12,7 +12,7 @@ class Visualizer:
 
     def compute_mode_info(self, deltat:float, xcoord=None, ycoord=None):
         eigs = self.operator.eig()
-        modes = self.operator.modes()
+        modes = self.operator.modes([self.operator.X_fit_[-1]])
         n_eigs = eigs.shape[0]
         n_features = modes.shape[1]
 
@@ -69,12 +69,12 @@ class Visualizer:
             fig = create_plot_modes(self.infos, index, min_freq, max_freq)
         return fig
 
-    def plot_combined_modes(self, min_freq=None, max_freq=None):
+    def plot_combined_modes(self, T, min_freq=None, max_freq=None):
         # real part
         if 'y' in self.infos.columns:
-            fig = create_combined_2d_plot_modes(self.infos, min_freq, max_freq)
+            fig = create_combined_2d_plot_modes(self.infos, T, min_freq, max_freq)
         else:
-            fig = create_combined_plot_modes(self.infos, min_freq, max_freq)
+            fig = create_combined_plot_modes(self.infos, T, min_freq, max_freq)
         return fig
 
     def plot_pred(self, X, T, min_freq=None, max_freq=None):

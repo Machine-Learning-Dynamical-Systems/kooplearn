@@ -122,9 +122,20 @@ def create_2d_plot_modes(infos, index, min_freq, max_freq):
     fig.update_layout(xaxis_title='x', yaxis_title='y')
     return fig
 
-def create_combined_plot_modes(infos, min_freq, max_freq):
-
-    pass
+def create_combined_plot_modes(infos, T, min_freq, max_freq):
+    preds = np.zeros(infos.var_index.max())
+    for i in infos['eig_num'].unique():
+        mode = infos[infos['eig_num']==i]
+        freq = infos['frequency'].to_numpy()[0]
+        if np.abs(freq) >= max_freq or np.abs(freq)<=min_freq:          # if frequency outside selection, don't add the mode
+            continue
+        eigs = mode.eig_real.unique() + mode.eig_imag.unique()*1j
+        mode_value = mode.mode.to_numpy()
+        # summing the mode
+        preds += eigs**T*mode_value
+    fig = px.scatter(x=infos.x.unique(), y=preds.real)
+    fig.update_layout(xaxis_title='Variables', yaxis_title='Value')
+    return fig
 
 def create_combined_2d_plot_modes(infos, min_freq, max_freq):
     

@@ -56,7 +56,8 @@ app.layout = html.Div([
                             max=int(viz.infos['frequency'].max())+1,
                             marks=frequency_dict,
                             id='freq_range_slider'),
-            dcc.Input(id='T', type='number', placeholder='input T')
+            dcc.Input(id='Tmax', type='number', placeholder='input T max'),
+            dcc.RangeSlider(min=0, max=1, id="T")
         ], style={'width': '60%'}),
         
         html.Div([
@@ -72,11 +73,13 @@ app.layout = html.Div([
     Output('eig-plot', 'figure'),
     Output('freq-plot', 'figure'),
     Output('modes-plot', 'figure'),
+    Output('T', 'max'),
     Input('freq_range_slider', 'value'),
+    Input('Tmax', 'value'),
     Input('T', 'value'),
     Input('modes_select', 'value')
 )
-def update_modes_plots(value, T, mode_selection):
+def update_modes_plots(value, Tmax, T, mode_selection):
     if value is None:
         min_freq = viz.infos['frequency'].unique().min()
         max_freq = viz.infos['frequency'].unique().max()
@@ -89,10 +92,12 @@ def update_modes_plots(value, T, mode_selection):
 
     if mode_selection == 'All':
         fig_modes = viz.plot_modes(index=None, min_freq=min_freq, max_freq=max_freq)
+    elif mode_selection == 'Combined':
+        fig_modes = viz.plot_combined_modes(T, min_freq, max_freq)
     else:
         fig_modes = viz.plot_modes(index=[int(mode_selection)], min_freq=min_freq, max_freq=max_freq)
     #fig_pred = viz.plot_preds(operator.X_fit_[-1], 1, min_freq, max_freq)
-    return fig_eig, fig_freqs, fig_modes
+    return fig_eig, fig_freqs, fig_modes, Tmax
 
 # TODO:
 #  Predictions at t+n, where we can select n and filter by frequency
