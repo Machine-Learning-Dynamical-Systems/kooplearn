@@ -1,7 +1,11 @@
-from dash import Dash, dcc, html, Input, Output, callback
-from kooplearn.visualizer.visualizer import Visualizer
+from dash import Dash, dcc, html, Input, Output, callback, State
 import numpy as np
 import argparse
+
+from kooplearn.visualizer.visualizer import Visualizer
+from kooplearn._src.models.kernel import KernelReducedRank
+from kooplearn._src.kernels import Linear
+from kooplearn.data.datasets import MockData
 
 #### WORK IN PROGRESS, FOR NOW USE THE visualizer.utils.py METHODS ####
 # Script for an interactive Dash html page using the visualisation methods of utils.py
@@ -11,37 +15,91 @@ parser=argparse.ArgumentParser(
 )
 parser.add_argument( # location of the koopman estimator
     '--koopman',
-    type=str
+    type=str,
+    default=""
 )
 
 args = parser.parse_args()
-operator = np.load(args.koopman)
+if args.koopman == "":
+    # tutorial mode
+    dataset = MockData(num_features=10, rng_seed=0)
+    _Z = dataset.generate(None, 10)
+    X, Y = _Z[:-1], _Z[1:]
+
+    operator = KernelReducedRank(Linear(), rank=10)
+    operator.fit(X,Y)
+else:
+    operator = np.load(args.koopman)
 
 viz = Visualizer(operator)
 
+available_modes = viz.infos['eig_num'].unique().astype('str')
+available_modes = np.insert(available_modes, 0, 'All')
+
+frequencies = viz.infos['frequency'].unique()
+pos_frequencies = frequencies[frequencies>0]
+frequency_dict = {i:str(round(i, 3)) for i in pos_frequencies}
+frequency_dict[0] = '0'
+
 app = Dash(__name__)
 
-app.layout(
-    html.Div([
-        html.H4('Koopman Visualisation'),
-        html.P("Operator's eigenvalues:"),
-        dcc.Graph(id="eig-plot"),
-        html.P("Frequency plot:"),
-        dcc.Graph(id='freq-plot')])
-    )
+app.layout = html.Div([
+        html.Div([
+            dcc.Graph(id="eig-plot")],
+        style={'width': '30%', 'display': 'inline-block'}),
+
+        html.Div([
+            dcc.Graph(id='freq-plot')],
+        style={'width': '49%', 'display': 'inline-block'}),
+        html.Div([
+            dcc.RangeSlider(min=-0.1,
+                            max=int(viz.infos['frequency'].max())+1,
+                            marks=frequency_dict,
+                            id='freq_range_slider'),
+            dcc.Input(id='T', type='number', placeholder='input T')
+        ], style={'width': '60%'}),
+        
+        html.Div([
+            html.H4('Modes'),
+            dcc.Dropdown(available_modes, 'All', id='modes_select'),
+            dcc.Graph(id='modes-plot'),
+            #html.H1("Prediction"),
+            #dcc.Graph(id='pred-plot', figure=viz.plot_preds())
+        ])
+    ])
 
 @callback(
     Output('eig-plot', 'figure'),
-    Input()
-)
-def update_eig_plot():
-    return viz.create_plot_eigs()
-
-@callback(
     Output('freq-plot', 'figure'),
-    Input()
+    Output('modes-plot', 'figure'),
+    Input('freq_range_slider', 'value'),
+    Input('T', 'value'),
+    Input('modes_select', 'value')
 )
-def update_freq_plot():
-    return viz.create_frequency_plot()
+def update_modes_plots(value, T, mode_selection):
+    if value is None:
+        min_freq = viz.infos['frequency'].unique().min()
+        max_freq = viz.infos['frequency'].unique().max()
+    else:
+        min_freq = value[0]
+        max_freq = value[1]
+
+    fig_eig = viz.plot_eigs(min_freq, max_freq)
+    fig_freqs = viz.plot_freqs(min_freq, max_freq)
+
+    if mode_selection == 'All':
+        fig_modes = viz.plot_modes(index=None, min_freq=min_freq, max_freq=max_freq)
+    else:
+        fig_modes = viz.plot_modes(index=[int(mode_selection)], min_freq=min_freq, max_freq=max_freq)
+    #fig_pred = viz.plot_preds(operator.X_fit_[-1], 1, min_freq, max_freq)
+    return fig_eig, fig_freqs, fig_modes
+
+# TODO:
+#  Predictions at t+n, where we can select n and filter by frequency
+#  Modes filtered by frequency
+
+# https://dash.plotly.com/dash-core-components/slider
+# https://plotly.com/python/filter/
+# https://stackoverflow.com/questions/45736656/how-to-use-a-button-to-trigger-callback-updates
 
 app.run_server(debug=True)

@@ -1,5 +1,5 @@
 from kooplearn.visualizer.visualizer import Visualizer
-from kooplearn.models.kernel import KernelReducedRank
+from kooplearn._src.models.kernel import KernelReducedRank
 from kooplearn._src.kernels import Linear
 from kooplearn.data.datasets import MockData
 
