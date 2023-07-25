@@ -100,7 +100,9 @@ def create_plot_modes(infos, index=None, min_freq=None, max_freq=None):
                         y=mode['mode'].to_numpy().real,
                         opacity=opacity).data[0],
                         col=i%2+1, row=i//2+1)
-    fig.update_layout(title='Mode decomposition')
+    fig.update_layout(title='Mode decomposition',
+            width=1100,
+            height=1100,)
     return fig
 
 def create_2d_plot_modes(infos, index, min_freq, max_freq):
@@ -119,22 +121,31 @@ def create_2d_plot_modes(infos, index, min_freq, max_freq):
                         color=infos['mode'].to_numpy().real,
                         opacity=opacity),
                         col=i%2, row=i//2)
-    fig.update_layout(xaxis_title='x', yaxis_title='y')
+    fig.update_layout(xaxis_title='x', yaxis_title='y',
+            width=1100,
+            height=1100,
+                )
     return fig
 
 def create_combined_plot_modes(infos, T, min_freq, max_freq):
-    preds = np.zeros(infos.var_index.max())
+    preds = np.zeros(infos.var_index.max()+1)
     for i in infos['eig_num'].unique():
         mode = infos[infos['eig_num']==i]
         freq = infos['frequency'].to_numpy()[0]
-        if np.abs(freq) >= max_freq or np.abs(freq)<=min_freq:          # if frequency outside selection, don't add the mode
+        if np.abs(freq) > max_freq or np.abs(freq) < min_freq:          # if frequency outside selection, don't add the mode
             continue
-        eigs = mode.eig_real.unique() + mode.eig_imag.unique()*1j
-        mode_value = mode.mode.to_numpy()
+        eigs = mode['eigval real'].unique()[0] + mode['eigval imag'].unique()[0]*1j
+        mode_value = mode['mode'].to_numpy()
         # summing the mode
-        preds += eigs**T*mode_value
-    fig = px.scatter(x=infos.x.unique(), y=preds.real)
-    fig.update_layout(xaxis_title='Variables', yaxis_title='Value')
+        print(eigs)
+        print(mode_value)
+        eigT = eigs**T
+        preds += (eigT*mode_value).real
+    fig = px.scatter(x=infos['x'].unique(), y=preds)
+    fig.update_layout(xaxis_title='Variables', yaxis_title='Value',
+            width=1100,
+            height=1100,
+                )
     return fig
 
 def create_combined_2d_plot_modes(infos, min_freq, max_freq):

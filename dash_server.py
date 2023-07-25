@@ -35,6 +35,7 @@ viz = Visualizer(operator)
 
 available_modes = viz.infos['eig_num'].unique().astype('str')
 available_modes = np.insert(available_modes, 0, 'All')
+available_modes = np.insert(available_modes, 1, 'Combined')
 
 frequencies = viz.infos['frequency'].unique()
 pos_frequencies = frequencies[frequencies>0]
@@ -57,7 +58,7 @@ app.layout = html.Div([
                             marks=frequency_dict,
                             id='freq_range_slider'),
             dcc.Input(id='Tmax', type='number', placeholder='input T max'),
-            dcc.RangeSlider(min=0, max=1, id="T")
+            dcc.Slider(min=0, max=1, step=1, id="T")
         ], style={'width': '60%'}),
         
         html.Div([
@@ -86,6 +87,9 @@ def update_modes_plots(value, Tmax, T, mode_selection):
     else:
         min_freq = value[0]
         max_freq = value[1]
+
+    if T is None:
+        T = 1
 
     fig_eig = viz.plot_eigs(min_freq, max_freq)
     fig_freqs = viz.plot_freqs(min_freq, max_freq)
