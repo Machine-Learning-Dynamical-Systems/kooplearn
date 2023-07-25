@@ -137,8 +137,6 @@ def create_combined_plot_modes(infos, T, min_freq, max_freq):
         eigs = mode['eigval real'].unique()[0] + mode['eigval imag'].unique()[0]*1j
         mode_value = mode['mode'].to_numpy()
         # summing the mode
-        print(eigs)
-        print(mode_value)
         eigT = eigs**T
         preds += (eigT*mode_value).real
     fig = px.scatter(x=infos['x'].unique(), y=preds)
