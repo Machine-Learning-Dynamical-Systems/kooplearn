@@ -18,7 +18,7 @@ def create_plot_eigs(infos, min_freq=None, max_freq=None):
                         (np.abs(infos.frequency) <= max_freq) &
                         (np.abs(infos.frequency) >= min_freq)
                     ).astype('int'),
-                    colorscale=[[0, 'rgba(255,127,80, 0.05)'], [1, 'rgba(255,127,80, 1)']]
+                    colorscale=[[0, 'rgba(255,127,80, 0.01)'], [1, 'rgba(255,127,80, 1)']]
     )))
     fig.add_shape(type='circle',
                   fillcolor='PaleTurquoise',
@@ -41,16 +41,16 @@ def create_frequency_plot(infos, min_freq=None, max_freq=None):
         max_freq = infos['frequency'].max()
     relevant_infos = infos[infos['frequency']>=0]
     fig = go.Figure(go.Scatter(x=relevant_infos['frequency'], 
-                    y=relevant_infos['modulus'],                           # plotting only positive frequencies
+                    y=relevant_infos['modulus'],                                    # plotting only positive frequencies
                     mode='markers',
                     marker_size=5,
                     marker=dict(
-                    size=10,
+                    size=2,
                     color=(
                         (np.abs(relevant_infos.frequency) <= max_freq) &
                         (np.abs(relevant_infos.frequency) >= min_freq)
                     ).astype('int'),
-                    colorscale=[[0, 'rgba(255,127,80, 0.05)'], [1, 'rgba(255,127,80, 1)']]
+                    colorscale=[[0, 'rgba(255,127,80, 0.01)'], [1, 'rgba(255,127,80, 1)']]
     )))         
     fig.update_layout(
         xaxis_title="Frequency", yaxis_title="Amplitude",
@@ -131,8 +131,8 @@ def create_combined_plot_modes(infos, T, min_freq, max_freq):
     preds = np.zeros(infos.var_index.max()+1)
     for i in infos['eig_num'].unique():
         mode = infos[infos['eig_num']==i]
-        freq = infos['frequency'].to_numpy()[0]
-        if np.abs(freq) > max_freq or np.abs(freq) < min_freq:          # if frequency outside selection, don't add the mode
+        freq = mode['frequency'].to_numpy()[0]
+        if (np.abs(freq) > max_freq) or (np.abs(freq) < min_freq):          # if frequency outside selection, don't add the mode
             continue
         eigs = mode['eigval real'].unique()[0] + mode['eigval imag'].unique()[0]*1j
         mode_value = mode['mode'].to_numpy()
@@ -146,9 +146,24 @@ def create_combined_plot_modes(infos, T, min_freq, max_freq):
                 )
     return fig
 
-def create_combined_2d_plot_modes(infos, min_freq, max_freq):
-    
-    pass
+def create_combined_2d_plot_modes(infos, T, min_freq, max_freq):
+    preds = np.zeros(infos.var_index.max()+1)
+    for i in infos['eig_num'].unique():
+        mode = infos[infos['eig_num']==i]
+        freq = infos['frequency'].to_numpy()[0]
+        if np.abs(freq) > max_freq or np.abs(freq) < min_freq:
+            continue
+        eigs = mode['eigval real'].unique()[0] + mode['eigval imag'].unique()[0]*1j
+        mode_value = mode['mode'].to_numpy()
+        # summing the mode
+        eigT = eigs**T
+        preds += (eigT*mode_value).real
+    fig = px.scatter(x=infos['x'].unique(), y=infos['y'].unique(), color=preds)
+    fig.update_layout(xaxis_title='Variables', yaxis_title='Value',
+            width=1100,
+            height=1100,
+                )
+    return fig
 
 def map_predictions(preds, coordinates, height=False):
     # coordinates is a list of x,y coordinates in np array format

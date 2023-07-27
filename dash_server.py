@@ -22,11 +22,11 @@ parser.add_argument( # location of the koopman estimator
 args = parser.parse_args()
 if args.koopman == "":
     # tutorial mode
-    dataset = MockData(num_features=10, rng_seed=0)
-    _Z = dataset.generate(None, 10)
+    dataset = MockData(num_features=100, rng_seed=0)
+    _Z = dataset.generate(None, 100)
     X, Y = _Z[:-1], _Z[1:]
 
-    operator = KernelReducedRank(Linear(), rank=10)
+    operator = KernelReducedRank(Linear(), rank=100)
     operator.fit(X,Y)
 else:
     operator = np.load(args.koopman)
