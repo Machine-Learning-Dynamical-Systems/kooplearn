@@ -246,7 +246,6 @@ class MullerBrownPotential(DataGenerator):
     def noise_term(self, x: ArrayLike, t: ArrayLike):
         return np.diag([math.sqrt(2 * 1e-2), math.sqrt(2 * 1e-2)])
 
-
 class LangevinTripleWell1D(DiscreteTimeDynamics):
     def __init__(self, gamma: float = 0.1, kt: float = 1.0, dt: float = 1e-4, rng_seed: Optional[int] = None):
         self.gamma = gamma

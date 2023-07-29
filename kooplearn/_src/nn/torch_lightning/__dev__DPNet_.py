@@ -5,7 +5,7 @@ try:
     import lightning
     import torch
 except ImportError:
-    raise ImportError(f"Unable to import pytorch-lightning")
+    raise ImportError("Unable to import pytorch-lightning")
 
 class DPNetFeatureMap(TrainableFeatureMap):
     def __init__(self, trainer: lightning.Trainer, *args, **kw):

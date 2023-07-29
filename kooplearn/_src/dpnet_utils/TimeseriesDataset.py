@@ -4,7 +4,6 @@ import torch
 from torch.utils.data import Dataset
 import numpy as np
 
-
 class TimeseriesDataset(Dataset):
     def __init__(self, df_series, idx_start, idx_end, lb_window_size, horizon_size, freq_date=None, is_train=True,
                  step=1, mean=None, std=None, idx_start_train=None, date_encoder_func=None):
