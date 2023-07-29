@@ -273,26 +273,32 @@ class LangevinTripleWell1D(DiscreteTimeDynamics):
         # Eq.(31) of https://doi.org/10.1007/978-3-642-56589-2_9 recalling that \sigma^2/(\gamma*2) = kBT
         generator = self._inv_gamma*self.kt*lap_x + self._inv_gamma*force.dot(grad_x)    
         generator = generator*self.dt
-        
-        vals, vecs = scipy.sparse.linalg.eigs(generator, k = 8, which = "LR", return_eigenvectors = True)
-        vals = np.exp(vals)
 
+        vals, vecs = np.linalg.eig(generator.toarray())
+
+        #Filter out timescales smaller than dt
+        mask = np.abs(vals.real) < 1.0
+        vals = vals[mask]
+        vecs = vecs[:, mask]
+        
+        vals = np.exp(vals)
         #Checking that the eigenvalues are real
         type_ = vals.dtype.type
         f = np.finfo(type_).eps
-        tol = f * 100
+   
+        tol = f * 1000
         if not np.all(np.abs(vals.imag) < tol):
-            raise ValueError("The computed eigenvalues are not real")
+            raise ValueError("The computed eigenvalues are not real, try to decrease dt")
         else:
             vals = vals.real
         
-        evd_sorting_perm = topk(vals, 4)
-        vals = vals[evd_sorting_perm.values]
+        _k = len(vals)
+        evd_sorting_perm = topk(vals, _k)
+        vals = evd_sorting_perm.values
         vecs = vecs[:, evd_sorting_perm.indices].real
 
         dx = cc[1] - cc[0]
-        Z = romb(np.exp(force/self.kt), dx = cc[1] - cc[0]) #Partition function
-        boltzmann_pdf = np.exp(force/self.kt)/Z
+        boltzmann_pdf = (dx**-1)*scipy.special.softmax(self.force_fn(cc)/self.kt)
         abs2_eigfun = (np.abs(vecs)**2).T
         eigfuns_norms = np.sqrt(romb(boltzmann_pdf*abs2_eigfun, dx = dx, axis = -1))
         vecs = vecs*(eigfuns_norms**-1.0)
