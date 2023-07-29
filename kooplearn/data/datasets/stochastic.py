@@ -1,8 +1,10 @@
 from typing import Optional
 from kooplearn.data.datasets.misc import DataGenerator, DiscreteTimeDynamics, LinalgDecomposition
+from kooplearn._src.utils import topk
 import numpy as np
 from numpy.typing import ArrayLike
 import scipy
+import scipy.sparse
 from scipy.integrate import quad, romb
 from scipy.stats import beta
 from scipy.special import binom
@@ -248,27 +250,56 @@ class MullerBrownPotential(DataGenerator):
 class LangevinTripleWell1D(DiscreteTimeDynamics):
     def __init__(self, gamma: float = 0.1, kt: float = 1.0, dt: float = 1e-4, rng_seed: Optional[int] = None):
         self.gamma = gamma
-        self._inv_gamma = (self.gamma) ** -1
         self.kt = kt
         self.rng = np.random.default_rng(rng_seed)
         self.dt = dt
-        self._load_ref_evd()
+        
+        self._inv_gamma = (self.gamma) ** -1
 
     def eig(self):
+        if not hasattr(self, "_ref_evd"):
+            self._compute_ref_evd()
         return self._ref_evd
 
-    def _load_ref_evd(self):
-        asset_path = Path(__file__).parent / "assets" / "TripleWell1D_ref_evd_2049_points.npz"
-        with np.load(asset_path) as data:
-            self._ref_eigenvalues = data["values"]
-            self._ref_eigenfunctions = data["vectors"]
-            self._ref_boltzmann_density = data["density"]
-            self._ref_domain_sample = data["domain_sample"]
-            self._ref_evd = LinalgDecomposition(
-                values=self._ref_eigenvalues,
-                x=self._ref_domain_sample,
-                functions=self._ref_eigenfunctions
-            )
+    def _compute_ref_evd(self):
+        assets_path = Path(__file__).parent / "assets"
+
+        lap_x = scipy.sparse.load_npz(assets_path / "1D_triple_well_lap_x.npz")
+        grad_x = scipy.sparse.load_npz(assets_path / "1D_triple_well_grad_x.npz")
+        cc = np.load(assets_path / "1D_triple_well_cc.npz")
+
+        force = scipy.sparse.diags(self.force_fn(cc))
+
+        # Eq.(31) of https://doi.org/10.1007/978-3-642-56589-2_9 recalling that \sigma^2/(\gamma*2) = kBT
+        generator = self._inv_gamma*self.kt*lap_x + self._inv_gamma*force.dot(grad_x)    
+        generator = generator*self.dt
+        
+        vals, vecs = scipy.sparse.linalg.eigs(generator, k = 8, which = "LR", return_eigenvectors = True)
+        vals = np.exp(vals)
+
+        #Checking that the eigenvalues are real
+        type_ = vals.dtype.type
+        f = np.finfo(type_).eps
+        tol = f * 100
+        if not np.all(np.abs(vals.imag) < tol):
+            raise ValueError("The computed eigenvalues are not real")
+        else:
+            vals = vals.real
+        
+        evd_sorting_perm = topk(vals, 4)
+        vals = vals[evd_sorting_perm.values]
+        vecs = vecs[:, evd_sorting_perm.indices].real
+
+        dx = cc[1] - cc[0]
+        Z = romb(np.exp(force/self.kt), dx = cc[1] - cc[0]) #Partition function
+        boltzmann_pdf = np.exp(force/self.kt)/Z
+        abs2_eigfun = (np.abs(vecs)**2).T
+        eigfuns_norms = np.sqrt(romb(boltzmann_pdf*abs2_eigfun, dx = dx, axis = -1))
+        vecs = vecs*(eigfuns_norms**-1.0)
+
+        #Storing the results
+        self._ref_evd = LinalgDecomposition(vals, cc, vecs)
+        self._ref_boltzmann_density = boltzmann_pdf
 
     def _step(self, X: ArrayLike):
         F = self.force_fn(X)
