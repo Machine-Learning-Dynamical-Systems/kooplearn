@@ -7,6 +7,7 @@ from sklearn.utils.validation import check_is_fitted, check_X_y
 from kooplearn._src.kernels import BaseKernel, Linear
 from kooplearn._src.operator_regression import dual
 from kooplearn._src.models.abc import BaseModel
+import pickle
 
 class KernelLowRankRegressor(BaseModel, RegressorMixin):
     def __init__(
@@ -184,6 +185,40 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
             self.Y_fit_ = Y
         if hasattr(self, '_eig_cache'):
             del self._eig_cache
+
+    def _verify_adequacy(self, new_obj:BaseModel):
+        if not hasattr(new_obj, 'kernel'): return False
+        if self.rank != new_obj.rank: return False
+        if self.tikhonov_reg != new_obj.tikhonov_reg: return False
+        if self.solver != new_obj.solver: return False
+        if self.iterated_power != new_obj.iterated_power: return False
+        if self.n_oversamples != new_obj.n_oversamples: return False
+        if self.optimal_sketching != new_obj.optimal_sketching: return False
+        if self.frac_inducing_points != new_obj.frac_inducing_points: return False
+        return True
+    
+    def load(self, filename, change_kernel=True):
+        try:
+            with open(filename, 'rb+') as file:
+                new_obj = pickle.load(file)
+        except:
+            print('Unable to load {}'.format(filename))
+            return(0)
+
+        # verifying coherence of model with regard to kernel methods
+        assert self._verify_adequacy(new_obj), "Incoherent or different parameters between models"
+        check_is_fitted(new_obj, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
+        self.U_ = new_obj.U_.copy()
+        self.V_ = new_obj.V_.copy()
+        self.K_X_ = new_obj.K_X_.copy()
+        self.K_Y_ = new_obj.K_Y_.copy()
+        self.K_YX_ = new_obj.K_YX_.copy()
+        self.X_fit_ = new_obj.X_fit_.copy()
+        self.Y_fit_ = new_obj.Y_fit_.copy()
+
+        if change_kernel:
+            assert hasattr(new_obj, "kernel"), "savefile does not contain an kernel based model"
+            self.kernel = new_obj.kernel
 
 class KernelDMD(KernelLowRankRegressor):
     def fit(self, X, Y):

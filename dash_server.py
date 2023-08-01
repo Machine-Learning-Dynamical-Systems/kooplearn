@@ -7,6 +7,8 @@ from kooplearn._src.models.kernel import KernelReducedRank
 from kooplearn._src.kernels import Linear
 from kooplearn.data.datasets import MockData
 
+import pickle
+
 #### WORK IN PROGRESS, FOR NOW USE THE visualizer.utils.py METHODS ####
 # Script for an interactive Dash html page using the visualisation methods of utils.py
 
@@ -29,7 +31,8 @@ if args.koopman == "":
     operator = KernelReducedRank(Linear(), rank=100)
     operator.fit(X,Y)
 else:
-    operator = np.load(args.koopman)
+    with open(args.koopman, 'rb') as file:
+        operator = pickle.load(file)
 
 viz = Visualizer(operator)
 

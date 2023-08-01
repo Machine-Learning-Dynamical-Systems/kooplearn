@@ -4,6 +4,7 @@ from typing import Optional, Callable, Union
 from numpy.typing import ArrayLike
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted, check_X_y
+import pickle
 
 from kooplearn._src.models.abc import BaseModel, FeatureMap, IdentityFeatureMap
 from kooplearn._src.operator_regression import primal
@@ -100,11 +101,38 @@ class PrimalRegressor(BaseModel):
         if hasattr(self, '_eig_cache'):
             del self._eig_cache
     
-    def save(self, path: PathLike):
-        raise NotImplementedError("This is an abstract class. Use a subclass instead.")
+    def _verify_adequacy(self, new_obj:BaseModel):
+        if hasattr(new_obj, 'kernel'): return False
+        if not hasattr(new_obj, 'feature_map'): return False
+        if self.rank != new_obj.rank: return False
+        if self.tikhonov_reg != new_obj.tikhonov_reg: return False
+        if self.svd_solver != new_obj.svd_solver: return False
+        if self.iterated_power != new_obj.iterated_power: return False
+        if self.n_oversamples != new_obj.n_oversamples: return False
+        if self.optimal_sketching != new_obj.optimal_sketching: return False
+        return True
     
-    def load(self, path: PathLike):
-        raise NotImplementedError("This is an abstract class. Use a subclass instead.")
+    def load(self, filename, change_feature_map=True):
+        try:
+            with open(filename, 'rb+') as file:
+                new_obj = pickle.load(file)
+        except:
+            ('Unable to load {}'.format(filename))
+
+        # verifying coherence of model with regard to kernel methods
+        assert self._verify_adequacy(new_obj), "Incoherent or different parameters between models"
+        check_is_fitted(new_obj, ['U_', 'V_', 'C_X_', 'C_Y_', 'C_XY_', 'X_fit_', 'Y_fit_'])
+        self.U_ = new_obj.U_.copy()
+        self.V_ = new_obj.V_.copy()
+        self.C_X_ = new_obj.C_X_.copy()
+        self.C_Y_ = new_obj.C_Y_.copy()
+        self.C_XY_ = new_obj.C_XY_.copy()
+        self.X_fit_ = new_obj.X_fit_.copy()
+        self.Y_fit_ = new_obj.Y_fit_.copy()
+
+        if change_feature_map:
+            assert hasattr(new_obj, "feature_map"), "savefile does not contain an edmd model"
+            self.feature_map = new_obj.feature_map
 
 class EDMDReducedRank(PrimalRegressor):
     def fit(self, X, Y):

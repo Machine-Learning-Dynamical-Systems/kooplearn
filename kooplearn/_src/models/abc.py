@@ -1,6 +1,7 @@
 import abc
 from typing import Optional, Union, Callable
 from numpy.typing import ArrayLike
+import pickle
 
 # Abstract base classes defining the interface to implement when extending kooplearn
 
@@ -16,6 +17,10 @@ class BaseModel(abc.ABC):
     @abc.abstractmethod
     def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
         pass
+
+    def save(self, filename):
+        with open(filename, 'wb+') as file:
+            pickle.dump(self, file)
 
 class FeatureMap(abc.ABC):
     @abc.abstractmethod
