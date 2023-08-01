@@ -39,6 +39,7 @@
 - [ ] Add tests for the `ScalarProduct` abstract class and `TorchScalarProduct` class.
 - [x] Add pre-computed assets for the eigenfunctions/eigenvalues of the 1D triple well as well as Muller-Brown if possible.
 - [x] Handle the case of 0 Tikhonov regularization.
+
 ### Make the code clearer
 - [ ] [Most important in my opinion] create and DOCUMENT a standard notation of the variables used throughout the 
   code, with name, shape and meaning of each variable.
