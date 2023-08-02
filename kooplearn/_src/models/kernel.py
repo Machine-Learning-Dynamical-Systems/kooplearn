@@ -1,3 +1,4 @@
+from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 from typing import Optional, Union, Callable
@@ -9,13 +10,14 @@ from kooplearn._src.operator_regression import dual
 from kooplearn._src.models.abc import BaseModel
 import pickle
 
+
 class KernelLowRankRegressor(BaseModel, RegressorMixin):
     def __init__(
             self,
             kernel: BaseKernel = Linear(),
             rank: int = 5,
             tikhonov_reg: float = 0.,
-            solver: str = 'full',
+            svd_solver: str = 'full',
             iterated_power: int = 1,
             n_oversamples: int = 5,
             optimal_sketching: bool = False,
@@ -27,7 +29,7 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
             submodule. Defaults to Linear.
             rank (int, optional): Rank of the estimator. Defaults to 5.
             tikhonov_reg (float, optional): Tikhonov regularization parameter. Defaults to 0.
-            solver (str, optional): 
+            svd_solver (str, optional):
                 If 'full', run exact SVD calling LAPACK solver functions. Warning: 'full' is not compatible with the
                 'keops' backend.
                 If 'arnoldi', run SVD truncated to rank calling ARPACK solver functions.
@@ -35,7 +37,7 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
                 Defaults to 'full'.
                 If 'nystrom', use Nystrom estimators.
             iterated_power (int, optional): Number of iterations for the power method computed by solver = 'randomized'.
-             Must be of range :math:`[0, \infty)`. Defaults to 2, ignored if solver != 'randomized'.
+             Must be of range :math:`[0, \\infty)`. Defaults to 2, ignored if solver != 'randomized'.
             n_oversamples (int, optional): This parameter is only relevant when solver = 'randomized'. It corresponds
             to the additional number of random vectors to sample the range of X so as to ensure proper conditioning.
             Defaults to 10, ignored if solver != 'randomized'.
@@ -47,23 +49,22 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
         """
 
         # Initial checks
-        if solver not in ['full', 'arnoldi', 'randomized', 'nystrom']:
-            raise ValueError('Invalid solver. Allowed values are \'full\', \'arnoldi\' and \'randomized\'.')
-        if solver == 'randomized' and iterated_power < 0:
+        if svd_solver not in ['full', 'arnoldi', 'randomized', 'nystrom']:
+            raise ValueError('Invalid svd_solver. Allowed values are \'full\', \'arnoldi\' and \'randomized\'.')
+        if svd_solver == 'randomized' and iterated_power < 0:
             raise ValueError('Invalid iterated_power. Must be non-negative.')
-        if solver == 'randomized' and n_oversamples < 0:
+        if svd_solver == 'randomized' and n_oversamples < 0:
             raise ValueError('Invalid n_oversamples. Must be non-negative.')
-        if solver == 'nystrom' and frac_inducing_points < 0:
+        if svd_solver == 'nystrom' and frac_inducing_points < 0:
             raise ValueError('Invalid frac_inducing_points. Must be non-negative.')
-
         self.kernel = kernel
-        self.rank = rank
-        self.tikhonov_reg = tikhonov_reg
-        self.solver = solver
-        self.iterated_power = iterated_power
-        self.n_oversamples = n_oversamples
-        self.optimal_sketching = optimal_sketching
         self.frac_inducing_points = frac_inducing_points
+        super(BaseModel).__init__(rank, tikhonov_reg, svd_solver, iterated_power, n_oversamples, optimal_sketching)
+        self.K_YX_ = None
+        self.K_Y_ = None
+        self.K_X_ = None
+        self.KN_Y_ = None
+        self.KN_X_ = None
 
     def fit(self, X: ArrayLike, Y: ArrayLike):
         raise NotImplementedError("This is an abstract class. Use a subclass instead.")
@@ -84,7 +85,7 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
 
         K_Xin_X = self.kernel(X, self.X_fit_)
         return dual.predict(t, self.U_, self.V_, self.K_YX_, K_Xin_X, _obs)
-    
+
     def modes(self, Xin: ArrayLike, observables: Optional[Union[Callable, ArrayLike]] = None):
         if observables is None:
             _obs = self.Y_fit_
@@ -96,20 +97,20 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
             raise ValueError(
                 "observables must be either None, a callable or a Numpy array of the observable evaluated at the "
                 "Y training points.")
-        
+
         check_is_fitted(self, ['U_', 'V_', 'K_X_', 'K_YX_', 'X_fit_', 'Y_fit_'])
         _, lv, rv = dual.estimator_eig(self.U_, self.V_, self.K_X_, self.K_YX_)
         K_Xin_X = self.kernel(Xin, self.X_fit_)
         _gamma = dual.estimator_modes(K_Xin_X, rv, lv)
-        return np.squeeze(np.matmul(_gamma,_obs)) # [rank, num_initial_conditions, num_observables]
+        return np.squeeze(np.matmul(_gamma, _obs))  # [rank, num_initial_conditions, num_observables]
 
     def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
         """Eigenvalues and eigenvectors of the estimated Koopman operator.
         
 
         Args:
-            left (Optional[ArrayLike], optional): _description_. Defaults to None.
-            right (Optional[ArrayLike], optional): _description_. Defaults to None.
+            eval_left_on (Optional[ArrayLike], optional): _description_. Defaults to None.
+            eval_right_on (Optional[ArrayLike], optional): _description_. Defaults to None.
 
         Returns:
             tuple: (evals, fl, fr) where evals is an array of shape (self.rank,) containing the eigenvalues of the
@@ -155,12 +156,12 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
         Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
         check_X_y(X, Y, multi_output=True)
 
-        if self.solver == 'nystrom':
+        if self.svd_solver == 'nystrom':
             rng = np.random.default_rng()
 
             _data_dim = X.shape[0]
-            _centers_idxs = rng.choice(_data_dim, int(_data_dim*self.frac_inducing_points))
-            
+            _centers_idxs = rng.choice(_data_dim, int(_data_dim * self.frac_inducing_points))
+
             X_subset = X[_centers_idxs]
             Y_subset = Y[_centers_idxs]
 
@@ -186,39 +187,23 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
         if hasattr(self, '_eig_cache'):
             del self._eig_cache
 
-    def _verify_adequacy(self, new_obj:BaseModel):
-        if not hasattr(new_obj, 'kernel'): return False
-        if self.rank != new_obj.rank: return False
-        if self.tikhonov_reg != new_obj.tikhonov_reg: return False
-        if self.solver != new_obj.solver: return False
-        if self.iterated_power != new_obj.iterated_power: return False
-        if self.n_oversamples != new_obj.n_oversamples: return False
-        if self.optimal_sketching != new_obj.optimal_sketching: return False
-        if self.frac_inducing_points != new_obj.frac_inducing_points: return False
+    def _verify_adequacy(self, new_obj: KernelLowRankRegressor):
+        if not hasattr(new_obj, 'kernel'):
+            return False
+        if self.frac_inducing_points != new_obj.frac_inducing_points:
+            return False
+        super(BaseModel)._verify_adequacy(new_obj)
         return True
-    
-    def load(self, filename, change_kernel=True):
-        try:
-            with open(filename, 'rb+') as file:
-                new_obj = pickle.load(file)
-        except:
-            print('Unable to load {}'.format(filename))
-            return(0)
 
-        # verifying coherence of model with regard to kernel methods
-        assert self._verify_adequacy(new_obj), "Incoherent or different parameters between models"
-        check_is_fitted(new_obj, ['U_', 'V_', 'K_X_', 'K_Y_', 'K_YX_', 'X_fit_', 'Y_fit_'])
-        self.U_ = new_obj.U_.copy()
-        self.V_ = new_obj.V_.copy()
+    def load(self, filename, change_kernel=True):
+        new_obj = super(BaseModel).load(filename)
         self.K_X_ = new_obj.K_X_.copy()
         self.K_Y_ = new_obj.K_Y_.copy()
         self.K_YX_ = new_obj.K_YX_.copy()
-        self.X_fit_ = new_obj.X_fit_.copy()
-        self.Y_fit_ = new_obj.Y_fit_.copy()
-
         if change_kernel:
             assert hasattr(new_obj, "kernel"), "savefile does not contain an kernel based model"
             self.kernel = new_obj.kernel
+
 
 class KernelDMD(KernelLowRankRegressor):
     def fit(self, X, Y):
@@ -228,24 +213,25 @@ class KernelDMD(KernelLowRankRegressor):
             Y (ndarray): Evolved observations.
         """
         self.pre_fit_checks(X, Y)
-        
+
         if self.tikhonov_reg is None:
             reg = 0
         else:
             reg = self.tikhonov_reg
 
-        if self.solver == 'randomized':
+        if self.svd_solver == 'randomized':
             U, V = dual.fit_rand_tikhonov(self.K_X_, reg, self.rank, self.n_oversamples, self.iterated_power)
-        elif self.solver == 'nystrom':
+        elif self.svd_solver == 'nystrom':
             U, V = dual.fit_nystrom_tikhonov(self.K_X_, self.K_Y_, self.KN_X_, self.KN_Y_, reg)
-            del self.KN_X_ # Free memory
-            del self.KN_Y_ # Free memory
+            del self.KN_X_  # Free memory
+            del self.KN_Y_  # Free memory
         else:
-            U, V = dual.fit_tikhonov(self.K_X_, reg, self.rank, self.solver)
+            U, V = dual.fit_tikhonov(self.K_X_, reg, self.rank, self.svd_solver)
 
         self.U_ = U
         self.V_ = V
         return self
+
 
 class KernelReducedRank(KernelLowRankRegressor):
     def fit(self, X, Y):
@@ -256,25 +242,29 @@ class KernelReducedRank(KernelLowRankRegressor):
         """
         self.pre_fit_checks(X, Y)
 
-        if self.solver == 'nystrom':
+        if self.svd_solver == 'nystrom':
             if self.tikhonov_reg is None:
                 raise ValueError("tikhonov_reg must be specified when solver is nystrom.")
             else:
-                U, V = dual.fit_nystrom_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.KN_X_, self.KN_Y_, self.tikhonov_reg, self.rank)
-            del self.KN_X_ # Free memory
-            del self.KN_Y_ # Free memory
+                U, V = dual.fit_nystrom_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.KN_X_, self.KN_Y_,
+                                                                         self.tikhonov_reg, self.rank)
+            del self.KN_X_  # Free memory
+            del self.KN_Y_  # Free memory
 
-        elif self.solver == 'randomized':
+        elif self.svd_solver == 'randomized':
             if self.tikhonov_reg is None:
                 raise ValueError("tikhonov_reg must be specified when solver is randomized.")
             else:
-                U, V = dual.fit_rand_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.tikhonov_reg, self.rank, self.n_oversamples, self.optimal_sketching, self.iterated_power)
+                U, V = dual.fit_rand_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.tikhonov_reg,
+                                                                      self.rank, self.n_oversamples,
+                                                                      self.optimal_sketching, self.iterated_power)
         else:
             if self.tikhonov_reg is None:
                 tikhonov_reg = 0
             else:
                 tikhonov_reg = self.tikhonov_reg
-            U, V = dual.fit_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, tikhonov_reg, self.rank, self.solver)
+            U, V = dual.fit_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, tikhonov_reg, self.rank,
+                                                             self.svd_solver)
         self.U_ = U
         self.V_ = V
         return self
