@@ -3,7 +3,7 @@ import pandas as pd
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
-from kooplearn._src.dpnet_utils.TimeseriesDataset import TimeseriesDataset
+from kooplearn._src.deep_learning.data_utils.TimeseriesDataset import TimeseriesDataset
 
 
 class EmptyDataset(Dataset):

@@ -5,6 +5,7 @@ import pickle
 
 # Abstract base classes defining the interface to implement when extending kooplearn
 
+
 class BaseModel(abc.ABC):
     @abc.abstractmethod
     def fit(self, X: ArrayLike, Y: ArrayLike):
@@ -22,6 +23,7 @@ class BaseModel(abc.ABC):
         with open(filename, 'wb+') as file:
             pickle.dump(self, file)
 
+
 class FeatureMap(abc.ABC):
     @abc.abstractmethod
     def __call__(self, X: ArrayLike) -> ArrayLike:
@@ -37,12 +39,15 @@ class FeatureMap(abc.ABC):
         c *= (X.shape[0]) ** (-1)
         return c
 
+
 class IdentityFeatureMap(FeatureMap):
     def __call__(self, X: ArrayLike):
         return X
 
+
 class TrainableFeatureMap(FeatureMap):
-    # Trainable feature maps should be callable with numpy arrays and return numpy arrays (see FeatureMap abc). Internally thay can do whatever.
+    # Trainable feature maps should be callable with numpy arrays and return numpy arrays (see FeatureMap abc).
+    # Internally thay can do whatever.
     @abc.abstractmethod
     def fit(self, *a, **kw) -> None:
         pass

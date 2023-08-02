@@ -1,7 +1,6 @@
 import lightning as L
 import torch
-from kooplearn._src.dpnet_utils.TimeseriesDataModule import TimeseriesDataModule
-from kooplearn._src.dpnet_utils.DPNetModule import DPNetModule
+from kooplearn._src.deep_learning.lightning_modules.DPNetModule import DPNetModule
 
 class DPNetFeatureMap:
     def __init__(self,

@@ -1,18 +1,19 @@
 from lightning import LightningModule
 
+
 class DPNetModule(LightningModule):
-    def __init__(self, 
-                 model_class, 
+    def __init__(self,
+                 model_class,
                  model_hyperparameters,
-                 optimizer_fn, 
-                 optimizer_hyperparameters, 
+                 optimizer_fn,
+                 optimizer_hyperparameters,
                  loss_fn,
-                 scheduler_fn=None, 
-                 scheduler_hyperparameters=None, 
+                 scheduler_fn=None,
+                 scheduler_hyperparameters=None,
                  scheduler_config=None,
-                 model_class_2=None, 
+                 model_class_2=None,
                  model_hyperparameters_2=None
-        ):
+                 ):
         super().__init__()
         for k, v in model_hyperparameters.items():
             self.hparams[k] = v
