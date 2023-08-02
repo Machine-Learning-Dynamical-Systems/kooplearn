@@ -9,6 +9,7 @@ import pickle
 from kooplearn._src.models.abc import BaseModel, FeatureMap, IdentityFeatureMap
 from kooplearn._src.operator_regression import primal
 
+
 class PrimalRegressor(BaseModel):
     def __init__(self, feature_map: FeatureMap = IdentityFeatureMap(), rank=5, tikhonov_reg=None, svd_solver='full',
                  iterated_power=1, n_oversamples=5, optimal_sketching=False):
