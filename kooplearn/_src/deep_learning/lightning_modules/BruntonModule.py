@@ -1,24 +1,32 @@
 from lightning import LightningModule
 
+from kooplearn._src.deep_learning.utils.Brunton_utils import advance_encoder_output
+
 
 class DPNetModule(LightningModule):
     def __init__(self,
-                 model_class,
-                 model_hyperparameters,
+                 encoder_class,
+                 encoder_hyperparameters,
+                 decoder_class,
+                 decoder_hyperparameters,
+                 auxiliary_network_class,
+                 auxiliary_network_hyperparameters,
                  optimizer_fn,
                  optimizer_hyperparameters,
                  loss_fn,
+                 m_time_steps_linear_dynamics,
+                 m_time_steps_future_state_prediction,
                  scheduler_fn=None,
                  scheduler_hyperparameters=None,
                  scheduler_config=None,
-                 model_class_2=None,
-                 model_hyperparameters_2=None
                  ):
         super().__init__()
-        for k, v in model_hyperparameters.items():
-            self.hparams[k] = v
-        for k, v in model_hyperparameters_2.items():
-            self.hparams[f'model_2_{k}'] = v
+        for k, v in encoder_hyperparameters.items():
+            self.hparams[f'encoder_{k}'] = v
+        for k, v in decoder_hyperparameters.items():
+            self.hparams[f'decoder_{k}'] = v
+        for k, v in auxiliary_network_hyperparameters.items():
+            self.hparams[f'auxiliary_network_{k}'] = v
         for k, v in optimizer_hyperparameters.items():
             self.hparams[f'optim_{k}'] = v
         for k, v in scheduler_hyperparameters.items():
@@ -26,18 +34,17 @@ class DPNetModule(LightningModule):
         for k, v in scheduler_config.items():
             self.hparams[f'sched_{k}'] = v
         self.save_hyperparameters()
-        self.model = model_class(**model_hyperparameters)
-        # If model_class_2 is None, the model_2 is the same as model (with shared weights)
-        if model_class_2 is not None:
-            self.model_2 = model_class_2(**model_hyperparameters_2)
-        else:
-            self.model_2 = self.model
+        self.encoder = encoder_class(**encoder_hyperparameters)
+        self.decoder = decoder_class(**decoder_hyperparameters)
+        self.auxiliary_network = auxiliary_network_class(**auxiliary_network_hyperparameters)
         self.optimizer_fn = optimizer_fn
         self.scheduler_fn = scheduler_fn
         self.optimizer_hyperparameters = optimizer_hyperparameters
         self.scheduler_hyperparameters = scheduler_hyperparameters
         self.scheduler_config = scheduler_config
         self.loss_fn = loss_fn
+        self.m_time_steps_linear_dynamics = m_time_steps_linear_dynamics
+        self.m_time_steps_future_state_prediction = m_time_steps_future_state_prediction
 
     def configure_optimizers(self):
         optimizer = self.optimizer_fn(self.parameters(), **self.optimizer_hyperparameters)
@@ -58,7 +65,10 @@ class DPNetModule(LightningModule):
 
     def forward(self, batch):
         # dimensions convention (..., channels, temporal_dim)
-        return self.model(batch)
+        encoded_x_value = self.encoder(batch)
+        mus_omegas, lambdas = self.auxiliary_network(encoded_x_value)
+        advanced_encoded_x_value = advance_encoder_output(encoded_x_value, mus_omegas, lambdas)
+        return self.decoder({'x_value': advanced_encoded_x_value})
 
     def base_step(self, batch, batch_idx):
         # dimensions convention (..., channels, temporal_dim)
@@ -70,12 +80,15 @@ class DPNetModule(LightningModule):
         batch_in_series = ~batch_out_of_series
         x_value = batch['x_value'][batch_in_series]
         y_value = batch['y_value'][batch_in_series]
-        data_x = {'x_value': x_value}
-        data_y = {'x_value': y_value}
-        x_encoded = self.model(data_x)
-        # Note that model_2 is the same as model in case we have not defined a second model
-        y_encoded = self.model_2(data_y)
-        loss = self.loss_fn(x_encoded, y_encoded)
+        x_value = x_value.reshape(-1, )
+        encoded_x_value = self.encoder({'x_value': x_value})
+        encoded_y_value = self.encoder({'x_value': y_value})
+        mus_omegas, lambdas = self.auxiliary_network(encoded_x_value)
+        advanced_encoded_x_value = advance_encoder_output(encoded_x_value, mus_omegas, lambdas)
+        decoded_advanced_encoded_x_value = self.decoder({'x_value': advanced_encoded_x_value})
+        decoded_encoded_x_value = self.decoder({'x_value': encoded_x_value})
+        loss = self.loss_fn(x_value, decoded_encoded_x_value, encoded_y_value, advanced_encoded_x_value,
+                            y_value, decoded_advanced_encoded_x_value)
         outputs = {
             'loss': loss,
         }

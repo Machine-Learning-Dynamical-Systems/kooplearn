@@ -2,7 +2,7 @@ import torch.nn as nn
 
 
 class MLPModel(nn.Module):
-    def __init__(self, input_dim, output_dim, hidden_dims, flatten_input=False, output_activation_fn=nn.Identity(),
+    def __init__(self, input_dim, output_dim, hidden_dims, flatten_input=True, output_activation_fn=nn.Identity(),
                  activation_fn=nn.ReLU()):
         super().__init__()
         self.input_dim = input_dim
@@ -23,7 +23,4 @@ class MLPModel(nn.Module):
     def forward(self, data):
         # dimensions convention (..., channels, temporal_dim)
         x = data['x_value']
-        model_output = {
-            'x_encoded': self.sequential(x),
-        }
-        return model_output
+        return self.sequential(x)

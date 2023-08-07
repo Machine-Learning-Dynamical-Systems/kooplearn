@@ -18,8 +18,9 @@ class EmptyDataset(Dataset):
 
 
 class TimeseriesDataModule(L.LightningDataModule):
-    def __init__(self, df_series, n_train, n_valid, n_test, lb_window_size, horizon_size, freq_date=None, step=1,
-                 date_encoder_func=None,
+    # In general for koopman we must have lb_window_size = horizon_size
+    def __init__(self, df_series, n_train, n_valid, n_test, lb_window_size, freq_date=None, step=1,
+                 date_encoder_func=None,  # horizon_size=None,
                  batch_size=1, num_workers=0):
         super().__init__()
         self.save_hyperparameters(ignore=['df_series'])
@@ -31,7 +32,7 @@ class TimeseriesDataModule(L.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.lb_window_size = lb_window_size
-        self.horizon_size = horizon_size
+        self.horizon_size = lb_window_size
         self.step = step
         self.freq_date = freq_date
         self.date_encoder_func = date_encoder_func
