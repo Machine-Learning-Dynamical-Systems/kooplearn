@@ -39,6 +39,10 @@ class BaseModel(abc.ABC):
     def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
         pass
 
+    @abc.abstractmethod
+    def modes(self, Xin: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None):
+        pass
+
     def save(self, filename):
         with open(filename, 'wb+') as file:
             pickle.dump(self, file)

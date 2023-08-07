@@ -1,7 +1,7 @@
 import abc
 import logging
 from numpy.typing import ArrayLike
-from typing import Optional, Union
+from typing import Optional
 import sklearn.gaussian_process.kernels as sk_kernels
 from sklearn.metrics.pairwise import polynomial_kernel as sk_poly
 import numpy as np

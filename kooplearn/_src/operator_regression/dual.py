@@ -9,7 +9,8 @@ from sklearn.utils.extmath import randomized_svd
 from kooplearn._src.utils import topk
 from kooplearn._src.linalg import modified_QR, weighted_norm
 
-def regularize(M: ArrayLike, reg: float):
+
+def regularize(M: np.ndarray, reg: float):
     """Regularize a matrix by adding a multiple of the identity matrix to it.
     Args:
         M (ArrayLike): Matrix to regularize.
@@ -19,15 +20,16 @@ def regularize(M: ArrayLike, reg: float):
     """
     return M + reg * M.shape[0] * np.identity(M.shape[0], dtype=M.dtype)
 
+
 def fit_reduced_rank_regression_tikhonov(
-        K_X: ArrayLike,  # Kernel matrix of the input data
-        K_Y: ArrayLike,  # Kernel matrix of the output data
+        K_X: np.ndarray,  # Kernel matrix of the input data
+        K_Y: np.ndarray,  # Kernel matrix of the output data
         tikhonov_reg: float,  # Tikhonov regularization parameter, can be 0
         rank: int,  # Rank of the estimator
         svd_solver: str = 'arnoldi',  # SVD solver to use. 'arnoldi' is faster but might be numerically unstable.
         _return_singular_values: bool = False
         # Whether to return the singular values of the projector. (Development purposes)
-) -> tuple[ArrayLike, ArrayLike] or tuple[ArrayLike, ArrayLike, ArrayLike]:
+) -> tuple[np.ndarray, np.ndarray] or tuple[np.ndarray, np.ndarray, np.ndarray]:
     if tikhonov_reg == 0.:
         return _fit_reduced_rank_regression_noreg(K_X, K_Y, rank, svd_solver=svd_solver,
                                                   _return_singular_values=_return_singular_values)
@@ -49,17 +51,17 @@ def fit_reduced_rank_regression_tikhonov(
 
         max_imag_part = np.max(U.imag)
         if max_imag_part >= 2.2e-10:
-            logging.warn(f"The computed projector is not real. The Kernel matrix is severely ill-conditioned.")
+            logging.warning(f"The computed projector is not real. The Kernel matrix is severely ill-conditioned.")
         U = np.real(U)
 
         # Post-process U. Promote numerical stability via additional QR decoposition if necessary.
         U = U[:, topk(sigma_sq.real, rank).indices]
 
-        norm_inducing_op = (K_Xn @ (K_Xn.T)) + tikhonov_reg * K_X
+        norm_inducing_op = (K_Xn @ K_Xn.T) + tikhonov_reg * K_X
         U, _, columns_permutation = modified_QR(U, M=norm_inducing_op, column_pivoting=True)
         U = U[:, np.argsort(columns_permutation)]
         if U.shape[1] < rank:
-            logging.warn(
+            logging.warning(
                 f"The numerical rank of the projector is smaller than the selected rank ({rank}). {rank - U.shape[1]} "
                 f"degrees of freedom will be ignored.")
             _zeroes = np.zeros((U.shape[0], rank - U.shape[1]))
@@ -71,14 +73,15 @@ def fit_reduced_rank_regression_tikhonov(
         else:
             return U, V
 
+
 def _fit_reduced_rank_regression_noreg(
-        K_X: ArrayLike,  # Kernel matrix of the input data
-        K_Y: ArrayLike,  # Kernel matrix of the output data
+        K_X: np.ndarray,  # Kernel matrix of the input data
+        K_Y: np.ndarray,  # Kernel matrix of the output data
         rank: int,  # Rank of the estimator
         svd_solver: str = 'arnoldi',  # Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
         _return_singular_values: bool = False
         # Whether to return the singular values of the projector. (Development purposes)
-) -> tuple[ArrayLike, ArrayLike] or tuple[ArrayLike, ArrayLike, ArrayLike]:
+) -> tuple[np.ndarray, np.ndarray] or tuple[np.ndarray, np.ndarray, np.ndarray]:
     # Solve the Hermitian eigenvalue problem to find V
     if svd_solver != 'full':
         sigma_sq, V = eigsh(K_Y, rank)
@@ -102,19 +105,20 @@ def _fit_reduced_rank_regression_noreg(
     else:
         return U, V
 
+
 def fit_nystrom_reduced_rank_regression_tikhonov(
-        N_X: ArrayLike,  # Kernel matrix of the input inducing points
-        N_Y: ArrayLike,  # Kernel matrix of the output inducing points
-        KN_X: ArrayLike,  # Kernel matrix between the input data and the input inducing points
-        KN_Y: ArrayLike,  # Kernel matrix between the output data and the output inducing points
+        N_X: np.ndarray,  # Kernel matrix of the input inducing points
+        N_Y: np.ndarray,  # Kernel matrix of the output inducing points
+        KN_X: np.ndarray,  # Kernel matrix between the input data and the input inducing points
+        KN_Y: np.ndarray,  # Kernel matrix between the output data and the output inducing points
         tikhonov_reg: float,  # Tikhonov regularization parameter
         rank: int,  # Rank of the estimator
-) -> tuple[ArrayLike, ArrayLike]:
+) -> tuple[np.ndarray, np.ndarray]:
     num_training_pts = KN_X.shape[0]
-    NKy_KNx = (KN_Y.T) @ KN_X
+    NKy_KNx = KN_Y.T @ KN_X
     _B = lstsq(N_Y, NKy_KNx)[0]
-    NKN = (NKy_KNx.T) @ _B
-    G = (KN_X.T) @ KN_X + tikhonov_reg * num_training_pts * N_X
+    NKN = NKy_KNx.T @ _B
+    G = KN_X.T @ KN_X + tikhonov_reg * num_training_pts * N_X
     S, W = eigh(NKN, G)
     # Low-rank projection
     W = W[:, topk(S, rank).indices]
@@ -125,9 +129,10 @@ def fit_nystrom_reduced_rank_regression_tikhonov(
     U = lstsq(G, U)[0]
     return U, V
 
+
 def fit_rand_reduced_rank_regression_tikhonov(
-        K_X: ArrayLike,  # Kernel matrix of the input data
-        K_Y: ArrayLike,  # Kernel matrix of the output data
+        K_X: np.ndarray,  # Kernel matrix of the input data
+        K_Y: np.ndarray,  # Kernel matrix of the output data
         tikhonov_reg: float,  # Tikhonov regularization parameter
         rank: int,  # Rank of the estimator
         n_oversamples: int,  # Number of oversamples
@@ -136,7 +141,7 @@ def fit_rand_reduced_rank_regression_tikhonov(
         rng_seed: Optional[int] = None,  # Seed for the random number generator (for reproducibility)
         _return_singular_values: bool = False
         # Whether to return the singular values of the projector. (Development purposes)
-) -> tuple[ArrayLike, ArrayLike] or tuple[ArrayLike, ArrayLike, ArrayLike]:
+) -> tuple[np.ndarray, np.ndarray] or tuple[np.ndarray, np.ndarray, np.ndarray]:
     dim = K_X.shape[0]
     inv_dim = dim ** (-1.0)
     alpha = dim * tikhonov_reg
@@ -178,13 +183,14 @@ def fit_rand_reduced_rank_regression_tikhonov(
     else:
         return U.real, V.real
 
+
 def fit_tikhonov(
-        K_X: ArrayLike,  # Kernel matrix of the input data
+        K_X: np.ndarray,  # Kernel matrix of the input data
         tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter, can be zero
         rank: Optional[int] = None,  # Rank of the estimator
         svd_solver: str = 'arnoldi',  # Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
         rcond: float = 2.2e-16  # Threshold for the singular values
-) -> tuple[ArrayLike, ArrayLike]:
+) -> tuple[np.ndarray, np.ndarray]:
     dim = K_X.shape[0]
     if rank is None:
         rank = dim
@@ -195,28 +201,32 @@ def fit_tikhonov(
         S, V = eigsh(K_X + tikhonov, k=rank)
     elif svd_solver == 'full':
         S, V = eigh(K_X + tikhonov)
+    else:
+        raise ValueError(f"Unknown svd_solver {svd_solver}")
     S, V = _postprocess_tikhonov_fit(S, V, rank, dim, rcond)
     return V, V
 
+
 def fit_nystrom_tikhonov(
-        N_X: ArrayLike,  # Kernel matrix of the input inducing points
-        N_Y: ArrayLike,  # Kernel matrix of the output inducing points
-        KN_X: ArrayLike,  # Kernel matrix between the input data and the input inducing points
-        KN_Y: ArrayLike,  # Kernel matrix between the output data and the output inducing points
+        N_X: np.ndarray,  # Kernel matrix of the input inducing points
+        N_Y: np.ndarray,  # Kernel matrix of the output inducing points
+        KN_X: np.ndarray,  # Kernel matrix between the input data and the input inducing points
+        KN_Y: np.ndarray,  # Kernel matrix between the output data and the output inducing points
         tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter (can be 0)
-        rank: Optional[int] = None,  # Rank of the estimator
-        rcond: float = 2.2e-16,  # Threshold for the singular values
-) -> tuple[ArrayLike, ArrayLike]:
-    # Not using the Rank parameter fix it.
+        # rank: Optional[int] = None,  # Rank of the estimator
+        # rcond: float = 2.2e-16,  # Threshold for the singular values
+) -> tuple[np.ndarray, np.ndarray]:
+    # TODO Not using the Rank parameter fix it.
     num_training_pts = KN_X.shape[0]
-    NKy_KNx = (KN_Y.T) @ KN_X
-    G = (KN_X.T) @ KN_X + tikhonov_reg * num_training_pts * N_X
+    NKy_KNx = KN_Y.T @ KN_X
+    G = KN_X.T @ KN_X + tikhonov_reg * num_training_pts * N_X
     U = lstsq(G, NKy_KNx)[0]
     V = lstsq(N_Y, U)[0]
     return U, V
 
+
 def fit_rand_tikhonov(
-        K_X: ArrayLike,  # Kernel matrix of the input data
+        K_X: np.ndarray,  # Kernel matrix of the input data
         tikhonov_reg: float,  # Tikhonov regularization parameter
         rank: int,  # Rank of the estimator
         n_oversamples: int,  # Number of oversamples
@@ -237,6 +247,7 @@ def fit_rand_tikhonov(
     else:
         return V, V
 
+
 def _postprocess_tikhonov_fit(
         S: ArrayLike,  # Singular values
         V: ArrayLike,  # Eigenvectors
@@ -253,37 +264,40 @@ def _postprocess_tikhonov_fit(
         V = np.sqrt(dim) * (V @ np.diag(S ** -0.5))
     else:
         V = np.sqrt(dim) * (V[:, _test] @ np.diag(S[_test] ** -0.5))
-        logging.warn(
-            f"The numerical rank of the projector ({V.shape[1]}) is smaller than the selected rank ({rank}). {rank - V.shape[1]} degrees of freedom will be ignored.")
+        logging.warning(
+            f"The numerical rank of the projector ({V.shape[1]}) is smaller than the selected rank ({rank}). "
+            f"{rank - V.shape[1]} degrees of freedom will be ignored.")
         _zeroes = np.zeros((V.shape[0], rank - V.shape[1]))
         V = np.c_[V, _zeroes]
         assert V.shape[1] == rank
     return S, V
 
+
 def predict(
         num_steps: int,  # Number of steps to predict (return the last one)
-        U: ArrayLike,  # Projection matrix: first output of the fit functions defined above
-        V: ArrayLike,  # Projection matrix: second output of the fit functions defined above
-        K_YX: ArrayLike,  # Kernel matrix between the output data and the input data
-        K_Xin_X: ArrayLike,  # Kernel matrix between the initial conditions and the input data
-        obs_train_Y: ArrayLike  # Observable to be predicted evaluated on the output training data
-) -> ArrayLike:
+        U: np.ndarray,  # Projection matrix: first output of the fit functions defined above
+        V: np.ndarray,  # Projection matrix: second output of the fit functions defined above
+        K_YX: np.ndarray,  # Kernel matrix between the output data and the input data
+        K_Xin_X: np.ndarray,  # Kernel matrix between the initial conditions and the input data
+        obs_train_Y: np.ndarray  # Observable to be predicted evaluated on the output training data
+) -> np.ndarray:
     # G = S UV.T Z
     # G^n = (SU)(V.T K_YX U)^(n-1)(V.T Z)
     dim = U.shape[0]
     rsqrt_dim = dim ** (-0.5)
     K_dot_U = rsqrt_dim * K_Xin_X @ U
-    V_dot_obs = rsqrt_dim * (V.T) @ obs_train_Y
+    V_dot_obs = rsqrt_dim * V.T @ obs_train_Y
     V_K_XY_U = (dim ** -1) * np.linalg.multi_dot([V.T, K_YX, U])
     M = np.linalg.matrix_power(V_K_XY_U, num_steps - 1)
     return np.linalg.multi_dot([K_dot_U, M, V_dot_obs])
 
+
 def estimator_eig(
-        U: ArrayLike,  # Projection matrix: first output of the fit functions defined above
-        V: ArrayLike,  # Projection matrix: second output of the fit functions defined above
-        K_X: ArrayLike,  # Kernel matrix of the input data
-        K_YX: ArrayLike  # Kernel matrix between the output data and the input data
-) -> tuple[ArrayLike, ArrayLike, ArrayLike]:
+        U: np.ndarray,  # Projection matrix: first output of the fit functions defined above
+        V: np.ndarray,  # Projection matrix: second output of the fit functions defined above
+        K_X: np.ndarray,  # Kernel matrix of the input data
+        K_YX: np.ndarray  # Kernel matrix between the output data and the input data
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     # SUV.TZ -> V.T K_YX U (right ev = SUvr, left ev = ZVvl)
     r_dim = (K_X.shape[0]) ** (-1)
 
@@ -305,28 +319,31 @@ def estimator_eig(
     # Bi-orthogonality of left eigenfunctions
     norm_l = np.diag(np.linalg.multi_dot([vl.T, W_YX, vr]))
     vl = vl / norm_l
-    return values, V@vl, U@vr
+    return values, V @ vl, U @ vr
 
-def estimator_modes(K_Xin_X: ArrayLike, rv: ArrayLike, lv: ArrayLike):
-    r_dim = lv.shape[0]**-0.5
-    rv_in = evaluate_eigenfunction(K_Xin_X, rv).T # [rank, num_initial_conditions]
-    lv_obs = r_dim*lv.T # [rank, num_observations]
-    return rv_in[:, :, None]*lv_obs[:, None, :] # [rank, num_init_conditions, num_training_points]
+
+def estimator_modes(K_Xin_X: np.ndarray, rv: np.ndarray, lv: np.ndarray):
+    r_dim = lv.shape[0] ** -0.5
+    rv_in = evaluate_eigenfunction(K_Xin_X, rv).T  # [rank, num_initial_conditions]
+    lv_obs = r_dim * lv.T  # [rank, num_observations]
+    return rv_in[:, :, None] * lv_obs[:, None, :]  # [rank, num_init_conditions, num_training_points]
+
 
 def evaluate_eigenfunction(
-        K_Xin_X_or_Y: ArrayLike,
+        K_Xin_X_or_Y: np.ndarray,
         # Kernel matrix between the initial conditions and the input data (right eigenfunctions) or the output data
         # (left eigenfunctions)
-        vr_or_vl: ArrayLike  # Right eigenvectors or left eigenvectors, as returned by the estimator_eig function
+        vr_or_vl: np.ndarray  # Right eigenvectors or left eigenvectors, as returned by the estimator_eig function
 ):
     rsqrt_dim = (K_Xin_X_or_Y.shape[1]) ** (-0.5)
     return np.linalg.multi_dot([rsqrt_dim * K_Xin_X_or_Y, vr_or_vl])
 
+
 def svdvals(
-        U: ArrayLike,  # Projection matrix: first output of the fit functions defined above
-        V: ArrayLike,  # Projection matrix: second output of the fit functions defined above
-        K_X: ArrayLike,  # Kernel matrix of the input data
-        K_Y: ArrayLike,  # Kernel matrix of the output data
+        U: np.ndarray,  # Projection matrix: first output of the fit functions defined above
+        V: np.ndarray,  # Projection matrix: second output of the fit functions defined above
+        K_X: np.ndarray,  # Kernel matrix of the input data
+        K_Y: np.ndarray,  # Kernel matrix of the output data
 ):
     # Inefficient implementation
     rdim = (K_X.shape[0]) ** (-1)

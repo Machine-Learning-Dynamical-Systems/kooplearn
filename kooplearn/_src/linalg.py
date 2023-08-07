@@ -1,10 +1,10 @@
 from typing import Optional
 import numpy as np
-from numpy.typing import ArrayLike
 from sklearn.utils import check_array
 from warnings import warn
 
-def weighted_norm(A: ArrayLike, M: Optional[ArrayLike] = None):
+
+def weighted_norm(A: np.ndarray, M: Optional[np.ndarray] = None):
     r"""Weighted norm of the columns of A.
 
     Args:
@@ -30,7 +30,8 @@ def weighted_norm(A: ArrayLike, M: Optional[ArrayLike] = None):
         )
     return np.sqrt(norm)
 
-def weighted_dot_product(A: ArrayLike, B: ArrayLike, M: Optional[ArrayLike] = None):
+
+def weighted_dot_product(A: np.ndarray, B: np.ndarray, M: Optional[np.ndarray] = None):
     """Weighted dot product between the columns of A and B. The output will be equivalent to :math:`A^{*} M B`
     if A and B are 2D arrays.
 
@@ -69,7 +70,8 @@ def _column_pivot(Q, R, k, squared_norms, columns_permutation):
     return Q, R, squared_norms, columns_permutation
 
 
-def modified_QR(A: ArrayLike, M: Optional[ArrayLike] = None, column_pivoting: bool = False, rtol: float =2.2e-16, verbose: bool = False):
+def modified_QR(A: np.ndarray, M: Optional[np.ndarray] = None, column_pivoting: bool = False, rtol: float = 2.2e-16,
+                verbose: bool = False):
     """Modified QR algorithm with column pivoting. Implementation follows the algorithm described in [1].
 
     Args:
@@ -99,6 +101,10 @@ def modified_QR(A: ArrayLike, M: Optional[ArrayLike] = None, column_pivoting: bo
     _roundoff = 1e-8  # From reference paper
     _tau = 1e-2  # From reference paper
 
+    columns_permutation = None
+    squared_norms = None
+    max_norm = None
+    norms_error_estimate = None
     if column_pivoting:  # Initialize variables for fast pivoting, without re-evaluation of the norm at each step.
         squared_norms = weighted_norm(Q, M=M) ** 2
         max_norm = np.sqrt(np.max(squared_norms))

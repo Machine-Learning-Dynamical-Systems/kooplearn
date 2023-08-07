@@ -31,17 +31,17 @@ class MockData(DataGenerator):
 
 
 class LinearModel(DiscreteTimeDynamics):
-    def __init__(self, A: ArrayLike, noise: float = 0., rng_seed: Optional[int] = None):
+    def __init__(self, A: np.ndarray, noise: float = 0., rng_seed: Optional[int] = None):
         self.A = A
         self.noise = noise
         self.rng = np.random.default_rng(rng_seed)
 
-    def _step(self, X: ArrayLike):
+    def _step(self, X: np.ndarray):
         return self.A @ X + self.noise * self.rng.standard_normal(size=X.shape)
 
 
 class RegimeChangeVAR(DiscreteTimeDynamics):
-    def __init__(self, phi1: ArrayLike, phi2: ArrayLike, transition: ArrayLike, noise: float = 0.,
+    def __init__(self, phi1: np.ndarray, phi2: np.ndarray, transition: np.ndarray, noise: float = 0.,
                  rng_seed: Optional[int] = None):
         self.phi1 = phi1
         self.phi2 = phi2
@@ -50,7 +50,7 @@ class RegimeChangeVAR(DiscreteTimeDynamics):
         self.rng = np.random.default_rng(rng_seed)
         self.current_state = 0
 
-    def _step(self, X: ArrayLike):
+    def _step(self, X: np.ndarray):
         rand_trans = np.random.uniform(0, 1)
         if rand_trans < self.transition[self.current_state, 0]:
             self.current_state = 0
@@ -214,7 +214,7 @@ class MullerBrownPotential(DataGenerator):
         self.kt = kt
         self.rng = np.random.default_rng(rng_seed)
 
-    def generate(self, X0: ArrayLike, T: int = 1):
+    def generate(self, X0: np.ndarray, T: int = 1):
         tspan = np.arange(0, 0.1 * T, 0.1)
         result = sdeint.itoint(self.neg_grad_potential, self.noise_term, X0, tspan, self.rng)
         return result
@@ -306,7 +306,7 @@ class LangevinTripleWell1D(DiscreteTimeDynamics):
         self._ref_evd = LinalgDecomposition(vals, cc, vecs)
         self._ref_boltzmann_density = boltzmann_pdf
 
-    def _step(self, X: ArrayLike):
+    def _step(self, X: np.ndarray):
         F = self.force_fn(X)
         xi = self.rng.standard_normal(X.shape)
         dX = F * self._inv_gamma * self.dt + np.sqrt(2.0 * self.kt * self.dt * self._inv_gamma) * xi
