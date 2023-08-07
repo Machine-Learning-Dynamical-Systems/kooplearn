@@ -1,8 +1,10 @@
 import lightning as L
 import torch
 from kooplearn._src.deep_learning.lightning_modules.DPNetModule import DPNetModule
+from kooplearn._src.models.abc import TrainableFeatureMap
 
-class DPNetFeatureMap:
+
+class DPNetFeatureMap(TrainableFeatureMap):
     def __init__(self,
                  dnn_model_class, dnn_model_kwargs,
                  optimizer_fn, optimizer_kwargs,
@@ -38,7 +40,11 @@ class DPNetFeatureMap:
         self.callbacks = None
         self.trainer = None
         self.model = None
-        self.is_fitted = False
+        self._is_fitted = False
+
+    @property
+    def is_fitted(self):
+        return self._is_fitted
 
     def initialize_logger(self):
         # for the moment we will not use the logger
@@ -76,7 +82,7 @@ class DPNetFeatureMap:
             raise ValueError('Datamodule is required to use DNNFeatureMap.')
         self.datamodule = datamodule
         self.trainer.fit(model=self.dnn_model_module, datamodule=self.datamodule)
-        self.is_fitted = True
+        self._is_fitted = True
 
     def __call__(self, X):
         is_reshaped = False
@@ -96,13 +102,3 @@ class DPNetFeatureMap:
         return model_output['x_encoded'].detach().numpy()  # Everything should be outputted as a Numpy array
     # In the case where X is the entire dataset, we should implement a dataloader to avoid memory issues
     # (prediction on batches). For this we should implement a predict_step and call predict on the trainer.
-
-    def cov(self, X, Y=None):
-        phi_X = self.__call__(X)
-        if Y is None:
-            c = phi_X.T @ phi_X
-        else:
-            phi_Y = self.__call__(Y)
-            c = phi_X.T @ phi_Y
-        c *= (X.shape[0]) ** (-1)
-        return c

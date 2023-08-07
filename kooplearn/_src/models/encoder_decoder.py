@@ -1,17 +1,23 @@
 from numpy.typing import ArrayLike
-from kooplearn._src.models.edmd import PrimalRegressor
-from kooplearn._src.operator_regression import primal
+from kooplearn._src.models.abc import TrainableFeatureMap
+from kooplearn._src.models.edmd import EDMD
 
 
-class EncoderModel(PrimalRegressor):
-    def fit(self, X: ArrayLike, Y: ArrayLike):
+class EncoderModel(EDMD):
+    def __init__(self, feature_map: TrainableFeatureMap, rank=5, tikhonov_reg=None, svd_solver='full',
+                 iterated_power=1, n_oversamples=5, optimal_sketching=False):
+        super().__init__(feature_map, rank, tikhonov_reg, svd_solver, iterated_power, n_oversamples, optimal_sketching)
+
+    def fit(self, X: ArrayLike, Y: ArrayLike, datamodule=None):
         # Fitting the feature map
         if not self.feature_map.is_fitted:
-            self.feature_map.fit()
+            self.feature_map.initialize()
+            self.feature_map.fit(X, Y, datamodule)
+        if X is None or Y is None:
+            X, Y = self.feature_map.datamodule.train_dataset.get_X_Y_numpy_matrices()
         # Fitting the Koopman operator
         self.pre_fit_checks(X, Y)
-        vectors = primal.fit_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg, svd_solver='full')
-        self.U_ = vectors
+        super().fit(X, Y)
 
 
 # class EncoderDecoderModel(BaseModel):

@@ -4,20 +4,17 @@ from typing import Optional, Callable, Union
 from numpy.typing import ArrayLike
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted, check_X_y
-import pickle
-
 from kooplearn._src.models.abc import BaseModel, FeatureMap, IdentityFeatureMap
 from kooplearn._src.operator_regression import primal
 
 
-class PrimalRegressor(BaseModel):
-    def fit(self, X: ArrayLike, Y: ArrayLike):
-        raise NotImplementedError
-
+class EDMD(BaseModel):
     def __init__(self, feature_map: FeatureMap = IdentityFeatureMap(), rank=5, tikhonov_reg=None, svd_solver='full',
-                 iterated_power=1, n_oversamples=5, optimal_sketching=False):
+                 iterated_power=1, n_oversamples=5, optimal_sketching=False, reduced_rank=False, randomized=False):
         super().__init__(rank, tikhonov_reg, svd_solver, iterated_power, n_oversamples, optimal_sketching)
         self.feature_map = feature_map
+        self.reduced_rank = reduced_rank
+        self.randomized = randomized
         self.C_XY_ = None
         self.C_Y_ = None
         self.C_X_ = None
@@ -101,7 +98,7 @@ class PrimalRegressor(BaseModel):
         if hasattr(self, '_eig_cache'):
             del self._eig_cache
 
-    def _verify_adequacy(self, new_obj: PrimalRegressor):
+    def _verify_adequacy(self, new_obj: EDMD):
         if hasattr(new_obj, 'kernel'):
             return False
         if not hasattr(new_obj, 'feature_map'):
@@ -117,26 +114,45 @@ class PrimalRegressor(BaseModel):
             assert hasattr(new_obj, "feature_map"), "savefile does not contain an edmd model"
             self.feature_map = new_obj.feature_map
 
-
-class EDMDReducedRank(PrimalRegressor):
     def fit(self, X, Y):
         self.pre_fit_checks(X, Y)
-        if self.svd_solver == 'randomized':
-            vectors = primal.fit_rand_reduced_rank_regression_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg,
-                                                                       self.rank, self.n_oversamples,
-                                                                       self.iterated_power)
+        if self.reduced_rank:
+            if self.randomized:
+                vectors = primal.fit_rand_reduced_rank_regression_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg,
+                                                                           self.rank, self.n_oversamples,
+                                                                           self.iterated_power)
+            else:
+                vectors = primal.fit_reduced_rank_regression_tikhonov(self.C_X_, self.C_XY_, self.rank,
+                                                                      self.tikhonov_reg, self.svd_solver)
         else:
-            vectors = primal.fit_reduced_rank_regression_tikhonov(self.C_X_, self.C_XY_, self.rank, self.tikhonov_reg,
-                                                                  self.svd_solver)
+            if self.randomized:
+                vectors = primal.fit_rand_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg, self.rank,
+                                                   self.n_oversamples,
+                                                   self.iterated_power)
+            else:
+                vectors = primal.fit_tikhonov(self.C_X_, self.tikhonov_reg, self.rank, self.svd_solver)
         self.U_ = vectors
 
 
-class EDMD(PrimalRegressor):
-    def fit(self, X, Y):
-        self.pre_fit_checks(X, Y)
-        if self.svd_solver == 'randomized':
-            vectors = primal.fit_rand_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg, self.rank, self.n_oversamples,
-                                               self.iterated_power)
-        else:
-            vectors = primal.fit_tikhonov(self.C_X_, self.tikhonov_reg, self.rank, self.svd_solver)  # maybe working?
-        self.U_ = vectors
+# class EDMDReducedRank(PrimalRegressor):
+#     def fit(self, X, Y):
+#         self.pre_fit_checks(X, Y)
+#         if self.svd_solver == 'randomized':
+#             vectors = primal.fit_rand_reduced_rank_regression_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg,
+#                                                                        self.rank, self.n_oversamples,
+#                                                                        self.iterated_power)
+#         else:
+#             vectors = primal.fit_reduced_rank_regression_tikhonov(self.C_X_, self.C_XY_, self.rank, self.tikhonov_reg,
+#                                                                   self.svd_solver)
+#         self.U_ = vectors
+#
+#
+# class EDMD(PrimalRegressor):
+#     def fit(self, X, Y):
+#         self.pre_fit_checks(X, Y)
+#         if self.svd_solver == 'randomized':
+#             vectors = primal.fit_rand_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg, self.rank, self.n_oversamples,
+#                                                self.iterated_power)
+#         else:
+#             vectors = primal.fit_tikhonov(self.C_X_, self.tikhonov_reg, self.rank, self.svd_solver)  # maybe working?
+#         self.U_ = vectors
