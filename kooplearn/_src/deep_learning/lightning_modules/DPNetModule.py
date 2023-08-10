@@ -65,7 +65,7 @@ class DPNetModule(LightningModule):
         # if any y is out of series, we do not use the sample from the batch
         mask_out_of_series_left = batch['mask_out_of_series_left']
         mask_out_of_series_right = batch['mask_out_of_series_right']
-        mask_out_of_series = mask_out_of_series_left + mask_out_of_series_right
+        mask_out_of_series = mask_out_of_series_left | mask_out_of_series_right
         batch_out_of_series = mask_out_of_series.any(dim=-1).any(dim=-1)
         batch_in_series = ~batch_out_of_series
         x_value = batch['x_value'][batch_in_series]

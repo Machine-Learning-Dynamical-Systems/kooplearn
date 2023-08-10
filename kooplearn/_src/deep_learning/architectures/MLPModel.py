@@ -10,6 +10,7 @@ class MLPModel(nn.Module):
         self.hidden_dims = hidden_dims
         self.output_activation_fn = output_activation_fn
         self.activation_fn = activation_fn
+        self.flatten_input = flatten_input
         layer_dims = [input_dim] + hidden_dims
         if flatten_input:
             module_list = [nn.Flatten(start_dim=-2, end_dim=-1)]
