@@ -109,3 +109,6 @@ class TrainableFeatureMap(FeatureMap):
     @abc.abstractmethod
     def is_fitted(self) -> bool:
         pass
+
+    def initialize(self):
+        pass

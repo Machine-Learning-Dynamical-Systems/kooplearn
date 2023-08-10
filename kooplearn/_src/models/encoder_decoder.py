@@ -5,10 +5,12 @@ from kooplearn._src.models.edmd import EDMD
 
 class EncoderModel(EDMD):
     def __init__(self, feature_map: TrainableFeatureMap, rank=5, tikhonov_reg=None, svd_solver='full',
-                 iterated_power=1, n_oversamples=5, optimal_sketching=False):
-        super().__init__(feature_map, rank, tikhonov_reg, svd_solver, iterated_power, n_oversamples, optimal_sketching)
+                 iterated_power=1, n_oversamples=5, optimal_sketching=False, reduced_rank=False, randomized=False):
+        super().__init__(feature_map, rank, tikhonov_reg, svd_solver, iterated_power, n_oversamples, optimal_sketching,
+                         reduced_rank, randomized)
 
     def fit(self, X: ArrayLike, Y: ArrayLike, datamodule=None):
+        self.pre_fit_checks(X, Y)
         # Fitting the feature map
         if not self.feature_map.is_fitted:
             self.feature_map.initialize()
@@ -16,7 +18,6 @@ class EncoderModel(EDMD):
         if X is None or Y is None:
             X, Y = self.feature_map.datamodule.train_dataset.get_X_Y_numpy_matrices()
         # Fitting the Koopman operator
-        self.pre_fit_checks(X, Y)
         super().fit(X, Y)
 
 
