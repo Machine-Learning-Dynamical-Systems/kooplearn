@@ -11,7 +11,7 @@ def evolve_density(
         init_density: ArrayLike, 
         final_density_sampled_at: ArrayLike
         ) -> ArrayLike:
-    w, left_fns, right_fns = fitted_estimator.eig(eval_left_on= final_density_sampled_at, eval_right_on= init_density)
+    w, left_fns, right_fns = fitted_estimator.eig(eval_left_on=final_density_sampled_at, eval_right_on=init_density)
     w = np.diag(w**t)
     return np.squeeze(np.linalg.multi_dot([left_fns, w, right_fns.T]))
 

@@ -3,7 +3,7 @@ import torch
 from kooplearn._src.deep_learning.utils.Brunton_utils import advance_encoder_output
 
 
-class DPNetModule(LightningModule):
+class BruntonModule(LightningModule):
     def __init__(self,
                  encoder_class,
                  encoder_hyperparameters,

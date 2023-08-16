@@ -11,6 +11,8 @@ class EncoderModel(EDMD):
 
     def fit(self, X: ArrayLike, Y: ArrayLike, datamodule=None):
         self.pre_fit_checks(X, Y)
+        X = self.X_fit_
+        Y = self.Y_fit_
         # Fitting the feature map
         if not self.feature_map.is_fitted:
             self.feature_map.initialize()

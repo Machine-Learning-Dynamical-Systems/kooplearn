@@ -39,14 +39,14 @@ def advance_encoder_output(encoded_x_value, mus_omegas, lambdas):
     sin_omega = torch.sin(mus_omegas[..., 1])
     jordan_block = torch.stack([torch.cat([cos_omega, -sin_omega], dim=-1),
                                 torch.cat([sin_omega, cos_omega], dim=-1)],
-                               dim=-1)  # should be of shape (..., 2, 2)
+                               dim=-1)  # should be of shape (..., num_complex_pairs, 2, 2)
     jordan_block = torch.exp(mus_omegas[..., 0]) * jordan_block
     y_complex_pairs_matrix = torch.stack(
         [torch.cat([encoded_x_value[..., 0:-len(lambdas):2], encoded_x_value[..., 1:-len(lambdas):2]], dim=-1),
          torch.cat([encoded_x_value[..., 0:-len(lambdas):2], encoded_x_value[..., 1:-len(lambdas):2]], dim=-1)],
         dim=-1)  # should be of shape (..., num_complex_pairs, 2, 2)
     # next should be of shape (..., num_complex_pairs)
-    y_complex_pairs = torch.einsum('...ij,...kij -> ...k', jordan_block, y_complex_pairs_matrix)
+    y_complex_pairs = torch.einsum('...kij,...kij -> ...k', jordan_block, y_complex_pairs_matrix)
     y_real = encoded_x_value[..., -len(lambdas):]*torch.exp(lambdas)
     return torch.cat([y_complex_pairs, y_real], dim=-1)
 
