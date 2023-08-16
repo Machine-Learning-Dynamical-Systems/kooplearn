@@ -24,8 +24,8 @@ class BaseModel(abc.ABC):
         self.Y_fit_ = None
         self.X_fit_ = None
         self._eig_cache = None
-        self.V_ = None
-        self.U_ = None
+        # self.V_ = None
+        # self.U_ = None
 
     @abc.abstractmethod
     def fit(self, X: ArrayLike, Y: ArrayLike):
