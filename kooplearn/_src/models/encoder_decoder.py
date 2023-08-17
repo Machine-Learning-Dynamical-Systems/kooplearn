@@ -52,7 +52,7 @@ class EncoderModel(EDMD):
             self.feature_map.initialize()
             self.feature_map.fit(X, Y, datamodule)
         if X is None or Y is None:
-            X, Y = self.feature_map.datamodule.train_dataset.get_X_Y_numpy_matrices()
+            X, Y = self.feature_map.datamodule.train_dataset.get_numpy_matrices()
         # Fitting the Koopman operator
         super().fit(X, Y)
 

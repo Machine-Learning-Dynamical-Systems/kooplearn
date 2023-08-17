@@ -29,6 +29,7 @@ class BruntonModel(BaseModel):
     https://doi.org/10.1038/s41467-018-07210-0.
 
     Parameters:
+
         encoder_class: Class of the encoder. Can be any deep learning architecture (torch.nn.Module) that
             takes as input a dictionary containing the key 'x_value', a tensor of shape (..., n_features, temporal_dim),
             and encodes it into a tensor of shape (..., p) where p is the dimension of the autoencoder subspace.
@@ -61,17 +62,17 @@ class BruntonModel(BaseModel):
         num_real: Number of real eigenvalues parametrized by the auxiliary network. Note that the num_complex_pairs +
             num_real must be equal to the dimension of the autoencoder subspace.
         optimizer_fn: Optimizer function. Can be any torch.optim.Optimizer.
-        optimizer_kwargs: Hyperparameters of the optimizer. Must be a dictionary containing as keys the names of
-            the hyperparameters and as values the values of the hyperparameters of the optimizer.
+        optimizer_hyperparameters: Hyperparameters of the optimizer. Must be a dictionary containing as keys the names
+            of the hyperparameters and as values the values of the hyperparameters of the optimizer.
         scheduler_fn: Scheduler function. Can be any torch.optim.lr_scheduler.LRScheduler.
-        scheduler_kwargs: Hyperparameters of the scheduler. Must be a dictionary containing as keys the names of
-            the hyperparameters and as values the values of the hyperparameters of the scheduler.
+        scheduler_hyperparameters: Hyperparameters of the scheduler. Must be a dictionary containing as keys the names
+            of the hyperparameters and as values the values of the hyperparameters of the scheduler.
         scheduler_config: Configuration of the scheduler. Must be a dictionary containing as keys the names of
             the configuration parameters and as values the values of the configuration parameters of the scheduler.
             See https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#configure-optimizers for more
             information on how to configure the scheduler configuration (lr_scheduler_config in their documentation).
         callbacks_fns: List of callback functions. Can be any lightning callback.
-        callbacks_kwargs: List of dictionaries containing the hyperparameters of the callbacks. Must be a list of
+        callbacks_hyperparameters: List of dictionaries containing the hyperparameters of the callbacks. Must be a list of
             dictionaries containing as keys the names of the hyperparameters and as values the values of the
             hyperparameters of the callbacks in the order used in callbacks_fns.
         logger_fn: Logger function. Can be any lightning logger.
@@ -104,9 +105,10 @@ class BruntonModel(BaseModel):
             alpha_3: float,
             num_complex_pairs: int,
             num_real: int,
-            optimizer_fn: Type[torch.optim.Optimizer], optimizer_kwargs: dict,
-            scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler], scheduler_kwargs: dict, scheduler_config: dict,
-            callbacks_fns: list[Type[L.Callback]], callbacks_kwargs: list[dict],
+            optimizer_fn: Type[torch.optim.Optimizer], optimizer_hyperparameters: dict,
+            scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler], scheduler_hyperparameters: dict,
+            scheduler_config: dict,
+            callbacks_fns: list[Type[L.Callback]], callbacks_hyperparameters: list[dict],
             logger_fn: Type[Logger], logger_kwargs: dict,
             trainer_kwargs: dict,
             seed: int,
@@ -125,12 +127,12 @@ class BruntonModel(BaseModel):
         self.num_complex_pairs = num_complex_pairs
         self.num_real = num_real
         self.optimizer_fn = optimizer_fn
-        self.optimizer_kwargs = optimizer_kwargs
+        self.optimizer_hyperparameters = optimizer_hyperparameters
         self.scheduler_fn = scheduler_fn
-        self.scheduler_kwargs = scheduler_kwargs
+        self.scheduler_hyperparameters = scheduler_hyperparameters
         self.scheduler_config = scheduler_config
         self.callbacks_fns = callbacks_fns
-        self.callbacks_kwargs = callbacks_kwargs
+        self.callbacks_hyperparameters = callbacks_hyperparameters
         self.logger_fn = logger_fn
         self.logger_kwargs = logger_kwargs
         self.trainer_kwargs = trainer_kwargs
@@ -165,7 +167,7 @@ class BruntonModel(BaseModel):
         self.initialize_callbacks()
         self.initialize_trainer()
 
-    def fit(self, X: ArrayLike, Y: ArrayLike, datamodule=None):
+    def fit(self, X: ArrayLike, Y: ArrayLike, datamodule: L.LightningDataModule = None):
         """Fits the Brunton model.
 
         A datamodule is required for this model.
@@ -173,6 +175,7 @@ class BruntonModel(BaseModel):
         Parameters:
             X: X training data of shape (n_samples, n_features) corresponding to the state at time t.
             Y: Y training data of shape (n_samples, n_features) corresponding to the state at time t+1.
+            datamodule: Pytorch lightning datamodule.
         """
         self.pre_fit_checks(X, Y)
         # X = self.X_fit_
@@ -307,16 +310,16 @@ class BruntonModel(BaseModel):
             m_time_steps_linear_dynamics=self.m_time_steps_linear_dynamics,
             m_time_steps_future_state_prediction=self.m_time_steps_future_state_prediction,
             optimizer_fn=self.optimizer_fn,
-            optimizer_hyperparameters=self.optimizer_kwargs,
+            optimizer_hyperparameters=self.optimizer_hyperparameters,
             scheduler_fn=self.scheduler_fn,
-            scheduler_hyperparameters=self.scheduler_kwargs,
+            scheduler_hyperparameters=self.scheduler_hyperparameters,
             scheduler_config=self.scheduler_config,
             loss_fn=partial(brunton_loss, alpha_1=self.alpha_1, alpha_2=self.alpha_2),
         )
 
     def initialize_callbacks(self):
         """Initializes the callbacks."""
-        self.callbacks = [fn(**kwargs) for fn, kwargs in zip(self.callbacks_fns, self.callbacks_kwargs)]
+        self.callbacks = [fn(**kwargs) for fn, kwargs in zip(self.callbacks_fns, self.callbacks_hyperparameters)]
 
     def initialize_trainer(self):
         """Initializes the trainer."""

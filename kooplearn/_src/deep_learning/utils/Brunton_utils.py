@@ -1,9 +1,34 @@
+from typing import Type
+
 import torch
 import torch.nn as nn
 from copy import deepcopy
 
 
 class AuxiliaryNetworkWrapper(nn.Module):
+    """Wrapper for the auxiliary network used in [1].
+
+    This wrapper allows us to use any architecture for the auxiliary network as long as it takes the input_dim and
+    output_dim as arguments.
+
+    Parameters:
+
+        model_architecture: Architecture of the auxiliary network. Can be any deep learning architecture
+            (torch.nn.Module) that will be wrapped in a AuxiliaryNetworkWrapper. The auxiliary
+            network must take as input a dictionary containing the key 'x_value', a tensor of shape (..., input_dim) and
+            outputs a tensor of shape (..., output_dim) the auxiliary_network_class must take the keyword argument
+            input_dim and output_dim when being instantiated, which will be correctly set by this wrapper.
+        model_hyperparameters: Hyperparameters of the auxiliary network. Must be a dictionary containing as
+            keys the names of the hyperparameters and as values the values of the hyperparameters of the auxiliary
+            network. Note that the keyword arguments input_dim and output_dim will be set by this wrapper, so they
+            should not be included in model_hyperparameters.
+        num_complex_pairs: Number of complex pairs parametrized by the auxiliary network.
+        num_real: Number of real numbers parametrized by the auxiliary network.
+
+    [1] Lusch, Bethany, J. Nathan Kutz, and Steven L. Brunton. “Deep Learning for Universal Linear Embeddings of
+    Nonlinear Dynamics.” Nature Communications 9, no. 1 (November 23, 2018): 4950.
+    https://doi.org/10.1038/s41467-018-07210-0.
+    """
     # This module should work with any architecture that we want as long as it takes the input_dim and output_dim as
     # arguments. However, note that for partially connected layers (as originally suggested in the paper) this is not
     # the most efficient implementation. We could for example stack multiple non-fully connected layers using a
@@ -13,7 +38,8 @@ class AuxiliaryNetworkWrapper(nn.Module):
     # https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html) and (
     # https://www.youtube.com/watch?v=vVaRhZXovbw). Anyway, the original implementation also uses a for loop,
     # so it should be feasible.
-    def __init__(self, model_architecture, model_hyperparameters, num_complex_pairs, num_real):
+    def __init__(self, model_architecture: Type[nn.Module], model_hyperparameters: dict,
+                 num_complex_pairs: int, num_real: int):
         super().__init__()
         model_complex_pairs = model_architecture(**model_hyperparameters, input_dim=1, output_dim=2)
         model_real = model_architecture(**model_hyperparameters, input_dim=1, output_dim=1)

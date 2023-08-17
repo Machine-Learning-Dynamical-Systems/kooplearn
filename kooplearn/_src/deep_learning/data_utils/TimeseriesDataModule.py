@@ -1,3 +1,5 @@
+from typing import Callable
+
 import lightning as L
 import pandas as pd
 from torch.utils.data import DataLoader
@@ -7,6 +9,7 @@ from kooplearn._src.deep_learning.data_utils.TimeseriesDataset import Timeseries
 
 
 class EmptyDataset(Dataset):
+    """Empty dataset."""
     def __init__(self):
         super().__init__()
 
@@ -18,10 +21,30 @@ class EmptyDataset(Dataset):
 
 
 class TimeseriesDataModule(L.LightningDataModule):
+    """Pytorch Lightning data module for time series forecasting.
+
+    Automates the creation of train, validation and test datasets by providing the number of samples for each set. For
+    more details on the datasets, see the documentation of the TimeseriesDataset class.
+
+    Parameters:
+        df_series: Pandas dataframe containing the time series.
+        n_train: Number of training samples.
+        n_valid: Number of validation samples.
+        n_test: Number of test samples.
+        lb_window_size: Size of the lookback window.
+        freq_date: Frequency of the time series column date.
+        step: Step between two consecutive samples.
+        normalize: If True, normalize the data.
+        date_encoder_func: Function to encode the date.
+        number_of_consecutive_time_steps_generated: Number of consecutive time steps generated.
+        batch_size: Batch size when creating the dataloaders.
+        num_workers: Number of workers when creating the dataloaders.
+    """
     # In general for koopman we must have lb_window_size = horizon_size
-    def __init__(self, df_series, n_train, n_valid, n_test, lb_window_size, freq_date=None, step=1,
-                 date_encoder_func=None,  # horizon_size=None,
-                 batch_size=1, num_workers=0):
+    def __init__(self, df_series: pd.DataFrame, n_train: int, n_valid: int, n_test: int, lb_window_size: int,
+                 freq_date: str = None, step: int = 1, normalize: bool = True,  # horizon_size=None,
+                 date_encoder_func: Callable = None, number_of_consecutive_time_steps_generated: int = 1,
+                 batch_size: int = 1, num_workers: int = 0):
         super().__init__()
         self.save_hyperparameters(ignore=['df_series'])
         assert isinstance(df_series, pd.DataFrame)
@@ -36,6 +59,8 @@ class TimeseriesDataModule(L.LightningDataModule):
         self.step = step
         self.freq_date = freq_date
         self.date_encoder_func = date_encoder_func
+        self.normalize = normalize
+        self.number_of_consecutive_time_steps_generated = number_of_consecutive_time_steps_generated
         self.train_dataset = None
         self.valid_dataset = None
         self.test_dataset = None
@@ -55,14 +80,15 @@ class TimeseriesDataModule(L.LightningDataModule):
                 idx_start=idx_start_train,
                 idx_end=idx_end_train,
                 lb_window_size=self.lb_window_size,
-                horizon_size=self.horizon_size,
                 freq_date=self.freq_date,
                 date_encoder_func=self.date_encoder_func,
                 is_train=True,
                 step=self.step,
                 mean=None,
                 std=None,
-                idx_start_train=None
+                idx_start_train=None,
+                normalize=self.normalize,
+                number_of_consecutive_time_steps_generated=self.number_of_consecutive_time_steps_generated,
             )
             self.mean = self.train_dataset.mean
             self.std = self.train_dataset.std
@@ -73,14 +99,15 @@ class TimeseriesDataModule(L.LightningDataModule):
                     idx_start=idx_start_valid,
                     idx_end=idx_end_valid,
                     lb_window_size=self.lb_window_size,
-                    horizon_size=self.horizon_size,
                     freq_date=self.freq_date,
                     date_encoder_func=self.date_encoder_func,
                     is_train=False,
                     step=self.step,
                     mean=self.mean,
                     std=self.std,
-                    idx_start_train=self.idx_start_train
+                    idx_start_train=self.idx_start_train,
+                    normalize=self.normalize,
+                    number_of_consecutive_time_steps_generated=self.number_of_consecutive_time_steps_generated,
                 )
             else:
                 self.valid_dataset = None
@@ -93,15 +120,18 @@ class TimeseriesDataModule(L.LightningDataModule):
                     idx_start=idx_start_test,
                     idx_end=idx_end_test,
                     lb_window_size=self.lb_window_size,
-                    horizon_size=self.horizon_size,
                     freq_date=self.freq_date,
                     date_encoder_func=self.date_encoder_func,
                     is_train=False,
                     step=self.step,
                     mean=self.mean,
                     std=self.std,
-                    idx_start_train=self.idx_start_train
+                    idx_start_train=self.idx_start_train,
+                    normalize=self.normalize,
+                    number_of_consecutive_time_steps_generated=self.number_of_consecutive_time_steps_generated,
                 )
+                # TODO decide how we want to handle the test dataset (predict one step ahead or for the ensured
+                #  prediction horizon). Probably the latter.
             else:
                 self.test_dataset = None
 

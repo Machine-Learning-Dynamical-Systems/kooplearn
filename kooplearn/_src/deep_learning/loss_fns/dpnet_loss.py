@@ -1,7 +1,23 @@
 import torch
 
 
-def dpnets_loss(x_encoded, y_encoded, rank=None, p_loss_coef=1.0, s_loss_coef=1.0, reg_1_coef=1.0, reg_2_coef=1.0):
+def dpnets_loss(x_encoded: torch.Tensor, y_encoded: torch.Tensor, p_loss_coef: float = 1.0, s_loss_coef: float = 0,
+                reg_1_coef: float = 0, reg_2_coef: float = 0, rank: int = None):
+    """Computes the loss used in [1].
+
+    Parameters:
+        x_encoded: value of x after being encoded.
+        y_encoded: value of y after being encoded.
+        p_loss_coef: Coefficient of the score function P.
+        s_loss_coef: Coefficient of the score function S.
+        reg_1_coef: Coefficient of the regularization term 1.
+        reg_2_coef: Coefficient of the regularization term 2.
+        rank: Rank of the Koopman estimator (only needed when using the regularization with term 2).
+
+    [1] Vladimir Kostic, Pietro Novelli, Riccardo Grazzi, Karim Lounici, and Massimiliano Pontil. “Deep
+    Projection Networks for Learning Time-Homogeneous Dynamical Systems.” arXiv, July 19,
+    2023. https://doi.org/10.48550/arXiv.2307.09912.
+    """
     n = x_encoded.shape[-2]
     cov_x = x_encoded @ x_encoded.T / n
     cov_y = y_encoded @ y_encoded.T / n

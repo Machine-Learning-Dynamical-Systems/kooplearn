@@ -1,25 +1,70 @@
+from typing import Type, Callable
+
 from lightning import LightningModule
 import torch
 from kooplearn._src.deep_learning.utils.Brunton_utils import advance_encoder_output
 
 
 class BruntonModule(LightningModule):
-    def __init__(self,
-                 encoder_class,
-                 encoder_hyperparameters,
-                 decoder_class,
-                 decoder_hyperparameters,
-                 auxiliary_network_class,
-                 auxiliary_network_hyperparameters,
-                 optimizer_fn,
-                 optimizer_hyperparameters,
-                 loss_fn,
-                 m_time_steps_linear_dynamics,
-                 m_time_steps_future_state_prediction,
-                 scheduler_fn=None,
-                 scheduler_hyperparameters=None,
-                 scheduler_config=None,
-                 ):
+    """Pytorch Lightning module for Brunton's model.
+
+    Organized as a classical LightningModule check the documentation of Pytorch Lightning for more details.
+
+    Note: We split the class/functions from the keyword arguments to be able to easily save and load the model and
+    log the hyperparameters.
+
+    Parameters:
+        encoder_class: Class of the encoder. Can be any deep learning architecture (torch.nn.Module) that
+            takes as input a dictionary containing the key 'x_value', a tensor of shape (..., n_features, temporal_dim),
+            and encodes it into a tensor of shape (..., p) where p is the dimension of the autoencoder subspace.
+        encoder_hyperparameters: Hyperparameters of the encoder. Must be a dictionary containing as keys the names of
+            the hyperparameters and as values the values of the hyperparameters of the encoder.
+        decoder_class: Class of the decoder. Can be any deep learning architecture (torch.nn.Module) that
+            takes as input a dictionary containing the key 'x_value', a tensor of shape (..., p) where p is the
+            dimension of the autoencoder subspace and decodes it into a tensor of shape
+            (..., n_features * temporal_dim).
+        decoder_hyperparameters: Hyperparameters of the decoder. Must be a dictionary containing as keys the names of
+            the hyperparameters and as values the values of the hyperparameters of the decoder.
+        auxiliary_network_class: Class of the auxiliary network. Can be any deep learning architecture (torch.nn.Module)
+            that will be wrapped in a AuxiliaryNetworkWrapper. The auxiliary network must take as input a dictionary
+            containing the key 'x_value', a tensor of shape (..., input_dim) and outputs a tensor of shape
+            (..., output_dim) the auxiliary_network_class must take the keyword argument input_dim and output_dim when
+            being instantiate, which will be correctly set by the AuxiliaryNetworkWrapper.
+            TODO For more details, see the documentation of AuxiliaryNetworkWrapper.
+        auxiliary_network_hyperparameters: Hyperparameters of the auxiliary network. Must be a dictionary containing as
+            keys the names of the hyperparameters and as values the values of the hyperparameters of the auxiliary
+            network. Note that the keyword arguments input_dim and output_dim will be set by the
+            AuxiliaryNetworkWrapper, so they should not be included in auxiliary_network_hyperparameters.
+        optimizer_fn: Optimizer function. Can be any torch.optim.Optimizer.
+        optimizer_hyperparameters: Hyperparameters of the optimizer. Must be a dictionary containing as keys the names
+            of the hyperparameters and as values the values of the hyperparameters of the optimizer.
+        m_time_steps_linear_dynamics: Number of time steps m to enforce linear prediction, used in the linear dynamics
+            loss term.
+        m_time_steps_future_state_prediction: Number of time steps m to perform future state prediction, used in the
+            future state prediction loss term.
+        scheduler_fn: Scheduler function. Can be any torch.optim.lr_scheduler.LRScheduler.
+        scheduler_hyperparameters: Hyperparameters of the scheduler. Must be a dictionary containing as keys the names
+            of the hyperparameters and as values the values of the hyperparameters of the scheduler.
+        scheduler_config: Configuration of the scheduler. Must be a dictionary containing as keys the names of
+            the configuration parameters and as values the values of the configuration parameters of the scheduler.
+            See https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#configure-optimizers for more
+            information on how to configure the scheduler configuration (lr_scheduler_config in their documentation).
+    """
+    def __init__(
+            self,
+            encoder_class: Type[torch.nn.Module],
+            encoder_hyperparameters: dict,
+            decoder_class: Type[torch.nn.Module],
+            decoder_hyperparameters: dict,
+            auxiliary_network_class: Type[torch.nn.Module],
+            auxiliary_network_hyperparameters: dict,
+            optimizer_fn: Type[torch.optim.Optimizer], optimizer_hyperparameters: dict,
+            loss_fn: Callable,
+            m_time_steps_linear_dynamics: int,
+            m_time_steps_future_state_prediction: int,
+            scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler] = None, scheduler_hyperparameters: dic = None,
+            scheduler_config: dict = None,
+    ):
         super().__init__()
         for k, v in encoder_hyperparameters.items():
             self.hparams[f'encoder_{k}'] = v
@@ -71,6 +116,7 @@ class BruntonModule(LightningModule):
         return self.decoder({'x_value': advanced_encoded_x_value})
 
     def base_step(self, batch, batch_idx):
+        """Default step (train loop) used for training and validation."""
         # dimensions convention (..., number_of_consecutive_time_steps_generated, channels, temporal_dim)
         # if any y is out of series, we do not use the sample from the batch
         mask_out_of_series_left = batch['mask_out_of_series_left']

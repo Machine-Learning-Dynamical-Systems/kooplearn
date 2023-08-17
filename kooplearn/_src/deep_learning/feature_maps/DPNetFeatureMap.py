@@ -1,38 +1,108 @@
+from functools import partial
+from typing import Type, Callable
 import lightning as L
+from lightning.pytorch.loggers.logger import Logger
 import torch
+from torch import nn
 from kooplearn._src.deep_learning.lightning_modules.DPNetModule import DPNetModule
+from kooplearn._src.deep_learning.loss_fns.dpnet_loss import dpnets_loss
 from kooplearn._src.models.abc import TrainableFeatureMap
+from numpy.typing import ArrayLike
 
 
 class DPNetFeatureMap(TrainableFeatureMap):
-    def __init__(self,
-                 dnn_model_class, dnn_model_kwargs,
-                 optimizer_fn, optimizer_kwargs,
-                 scheduler_fn, scheduler_kwargs, scheduler_config,
-                 callbacks_fns, callbacks_kwargs,
-                 logger_fn, logger_kwargs,
-                 trainer_kwargs,
-                 seed,
-                 loss_fn,
-                 dnn_model_class_2=None, dnn_model_kwargs_2=None,
-                 ):
+    """Feature map to be used with EncoderModel to create a DPNet model.
+
+    Trainable feature map based on [1]. The feature map is based on two neural networks, one for encoding the input
+    and another for encoding the output. In case we do not specify the encoder for the output, we use the same model
+    as the encoder for the input (with shared weights).
+
+    The feature map is implemented using Pytorch Lightning.
+
+    [1] Vladimir Kostic, Pietro Novelli, Riccardo Grazzi, Karim Lounici, and Massimiliano Pontil. “Deep
+    Projection Networks for Learning Time-Homogeneous Dynamical Systems.” arXiv, July 19,
+    2023. https://doi.org/10.48550/arXiv.2307.09912.
+
+    Parameters:
+        encoder_input_class: Class of the neural network used for encoding the input. Can be any deep learning
+            architecture (torch.nn.Module) that takes as input a dictionary containing the key 'x_value', a tensor of
+            shape (..., n_features, temporal_dim), and encodes it into a tensor of shape (..., output_dimension).
+        encoder_input_hyperparameters: Hyperparameters of the neural network used for encoding the input. Must be a dictionary
+            containing as keys the names of the hyperparameters and as values the values of the hyperparameters of the
+            encoder.
+        optimizer_fn: Optimizer function. Can be any torch.optim.Optimizer.
+        optimizer_hyperparameters: Hyperparameters of the optimizer. Must be a dictionary containing as keys the names of
+            the hyperparameters and as values the values of the hyperparameters of the optimizer.
+        scheduler_fn: Scheduler function. Can be any torch.optim.lr_scheduler.LRScheduler.
+        scheduler_hyperparameters: Hyperparameters of the scheduler. Must be a dictionary containing as keys the names of
+            the hyperparameters and as values the values of the hyperparameters of the scheduler.
+        scheduler_config: Configuration of the scheduler. Must be a dictionary containing as keys the names of
+            the configuration parameters and as values the values of the configuration parameters of the scheduler.
+            See https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#configure-optimizers for more
+            information on how to configure the scheduler configuration (lr_scheduler_config in their documentation).
+        callbacks_fns: List of callback functions. Can be any lightning callback.
+        callbacks_hyperparameters: List of dictionaries containing the hyperparameters of the callbacks. Must be a list of
+            dictionaries containing as keys the names of the hyperparameters and as values the values of the
+            hyperparameters of the callbacks in the order used in callbacks_fns.
+        logger_fn: Logger function. Can be any lightning logger.
+        logger_kwargs: Hyperparameters of the logger. Must be a dictionary containing as keys the names of
+            the hyperparameters and as values the values of the hyperparameters of the logger.
+        trainer_kwargs: Hyperparameters of the trainer. Must be a dictionary containing as keys the names of
+            the hyperparameters and as values the values of the hyperparameters of the lightning trainer.
+        seed: Seed for reproducibility.
+        encoder_output_class: Class of the neural network used for encoding the output. Can be any deep learning
+            architecture (torch.nn.Module) that takes as input a dictionary containing the key 'x_value', a tensor of
+            shape (..., n_features, temporal_dim), and encodes it into a tensor of shape (..., output_dimension).
+        encoder_output_kwargs: Hyperparameters of the neural network used for encoding the output. Must be a dictionary
+            containing as keys the names of the hyperparameters and as values the values of the hyperparameters of the
+            encoder.
+        p_loss_coef: Coefficient of the score function P.
+        s_loss_coef: Coefficient of the score function S.
+        reg_1_coef: Coefficient of the regularization term 1.
+        reg_2_coef: Coefficient of the regularization term 2.
+        rank: Rank of the estimator (same as passed for the koopman estimator). Only needed in case we use the
+            regularization term 2.
+    """
+    def __init__(
+            self,
+            encoder_input_class: Type[nn.Module], encoder_input_hyperparameters: dict,
+            optimizer_fn: Type[torch.optim.Optimizer], optimizer_hyperparameters: dict,
+            scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler], scheduler_hyperparameters: dict,
+            scheduler_config: dict,
+            callbacks_fns: list[Type[L.Callback]], callbacks_hyperparameters: list[dict],
+            logger_fn: Type[Logger], logger_kwargs: dict,
+            trainer_kwargs: dict,
+            seed: int,
+            encoder_output_class: Type[nn.Module] = None, encoder_output_kwargs: dict = None,
+            p_loss_coef: float = 1.0,
+            s_loss_coef: float = 0,
+            reg_1_coef: float = 0,
+            reg_2_coef: float = 0,
+            rank: int = None,
+    ):
         self.dnn_model_module_class = DPNetModule
-        self.dnn_model_class = dnn_model_class
-        self.dnn_model_kwargs = dnn_model_kwargs
+        self.encoder_input_class = encoder_input_class
+        self.encoder_input_hyperparameters = encoder_input_hyperparameters
         self.optimizer_fn = optimizer_fn
-        self.optimizer_kwargs = optimizer_kwargs
+        self.optimizer_hyperparameters = optimizer_hyperparameters
         self.scheduler_fn = scheduler_fn
-        self.scheduler_kwargs = scheduler_kwargs
+        self.scheduler_hyperparameters = scheduler_hyperparameters
         self.scheduler_config = scheduler_config
         self.callbacks_fns = callbacks_fns
-        self.callbacks_kwargs = callbacks_kwargs
+        self.callbacks_hyperparameters = callbacks_hyperparameters
         self.logger_fn = logger_fn
         self.logger_kwargs = logger_kwargs
         self.trainer_kwargs = trainer_kwargs
-        self.loss_fn = loss_fn
         self.seed = seed
-        self.dnn_model_class_2 = dnn_model_class_2
-        self.dnn_model_kwargs_2 = dnn_model_kwargs_2
+        self.encoder_output_class = encoder_output_class
+        self.encoder_output_hyperparameters = encoder_output_kwargs
+        self.p_loss_coef = p_loss_coef
+        self.s_loss_coef = s_loss_coef
+        self.reg_1_coef = reg_1_coef
+        self.reg_2_coef = reg_2_coef
+        self.rank = rank
+        self.loss_fn = partial(dpnets_loss, rank=rank, p_loss_coef=p_loss_coef, s_loss_coef=s_loss_coef,
+                               reg_1_coef=reg_1_coef, reg_2_coef=reg_2_coef)
         L.seed_everything(seed)
         self.logger = None
         self.datamodule = None
@@ -47,37 +117,51 @@ class DPNetFeatureMap(TrainableFeatureMap):
         return self._is_fitted
 
     def initialize_logger(self):
+        """Initializes the logger."""
         # for the moment we will not use the logger
         pass
         # self.logger = self.logger_fn(**self.logger_kwargs)
         # # log what is not logged by default using pytorch lightning
         # self.logger.log_hyperparams({'seed': self.seed})
         # self.logger.log_hyperparams(self.trainer_kwargs)
-        # for kwargs in self.callbacks_kwargs:
+        # for kwargs in self.callbacks_hyperparameters:
         #     self.logger.log_hyperparams(kwargs)
 
     def initialize_model_module(self):
+        """Initializes the DPNet lightning module."""
         self.dnn_model_module = self.dnn_model_module_class(
-            model_class=self.dnn_model_class, model_hyperparameters=self.dnn_model_kwargs,
-            optimizer_fn=self.optimizer_fn, optimizer_hyperparameters=self.optimizer_kwargs, loss_fn=self.loss_fn,
-            scheduler_fn=self.scheduler_fn, scheduler_hyperparameters=self.scheduler_kwargs,
+            model_class=self.encoder_input_class, model_hyperparameters=self.encoder_input_hyperparameters,
+            optimizer_fn=self.optimizer_fn, optimizer_hyperparameters=self.optimizer_hyperparameters, loss_fn=self.loss_fn,
+            scheduler_fn=self.scheduler_fn, scheduler_hyperparameters=self.scheduler_hyperparameters,
             scheduler_config=self.scheduler_config,
-            model_class_2=self.dnn_model_class_2, model_hyperparameters_2=self.dnn_model_kwargs_2,
+            model_class_2=self.encoder_output_class, model_hyperparameters_2=self.encoder_output_hyperparameters,
         )
 
     def initialize_callbacks(self):
-        self.callbacks = [fn(**kwargs) for fn, kwargs in zip(self.callbacks_fns, self.callbacks_kwargs)]
+        """Initializes the callbacks."""
+        self.callbacks = [fn(**kwargs) for fn, kwargs in zip(self.callbacks_fns, self.callbacks_hyperparameters)]
 
     def initialize_trainer(self):
+        """Initializes the trainer."""
         self.trainer = L.Trainer(**self.trainer_kwargs, callbacks=self.callbacks, logger=self.logger)
 
     def initialize(self):
+        """Initializes the feature map."""
         self.initialize_logger()
         self.initialize_model_module()
         self.initialize_callbacks()
         self.initialize_trainer()
 
-    def fit(self, X=None, Y=None, datamodule=None):
+    def fit(self, X: ArrayLike, Y: ArrayLike, datamodule: L.LightningDataModule = None):
+        """Fits the DPNet feature map.
+
+        A datamodule is required for this model.
+
+        Parameters:
+            X: X training data of shape (n_samples, n_features) corresponding to the state at time t.
+            Y: Y training data of shape (n_samples, n_features) corresponding to the state at time t+1.
+            datamodule: Pytorch lightning datamodule.
+        """
         if datamodule is None:
             raise ValueError('Datamodule is required to use DNNFeatureMap.')
         self.datamodule = datamodule
@@ -85,6 +169,7 @@ class DPNetFeatureMap(TrainableFeatureMap):
         self._is_fitted = True
 
     def __call__(self, X):
+        """Applies the feature map to X."""
         is_reshaped = False
         if not torch.is_tensor(X):
             X = torch.tensor(X, dtype=torch.float32)
