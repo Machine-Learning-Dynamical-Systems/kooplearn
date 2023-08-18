@@ -48,9 +48,9 @@ class DPNetModule(LightningModule):
     ):
         super().__init__()
         for k, v in encoder_input_hyperparameters.items():
-            self.hparams[k] = v
+            self.hparams[f'encoder_input_{k}'] = v
         for k, v in encoder_output_hyperparameters.items():
-            self.hparams[f'model_2_{k}'] = v
+            self.hparams[f'encoder_output_{k}'] = v
         for k, v in optimizer_hyperparameters.items():
             self.hparams[f'optim_{k}'] = v
         for k, v in scheduler_hyperparameters.items():

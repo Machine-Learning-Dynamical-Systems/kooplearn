@@ -67,35 +67,34 @@ class DPNetFeatureMap(TrainableFeatureMap):
             self,
             encoder_input_class: Type[nn.Module], encoder_input_hyperparameters: dict,
             optimizer_fn: Type[torch.optim.Optimizer], optimizer_hyperparameters: dict,
-            scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler], scheduler_hyperparameters: dict,
-            scheduler_config: dict,
-            callbacks_fns: list[Type[L.Callback]], callbacks_hyperparameters: list[dict],
-            logger_fn: Type[Logger], logger_kwargs: dict,
             trainer_kwargs: dict,
             seed: int,
-            encoder_output_class: Type[nn.Module] = None, encoder_output_kwargs: dict = None,
+            scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler] = None, scheduler_hyperparameters: dict = None,
+            scheduler_config: dict = None,
+            callbacks_fns: list[Type[L.Callback]] = None, callbacks_hyperparameters: list[dict] = None,
+            logger_fn: Type[Logger] = None, logger_kwargs: dict = None,
+            encoder_output_class: Type[nn.Module] = None, encoder_output_hyperparameters: dict = None,
             p_loss_coef: float = 1.0,
             s_loss_coef: float = 0,
             reg_1_coef: float = 0,
             reg_2_coef: float = 0,
             rank: int = None,
     ):
-        self.dnn_model_module_class = DPNetModule
         self.encoder_input_class = encoder_input_class
         self.encoder_input_hyperparameters = encoder_input_hyperparameters
         self.optimizer_fn = optimizer_fn
         self.optimizer_hyperparameters = optimizer_hyperparameters
         self.scheduler_fn = scheduler_fn
-        self.scheduler_hyperparameters = scheduler_hyperparameters
-        self.scheduler_config = scheduler_config
+        self.scheduler_hyperparameters = scheduler_hyperparameters if scheduler_hyperparameters else {}
+        self.scheduler_config = scheduler_config if scheduler_config else {}
         self.callbacks_fns = callbacks_fns
-        self.callbacks_hyperparameters = callbacks_hyperparameters
+        self.callbacks_hyperparameters = callbacks_hyperparameters if callbacks_hyperparameters else []
         self.logger_fn = logger_fn
-        self.logger_kwargs = logger_kwargs
+        self.logger_kwargs = logger_kwargs if logger_kwargs else {}
         self.trainer_kwargs = trainer_kwargs
         self.seed = seed
         self.encoder_output_class = encoder_output_class
-        self.encoder_output_hyperparameters = encoder_output_kwargs
+        self.encoder_output_hyperparameters = encoder_output_hyperparameters if encoder_output_hyperparameters else {}
         self.p_loss_coef = p_loss_coef
         self.s_loss_coef = s_loss_coef
         self.reg_1_coef = reg_1_coef
@@ -118,28 +117,30 @@ class DPNetFeatureMap(TrainableFeatureMap):
 
     def initialize_logger(self):
         """Initializes the logger."""
-        # for the moment we will not use the logger
-        pass
-        # self.logger = self.logger_fn(**self.logger_kwargs)
-        # # log what is not logged by default using pytorch lightning
-        # self.logger.log_hyperparams({'seed': self.seed})
-        # self.logger.log_hyperparams(self.trainer_kwargs)
-        # for kwargs in self.callbacks_hyperparameters:
-        #     self.logger.log_hyperparams(kwargs)
+        if self.logger_fn:
+            self.logger = self.logger_fn(**self.logger_kwargs)
+        else:
+            self.logger = None
 
     def initialize_model_module(self):
         """Initializes the DPNet lightning module."""
-        self.dnn_model_module = self.dnn_model_module_class(
-            model_class=self.encoder_input_class, model_hyperparameters=self.encoder_input_hyperparameters,
-            optimizer_fn=self.optimizer_fn, optimizer_hyperparameters=self.optimizer_hyperparameters, loss_fn=self.loss_fn,
+        self.dnn_model_module = DPNetModule(
+            encoder_input_class=self.encoder_input_class,
+            encoder_input_hyperparameters=self.encoder_input_hyperparameters,
+            optimizer_fn=self.optimizer_fn, optimizer_hyperparameters=self.optimizer_hyperparameters,
+            loss_fn=self.loss_fn,
             scheduler_fn=self.scheduler_fn, scheduler_hyperparameters=self.scheduler_hyperparameters,
             scheduler_config=self.scheduler_config,
-            model_class_2=self.encoder_output_class, model_hyperparameters_2=self.encoder_output_hyperparameters,
+            encoder_output_class=self.encoder_output_class,
+            encoder_output_hyperparameters=self.encoder_output_hyperparameters,
         )
 
     def initialize_callbacks(self):
         """Initializes the callbacks."""
-        self.callbacks = [fn(**kwargs) for fn, kwargs in zip(self.callbacks_fns, self.callbacks_hyperparameters)]
+        if self.callbacks_fns:
+            self.callbacks = [fn(**kwargs) for fn, kwargs in zip(self.callbacks_fns, self.callbacks_hyperparameters)]
+        else:
+            self.callbacks = []
 
     def initialize_trainer(self):
         """Initializes the trainer."""
@@ -170,20 +171,16 @@ class DPNetFeatureMap(TrainableFeatureMap):
 
     def __call__(self, X):
         """Applies the feature map to X."""
-        is_reshaped = False
         if not torch.is_tensor(X):
             X = torch.tensor(X, dtype=torch.float32)
         if X.shape[-1] == self.datamodule.lb_window_size*self.datamodule.train_dataset.values.shape[-1]:
             # In this case X is (n_samples, n_features*lb_window_size), but we want
             # (n_samples, n_features, lb_window_size)
             X = X.reshape(X.shape[0], -1, self.datamodule.lb_window_size)
-            is_reshaped = True
         data = {'x_value': X}
         self.dnn_model_module.eval()
         with torch.no_grad():
             model_output = self.dnn_model_module(data)
-        if is_reshaped:
-            return model_output['x_encoded'].reshape(X.shape[0], -1).detach().numpy()
-        return model_output['x_encoded'].detach().numpy()  # Everything should be outputted as a Numpy array
+        return model_output.detach().numpy()  # Everything should be outputted as a Numpy array
     # In the case where X is the entire dataset, we should implement a dataloader to avoid memory issues
     # (prediction on batches). For this we should implement a predict_step and call predict on the trainer.

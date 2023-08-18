@@ -1,3 +1,4 @@
+# First Review (Pietro, answered by Bruno)
 The code is far too complex to be putted in this form. Some comments:
 
 1. There is no need to define an additional `DPNet` model, we can just use the `encoder_decoder.EncoderModel` class.
@@ -20,6 +21,7 @@ The code is far too complex to be putted in this form. Some comments:
       - Data (Dataset + LightningDataModule if we want to automate the data loading/split of data)
       - Loss function
       - The training/validation/test loop (LightningModule)
+      
       Besides, you need the code that will handle the interaction between all these components, which is the role of the
       Trainer. As we are using Pytorch Lightning we can also define callbacks that will add some functionalities to the
       training loop, like early stopping, logging, gradient clipping etc. Finally, if we want to log the training 
@@ -34,3 +36,7 @@ The code is far too complex to be putted in this form. Some comments:
       would encode the state at t+1. In general, we can use different models to encode the data at t and t+1, so for 
       me, it makes sense to be able to define 2 different models, we can discuss the details, but I think that this 
       is something that will become clear with some documentation.
+
+# Some observations (Bruno)
+1. Shouldn't the second regularization form (r + tr(C*log(C) - C)) be (r + tr(C*log(C.abs()) - C))? This way we 
+   avoid  the `nan` values when C has negative values.

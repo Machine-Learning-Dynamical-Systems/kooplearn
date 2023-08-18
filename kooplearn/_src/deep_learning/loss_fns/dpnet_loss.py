@@ -61,6 +61,6 @@ def regularization_1(cov_x, cov_y):
 
 
 def regularization_2(cov_x, cov_y, rank):
-    r1 = rank + torch.trace(cov_x @ torch.log(cov_x) - cov_x)
-    r2 = rank + torch.trace(cov_y @ torch.log(cov_y) - cov_y)
+    r1 = rank + torch.trace(cov_x @ torch.log(cov_x.abs()) - cov_x)
+    r2 = rank + torch.trace(cov_y @ torch.log(cov_y.abs()) - cov_y)
     return (r1 + r2).mean()

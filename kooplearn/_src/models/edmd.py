@@ -38,7 +38,7 @@ class EDMD(BaseModel):
         U_: TODO add description.
     """
     def __init__(self, feature_map: FeatureMap = IdentityFeatureMap(), reduced_rank=False, randomized=False,
-                 rank=5, tikhonov_reg=None, svd_solver='full', iterated_power=1, n_oversamples=5):
+                 rank=5, tikhonov_reg=0, svd_solver='full', iterated_power=1, n_oversamples=5):
         super().__init__(rank, tikhonov_reg, svd_solver, iterated_power, n_oversamples, optimal_sketching=False)
         self.feature_map = feature_map
         self.reduced_rank = reduced_rank
