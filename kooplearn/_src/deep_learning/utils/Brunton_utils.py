@@ -29,6 +29,7 @@ class AuxiliaryNetworkWrapper(nn.Module):
     Nonlinear Dynamics.” Nature Communications 9, no. 1 (November 23, 2018): 4950.
     https://doi.org/10.1038/s41467-018-07210-0.
     """
+
     # This module should work with any architecture that we want as long as it takes the input_dim and output_dim as
     # arguments. However, note that for partially connected layers (as originally suggested in the paper) this is not
     # the most efficient implementation. We could for example stack multiple non-fully connected layers using a
@@ -49,30 +50,32 @@ class AuxiliaryNetworkWrapper(nn.Module):
     def forward(self, y):
         # dimensions convention (..., dimension_of_autoencoder_subspace)
         # note that the dimension_of_autoencoder_subspace must be equal to 2 * num_complex_pairs + num_real
-        radius_of_pairs = y[..., 0:-len(self.models_real):2]**2 + y[..., 1:-len(self.models_real):2]**2
+        radius_of_pairs = y[..., 0:-len(self.models_real):2] ** 2 + y[..., 1:-len(self.models_real):2] ** 2
         mus_omegas = []
         lambdas = []
         for i, model in enumerate(self.models_complex_pairs):
-            mus_omegas.append(model(radius_of_pairs[..., i]))
+            mus_omegas.append(model({'x_value': radius_of_pairs[..., i][..., None]}))
         for i, model in enumerate(self.models_real):
-            lambdas.append(model(y[..., -len(self.models_real) + i]))
-        return torch.cat(mus_omegas, dim=-1), torch.cat(lambdas, dim=-1)
+            lambdas.append(model({'x_value': y[..., -len(self.models_real) + i][..., None]}))
+        return torch.stack(mus_omegas, dim=-2), torch.cat(lambdas, dim=-1)
 
 
 def advance_encoder_output(encoded_x_value, mus_omegas, lambdas):
     # we will try to eliminate the for loop of the original implementation....must check if it works
     cos_omega = torch.cos(mus_omegas[..., 1])
     sin_omega = torch.sin(mus_omegas[..., 1])
-    jordan_block = torch.stack([torch.cat([cos_omega, -sin_omega], dim=-1),
-                                torch.cat([sin_omega, cos_omega], dim=-1)],
+    jordan_block = torch.stack([torch.stack([cos_omega, -sin_omega], dim=-1),
+                                torch.stack([sin_omega, cos_omega], dim=-1)],
                                dim=-1)  # should be of shape (..., num_complex_pairs, 2, 2)
-    jordan_block = torch.exp(mus_omegas[..., 0]) * jordan_block
+    jordan_block = torch.exp(mus_omegas[..., 0])[..., None, None] * jordan_block
     y_complex_pairs_matrix = torch.stack(
-        [torch.cat([encoded_x_value[..., 0:-len(lambdas):2], encoded_x_value[..., 1:-len(lambdas):2]], dim=-1),
-         torch.cat([encoded_x_value[..., 0:-len(lambdas):2], encoded_x_value[..., 1:-len(lambdas):2]], dim=-1)],
+        [
+            torch.stack([encoded_x_value[..., 0:-lambdas.shape[-1]:2], encoded_x_value[..., 1:-lambdas.shape[-1]:2]],
+                        dim=-1),
+            torch.stack([encoded_x_value[..., 0:-lambdas.shape[-1]:2], encoded_x_value[..., 1:-lambdas.shape[-1]:2]],
+                        dim=-1)],
         dim=-1)  # should be of shape (..., num_complex_pairs, 2, 2)
-    # next should be of shape (..., num_complex_pairs)
-    y_complex_pairs = torch.einsum('...kij,...kij -> ...k', jordan_block, y_complex_pairs_matrix)
-    y_real = encoded_x_value[..., -len(lambdas):]*torch.exp(lambdas)
+    # next should be of shape (..., 2*num_complex_pairs)
+    y_complex_pairs = (jordan_block * y_complex_pairs_matrix).sum(dim=-2).flatten(start_dim=-2, end_dim=-1)
+    y_real = encoded_x_value[..., -lambdas.shape[-1]:] * torch.exp(lambdas)
     return torch.cat([y_complex_pairs, y_real], dim=-1)
-

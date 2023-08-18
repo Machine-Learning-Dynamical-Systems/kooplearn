@@ -87,7 +87,7 @@ class DPNetFeatureMap(TrainableFeatureMap):
         self.scheduler_fn = scheduler_fn
         self.scheduler_hyperparameters = scheduler_hyperparameters if scheduler_hyperparameters else {}
         self.scheduler_config = scheduler_config if scheduler_config else {}
-        self.callbacks_fns = callbacks_fns
+        self.callbacks_fns = callbacks_fns if callbacks_fns else []
         self.callbacks_hyperparameters = callbacks_hyperparameters if callbacks_hyperparameters else []
         self.logger_fn = logger_fn
         self.logger_kwargs = logger_kwargs if logger_kwargs else {}

@@ -40,3 +40,4 @@ The code is far too complex to be putted in this form. Some comments:
 # Some observations (Bruno)
 1. Shouldn't the second regularization form (r + tr(C*log(C) - C)) be (r + tr(C*log(C.abs()) - C))? This way we 
    avoid  the `nan` values when C has negative values.
+2. When training the NN it is important to use gradient clipping to avoid exploding gradients.

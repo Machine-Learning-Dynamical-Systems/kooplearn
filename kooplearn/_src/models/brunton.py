@@ -10,6 +10,7 @@ from lightning.pytorch.loggers.logger import Logger
 
 from kooplearn._src.deep_learning.lightning_modules.BruntonModule import BruntonModule
 from kooplearn._src.deep_learning.loss_fns.brunton_loss import brunton_loss
+from kooplearn._src.deep_learning.utils.Brunton_utils import AuxiliaryNetworkWrapper
 from kooplearn._src.models.abc import BaseModel
 from numpy.typing import ArrayLike
 
@@ -92,6 +93,8 @@ class BruntonModel(BaseModel):
     """
     def __init__(
             self,
+            num_complex_pairs: int,
+            num_real: int,
             encoder_class: Type[torch.nn.Module],
             encoder_hyperparameters: dict,
             decoder_class: Type[torch.nn.Module],
@@ -103,15 +106,13 @@ class BruntonModel(BaseModel):
             alpha_1: float,
             alpha_2: float,
             alpha_3: float,
-            num_complex_pairs: int,
-            num_real: int,
-            optimizer_fn: Type[torch.optim.Optimizer], optimizer_hyperparameters: dict,
-            scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler], scheduler_hyperparameters: dict,
-            scheduler_config: dict,
-            callbacks_fns: list[Type[L.Callback]], callbacks_hyperparameters: list[dict],
-            logger_fn: Type[Logger], logger_kwargs: dict,
             trainer_kwargs: dict,
             seed: int,
+            optimizer_fn: Type[torch.optim.Optimizer], optimizer_hyperparameters: dict,
+            scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler] = None, scheduler_hyperparameters: dict = None,
+            scheduler_config: dict = None,
+            callbacks_fns: list[Type[L.Callback]] = None, callbacks_hyperparameters: list[dict] = None,
+            logger_fn: Type[Logger] = None, logger_kwargs: dict = None,
     ):
         self.encoder_class = encoder_class
         self.encoder_hyperparameters = encoder_hyperparameters
@@ -119,6 +120,13 @@ class BruntonModel(BaseModel):
         self.decoder_hyperparameters = decoder_hyperparameters
         self.auxiliary_network_class = auxiliary_network_class
         self.auxiliary_network_hyperparameters = auxiliary_network_hyperparameters
+        self.auxiliary_network_wrapper = AuxiliaryNetworkWrapper
+        self.auxiliary_network_wrapper_hyperparameters = {
+            'model_architecture': auxiliary_network_class,
+            'model_hyperparameters': auxiliary_network_hyperparameters,
+            'num_complex_pairs': num_complex_pairs,
+            'num_real': num_real,
+        }
         self.m_time_steps_linear_dynamics = m_time_steps_linear_dynamics
         self.m_time_steps_future_state_prediction = m_time_steps_future_state_prediction
         self.alpha_1 = alpha_1
@@ -129,12 +137,12 @@ class BruntonModel(BaseModel):
         self.optimizer_fn = optimizer_fn
         self.optimizer_hyperparameters = optimizer_hyperparameters
         self.scheduler_fn = scheduler_fn
-        self.scheduler_hyperparameters = scheduler_hyperparameters
-        self.scheduler_config = scheduler_config
-        self.callbacks_fns = callbacks_fns
-        self.callbacks_hyperparameters = callbacks_hyperparameters
+        self.scheduler_hyperparameters = scheduler_hyperparameters if scheduler_hyperparameters else {}
+        self.scheduler_config = scheduler_config if scheduler_config else {}
+        self.callbacks_fns = callbacks_fns if callbacks_fns else []
+        self.callbacks_hyperparameters = callbacks_hyperparameters if callbacks_hyperparameters else []
         self.logger_fn = logger_fn
-        self.logger_kwargs = logger_kwargs
+        self.logger_kwargs = logger_kwargs if logger_kwargs else {}
         self.trainer_kwargs = trainer_kwargs
         self.seed = seed
         self.dnn_model_module = None
@@ -296,7 +304,10 @@ class BruntonModel(BaseModel):
 
     def initialize_logger(self):
         """Initializes the logger."""
-        self.logger = None
+        if self.logger_fn:
+            self.logger = self.logger_fn(**self.logger_kwargs)
+        else:
+            self.logger = None
 
     def initialize_model_module(self):
         """Initializes the Brunton lightning module."""
@@ -305,8 +316,8 @@ class BruntonModel(BaseModel):
             encoder_hyperparameters=self.encoder_hyperparameters,
             decoder_class=self.decoder_class,
             decoder_hyperparameters=self.decoder_hyperparameters,
-            auxiliary_network_class=self.auxiliary_network_class,
-            auxiliary_network_hyperparameters=self.auxiliary_network_hyperparameters,
+            auxiliary_network_class=self.auxiliary_network_wrapper,
+            auxiliary_network_hyperparameters=self.auxiliary_network_wrapper_hyperparameters,
             m_time_steps_linear_dynamics=self.m_time_steps_linear_dynamics,
             m_time_steps_future_state_prediction=self.m_time_steps_future_state_prediction,
             optimizer_fn=self.optimizer_fn,
@@ -319,7 +330,10 @@ class BruntonModel(BaseModel):
 
     def initialize_callbacks(self):
         """Initializes the callbacks."""
-        self.callbacks = [fn(**kwargs) for fn, kwargs in zip(self.callbacks_fns, self.callbacks_hyperparameters)]
+        if self.callbacks_fns:
+            self.callbacks = [fn(**kwargs) for fn, kwargs in zip(self.callbacks_fns, self.callbacks_hyperparameters)]
+        else:
+            self.callbacks = []
 
     def initialize_trainer(self):
         """Initializes the trainer."""

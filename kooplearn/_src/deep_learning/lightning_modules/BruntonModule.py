@@ -62,7 +62,7 @@ class BruntonModule(LightningModule):
             loss_fn: Callable,
             m_time_steps_linear_dynamics: int,
             m_time_steps_future_state_prediction: int,
-            scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler] = None, scheduler_hyperparameters: dic = None,
+            scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler] = None, scheduler_hyperparameters: dict = None,
             scheduler_config: dict = None,
     ):
         super().__init__()
@@ -124,7 +124,7 @@ class BruntonModule(LightningModule):
         mask_out_of_series = mask_out_of_series_left | mask_out_of_series_right
         batch_out_of_series = mask_out_of_series.any(dim=-1).any(dim=-1).any(dim=-1)
         batch_in_series = ~batch_out_of_series
-        x_value = batch['x_value'][batch_in_series][..., 0, :, :]
+        x_value = batch['x_value'][batch_in_series][..., 0, :, :].unsqueeze(-3)
         m_y_value = batch['y_value'][batch_in_series]
         # compute what is needed for reconstruction loss (decoded_encoded_x_value)
         # we only get the first time_step_generated to avoid computing the loss m times for each sample
@@ -136,10 +136,10 @@ class BruntonModule(LightningModule):
         # compute what is needed for linear dynamics loss (advanced_encoded_x_value, encoded_m_y_value) and
         # what is needed for future state prediction loss (decoded_advanced_encoded_x_value)
         encoded_m_y_value = self.encoder({'x_value': m_y_value.clone()})
-        encoded_x_value_i = encoded_x_value[..., 0, :]
+        encoded_x_value_i = encoded_x_value[..., 0, :].unsqueeze(-2)
         advanced_encoded_m_x_value = []
         decoded_advanced_encoded_m_x_value = []
-        for _ in max(self.m_time_steps_linear_dynamics, self.m_time_steps_future_state_prediction):
+        for _ in range(max(self.m_time_steps_linear_dynamics, self.m_time_steps_future_state_prediction)):
             mus_omegas, lambdas = self.auxiliary_network(encoded_x_value_i.clone())
             advanced_encoded_x_value_i = advance_encoder_output(encoded_x_value_i, mus_omegas, lambdas)
             advanced_encoded_m_x_value.append(advanced_encoded_x_value_i.clone())
@@ -150,14 +150,17 @@ class BruntonModule(LightningModule):
                 decoded_advanced_encoded_x_value_i = (decoded_advanced_encoded_x_value_i.reshape(x_value.shape))
             decoded_advanced_encoded_m_x_value.append(decoded_advanced_encoded_x_value_i)
         advanced_encoded_m_x_value = torch.cat(
-            advanced_encoded_m_x_value, dim=-3)[..., 0: self.m_time_steps_linear_dynamics, :, :]
+            advanced_encoded_m_x_value, dim=-2)[..., 0: self.m_time_steps_linear_dynamics, :]
         decoded_advanced_encoded_m_x_value = torch.cat(
             decoded_advanced_encoded_m_x_value, dim=-3)[..., 0: self.m_time_steps_future_state_prediction, :, :]
         # compute loss
         loss = self.loss_fn(
-            decoded_encoded_x_value, x_value,  # loss reconstruction
-            advanced_encoded_m_x_value, encoded_m_y_value,  # loss linear dynamics
-            decoded_advanced_encoded_m_x_value, m_y_value,  # loss future state prediction
+            # loss reconstruction
+            decoded_encoded_x_value, x_value,
+            # loss linear dynamics
+            advanced_encoded_m_x_value, encoded_m_y_value[..., 0: self.m_time_steps_linear_dynamics, :],
+            # loss future state prediction
+            decoded_advanced_encoded_m_x_value, m_y_value[..., 0: self.m_time_steps_future_state_prediction, :, :],
         )
         outputs = {
             'loss': loss,
