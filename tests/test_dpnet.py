@@ -30,7 +30,7 @@ def test_fit():
     optimizer_fn = torch.optim.AdamW
     optimizer_hyperparameters = {}
     trainer_kwargs = {
-        'max_epochs': 5,
+        'max_epochs': 10,
         'gradient_clip_val': 1.0,
     }
     seed = 42
@@ -63,6 +63,3 @@ def test_fit():
     model.fit(X=X, Y=Y, datamodule=datamodule)
     assert model.feature_map.is_fitted
     assert model.U_ is not None
-
-
-

@@ -73,8 +73,8 @@ class BruntonModel(BaseModel):
             See https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#configure-optimizers for more
             information on how to configure the scheduler configuration (lr_scheduler_config in their documentation).
         callbacks_fns: List of callback functions. Can be any lightning callback.
-        callbacks_hyperparameters: List of dictionaries containing the hyperparameters of the callbacks. Must be a list of
-            dictionaries containing as keys the names of the hyperparameters and as values the values of the
+        callbacks_hyperparameters: List of dictionaries containing the hyperparameters of the callbacks. Must be a list
+            of dictionaries containing as keys the names of the hyperparameters and as values the values of the
             hyperparameters of the callbacks in the order used in callbacks_fns.
         logger_fn: Logger function. Can be any lightning logger.
         logger_kwargs: Hyperparameters of the logger. Must be a dictionary containing as keys the names of

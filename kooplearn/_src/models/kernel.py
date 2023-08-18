@@ -8,7 +8,6 @@ from sklearn.utils.validation import check_is_fitted, check_X_y
 from kooplearn._src.kernels import BaseKernel, Linear
 from kooplearn._src.operator_regression import dual
 from kooplearn._src.models.abc import BaseModel
-import pickle
 
 
 class KernelLowRankRegressor(BaseModel, RegressorMixin):

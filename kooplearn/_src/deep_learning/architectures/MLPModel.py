@@ -14,7 +14,6 @@ class MLPModel(nn.Module):
         output_activation_fn: activation function for the output layer
         activation_fn: activation function for the hidden layers
     """
-
     def __init__(self, input_dim: int, output_dim: int, hidden_dims: list[int], flatten_input: bool = True,
                  output_activation_fn: Callable = nn.Identity(),
                  activation_fn: Callable = nn.ReLU()):

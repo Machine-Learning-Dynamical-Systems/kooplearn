@@ -1,5 +1,4 @@
-from kooplearn.data.datasets.misc import DataGenerator, DiscreteTimeDynamics, LinalgDecomposition
-from scipy.linalg import sqrtm
+from kooplearn.data.datasets.misc import DataGenerator
 import numpy as np
 
 

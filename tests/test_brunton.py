@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from kooplearn._src.deep_learning.data_utils.TimeseriesDataModule import TimeseriesDataModule
 from kooplearn._src.deep_learning.architectures.MLPModel import MLPModel
-from kooplearn._src.models.brunton import BruntonModel
+from kooplearn._src.deep_learning.models.brunton import BruntonModel
 import torch
 
 
@@ -52,7 +52,7 @@ def test_fit():
         'weight_decay': alpha_3,
     }
     trainer_kwargs = {
-        'max_epochs': 5,
+        'max_epochs': 10,
     }
     seed = 42
     model = BruntonModel(
@@ -74,11 +74,7 @@ def test_fit():
         trainer_kwargs=trainer_kwargs,
         seed=seed,
     )
-
     datamodule.setup('fit')
     train_dataset = datamodule.train_dataset
     X, Y = train_dataset.get_numpy_matrices()
     model.fit(X=X, Y=Y, datamodule=datamodule)
-
-
-

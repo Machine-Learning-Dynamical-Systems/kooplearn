@@ -13,33 +13,44 @@ keywords = ["sample", "setuptools", "development"]  # Optional
 authors = [
   {name = "Pietro Novelli", email = "pietronvll@gmail.com" },
   {name = "Grégoire Pacreau"},
-  {name = "Bruno Teixeira"},
+  {name = "Bruno Belucci", email = "bruno.belucci-teixeira@dauphine.eu"},
 ]
-dependencies = [ # Optional
+dependencies = [
   "numpy",
   "scipy",
   "scikit-learn",
   "tqdm"
 ]
 
-[project.optional-dependencies] # Optional
-test = [
-  "pytest",
-  "pytest-cov",
-  "optuna",
-  "matplotlib",
-  "pandas"
-]
-
-torch = [
+[project.optional-dependencies]
+deepkoopman = [
   "torch",
-  "pytorch-lightning"
+  "lightning",
+  "pandas",
 ]
 
-jax = [
-  "flax",
-  "ml-confs"
+visualizer = [
+  "plotly",
+  "dash",
+  "pandas",
 ]
+
+test = [
+  "kooplearn[deepkoopman]",
+  "kooplearn[visualizer]",
+  "pytest",
+]
+
+all = [
+  "kooplearn[deepkoopman]",
+  "kooplearn[visualizer]",
+  "kooplearn[test]",
+]
+
+#jax = [
+#  "flax",
+#  "ml-confs"
+#]
 
 [project.urls]  # Optional
 "Homepage" = "https://github.com/CSML-IIT-UCL/kooplearn"

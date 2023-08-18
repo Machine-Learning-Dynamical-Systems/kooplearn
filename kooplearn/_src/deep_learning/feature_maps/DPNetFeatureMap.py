@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Type, Callable
+from typing import Type
 import lightning as L
 from lightning.pytorch.loggers.logger import Logger
 import torch

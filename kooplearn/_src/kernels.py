@@ -5,8 +5,8 @@ from typing import Optional
 import sklearn.gaussian_process.kernels as sk_kernels
 from sklearn.metrics.pairwise import polynomial_kernel as sk_poly
 import numpy as np
-import torch
-from torch.nn import Module
+# import torch
+# from torch.nn import Module
 
 
 class BaseKernel(abc.ABC):
@@ -90,47 +90,47 @@ class ScalarProduct(BaseKernel):
         pass
 
 
-class TorchScalarProduct(BaseKernel, Module):
-    def __init__(self, feature_map: Module):
-        super().__init__()
-        self.__feature_map__ = feature_map
-
-    def forward(self, X, Y=None):
-        """
-            Calculations are internally performed by pytorch but numpy arrays are always accepted and returned. 
-        """
-        X = torch.asarray(X)
-        with torch.no_grad():
-            phi_X = self.__feature_map__(X)
-            if Y is None:
-                phi_Y = phi_X
-            else:
-                Y = torch.asarray(Y)
-                phi_Y = self.__feature_map__(Y)
-        return self.__to_numpy__(phi_X @ (phi_Y.T))
-
-    @property
-    def is_inf_dimensional(self):
-        return False
-
-    def cov(self, X, Y=None):
-        with torch.no_grad():
-            phi_X = self.__feature_map__(X)
-            if Y is None:
-                c = self.__to_numpy__(phi_X.T @ phi_X)
-                c *= np.true_divide(1, list(X.shape)[0])
-                return c
-            else:
-                if X.shape[0] != Y.shape[0]:
-                    raise ValueError(
-                        "Shape mismatch: cross-covariances can be computed only if X.shape[0] == Y.shape[0] ")
-                phi_Y = self.__feature_map__(Y)
-                c = self.__to_numpy__(phi_X.T @ phi_Y)
-                c *= np.true_divide(1, list(X.shape)[0])
-                return c
-
-    def __to_numpy__(self, tensor):
-        return tensor.cpu().detach().numpy()
+# class TorchScalarProduct(BaseKernel, Module):
+#     def __init__(self, feature_map: Module):
+#         super().__init__()
+#         self.__feature_map__ = feature_map
+#
+#     def forward(self, X, Y=None):
+#         """
+#             Calculations are internally performed by pytorch but numpy arrays are always accepted and returned.
+#         """
+#         X = torch.asarray(X)
+#         with torch.no_grad():
+#             phi_X = self.__feature_map__(X)
+#             if Y is None:
+#                 phi_Y = phi_X
+#             else:
+#                 Y = torch.asarray(Y)
+#                 phi_Y = self.__feature_map__(Y)
+#         return self.__to_numpy__(phi_X @ (phi_Y.T))
+#
+#     @property
+#     def is_inf_dimensional(self):
+#         return False
+#
+#     def cov(self, X, Y=None):
+#         with torch.no_grad():
+#             phi_X = self.__feature_map__(X)
+#             if Y is None:
+#                 c = self.__to_numpy__(phi_X.T @ phi_X)
+#                 c *= np.true_divide(1, list(X.shape)[0])
+#                 return c
+#             else:
+#                 if X.shape[0] != Y.shape[0]:
+#                     raise ValueError(
+#                         "Shape mismatch: cross-covariances can be computed only if X.shape[0] == Y.shape[0] ")
+#                 phi_Y = self.__feature_map__(Y)
+#                 c = self.__to_numpy__(phi_X.T @ phi_Y)
+#                 c *= np.true_divide(1, list(X.shape)[0])
+#                 return c
+#
+#     def __to_numpy__(self, tensor):
+#         return tensor.cpu().detach().numpy()
 
 
 class RBF(BaseKernel):
