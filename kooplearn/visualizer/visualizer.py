@@ -4,13 +4,12 @@ from kooplearn._src.models.abc import BaseModel
 import numpy as np
 import pandas
 
-
 class Visualizer:
     def __init__(self, koopman: BaseModel, deltat: float = 1):
         self.operator = koopman
-        self.compute_mode_info(deltat=deltat)
         self.infos = None
         self.eigs = None
+        self.compute_mode_info(deltat=deltat)
 
     def compute_mode_info(self, deltat: float, xcoord=None, ycoord=None):
         eigs = self.operator.eig()

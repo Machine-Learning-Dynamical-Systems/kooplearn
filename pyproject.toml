@@ -31,6 +31,8 @@ deepkoopman = [
 visualizer = [
   "plotly",
   "dash",
+  "dash-mantine-components",
+  "dash-iconify",
   "pandas",
 ]
 
@@ -50,6 +52,9 @@ all = [
 
 [project.urls]  # Optional
 "Homepage" = "https://github.com/CSML-IIT-UCL/kooplearn"
+
+[project.scripts] 
+kooplearn-dashboard = "kooplearn.visualizer.dashboard:main"
 
 [tool.ruff]
 line-length = 300

@@ -3,6 +3,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 
+PLOTLY_THEME = "plotly_dark"
 
 def create_plot_eigs(infos, min_freq=None, max_freq=None):
     # infos is a dataframe with a 'eigval_real' and 'eigval_imag' columns
@@ -30,7 +31,8 @@ def create_plot_eigs(infos, min_freq=None, max_freq=None):
     fig.update_layout(
         xaxis_title="Real", yaxis_title="Imaginary",
         width=400, height=400,
-        title='Eigenvalues'
+        title='Eigenvalues',
+        template=PLOTLY_THEME
     )
     return fig
 
@@ -56,10 +58,11 @@ def create_frequency_plot(infos, min_freq=None, max_freq=None):
                                )))
     fig.update_layout(
         xaxis_title="Frequency", yaxis_title="Amplitude",
-        title='Frequency plot',
+        title='Frequency spectrum',
         autosize=False,
-        width=600,
+        #width=600,
         height=400,
+        template=PLOTLY_THEME
     )
     max_range = np.max(infos['frequency'])
     fig.update_xaxes(range=[-0.1 * max_range, 1.1 * max_range])  # Plotting with an outset for readability
@@ -87,8 +90,11 @@ def create_plot_modes(infos, index=None, min_freq=None, max_freq=None):
         fig = px.scatter(x=mode['x'],
                          y=mode['mode'].to_numpy().real,
                          opacity=opacity)
-        fig.update_layout(xaxis_title='Variables',
-                          yaxis_title='Value of mode')
+        fig.update_layout(
+            xaxis_title='Variables',
+            yaxis_title='Value of mode',
+            template=PLOTLY_THEME
+            )
         return fig
 
     if n_plots % 2 == 0:
@@ -104,9 +110,12 @@ def create_plot_modes(infos, index=None, min_freq=None, max_freq=None):
                                  y=mode['mode'].to_numpy().real,
                                  opacity=opacity).data[0],
                       col=i % 2 + 1, row=i // 2 + 1)
-    fig.update_layout(title='Mode decomposition',
-                      width=1100,
-                      height=1100, )
+    fig.update_layout(
+        title='Mode decomposition',
+        #width=1100,
+        height=1100, 
+        template=PLOTLY_THEME
+    )
     return fig
 
 
@@ -126,10 +135,13 @@ def create_2d_plot_modes(infos, index, min_freq, max_freq):
                                  color=infos['mode'].to_numpy().real,
                                  opacity=opacity),
                       col=i % 2, row=i // 2)
-    fig.update_layout(xaxis_title='x', yaxis_title='y',
-                      width=1100,
-                      height=1100,
-                      )
+    fig.update_layout(
+        xaxis_title='x', 
+        yaxis_title='y',
+        width=1100,
+        height=1100,
+        template=PLOTLY_THEME,
+        )
     return fig
 
 
@@ -146,10 +158,13 @@ def create_combined_plot_modes(infos, T, min_freq, max_freq):
         eigT = eigs ** T
         preds += (eigT * mode_value).real
     fig = px.scatter(x=infos['x'].unique(), y=preds)
-    fig.update_layout(xaxis_title='Variables', yaxis_title='Value',
-                      width=1100,
-                      height=1100,
-                      )
+    fig.update_layout(
+        xaxis_title='Variables', 
+        yaxis_title='Value',
+        #width=1100,
+        height=1100,
+        template=PLOTLY_THEME,
+        )
     return fig
 
 
@@ -166,10 +181,13 @@ def create_combined_2d_plot_modes(infos, T, min_freq, max_freq):
         eigT = eigs ** T
         preds += (eigT * mode_value).real
     fig = px.scatter(x=infos['x'].unique(), y=infos['y'].unique(), color=preds)
-    fig.update_layout(xaxis_title='Variables', yaxis_title='Value',
-                      width=1100,
-                      height=1100,
-                      )
+    fig.update_layout(
+        xaxis_title='Variables', 
+        yaxis_title='Value',
+        #width=1100,
+        height=1100,
+        template=PLOTLY_THEME,
+        )
     return fig
 
 
@@ -185,7 +203,9 @@ def map_predictions(preds, coordinates, height=False):
 def create_plot_pred(infos, preds):
     fig = px.line(y=preds, x=infos[infos['eig_num'] == 0]['x'])
     fig.update_layout(
-        xaxis_title='Variables', yaxis_title='Predicted value'
+        xaxis_title='Variables', 
+        yaxis_title='Predicted value',
+        template=PLOTLY_THEME,
     )
     return fig
 

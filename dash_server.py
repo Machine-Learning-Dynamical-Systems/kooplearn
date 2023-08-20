@@ -24,18 +24,17 @@ parser.add_argument( # location of the koopman estimator
 args = parser.parse_args()
 if args.koopman == "":
     # tutorial mode
-    dataset = MockData(num_features=100, rng_seed=0)
+    dataset = MockData(num_features=10, rng_seed=0)
     _Z = dataset.generate(None, 100)
     X, Y = _Z[:-1], _Z[1:]
 
-    operator = KernelReducedRank(DotProduct(), rank=100)
+    operator = KernelReducedRank(DotProduct(), rank=10)
     operator.fit(X,Y)
 else:
     with open(args.koopman, 'rb') as file:
         operator = pickle.load(file)
 
 viz = Visualizer(operator)
-
 available_modes = viz.infos['eig_num'].unique().astype('str')
 available_modes = np.insert(available_modes, 0, 'All')
 available_modes = np.insert(available_modes, 1, 'Combined')
