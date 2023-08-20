@@ -16,7 +16,6 @@ def _primal_eigenvalue_equation(eigenvalues: ArrayLike, left_vectors: ArrayLike,
 def _primal_biortogonality(left_vectors: ArrayLike, right_vectors: ArrayLike):
     return np.allclose((left_vectors.T) @ right_vectors, np.eye(left_vectors.shape[1]))
 
-
 @pytest.mark.parametrize('tikhonov_reg', [1e-3])
 @pytest.mark.parametrize('svd_solver', ['full', 'arnoldi'])
 def test_primal_eig_decomposition(tikhonov_reg, svd_solver):

@@ -1,4 +1,9 @@
 # Roadmap
+## AUG 20 '23
+**[Pie]**
+
+For the kernel DMD I have dropped the custom kernel objects defined in `kooplearn._src.kernels` and relied instead on `sklearn.gaussian_processes.kernels`, which better documented, supported and allow for easy HP tuning. Minimal API changing, working to have running tests. Check that `EDMD` models are working too.
+
 ## Jul 18 '23
 **[Bruno]**
 1. Implement the [code for the paper](https://github.com/BethanyL/DeepKoopman) "Deep learning for universal linear embeddings of nonlinear dynamics" by Bethany Lusch, J. Nathan Kutz, and Steven L. Brunton

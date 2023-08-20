@@ -5,15 +5,14 @@ from typing import Optional, Union, Callable
 from sklearn.base import RegressorMixin
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted, check_X_y
-from kooplearn._src.kernels import BaseKernel, Linear
+from sklearn.gaussian_process.kernels import Kernel, DotProduct
 from kooplearn._src.operator_regression import dual
 from kooplearn._src.models.abc import BaseModel
-
 
 class KernelLowRankRegressor(BaseModel, RegressorMixin):
     def __init__(
             self,
-            kernel: BaseKernel = Linear(),
+            kernel: Kernel = DotProduct(),
             rank: int = 5,
             tikhonov_reg: float = 0.,
             svd_solver: str = 'full',
@@ -58,7 +57,14 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
             raise ValueError('Invalid frac_inducing_points. Must be non-negative.')
         self.kernel = kernel
         self.frac_inducing_points = frac_inducing_points
-        super(BaseModel).__init__(rank, tikhonov_reg, svd_solver, iterated_power, n_oversamples, optimal_sketching)
+
+        self.rank = rank
+        self.tikhonov_reg = tikhonov_reg
+        self.svd_solver = svd_solver
+        self.iterated_power = iterated_power
+        self.n_oversamples = n_oversamples
+        self.optimal_sketching = optimal_sketching
+        
         self.K_YX_ = None
         self.K_Y_ = None
         self.K_X_ = None

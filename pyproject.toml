@@ -3,12 +3,11 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "kooplearn"  # Required
-version = "0.0.1"  # Required
-description = "A package to learn Koopman operators"  # Optional
-readme = "README.md" # Optional
+name = "kooplearn"  
+version = "0.0.1"  
+description = "A package to learn Koopman operators" 
+readme = "README.md"
 requires-python = ">=3.7"
-keywords = ["sample", "setuptools", "development"]  # Optional
 
 authors = [
   {name = "Pietro Novelli", email = "pietronvll@gmail.com" },
@@ -46,11 +45,6 @@ all = [
   "kooplearn[visualizer]",
   "kooplearn[test]",
 ]
-
-#jax = [
-#  "flax",
-#  "ml-confs"
-#]
 
 [project.urls]  # Optional
 "Homepage" = "https://github.com/CSML-IIT-UCL/kooplearn"

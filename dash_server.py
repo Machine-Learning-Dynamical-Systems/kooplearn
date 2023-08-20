@@ -4,7 +4,7 @@ import argparse
 
 from kooplearn.visualizer.visualizer import Visualizer
 from kooplearn._src.models.kernel import KernelReducedRank
-from kooplearn._src.kernels import Linear
+from sklearn.gaussian_process.kernels import DotProduct
 from kooplearn.data.datasets import MockData
 
 import pickle
@@ -28,7 +28,7 @@ if args.koopman == "":
     _Z = dataset.generate(None, 100)
     X, Y = _Z[:-1], _Z[1:]
 
-    operator = KernelReducedRank(Linear(), rank=100)
+    operator = KernelReducedRank(DotProduct(), rank=100)
     operator.fit(X,Y)
 else:
     with open(args.koopman, 'rb') as file:

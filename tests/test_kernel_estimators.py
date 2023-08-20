@@ -1,11 +1,11 @@
 import pytest
-from kooplearn._src.kernels import Linear, RBF, Matern
 from kooplearn._src.models import KernelDMD, KernelReducedRank
 from kooplearn.data.datasets import MockData
+from sklearn.gaussian_process.kernels import DotProduct, RBF, Matern
 
 
 
-@pytest.mark.parametrize('kernel', [Linear(), RBF(), Matern()])
+@pytest.mark.parametrize('kernel', [DotProduct(), RBF(), Matern()])
 @pytest.mark.parametrize('solver', ['full', 'arnoldi', 'randomized', 'nystrom'])
 @pytest.mark.parametrize('tikhonov_reg', [None, 1e-3])
 def test_kernelDMD(kernel, solver, tikhonov_reg):
@@ -23,7 +23,7 @@ def test_kernelDMD(kernel, solver, tikhonov_reg):
     model.predict(X)
 
 
-@pytest.mark.parametrize('kernel', [Linear(), RBF(), Matern()])
+@pytest.mark.parametrize('kernel', [DotProduct(), RBF(), Matern()])
 @pytest.mark.parametrize('solver', ['full', 'arnoldi', 'randomized', 'nystrom'])
 @pytest.mark.parametrize('tikhonov_reg', [None, 1e-3])
 def test_kernelReducedRank(kernel, solver, tikhonov_reg):
