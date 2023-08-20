@@ -34,10 +34,12 @@ visualizer = [
   "pandas",
 ]
 
-test = [
+dev = [
   "kooplearn[deepkoopman]",
   "kooplearn[visualizer]",
   "pytest",
+  "sphinx",
+  "sphinx-book-theme",
 ]
 
 all = [

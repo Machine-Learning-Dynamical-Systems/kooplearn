@@ -4,9 +4,9 @@ To develop the package install it in _editable_ mode with
 pip install -e .
 ```
 
-To be able to run the tests install it as 
+To be able to run the tests & documentation script install it as 
 ```
-pip install -e ".[test]"
+pip install -e ".[dev]"
 ```
 
 To be able to run the deep learning framework examples install it as
