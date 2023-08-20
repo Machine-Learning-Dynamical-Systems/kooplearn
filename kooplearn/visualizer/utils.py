@@ -29,9 +29,15 @@ def create_plot_eigs(infos, min_freq=None, max_freq=None):
                   layer='below',
                   x0=-1, y0=-1, x1=1, y1=1)
     fig.update_layout(
-        xaxis_title="Real", yaxis_title="Imaginary",
+        margin={
+            'l': 10,
+            'b': 10,
+            't': 40,
+            'r': 20
+        },
+        xaxis_title="Real Part", yaxis_title="Imaginary Part",
         width=400, height=400,
-        title='Eigenvalues',
+        #title='Eigenvalues',
         template=PLOTLY_THEME
     )
     return fig
@@ -58,9 +64,15 @@ def create_frequency_plot(infos, min_freq=None, max_freq=None):
                                )))
     fig.update_layout(
         xaxis_title="Frequency", yaxis_title="Amplitude",
-        title='Frequency spectrum',
+        #title='Frequency spectrum',
+        margin={
+            'l': 10,
+            'b': 10,
+            't': 40,
+            'r': 20
+        },
         autosize=False,
-        #width=600,
+        width=600,
         height=400,
         template=PLOTLY_THEME
     )

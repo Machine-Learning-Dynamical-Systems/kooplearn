@@ -28,8 +28,12 @@ header = dmc.Header(
 
 def graph_component(name: str, id: str):
     return html.Div([
-    dmc.Title(name, order = 3),
-    dcc.Graph(id=id),
+    dmc.Title(name, order = 3, align='center'),
+    dmc.Center(
+        style={"width": "100%"},
+        children=[
+        dcc.Graph(id=id, style={'align': 'center'})]
+    ),
 ])
 
 def frequency_range_selector(frequencies: list, id='freq_range_slider'):
@@ -60,7 +64,7 @@ def frequency_range_selector(frequencies: list, id='freq_range_slider'):
                 min = min_freq - freq_range * 0.1,
                 max = max_freq + freq_range * 0.1,
                 minRange = freq_range * 0.01,
-                value = [min_freq + freq_range*0.3, max_freq - freq_range*0.3],
+                value = [min_freq, max_freq],
                 marks = marks,
                 step = freq_range * 0.01,
                 precision = 2,
