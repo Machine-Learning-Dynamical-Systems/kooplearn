@@ -65,7 +65,7 @@ class EDMD(BaseModel):
         """
         if observables is None:
             _obs = self.Y_fit_
-        if callable(observables):
+        elif callable(observables):
             _obs = observables(self.Y_fit_)
         elif isinstance(observables, np.ndarray):
             _obs = observables
@@ -134,11 +134,12 @@ class EDMD(BaseModel):
             phi_Xin = self.feature_map(eval_right_on)
             return w, primal.evaluate_eigenfunction(phi_Xin, vr)
         elif eval_left_on is not None and eval_right_on is None:
-            phi_Xin = self.feature_map(eval_right_on)  # TODO: check if this is correct, maybe eval_left_on?
+            phi_Xin = self.feature_map(eval_left_on)
             return w, primal.evaluate_eigenfunction(phi_Xin, vl)
         elif eval_left_on is not None and eval_right_on is not None:
-            phi_Xin = self.feature_map(eval_right_on)
-            return w, primal.evaluate_eigenfunction(phi_Xin, vl), primal.evaluate_eigenfunction(phi_Xin, vr)
+            phi_Xin_l = self.feature_map(eval_left_on)
+            phi_Xin_r = self.feature_map(eval_right_on)
+            return w, primal.evaluate_eigenfunction(phi_Xin_l, vl), primal.evaluate_eigenfunction(phi_Xin_r, vr)
 
     def svd(self) -> np.ndarray:
         """Computes the singular values of TODO what is U @ U.T @ C_XY?"""

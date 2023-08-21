@@ -53,9 +53,9 @@ class DPNetFeatureMap(TrainableFeatureMap):
         encoder_output_class: Class of the neural network used for encoding the output. Can be any deep learning
             architecture (torch.nn.Module) that takes as input a dictionary containing the key 'x_value', a tensor of
             shape (..., n_features, temporal_dim), and encodes it into a tensor of shape (..., output_dimension).
-        encoder_output_kwargs: Hyperparameters of the neural network used for encoding the output. Must be a dictionary
-            containing as keys the names of the hyperparameters and as values the values of the hyperparameters of the
-            encoder.
+        encoder_output_hyperparameters: Hyperparameters of the neural network used for encoding the output. Must be a
+            dictionary containing as keys the names of the hyperparameters and as values the values of the
+            hyperparameters of the encoder.
         p_loss_coef: Coefficient of the score function P.
         s_loss_coef: Coefficient of the score function S.
         reg_1_coef: Coefficient of the regularization term 1.
@@ -176,11 +176,10 @@ class DPNetFeatureMap(TrainableFeatureMap):
         if X.shape[-1] == self.datamodule.lb_window_size*self.datamodule.train_dataset.values.shape[-1]:
             # In this case X is (n_samples, n_features*lb_window_size), but we want
             # (n_samples, n_features, lb_window_size)
-            X = X.reshape(X.shape[0], -1, self.datamodule.lb_window_size)
-        data = {'x_value': X}
+            X = X.unflatten(-1, (self.datamodule.train_dataset.values.shape[-1], self.datamodule.lb_window_size))
         self.dnn_model_module.eval()
         with torch.no_grad():
-            model_output = self.dnn_model_module(data)
+            model_output = self.dnn_model_module(X)
         return model_output.detach().numpy()  # Everything should be outputted as a Numpy array
     # In the case where X is the entire dataset, we should implement a dataloader to avoid memory issues
     # (prediction on batches). For this we should implement a predict_step and call predict on the trainer.

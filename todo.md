@@ -8,6 +8,7 @@
 - [ ] The `ScalarProduct` kernels are not interfaced with `FeatureMap`. Fix this.
 - [ ] Replace dynamic list creation (append) followed by torch.cat or torch.stack with an initialized tensor and 
   indexing (probably faster).
+- [ ] ]
 
 ### Data generation/Examples
 - [ ] Add Brunton's method to the `encoder_decoder` models.

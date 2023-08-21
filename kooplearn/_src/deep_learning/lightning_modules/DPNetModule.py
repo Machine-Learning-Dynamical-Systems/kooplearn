@@ -88,9 +88,9 @@ class DPNetModule(LightningModule):
         outputs = self.base_step(valid_batch, batch_idx)
         return outputs
 
-    def forward(self, batch):
+    def forward(self, x_value):
         # dimensions convention (..., channels, temporal_dim)
-        return self.encoder_input(batch)
+        return self.encoder_input({'x_value': x_value})
 
     def base_step(self, batch, batch_idx):
         """Default step (train loop) used for training and validation."""
