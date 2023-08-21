@@ -108,12 +108,21 @@ class BruntonModule(LightningModule):
         outputs = self.base_step(valid_batch, batch_idx)
         return outputs
 
-    def forward(self, batch):
-        # dimensions convention (..., number_of_consecutive_time_steps_generated, channels, temporal_dim)
-        encoded_x_value = self.encoder(batch)
-        mus_omegas, lambdas = self.auxiliary_network(encoded_x_value)
-        advanced_encoded_x_value = advance_encoder_output(encoded_x_value, mus_omegas, lambdas)
-        return self.decoder({'x_value': advanced_encoded_x_value})
+    def forward(self, x_value, t=1):
+        # dimensions convention (..., channels, temporal_dim) (no number_of_consecutive_time_steps_generated)
+        x_value = x_value.unsqueeze(-3)  # (..., 1, channels, temporal_dim)
+        encoded_x_value_i = self.encoder({'x_value': x_value})
+        decoded_advanced_encoded_x_values = []
+        for _ in range(t):
+            mus_omegas, lambdas = self.auxiliary_network(encoded_x_value_i.clone())
+            advanced_encoded_x_value = advance_encoder_output(encoded_x_value_i, mus_omegas, lambdas)
+            encoded_x_value_i = advanced_encoded_x_value.clone()
+            decoded_advanced_encoded_x_value_i = self.decoder({'x_value': advanced_encoded_x_value})
+            if decoded_advanced_encoded_x_value_i.shape != x_value.shape:
+                # value flatten in encoder must be unflatten after decoder
+                decoded_advanced_encoded_x_value_i = (decoded_advanced_encoded_x_value_i.reshape(x_value.shape))
+            decoded_advanced_encoded_x_values.append(decoded_advanced_encoded_x_value_i)
+        return torch.cat(decoded_advanced_encoded_x_values, dim=-3)  # (..., t, channels, temporal_dim)
 
     def base_step(self, batch, batch_idx):
         """Default step (train loop) used for training and validation."""

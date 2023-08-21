@@ -60,7 +60,7 @@ class BruntonModel(BaseModel):
         alpha_2: Weight of the infinity loss term. Same notation as in [1].
         alpha_3: Weight decay of the optimizer. Same notation as in [1].
         num_complex_pairs: Number of complex pairs eigenvalues parametrized by the auxiliary network.
-        num_real: Number of real eigenvalues parametrized by the auxiliary network. Note that the num_complex_pairs +
+        num_real: Number of real eigenvalues parametrized by the auxiliary network. Note that  2*num_complex_pairs +
             num_real must be equal to the dimension of the autoencoder subspace.
         optimizer_fn: Optimizer function. Can be any torch.optim.Optimizer.
         optimizer_hyperparameters: Hyperparameters of the optimizer. Must be a dictionary containing as keys the names
@@ -192,8 +192,8 @@ class BruntonModel(BaseModel):
         self.initialize()
         self.trainer.fit(model=self.dnn_model_module, datamodule=self.datamodule)
 
-    def predict(self, X: np.ndarray, t: int = 1, observables: Optional[Union[Callable, ArrayLike]] = None) \
-            -> np.ndarray:
+    def predict(self, X: np.ndarray, t: int = 1, observables: Optional[Union[Callable, ArrayLike]] = None,
+                only_last_value=True) -> np.ndarray:
         """Predicts the state at time = t + 1 given the current state X.
 
         Optionally can predict an observable of the state at time = t + 1.
@@ -202,9 +202,12 @@ class BruntonModel(BaseModel):
             X: Current state of the system, shape (n_samples, n_features).
             t: Number of steps to predict (return the last one).
             observables: TODO add description and check if we can use it.
+            only_last_value: If True, only returns the last value of the prediction, otherwise returns all the
+                predictions.
 
         Returns:
-            The predicted state at time = t + 1, shape (n_samples, n_features).
+            The predicted state at time = t + 1, shape (n_samples, n_features) (squeezed) if only_last_value is True,
+            otherwise all the predictions until time = t + 1, shape (n_samples, t, n_features).
 
         """
         is_reshaped = False
@@ -213,14 +216,15 @@ class BruntonModel(BaseModel):
         if X.shape[-1] == self.datamodule.lb_window_size * self.datamodule.train_dataset.values.shape[-1]:
             # In this case X is (n_samples, n_features*lb_window_size), but we want
             # (n_samples, n_features, lb_window_size)
-            X = X.reshape(X.shape[0], -1, self.datamodule.lb_window_size)
+            X = X.unflatten(-1, (self.datamodule.train_dataset.values.shape[-1], self.datamodule.lb_window_size))
             is_reshaped = True
-        data = {'x_value': X}
         self.dnn_model_module.eval()
         with torch.no_grad():
-            model_output = self.dnn_model_module(data)
+            model_output = self.dnn_model_module(X, t=t)
+        if only_last_value:
+            model_output = model_output[..., -1, :, :]
         if is_reshaped:
-            return model_output.reshape(X.shape[0], -1).detach().numpy()
+            return model_output.flatten(start_dim=-2, end_dim=-1).detach().numpy()
         return model_output.detach().numpy()
 
     def eig(self, eval_left_on: Optional[np.ndarray] = None, eval_right_on: Optional[np.ndarray] = None):
@@ -251,14 +255,14 @@ class BruntonModel(BaseModel):
         if X.shape[-1] == self.datamodule.lb_window_size * self.datamodule.train_dataset.values.shape[-1]:
             # In this case X is (n_samples, n_features*lb_window_size), but we want
             # (n_samples, n_features, lb_window_size)
-            X = X.reshape(X.shape[0], -1, self.datamodule.lb_window_size)
-        data = {'x_value': X}
+            X = X.unflatten(-1, (self.datamodule.train_dataset.values.shape[-1], self.datamodule.lb_window_size))
         self.dnn_model_module.eval()
         with torch.no_grad():
-            y = self.dnn_model_module.encoder(data)
+            y = self.dnn_model_module.encoder({'x_value': X})
             mus_omegas, lambdas = self.dnn_model_module.auxiliary_network(y)
-            eigenvalues = torch.complex(mus_omegas[:, 0], mus_omegas[:, 1])
-            eigenvalues = torch.cat([eigenvalues, lambdas], dim=-1)
+            eigenvalues = torch.complex(mus_omegas[..., :, 0], mus_omegas[..., :, 1])  # complex pairs
+            eigenvalues = torch.cat([eigenvalues, torch.complex(mus_omegas[..., :, 0], -mus_omegas[..., :, 1])], dim=-1)
+            eigenvalues = torch.cat([eigenvalues, lambdas], dim=-1)  # real
         eigenvalues = eigenvalues.detach().numpy()
         y = y.detach().numpy()
         if eval_left_on is None:
@@ -282,25 +286,33 @@ class BruntonModel(BaseModel):
         if observables is not None:
             raise ValueError("BruntonModel does not support evaluation of observables.")  # or check how to do it
         X = Xin
+        if not torch.is_tensor(X):
+            X = torch.tensor(X, dtype=torch.float32)
         if X.shape[-1] == self.datamodule.lb_window_size * self.datamodule.train_dataset.values.shape[-1]:
             # In this case X is (n_samples, n_features*lb_window_size), but we want
             # (n_samples, n_features, lb_window_size)
-            X = X.reshape((X.shape[0], -1, self.datamodule.lb_window_size))
-        data = {'x_value': X}
+            X = X.unflatten(-1, (self.datamodule.train_dataset.values.shape[-1], self.datamodule.lb_window_size))
         self.dnn_model_module.eval()
         with torch.no_grad():
-            y = self.dnn_model_module.encoder(data)
+            y = self.dnn_model_module.encoder({'x_value': X})
             mus_omegas, lambdas = self.dnn_model_module.auxiliary_network(y)
         cos_omega = torch.cos(mus_omegas[..., 1])
         sin_omega = torch.sin(mus_omegas[..., 1])
-        jordan_block_complex = torch.stack([torch.cat([cos_omega, -sin_omega], dim=-1),
-                                            torch.cat([sin_omega, cos_omega], dim=-1)],
+        jordan_block_complex = torch.stack([torch.stack([cos_omega, -sin_omega], dim=-1),
+                                            torch.stack([sin_omega, cos_omega], dim=-1)],
                                            dim=-1)  # should be of shape (..., num_complex_pairs, 2, 2)
-        jordan_block_complex = torch.exp(mus_omegas[..., 0]) * jordan_block_complex
+        jordan_block_complex = torch.exp(mus_omegas[..., 0])[..., None, None] * jordan_block_complex
         jordan_block_real = torch.exp(lambdas)
-        modes = list(jordan_block_complex.unbind(dim=-3)) + list(jordan_block_real.unbind(dim=-1))
-        modes = torch.block_diag(modes)
-        return modes.detach().numpy()
+        block_diag = []
+        if len(X.shape) == 3:  # batch
+            for i in range(X.shape[0]):
+                modes = list(jordan_block_complex[i, :, :].unbind(dim=-3)) + list(jordan_block_real[i].unbind(dim=-1))
+                block_diag.append(torch.block_diag(*modes))
+            block_diag = torch.stack(block_diag, dim=0)
+        else:  # single example
+            modes = list(jordan_block_complex.unbind(dim=-3)) + list(jordan_block_real.unbind(dim=-1))
+            block_diag = torch.block_diag(*modes)
+        return block_diag.detach().numpy()
 
     def initialize_logger(self):
         """Initializes the logger."""
