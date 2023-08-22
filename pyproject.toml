@@ -35,20 +35,18 @@ visualizer = [
   "dash-iconify",
   "pandas",
 ]
-
+docs = [
+  "sphinx",
+  "sphinx-book-theme",
+  "sphinx-design"
+]
 dev = [
   "kooplearn[deepkoopman]",
   "kooplearn[visualizer]",
+  "kooplearn[docs]",
   "pytest",
   "sphinx",
   "sphinx-book-theme",
-
-]
-
-all = [
-  "kooplearn[deepkoopman]",
-  "kooplearn[visualizer]",
-  "kooplearn[test]",
 ]
 
 [project.urls]  # Optional
