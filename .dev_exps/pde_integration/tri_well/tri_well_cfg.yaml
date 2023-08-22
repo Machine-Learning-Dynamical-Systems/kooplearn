@@ -1,9 +1,0 @@
-# Simulation parameter
-gamma: 0.1
-kt: 1.0
-dt: 1e-4
-
-#Training & HP optimization
-num_samples: 40000000
-num_trials: 20
-take_every: 5000

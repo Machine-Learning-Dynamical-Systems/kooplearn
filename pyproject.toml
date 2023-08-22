@@ -42,6 +42,7 @@ dev = [
   "pytest",
   "sphinx",
   "sphinx-book-theme",
+
 ]
 
 all = [
@@ -54,7 +55,7 @@ all = [
 "Homepage" = "https://github.com/CSML-IIT-UCL/kooplearn"
 
 [project.scripts] 
-kooplearn-dashboard = "kooplearn.visualizer.dashboard:main"
+kooplearn-dashboard = "kooplearn._src.dashboard.app:main"
 
 [tool.ruff]
 line-length = 300

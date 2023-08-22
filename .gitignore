@@ -145,12 +145,10 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-**/figs
-**/_image_factory
-**/runs
-**/profiling
-
 #VS code
 workspace.code-workspace
 .DS_Store
 .vscode
+
+#Kooplearn specifics
+**/lightning_logs

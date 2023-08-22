@@ -1,4 +1,4 @@
-from kooplearn.visualizer.visualizer import Visualizer
+from kooplearn._src.dashboard.visualizer import Visualizer
 from kooplearn._src.models.kernel import KernelReducedRank
 from sklearn.gaussian_process.kernels import DotProduct
 from kooplearn.data.datasets import MockData

@@ -1,6 +1,6 @@
 from typing import Optional
 from dash import callback, Output, Input
-from kooplearn.visualizer.visualizer import Visualizer
+from kooplearn._src.dashboard.visualizer import Visualizer
 from functools import partial
 
 def update_modes_visibility(viz: Visualizer, frequency_range: Optional[list] = None):

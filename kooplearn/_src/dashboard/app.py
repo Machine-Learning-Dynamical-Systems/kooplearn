@@ -1,10 +1,10 @@
 import dash_mantine_components as dmc
-from kooplearn.visualizer.dash_components.layout import header, plots_components
-from kooplearn.visualizer.dash_components.callbacks import get_cb_functions
+from kooplearn._src.dashboard.dash_components.layout import header, plots_components
+from kooplearn._src.dashboard.dash_components.callbacks import get_cb_functions
 from dash import Dash
 import argparse
 
-from kooplearn.visualizer.visualizer import Visualizer
+from kooplearn._src.dashboard.visualizer import Visualizer
 from kooplearn._src.models.kernel import KernelReducedRank
 from sklearn.gaussian_process.kernels import DotProduct
 from kooplearn.data.datasets import MockData
