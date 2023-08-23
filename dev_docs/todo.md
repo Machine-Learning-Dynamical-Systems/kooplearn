@@ -5,10 +5,8 @@
 - [ ] Implement the following metrics:
     - [ ] Squared loss
     - [ ] Prediction error
-- [ ] The `ScalarProduct` kernels are not interfaced with `FeatureMap`. Fix this.
 - [ ] Replace dynamic list creation (append) followed by torch.cat or torch.stack with an initialized tensor and 
   indexing (probably faster).
-- [ ] ]
 
 ### Data generation/Examples
 - [ ] Add Brunton's method to the `encoder_decoder` models.
@@ -26,6 +24,7 @@
 - [ ] Langevin driven by $\alpha$-stable noise.
 - [ ] Add or check that is added a RNG for every stochastic term for reproducibility.
 - [ ] Can be cool to add fluid-dynamics simulation. See, e.g. [JAX-FLUIDS](https://github.com/tumaer/JAXFLUIDS/) for an easy way to generate them.
+
 ### Testing
 - [ ] Document functions
 - [x] Test primal-dual matching on eigenfunctions (on top of eigenvalues). In general, study how coverage works.
@@ -37,9 +36,7 @@
     - [ ] Muller-Brown
     - [ ] 1D Triple Well
 - [ ] Test _randomized_ algorithms (not clear how to do that now).
-- [ ] Test `nystrom` estimators (not clear how to do that).
 - [x] Test the left eigenfunctions of the primal algorithm: FAILING.
-- [ ] Add tests for the `ScalarProduct` abstract class and `TorchScalarProduct` class.
 - [x] Add pre-computed assets for the eigenfunctions/eigenvalues of the 1D triple well as well as Muller-Brown if possible.
 - [x] Handle the case of 0 Tikhonov regularization.
 
