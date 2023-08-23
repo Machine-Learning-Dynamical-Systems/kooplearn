@@ -19,7 +19,6 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
             iterated_power: int = 1,
             n_oversamples: int = 5,
             optimal_sketching: bool = False,
-            frac_inducing_points: float = 0.1
     ):
         """Low rank Estimator for the Koopman Operator
         Args:
@@ -33,7 +32,6 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
                 If 'arnoldi', run SVD truncated to rank calling ARPACK solver functions.
                 If 'randomized', run randomized SVD by the method of [add ref.]  
                 Defaults to 'full'.
-                If 'nystrom', use Nystrom estimators.
             iterated_power (int, optional): Number of iterations for the power method computed by solver = 'randomized'.
              Must be of range :math:`[0, \\infty)`. Defaults to 2, ignored if solver != 'randomized'.
             n_oversamples (int, optional): This parameter is only relevant when solver = 'randomized'. It corresponds
@@ -42,21 +40,17 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
             optimal_sketching (bool, optional): Sketching strategy for the randomized solver. If true performs optimal
              sketching (computaitonally more expensive but more accurate).
              Defaults to False, ignored if solver != 'randomized'.
-            frac_inducing_points (float, optional): Fraction of the training points to use as inducing points for the
-            Nystrom estimator. Defaults to 0.1, ignored if solver != 'nystrom'.
         """
 
         # Initial checks
-        if svd_solver not in ['full', 'arnoldi', 'randomized', 'nystrom']:
+        if svd_solver not in ['full', 'arnoldi', 'randomized']:
             raise ValueError('Invalid svd_solver. Allowed values are \'full\', \'arnoldi\' and \'randomized\'.')
         if svd_solver == 'randomized' and iterated_power < 0:
             raise ValueError('Invalid iterated_power. Must be non-negative.')
         if svd_solver == 'randomized' and n_oversamples < 0:
             raise ValueError('Invalid n_oversamples. Must be non-negative.')
-        if svd_solver == 'nystrom' and frac_inducing_points < 0:
-            raise ValueError('Invalid frac_inducing_points. Must be non-negative.')
+        
         self.kernel = kernel
-        self.frac_inducing_points = frac_inducing_points
 
         self.rank = rank
         self.tikhonov_reg = tikhonov_reg
@@ -161,34 +155,14 @@ class KernelLowRankRegressor(BaseModel, RegressorMixin):
         Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
         check_X_y(X, Y, multi_output=True)
 
-        if self.svd_solver == 'nystrom':
-            rng = np.random.default_rng()
+        K_X, K_Y, K_YX = self._init_kernels(X, Y)
 
-            _data_dim = X.shape[0]
-            _centers_idxs = rng.choice(_data_dim, int(_data_dim * self.frac_inducing_points))
+        self.K_X_ = K_X
+        self.K_Y_ = K_Y
+        self.K_YX_ = K_YX
 
-            X_subset = X[_centers_idxs]
-            Y_subset = Y[_centers_idxs]
-
-            self.K_X_ = self.kernel(X_subset)
-            self.K_Y_ = self.kernel(Y_subset)
-            self.K_YX_ = self.kernel(Y_subset, X_subset)
-
-            self.KN_X_ = self.kernel(X, X_subset)
-            self.KN_Y_ = self.kernel(Y, Y_subset)
-
-            self.X_fit_ = X_subset
-            self.Y_fit_ = Y_subset
-
-        else:
-            K_X, K_Y, K_YX = self._init_kernels(X, Y)
-
-            self.K_X_ = K_X
-            self.K_Y_ = K_Y
-            self.K_YX_ = K_YX
-
-            self.X_fit_ = X
-            self.Y_fit_ = Y
+        self.X_fit_ = X
+        self.Y_fit_ = Y
         if hasattr(self, '_eig_cache'):
             del self._eig_cache
 
@@ -226,10 +200,6 @@ class KernelDMD(KernelLowRankRegressor):
 
         if self.svd_solver == 'randomized':
             U, V = dual.fit_rand_tikhonov(self.K_X_, reg, self.rank, self.n_oversamples, self.iterated_power)
-        elif self.svd_solver == 'nystrom':
-            U, V = dual.fit_nystrom_tikhonov(self.K_X_, self.K_Y_, self.KN_X_, self.KN_Y_, reg)
-            del self.KN_X_  # Free memory
-            del self.KN_Y_  # Free memory
         else:
             U, V = dual.fit_tikhonov(self.K_X_, reg, self.rank, self.svd_solver)
 
@@ -246,17 +216,7 @@ class KernelReducedRank(KernelLowRankRegressor):
             Y (ndarray): Evolved observations.
         """
         self.pre_fit_checks(X, Y)
-
-        if self.svd_solver == 'nystrom':
-            if self.tikhonov_reg is None:
-                raise ValueError("tikhonov_reg must be specified when solver is nystrom.")
-            else:
-                U, V = dual.fit_nystrom_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.KN_X_, self.KN_Y_,
-                                                                         self.tikhonov_reg, self.rank)
-            del self.KN_X_  # Free memory
-            del self.KN_Y_  # Free memory
-
-        elif self.svd_solver == 'randomized':
+        if self.svd_solver == 'randomized':
             if self.tikhonov_reg is None:
                 raise ValueError("tikhonov_reg must be specified when solver is randomized.")
             else:

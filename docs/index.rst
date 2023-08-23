@@ -3,12 +3,21 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to kooplearn's documentation!
-=====================================
+******************************
+Kooplearn
+******************************
+
+
+.. div:: sd-text-left sd-font-italic
+
+   Koopman and Transfer operator learning in Python
+
+----
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   
+   api_reference/index
 
 
 

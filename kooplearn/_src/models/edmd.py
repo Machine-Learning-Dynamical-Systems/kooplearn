@@ -20,13 +20,11 @@ class EDMD(BaseModel):
     Parameters:
         feature_map: Feature map used for the EDMD algorithm.
         reduced_rank: Whether to use a reduced rank estimator.
-        randomized: Whether to use a randomized algorithm.
         rank: Rank of the estimator.
         tikhonov_reg: Tikhonov regularization coefficient.
-        svd_solver: SVD solver used. Only considered when not using a randomized algorithm (randomized=False)
-         Currently supported: 'arnoldi', 'full'.
-        iterated_power: Number of power iterations when using a randomized algorithm (randomized=True).
-        n_oversamples: Number of oversamples when using a randomized algorithm (randomized=True).
+        svd_solver: SVD solver used. Currently supported: `arnoldi`, `full`, `randomized`.
+        iterated_power: Number of power iterations when using a randomized algorithm (`svd_solver == 'randomized'`).
+        n_oversamples: Number of oversamples when using a randomized algorithm (`svd_solver == 'randomized'`).
 
     Attributes:
         X_fit_: X training data of shape (n_samples, n_features) corresponding to the state at time t.
@@ -35,7 +33,7 @@ class EDMD(BaseModel):
         C_Y_: Covariance matrix of the feature map evaluated at Y_fit_, shape (n_features, n_features).
         C_XY_: Cross-covariance matrix of the feature map evaluated at X_fit_ and Y_fit_, shape
         (n_features, n_features).
-        U_: TODO add description.
+        U_: Projection matrix of shape (n_features, rank). The Koopman operator is approximated as U_ @ U_.T @ C_XY_.
     """
     def __init__(self, feature_map: FeatureMap = IdentityFeatureMap(), reduced_rank=False, randomized=False,
                  rank=5, tikhonov_reg=0, svd_solver='full', iterated_power=1, n_oversamples=5):
@@ -55,12 +53,12 @@ class EDMD(BaseModel):
         Optionally can predict an observable of the state at time = t + 1.
 
         Parameters:
-            X: Current state of the system, shape (n_samples, n_features). TODO or (n_features)?
+            X: Initial conditions for which we wish the prediction, shape `(n_init_conditions, n_features)`.
             t: Number of steps to predict (return the last one).
-            observables: TODO add description.
+            observables: Callable, ndarray of shape `(n_samples, n_obs_features)` or `None`. If ndarray, it must be the observable evaluated at `self.Y_fit_`. If `None`, the observable is assumed to be the identity map (i.e. one predicts the state itself).
 
         Returns:
-            The predicted state at time = t + 1, shape (n_samples, n_features).
+            The predicted observable at time  :math:`t + 1`, shape `(n_init_conditions, n_obs_features)`.
 
         """
         if observables is None:
@@ -79,16 +77,14 @@ class EDMD(BaseModel):
         return primal.predict(t, self.U_, self.C_XY_, phi_Xin, phi_X, _obs)
 
     def modes(self, Xin: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None) -> np.ndarray:
-        """Computes the modes of the system at the state X.
-
-        Optionally can compute the modes of an observable of the system at the state X. TODO maybe add more info
+        """Computes the Koopman mode decomposition of one or more observables of the system at the state X. 
 
         Parameters:
-            Xin: State of the system, shape (n_samples, n_features). TODO or (n_features)?
-            observables: TODO add description.
+            Xin: Initial conditions of the system for which the modes are returned, shape `(n_init_conditions, n_features)`.
+            observables: Callable, ndarray of shape `(n_samples, n_obs_features)` or None. If ndarray, it must be the observable evaluated at `self.Y_fit_`. If None, the observable is assumed to be the identity map (i.e. one gets the modes of the state itself).
 
         Returns:
-            Modes of the system at the state X, shape TODO add shape.
+            Modes of the system at the state X, shape `(self.rank, num_init_conditions, n_obs_features)`.
         """
         if observables is None:
             _obs = self.Y_fit_
@@ -119,7 +115,6 @@ class EDMD(BaseModel):
             Eigenvalues of the Koopman operator, shape (rank,).
             Left eigenfunction evaluated at eval_left_on, shape (n_samples, rank) if eval_left_on is not None.
             Right eigenfunction evaluated at eval_right_on, shape (n_samples, rank) if eval_right_on is not None.
-            TODO check if shapes are correct.
 
         """
         check_is_fitted(self, ['U_', 'C_XY_'])
@@ -142,7 +137,11 @@ class EDMD(BaseModel):
             return w, primal.evaluate_eigenfunction(phi_Xin_l, vl), primal.evaluate_eigenfunction(phi_Xin_r, vr)
 
     def svd(self) -> np.ndarray:
-        """Computes the singular values of TODO what is U @ U.T @ C_XY?"""
+        """Singular values of the Koopman operator.
+
+        Returns:
+            S: The estimated singular values of the Koopman operator, shape `(rank,)`.
+        """        
         check_is_fitted(self, ['U_', 'C_XY_'])
         return primal.svdvals(self.U_, self.C_XY_)
 
@@ -219,7 +218,7 @@ class EDMD(BaseModel):
         """
         self.pre_fit_checks(X, Y)
         if self.reduced_rank:
-            if self.randomized:
+            if self.svd_solver == 'randomized':
                 vectors = primal.fit_rand_reduced_rank_regression_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg,
                                                                            self.rank, self.n_oversamples,
                                                                            self.iterated_power)
@@ -227,34 +226,11 @@ class EDMD(BaseModel):
                 vectors = primal.fit_reduced_rank_regression_tikhonov(self.C_X_, self.C_XY_, self.rank,
                                                                       self.tikhonov_reg, self.svd_solver)
         else:
-            if self.randomized:
+            if self.svd_solver == 'randomized':
                 vectors = primal.fit_rand_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg, self.rank,
                                                    self.n_oversamples,
                                                    self.iterated_power)
             else:
                 vectors = primal.fit_tikhonov(self.C_X_, self.tikhonov_reg, self.rank, self.svd_solver)
         self.U_ = vectors
-
-
-# class EDMDReducedRank(PrimalRegressor):
-#     def fit(self, X, Y):
-#         self.pre_fit_checks(X, Y)
-#         if self.svd_solver == 'randomized':
-#             vectors = primal.fit_rand_reduced_rank_regression_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg,
-#                                                                        self.rank, self.n_oversamples,
-#                                                                        self.iterated_power)
-#         else:
-#             vectors = primal.fit_reduced_rank_regression_tikhonov(self.C_X_, self.C_XY_, self.rank, self.tikhonov_reg,
-#                                                                   self.svd_solver)
-#         self.U_ = vectors
-#
-#
-# class EDMD(PrimalRegressor):
-#     def fit(self, X, Y):
-#         self.pre_fit_checks(X, Y)
-#         if self.svd_solver == 'randomized':
-#             vectors = primal.fit_rand_tikhonov(self.C_X_, self.C_XY_, self.tikhonov_reg, self.rank, self.n_oversamples,
-#                                                self.iterated_power)
-#         else:
-#             vectors = primal.fit_tikhonov(self.C_X_, self.tikhonov_reg, self.rank, self.svd_solver)  # maybe working?
-#         self.U_ = vectors
+        return self

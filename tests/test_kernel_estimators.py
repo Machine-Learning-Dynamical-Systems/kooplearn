@@ -6,7 +6,7 @@ from sklearn.gaussian_process.kernels import DotProduct, RBF, Matern
 
 
 @pytest.mark.parametrize('kernel', [DotProduct(), RBF(), Matern()])
-@pytest.mark.parametrize('solver', ['full', 'arnoldi', 'randomized', 'nystrom'])
+@pytest.mark.parametrize('solver', ['full', 'arnoldi', 'randomized'])
 @pytest.mark.parametrize('tikhonov_reg', [None, 1e-3])
 def test_kernelDMD(kernel, solver, tikhonov_reg):
     num_features = 10
@@ -24,7 +24,7 @@ def test_kernelDMD(kernel, solver, tikhonov_reg):
 
 
 @pytest.mark.parametrize('kernel', [DotProduct(), RBF(), Matern()])
-@pytest.mark.parametrize('solver', ['full', 'arnoldi', 'randomized', 'nystrom'])
+@pytest.mark.parametrize('solver', ['full', 'arnoldi', 'randomized'])
 @pytest.mark.parametrize('tikhonov_reg', [None, 1e-3])
 def test_kernelReducedRank(kernel, solver, tikhonov_reg):
     num_features = 10
@@ -35,9 +35,6 @@ def test_kernelReducedRank(kernel, solver, tikhonov_reg):
     X, Y = _Z[:-1], _Z[1:]
     model = KernelReducedRank(kernel=kernel, tikhonov_reg=tikhonov_reg, svd_solver=solver)
     if (tikhonov_reg is None) and (solver == 'randomized'):
-        with pytest.raises(ValueError):
-            model.fit(X, Y)
-    elif (tikhonov_reg is None) and (solver == 'nystrom'):
         with pytest.raises(ValueError):
             model.fit(X, Y)
     else:
