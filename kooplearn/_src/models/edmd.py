@@ -7,7 +7,7 @@ from typing import Optional, Callable, Union
 from numpy.typing import ArrayLike
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_X_y
-from kooplearn._src.utils import check_is_fitted
+from kooplearn._src.utils import check_is_fitted, create_base_dir
 from kooplearn._src.models.abc import BaseModel, FeatureMap, IdentityFeatureMap
 from kooplearn._src.operator_regression import primal
 import logging
@@ -21,7 +21,7 @@ class EDMD(BaseModel):
         feature_map (callable): Feature map used for the EDMD algorithm.
         reduced_rank (bool): Whether to use the reduced rank regression estimator introduced in [1].
         rank (int): Rank of the estimator. If ``None``, return the full rank estimator.
-        tikhonov_reg (float): Tikhonov regularization coefficient.
+        tikhonov_reg (float): Tikhonov regularization coefficient. ``None``, here, is equivalent to ``tikhonov_reg = 0``, and internally specialized algorithms are called to deal with this limit case.
         svd_solver (str): SVD solver used. Currently supported: 'arnoldi', 'full', 'randomized'.
         iterated_power (int): Number of power iterations when using a randomized algorithm (``svd_solver == 'randomized'``).
         n_oversamples (int): Number of oversamples when using a randomized algorithm (``svd_solver == 'randomized'``).
@@ -45,7 +45,7 @@ class EDMD(BaseModel):
                 feature_map: FeatureMap = IdentityFeatureMap(), 
                 reduced_rank: bool = True,
                 rank: Optional[int] = 5, 
-                tikhonov_reg: float = 0,
+                tikhonov_reg: Optional[float] = None,
                 svd_solver: str = 'full',
                 iterated_power: int = 1,
                 n_oversamples: int = 5,
@@ -60,7 +60,10 @@ class EDMD(BaseModel):
         self.rng_seed = rng_seed
         self.feature_map = feature_map
         self.rank = rank
-        self.tikhonov_reg = tikhonov_reg
+        if tikhonov_reg is None:
+            self.tikhonov_reg = 0.
+        else:
+            self.tikhonov_reg = tikhonov_reg
         self.svd_solver = svd_solver
         self.iterated_power = iterated_power
         self.n_oversamples = n_oversamples
@@ -129,6 +132,9 @@ class EDMD(BaseModel):
         else:
             raise ValueError(
                 "Observables must be either None, a callable or a Numpy array of the observable evaluated at the Y training points.")
+        assert _obs.shape[0] == self.X_fit.shape[0]
+        if _obs.ndim == 1:
+            _obs = _obs[:, None]
 
         phi_Xin = self.feature_map(X)
         phi_X = self.feature_map(self.X_fit)
@@ -182,7 +188,7 @@ class EDMD(BaseModel):
 
         if observables is None:
             _obs = self.Y_fit
-        if callable(observables):
+        elif callable(observables):
             _obs = observables(self.Y_fit)
         elif isinstance(observables, np.ndarray):
             _obs = observables
@@ -190,6 +196,9 @@ class EDMD(BaseModel):
             raise ValueError(
                 "observables must be either None, a callable or a Numpy array of the observable evaluated at the "
                 "Y training points.")
+        assert _obs.shape[0] == self.X_fit.shape[0]
+        if _obs.ndim == 1:
+            _obs = _obs[:, None]
 
         check_is_fitted(self, ['U', 'X_fit', 'cov_XY'])
         phi_X = self.feature_map(self.X_fit)
@@ -207,15 +216,15 @@ class EDMD(BaseModel):
         return primal.svdvals(self.U, self.cov_XY)
 
     def save(self, path: os.PathLike):
-        path = Path(path)
+        create_base_dir(path)
         with open(path, '+wb') as outfile:
             pickle.dump(self, outfile)
     
-    @classmethod
+    @staticmethod
     def load(path: os.PathLike):
         path = Path(path)
         with open(path, '+rb') as infile:
-            return pickle.loads(infile)
+            return pickle.load(infile)
 
     def _init_covs(self, X: np.ndarray, Y: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """

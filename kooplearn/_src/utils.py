@@ -1,5 +1,7 @@
 from typing import NamedTuple
 import numpy as np
+import os
+from pathlib import Path
 
 class TopKReturnType(NamedTuple):
     values: np.ndarray
@@ -58,3 +60,9 @@ def check_is_fitted(obj: object, attr_list: list[str]):
     for attr in attr_list:
         if not hasattr(obj, attr):
             raise NotFittedError(f"{obj.__class__.__name__} is not fitted. Please call the 'fit' method first.")
+
+def create_base_dir(path: os.PathLike):
+    path = Path(path)
+    base_path = path.parent
+    if not base_path.exists():
+        base_path.mkdir(parents=True)
