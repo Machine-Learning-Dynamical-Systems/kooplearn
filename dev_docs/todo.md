@@ -4,11 +4,12 @@
 - [x] Rename attributes in a decent way (Remove `sklearn` dependence)
 - [ ] Implement numerical rank revealing on the primal algorithms (RRR still Missing).
 - [ ] Add power iteration QR normalization for the randomized RRR algorithms.
-
+  - [ ] Test the randomized algorithms.
+.
 ### Algorithms
-- [ ] Implement the primal algorithm to fit RRR without Tikhonov reg.
-- [ ] Add the possibility to compute left eigenvectors for the primal algorithms.
-- [ ] Implement `fit_rand_principal_component_regression` in primal.py
+- [x] Implement the primal algorithm to fit RRR without Tikhonov reg.
+- [x] Add the possibility to compute left eigenvectors for the primal algorithms.
+- [x] Implement `fit_rand_principal_component_regression` in primal.py
 - [ ] Implement the following metrics:
     - [ ] Squared loss
     - [ ] Prediction error

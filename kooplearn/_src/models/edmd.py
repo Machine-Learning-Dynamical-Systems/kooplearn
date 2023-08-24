@@ -43,7 +43,7 @@ class EDMD(BaseModel):
 
     def __init__(self, 
                 feature_map: FeatureMap = IdentityFeatureMap(), 
-                reduced_rank: bool = False,
+                reduced_rank: bool = True,
                 rank: Optional[int] = 5, 
                 tikhonov_reg: float = 0,
                 svd_solver: str = 'full',
@@ -108,8 +108,8 @@ class EDMD(BaseModel):
     def predict(self, X: np.ndarray, t: int = 1, observables: Optional[Union[Callable, np.ndarray]] = None) \
             -> np.ndarray:
         """
-        Predicts the state at instant :math:`t` given the current state `X`.
-        Optionally, can predict any observable of the state at time `t`.
+        Predicts the state or, if the system is stochastic, its expected value after :math:`t`instants given the initial condition ``X``.
+        If ``observables`` are specified, do the same with the observable instead.
 
         Parameters:
             X (numpy.ndarray): Initial conditions for which we wish the prediction, shape ``(n_init_conditions, n_features)``.
@@ -117,7 +117,7 @@ class EDMD(BaseModel):
             observables (callable or numpy.ndarray or None): Callable, ndarray of shape ``(n_samples, n_obs_features)`` or ``None``. If ``ndarray``, it must be the observable evaluated at ``self.Y_fit``. If ``None``, the observable is assumed to be the identity map (i.e., one predicts the state itself).
 
         Returns:
-            numpy.ndarray: The predicted observable at time :math:`t`, shape ``(n_init_conditions, n_obs_features)``.
+            numpy.ndarray: The predicted (expected) state/observable at time :math:`t`, shape ``(n_init_conditions, n_obs_features)``.
         """
 
         if observables is None:

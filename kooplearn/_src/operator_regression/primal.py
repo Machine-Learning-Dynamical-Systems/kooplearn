@@ -38,7 +38,8 @@ def _fit_reduced_rank_regression_noreg(
         C_X: np.ndarray,  # Input covariance matrix
         C_XY: np.ndarray,  # Cross-covariance matrix
         rank: int,  # Rank of the estimator
-        svd_solver: str = 'arnoldi'  # SVD solver to use. Arnoldi is faster for low ranks.
+        svd_solver: str = 'arnoldi',  # SVD solver to use. Arnoldi is faster for low ranks.
+        rcond: float = 2.2e-16,  # Threshold for the singular values
         ):      
     rsqrt_C_X = spd_neg_pow(C_X, -0.5)
     B = rsqrt_C_X @ C_XY 
@@ -49,8 +50,7 @@ def _fit_reduced_rank_regression_noreg(
     else:
         values, vectors = eigh(_crcov)
 
-    top_eigs = topk(values, rank)
-    vectors = vectors[:, top_eigs.indices]
+    values, vectors = _rank_reveal(values, vectors, rank, rcond)
     return rsqrt_C_X @ vectors
 
 def fit_rand_reduced_rank_regression(
@@ -100,12 +100,8 @@ def fit_principal_component_regression(
     else:
         values, vectors = eigh(reg_input_covariance)
 
-    top_eigs = topk(values, rank)
-    vectors = vectors[:, top_eigs.indices]
-    values = top_eigs.values
-
     values, vectors = _rank_reveal(values, vectors, rank, rcond)
-    rsqrt_evals = np.diag(values ** (-0.5))
+    rsqrt_evals = np.diag(np.concatenate([values ** (-0.5), np.zeros(rank - values.shape[0])]))
     return vectors @ rsqrt_evals
 
 def fit_rand_principal_component_regression(
@@ -125,23 +121,21 @@ def fit_rand_principal_component_regression(
 
     vectors, values, _ = randomized_svd(reg_input_covariance, rank, n_oversamples=n_oversamples, n_iter=iterated_power,
                              random_state=rng_seed)
-    top_eigs = topk(values, rank)
-    vectors = vectors[:, top_eigs.indices]
-    values = top_eigs.values
 
     values, vectors = _rank_reveal(values, vectors, rank, rcond)
-    rsqrt_evals = np.diag(values ** (-0.5))
+    rsqrt_evals = np.diag(np.concatenate([values ** (-0.5), np.zeros(rank - values.shape[0])]))
     return vectors @ rsqrt_evals
 
 def _rank_reveal(
-        S: ArrayLike,  # Singular values
-        V: ArrayLike,  # Eigenvectors
+        values: np.ndarray,
+        vectors: np.ndarray,
         rank: int,  # Desired rank
         rcond: float  # Threshold for the singular values
 ):
-    top_svals = topk(S, rank)
-    V = V[:, top_svals.indices]
-    S = top_svals.values
+    top_vals = topk(values, rank)
+
+    V = vectors[:, top_vals.indices]
+    S = top_vals.values
 
     _test = S > rcond
     if all(_test):
