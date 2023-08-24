@@ -5,9 +5,9 @@ from scipy.linalg import eig, eigh, solve
 from scipy.sparse.linalg import eigsh
 from kooplearn._src.utils import topk
 from kooplearn._src.linalg import weighted_norm
+from sklearn.utils.extmath import randomized_svd
 
-
-def fit_reduced_rank_regression_tikhonov(
+def fit_reduced_rank_regression(
         C_X: np.ndarray,  # Input covariance matrix
         C_XY: np.ndarray,  # Cross-covariance matrix
         tikhonov_reg: float,  # Tikhonov regularization parameter, can be 0.0
@@ -31,8 +31,7 @@ def fit_reduced_rank_regression_tikhonov(
     vectors = vectors @ np.diag(_norms ** (-1.0))
     return vectors
 
-
-def fit_rand_reduced_rank_regression_tikhonov(
+def fit_rand_reduced_rank_regression(
         C_X: np.ndarray,  # Input covariance matrix
         C_XY: np.ndarray,  # Cross-covariance matrix
         tikhonov_reg: float,  # Tikhonov regularization parameter
@@ -61,8 +60,7 @@ def fit_rand_reduced_rank_regression_tikhonov(
     vectors = vectors @ np.diag(_norms ** (-1.0))
     return sketch_p @ vectors[:, topk(values, rank).indices]
 
-
-def fit_tikhonov(
+def fir_principal_component_regression(
         C_X: np.ndarray,  # Input covariance matrix
         tikhonov_reg: float,  # Tikhonov regularization parameter, can be 0
         rank: Optional[int] = None,  # Rank of the estimator
@@ -85,17 +83,28 @@ def fit_tikhonov(
     rsqrt_evals = np.diag(values ** (-0.5))
     return vectors @ rsqrt_evals
 
-
-def fit_rand_tikhonov(
+def fit_rand_principal_component_regression(
         C_X: ArrayLike,  # Input covariance matrix
-        C_XY: ArrayLike,  # Cross-covariance matrix
         tikhonov_reg: float,  # Tikhonov regularization parameter
         rank: int,  # Rank of the estimator
         n_oversamples: int,  # Number of oversamples
         iterated_power: int,  # Number of power iterations
         rng_seed: Optional[int] = None  # Random seed
 ):
-    raise NotImplementedError
+    dim = C_X.shape[0]
+    if rank is None:
+        rank = dim
+    assert rank <= dim, f"Rank too high. The maximum value for this problem is {dim}"
+    reg_input_covariance = C_X + tikhonov_reg * np.identity(dim, dtype=C_X.dtype)
+
+    vectors, values, _ = randomized_svd(reg_input_covariance, rank, n_oversamples=n_oversamples, n_iter=iterated_power,
+                             random_state=rng_seed)
+    top_eigs = topk(values, rank)
+    vectors = vectors[:, top_eigs.indices]
+    values = top_eigs.values
+
+    rsqrt_evals = np.diag(values ** (-0.5))
+    return vectors @ rsqrt_evals
 
 
 def predict(
@@ -114,7 +123,6 @@ def predict(
     U_phi_X_obs_Y = np.linalg.multi_dot([U.T, phi_X.T, obs_train_Y]) * (num_train ** -1)
     M = np.linalg.matrix_power(U_C_XY_U, num_steps - 1)
     return np.linalg.multi_dot([phi_Xin_dot_U, M, U_phi_X_obs_Y])
-
 
 def estimator_eig(
         U: np.ndarray,  # Projection matrix, as returned by the fit functions defined above
@@ -139,7 +147,6 @@ def estimator_eig(
     lv = lv / l_norm
 
     return values, lv, rv
-
 
 def estimator_modes(
         U: np.ndarray,  # Projection matrix, as returned by the fit functions defined above
@@ -179,7 +186,6 @@ def evaluate_eigenfunction(
         lv_or_rv: np.ndarray,  # Left or right eigenvector, as returned by estimator_eig
 ):
     return phi_Xin @ lv_or_rv
-
 
 def svdvals(U, C_XY):
     M = np.linalg.multi_dot([U, U.T, C_XY])

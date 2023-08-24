@@ -2,10 +2,10 @@ from typing import NamedTuple
 import numpy as np
 
 
+
 class TopKReturnType(NamedTuple):
     values: np.ndarray
     indices: np.ndarray
-
 
 def topk(vec: np.ndarray, k: int):
     assert np.ndim(vec) == 1, "'vec' must be a 1D array"
@@ -15,7 +15,6 @@ def topk(vec: np.ndarray, k: int):
     values = vec[indices]
     return TopKReturnType(values, indices)
 
-
 def parse_cplx_eig(vec: np.ndarray):
     _real_eigs_mask = (vec.imag == 0.)
     real_eigs = vec[_real_eigs_mask]
@@ -23,7 +22,6 @@ def parse_cplx_eig(vec: np.ndarray):
     cplx_eigs = vec[_cplx_eigs_mask]
     cplx_conj_pairs_idxs = _parse_cplx_conj_pairs(cplx_eigs)
     return np.concatenate([np.sort(real_eigs), np.sort(cplx_eigs[cplx_conj_pairs_idxs])])
-
 
 def _parse_cplx_conj_pairs(cplx_conj_vec: np.ndarray):
     if not cplx_conj_vec.shape[0] % 2 == 0:
@@ -54,3 +52,11 @@ def _parse_cplx_conj_pairs(cplx_conj_vec: np.ndarray):
                 idx_list.append(_idx_tuple_r)
     _pos_phase_idxs = [i[0] for i in idx_list]
     return np.asarray(_pos_phase_idxs, dtype=int)
+
+class NotFittedError(Exception):
+    pass
+
+def check_is_fitted(obj: object, attr_list: list[str]):
+    for attr in attr_list:
+        if not hasattr(obj, attr):
+            raise NotFittedError(f"{obj.__class__.__name__} is not fitted. Please call the 'fit' method first.")

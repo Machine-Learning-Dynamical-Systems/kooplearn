@@ -21,7 +21,7 @@ def regularize(M: np.ndarray, reg: float):
     return M + reg * M.shape[0] * np.identity(M.shape[0], dtype=M.dtype)
 
 
-def fit_reduced_rank_regression_tikhonov(
+def fit_reduced_rank_regression(
         K_X: np.ndarray,  # Kernel matrix of the input data
         K_Y: np.ndarray,  # Kernel matrix of the output data
         tikhonov_reg: float,  # Tikhonov regularization parameter, can be 0
@@ -73,7 +73,6 @@ def fit_reduced_rank_regression_tikhonov(
         else:
             return U, V
 
-
 def _fit_reduced_rank_regression_noreg(
         K_X: np.ndarray,  # Kernel matrix of the input data
         K_Y: np.ndarray,  # Kernel matrix of the output data
@@ -105,7 +104,6 @@ def _fit_reduced_rank_regression_noreg(
     else:
         return U, V
 
-
 def fit_nystrom_reduced_rank_regression_tikhonov(
         N_X: np.ndarray,  # Kernel matrix of the input inducing points
         N_Y: np.ndarray,  # Kernel matrix of the output inducing points
@@ -129,8 +127,7 @@ def fit_nystrom_reduced_rank_regression_tikhonov(
     U = lstsq(G, U)[0]
     return U, V
 
-
-def fit_rand_reduced_rank_regression_tikhonov(
+def fit_rand_reduced_rank_regression(
         K_X: np.ndarray,  # Kernel matrix of the input data
         K_Y: np.ndarray,  # Kernel matrix of the output data
         tikhonov_reg: float,  # Tikhonov regularization parameter
@@ -183,8 +180,7 @@ def fit_rand_reduced_rank_regression_tikhonov(
     else:
         return U.real, V.real
 
-
-def fit_tikhonov(
+def fir_principal_component_regression(
         K_X: np.ndarray,  # Kernel matrix of the input data
         tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter, can be zero
         rank: Optional[int] = None,  # Rank of the estimator
@@ -206,7 +202,6 @@ def fit_tikhonov(
     S, V = _postprocess_tikhonov_fit(S, V, rank, dim, rcond)
     return V, V
 
-
 def fit_nystrom_tikhonov(
         N_X: np.ndarray,  # Kernel matrix of the input inducing points
         N_Y: np.ndarray,  # Kernel matrix of the output inducing points
@@ -225,7 +220,7 @@ def fit_nystrom_tikhonov(
     return U, V
 
 
-def fit_rand_tikhonov(
+def fit_rand_principal_component_regression(
         K_X: np.ndarray,  # Kernel matrix of the input data
         tikhonov_reg: float,  # Tikhonov regularization parameter
         rank: int,  # Rank of the estimator
@@ -246,7 +241,6 @@ def fit_rand_tikhonov(
         return V, V, S
     else:
         return V, V
-
 
 def _postprocess_tikhonov_fit(
         S: ArrayLike,  # Singular values

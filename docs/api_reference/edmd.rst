@@ -1,6 +1,7 @@
 Extended Dynamic Mode Decomposition
 ===================================
 
-.. currentmodule:: kooplearn._src.models.edmd
+.. currentmodule:: kooplearn
 
 .. autoclass:: EDMD
+    :members:

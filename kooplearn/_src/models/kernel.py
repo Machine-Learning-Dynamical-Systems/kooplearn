@@ -199,9 +199,9 @@ class KernelDMD(KernelLowRankRegressor):
             reg = self.tikhonov_reg
 
         if self.svd_solver == 'randomized':
-            U, V = dual.fit_rand_tikhonov(self.K_X_, reg, self.rank, self.n_oversamples, self.iterated_power)
+            U, V = dual.fit_rand_principal_component_regression(self.K_X_, reg, self.rank, self.n_oversamples, self.iterated_power)
         else:
-            U, V = dual.fit_tikhonov(self.K_X_, reg, self.rank, self.svd_solver)
+            U, V = dual.fir_principal_component_regression(self.K_X_, reg, self.rank, self.svd_solver)
 
         self.U_ = U
         self.V_ = V
@@ -220,7 +220,7 @@ class KernelReducedRank(KernelLowRankRegressor):
             if self.tikhonov_reg is None:
                 raise ValueError("tikhonov_reg must be specified when solver is randomized.")
             else:
-                U, V = dual.fit_rand_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, self.tikhonov_reg,
+                U, V = dual.fit_rand_reduced_rank_regression(self.K_X_, self.K_Y_, self.tikhonov_reg,
                                                                       self.rank, self.n_oversamples,
                                                                       self.optimal_sketching, self.iterated_power)
         else:
@@ -228,7 +228,7 @@ class KernelReducedRank(KernelLowRankRegressor):
                 tikhonov_reg = 0
             else:
                 tikhonov_reg = self.tikhonov_reg
-            U, V = dual.fit_reduced_rank_regression_tikhonov(self.K_X_, self.K_Y_, tikhonov_reg, self.rank,
+            U, V = dual.fit_reduced_rank_regression(self.K_X_, self.K_Y_, tikhonov_reg, self.rank,
                                                              self.svd_solver)
         self.U_ = U
         self.V_ = V

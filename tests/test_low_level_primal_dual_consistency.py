@@ -47,7 +47,7 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
     K_testX = X_test @ (X.T)
 
     # Dual
-    U, V = dual.fit_reduced_rank_regression_tikhonov(K_X, K_Y, tikhonov_reg, rank, svd_solver=svd_solver)
+    U, V = dual.fit_reduced_rank_regression(K_X, K_Y, tikhonov_reg, rank, svd_solver=svd_solver)
 
     dual_predict = dual.predict(dt, U, V, K_YX, K_testX, Y)
     dual_eig, dual_lv, dual_rv = dual.estimator_eig(U, V, K_X, K_YX)
@@ -62,7 +62,7 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
     assert dual_predict.shape == (num_test_pts, num_features)
 
     # Primal
-    U = primal.fit_reduced_rank_regression_tikhonov(C_X, C_XY, tikhonov_reg, rank, svd_solver=svd_solver)
+    U = primal.fit_reduced_rank_regression(C_X, C_XY, tikhonov_reg, rank, svd_solver=svd_solver)
 
     primal_predict = primal.predict(dt, U, C_XY, X_test, X, Y)
     primal_eig, primal_lv, primal_rv = primal.estimator_eig(U, C_XY)
@@ -104,7 +104,7 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
     K_testX = X_test @ (X.T)
 
     # Dual
-    U, V = dual.fit_tikhonov(K_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
+    U, V = dual.fir_principal_component_regression(K_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
 
     dual_predict = dual.predict(dt, U, V, K_YX, K_testX, Y)
     dual_eig, dual_lv, dual_rv = dual.estimator_eig(U, V, K_X, K_YX)
@@ -119,7 +119,7 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
     assert dual_predict.shape == (num_test_pts, num_features)
 
     # Primal
-    U = primal.fit_tikhonov(C_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
+    U = primal.fir_principal_component_regression(C_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
 
     primal_predict = primal.predict(dt, U, C_XY, X_test, X, Y)
     primal_eig, primal_lv, primal_rv = primal.estimator_eig(U, C_XY)
@@ -167,7 +167,7 @@ def test_rand_reduced_rank(dt):
     K_testX = X_test @ (X.T)
 
     # Dual
-    U, V, _ = dual.fit_rand_reduced_rank_regression_tikhonov(K_X, K_Y, rank, tikhonov_reg, n_oversamples, False,
+    U, V, _ = dual.fit_rand_reduced_rank_regression(K_X, K_Y, rank, tikhonov_reg, n_oversamples, False,
                                                              iterated_power)
 
     dual_predict = dual.low_rank_predict(dt, U, V, K_YX, K_testX, Y)
@@ -176,7 +176,7 @@ def test_rand_reduced_rank(dt):
     assert dual_predict.shape == (num_test_pts, num_features)
 
     # Primal
-    U = primal.fit_rand_reduced_rank_regression_tikhonov(C_X, C_XY, rank, tikhonov_reg, n_oversamples, iterated_power)
+    U = primal.fit_rand_reduced_rank_regression(C_X, C_XY, rank, tikhonov_reg, n_oversamples, iterated_power)
 
     primal_predict = primal.low_rank_predict(dt, U, C_XY, X_test, X, Y)
     primal_eig, _ = primal.low_rank_eig(U, C_XY)
@@ -208,13 +208,13 @@ def test_rand_reduced_rank_primal(dt):
     C_XY = rdim * ((X.T) @ Y)
 
     # Primal
-    U = primal.fit_reduced_rank_regression_tikhonov(C_X, C_XY, rank, tikhonov_reg)
+    U = primal.fit_reduced_rank_regression(C_X, C_XY, rank, tikhonov_reg)
 
     predict = primal.low_rank_predict(dt, U, C_XY, X_test, X, Y)
     eig, _ = primal.low_rank_eig(U, C_XY)
 
     # Rand
-    U_rand = primal.fit_rand_reduced_rank_regression_tikhonov(C_X, C_XY, rank, tikhonov_reg, n_oversamples,
+    U_rand = primal.fit_rand_reduced_rank_regression(C_X, C_XY, rank, tikhonov_reg, n_oversamples,
                                                               iterated_power)
 
     rand_predict = primal.low_rank_predict(dt, U_rand, C_XY, X_test, X, Y)
@@ -255,13 +255,13 @@ def test_rand_reduced_rank_dual(dt):
     K_testX = X_test @ (X.T)
 
     # Dual
-    U, V, _ = dual.fit_reduced_rank_regression_tikhonov(K_X, K_Y, rank, tikhonov_reg)
+    U, V, _ = dual.fit_reduced_rank_regression(K_X, K_Y, rank, tikhonov_reg)
 
     predict = dual.low_rank_predict(dt, U, V, K_YX, K_testX, Y)
     eig, _, _ = dual.low_rank_eig(U, V, K_X, K_Y, K_YX)
 
     # Rand
-    U_rand, V_rand, _ = dual.fit_rand_reduced_rank_regression_tikhonov(K_X, K_Y, rank, tikhonov_reg, n_oversamples,
+    U_rand, V_rand, _ = dual.fit_rand_reduced_rank_regression(K_X, K_Y, rank, tikhonov_reg, n_oversamples,
                                                                        False, iterated_power)
 
     rand_predict = dual.low_rank_predict(dt, U_rand, V_rand, K_YX, K_testX, Y)

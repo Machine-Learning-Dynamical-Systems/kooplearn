@@ -1,0 +1,1 @@
+from kooplearn._src.models.edmd import EDMD

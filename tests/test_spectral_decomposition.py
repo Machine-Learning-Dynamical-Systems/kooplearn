@@ -31,7 +31,7 @@ def test_primal_eig_decomposition(tikhonov_reg, svd_solver):
     C_X = rdim * ((X.T) @ X)
     C_XY = rdim * ((X.T) @ Y)
 
-    U = primal.fit_tikhonov(C_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
+    U = primal.fir_principal_component_regression(C_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
     eig, lv, rv = primal.estimator_eig(U, C_XY)
     estimator = np.linalg.multi_dot([U, U.T, C_XY])
 
@@ -63,7 +63,7 @@ def test_dual_eig_decomposition(tikhonov_reg, svd_solver):
     K_YX = Y @ (X.T)
 
     # Dual
-    U, V = dual.fit_tikhonov(K_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
+    U, V = dual.fir_principal_component_regression(K_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
     eig, lv, rv = dual.estimator_eig(U, V, K_X, K_YX)
 
     assert _dual_right_normalization(rv, K_X)
