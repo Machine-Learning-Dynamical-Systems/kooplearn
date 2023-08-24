@@ -180,7 +180,7 @@ def fit_rand_reduced_rank_regression(
     else:
         return U.real, V.real
 
-def fir_principal_component_regression(
+def fit_principal_component_regression(
         K_X: np.ndarray,  # Kernel matrix of the input data
         tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter, can be zero
         rank: Optional[int] = None,  # Rank of the estimator

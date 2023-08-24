@@ -104,7 +104,7 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
     K_testX = X_test @ (X.T)
 
     # Dual
-    U, V = dual.fir_principal_component_regression(K_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
+    U, V = dual.fit_principal_component_regression(K_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
 
     dual_predict = dual.predict(dt, U, V, K_YX, K_testX, Y)
     dual_eig, dual_lv, dual_rv = dual.estimator_eig(U, V, K_X, K_YX)
@@ -119,7 +119,7 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
     assert dual_predict.shape == (num_test_pts, num_features)
 
     # Primal
-    U = primal.fir_principal_component_regression(C_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
+    U = primal.fit_principal_component_regression(C_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
 
     primal_predict = primal.predict(dt, U, C_XY, X_test, X, Y)
     primal_eig, primal_lv, primal_rv = primal.estimator_eig(U, C_XY)

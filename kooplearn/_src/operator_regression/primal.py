@@ -6,6 +6,7 @@ from scipy.sparse.linalg import eigsh
 from kooplearn._src.utils import topk
 from kooplearn._src.linalg import weighted_norm
 from sklearn.utils.extmath import randomized_svd
+import logging
 
 def fit_reduced_rank_regression(
         C_X: np.ndarray,  # Input covariance matrix
@@ -25,7 +26,6 @@ def fit_reduced_rank_regression(
 
     top_eigs = topk(values, rank)
     vectors = vectors[:, top_eigs.indices]
-    # values = top_eigs.values
 
     _norms = weighted_norm(vectors, reg_input_covariance)
     vectors = vectors @ np.diag(_norms ** (-1.0))
@@ -60,11 +60,12 @@ def fit_rand_reduced_rank_regression(
     vectors = vectors @ np.diag(_norms ** (-1.0))
     return sketch_p @ vectors[:, topk(values, rank).indices]
 
-def fir_principal_component_regression(
+def fit_principal_component_regression(
         C_X: np.ndarray,  # Input covariance matrix
         tikhonov_reg: float,  # Tikhonov regularization parameter, can be 0
         rank: Optional[int] = None,  # Rank of the estimator
-        svd_solver: str = 'arnoldi'  # SVD solver to use. Arnoldi is faster for low ranks.
+        svd_solver: str = 'arnoldi',  # SVD solver to use. Arnoldi is faster for low ranks.
+        rcond: float = 2.2e-16,  # Threshold for the singular values
 ):
     dim = C_X.shape[0]
     if rank is None:
@@ -80,6 +81,7 @@ def fir_principal_component_regression(
     vectors = vectors[:, top_eigs.indices]
     values = top_eigs.values
 
+    values, vectors = _rank_reveal(values, vectors, rank, rcond)
     rsqrt_evals = np.diag(values ** (-0.5))
     return vectors @ rsqrt_evals
 
@@ -89,6 +91,7 @@ def fit_rand_principal_component_regression(
         rank: int,  # Rank of the estimator
         n_oversamples: int,  # Number of oversamples
         iterated_power: int,  # Number of power iterations
+        rcond: float = 2.2e-16,  # Threshold for the singular values
         rng_seed: Optional[int] = None  # Random seed
 ):
     dim = C_X.shape[0]
@@ -103,8 +106,33 @@ def fit_rand_principal_component_regression(
     vectors = vectors[:, top_eigs.indices]
     values = top_eigs.values
 
+    values, vectors = _rank_reveal(values, vectors, rank, rcond)
     rsqrt_evals = np.diag(values ** (-0.5))
     return vectors @ rsqrt_evals
+
+def _rank_reveal(
+        S: ArrayLike,  # Singular values
+        V: ArrayLike,  # Eigenvectors
+        rank: int,  # Desired rank
+        rcond: float  # Threshold for the singular values
+):
+    top_svals = topk(S, rank)
+    V = V[:, top_svals.indices]
+    S = top_svals.values
+
+    _test = S > rcond
+    if all(_test):
+        pass
+    else:
+        S = S[_test]
+        V = V[:, _test]
+        logging.warning(
+            f"The numerical rank of the projector ({V.shape[1]}) is smaller than the selected rank ({rank}). "
+            f"{rank - V.shape[1]} degrees of freedom will be ignored.")
+        _zeroes = np.zeros((V.shape[0], rank - V.shape[1]))
+        V = np.c_[V, _zeroes]
+        assert V.shape[1] == rank
+    return S, V
 
 
 def predict(

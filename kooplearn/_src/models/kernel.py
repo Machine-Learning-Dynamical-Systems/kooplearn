@@ -201,7 +201,7 @@ class KernelDMD(KernelLowRankRegressor):
         if self.svd_solver == 'randomized':
             U, V = dual.fit_rand_principal_component_regression(self.K_X_, reg, self.rank, self.n_oversamples, self.iterated_power)
         else:
-            U, V = dual.fir_principal_component_regression(self.K_X_, reg, self.rank, self.svd_solver)
+            U, V = dual.fit_principal_component_regression(self.K_X_, reg, self.rank, self.svd_solver)
 
         self.U_ = U
         self.V_ = V

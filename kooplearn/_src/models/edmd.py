@@ -97,7 +97,7 @@ class EDMD(BaseModel):
             if self.svd_solver == 'randomized':
                 vectors = primal.fit_rand_principal_component_regression(self.cov_X, self.tikhonov_reg, self.rank, self.n_oversamples, self.iterated_power)
             else:
-                vectors = primal.fir_principal_component_regression(self.cov_X, self.tikhonov_reg, self.rank, self.svd_solver)
+                vectors = primal.fit_principal_component_regression(self.cov_X, self.tikhonov_reg, self.rank, self.svd_solver)
         self.U = vectors
         
         #Final Checks
