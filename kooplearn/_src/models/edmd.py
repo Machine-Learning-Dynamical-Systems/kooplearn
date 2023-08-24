@@ -12,33 +12,31 @@ from kooplearn._src.models.abc import BaseModel, FeatureMap, IdentityFeatureMap
 from kooplearn._src.operator_regression import primal
 import logging
 
-class EDMD(BaseModel):
+class ExtendedDMD(BaseModel):
     """
-    Extended Dynamic Mode Decomposition (EDMD) Model.
-    Implements the EDMD estimators following the approach described in [1].
+    Extended Dynamic Mode Decomposition (ExtendedDMD) Model.
+    Implements the ExtendedDMD estimators approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator following the approach described in [1].
     
     Parameters:
-        feature_map (callable): Feature map used for the EDMD algorithm.
-        reduced_rank (bool): Whether to use the reduced rank regression estimator introduced in [1].
-        rank (int): Rank of the estimator. If ``None``, return the full rank estimator.
-        tikhonov_reg (float): Tikhonov regularization coefficient. ``None``, here, is equivalent to ``tikhonov_reg = 0``, and internally specialized algorithms are called to deal with this limit case.
+        feature_map (callable): Dictionary of functions used for the ExtendedDMD algorithm. Should be a subclass of ``kooplearn._src.models.abc.FeatureMap``.
+        reduced_rank (bool): If ``True`` initializes the reduced rank estimator introduced in [1], if ``False`` initializes the classical principal component estimator.
+        rank (int): Rank of the estimator. ``None`` returns the full rank estimator.
+        tikhonov_reg (float): Tikhonov regularization coefficient. ``None`` is equivalent to ``tikhonov_reg = 0``, and internally calls specialized stable algorithms to deal with this specific case.
         svd_solver (str): SVD solver used. Currently supported: 'arnoldi', 'full', 'randomized'.
         iterated_power (int): Number of power iterations when using a randomized algorithm (``svd_solver == 'randomized'``).
         n_oversamples (int): Number of oversamples when using a randomized algorithm (``svd_solver == 'randomized'``).
-        rng_seed (int): Random Number Generator seed, for reproducibility. Default to ``None``, no explicit seed is applied.
+        rng_seed (int): Random Number Generator seed. Only used when ``svd_solver == 'randomized'``.  Defaults to ``None``, that is no explicit seed is setted.
 
     Attributes:
-        X_fit (numpy.ndarray): X training data of shape ``(n_samples, n_features)`` corresponding to the state at time t.
-        Y_fit (numpy.ndarray): Y training data of shape ``(n_samples, n_features)`` corresponding to the state at time t+1.
-        cov_X (numpy.ndarray): Covariance matrix of the feature map evaluated at X_fit, shape ``(n_features, n_features)``.
-        cov_Y (numpy.ndarray): Covariance matrix of the feature map evaluated at Y_fit, shape ``(n_features, n_features)``.
-        cov_XY (numpy.ndarray): Cross-covariance matrix of the feature map evaluated at X_fit and Y_fit, shape ``(n_features, n_features)``.
-        U (numpy.ndarray): Projection matrix of shape (n_features, rank). The Koopman operator is approximated as :math:`U U^T \mathrm{cov_{XY}}`.
+        X_fit : Training data of shape ``(n_samples, n_features)`` corresponding to a collection of sampled states.
+        Y_fit : Evolved training data of shape ``(n_samples, n_features)`` corresponding the evolution of ``X_fit`` after one step.
+        cov_X : Covariance matrix of the feature map evaluated at X_fit, shape ``(n_features, n_features)``.
+        cov_Y : Covariance matrix of the feature map evaluated at Y_fit, shape ``(n_features, n_features)``.
+        cov_XY : Cross-covariance matrix of the feature map evaluated at X_fit and Y_fit, shape ``(n_features, n_features)``.
+        U : Projection matrix of shape (n_features, rank). The Koopman/Transfer operator is approximated as :math:`U U^T \mathrm{cov_{XY}}`.
     
     References:
-        [1] Vladimir Kostic, Pietro Novelli, Andreas Maurer, Carlo Ciliberto, Lorenzo Rosasco, and Massimiliano Pontil.
-        “Learning Dynamical Systems via Koopman Operator Regression in Reproducing Kernel Hilbert Spaces.” arXiv,
-        December 13, 2022. http://arxiv.org/abs/2205.14027.
+        [1] Vladimir Kostic, Pietro Novelli, Andreas Maurer, Carlo Ciliberto, Lorenzo Rosasco, and Massimiliano Pontil. “Learning Dynamical Systems via Koopman Operator Regression in Reproducing Kernel Hilbert Spaces.” arXiv, December 13, 2022. http://arxiv.org/abs/2205.14027.
     """
 
     def __init__(self, 
@@ -78,17 +76,15 @@ class EDMD(BaseModel):
     
     def fit(self, X: ArrayLike, Y: ArrayLike):
         """
-        Fits the EDMD model.
-
-        Use either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
+        Fits the ExtendedDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
 
         Parameters:
-            X (numpy.ndarray): X training data of shape ``(n_samples, n_features)`` corresponding to the state at time t.
-            Y (numpy.ndarray): Y training data of shape ``(n_samples, n_features)`` corresponding to the state at time t+1.
+            X : Training data of shape ``(n_samples, n_features)`` corresponding to a collection of sampled states.
+            Y : Evolved training data of shape ``(n_samples, n_features)`` corresponding the evolution of ``X`` after one step.
         
         Returns:
-            self: return the fitted estimator
+            self (ExtendedDMD): The fitted estimator.
         """
         self._pre_fit_checks(X, Y)
         if self.reduced_rank:
@@ -111,16 +107,17 @@ class EDMD(BaseModel):
     def predict(self, X: np.ndarray, t: int = 1, observables: Optional[Union[Callable, np.ndarray]] = None) \
             -> np.ndarray:
         """
-        Predicts the state or, if the system is stochastic, its expected value after :math:`t`instants given the initial condition ``X``.
-        If ``observables`` are specified, do the same with the observable instead.
+        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial condition ``X``.
+        
+        If ``observables`` are not ``None``, returns the analogue quantity for the observable instead.
 
         Parameters:
             X (numpy.ndarray): Initial conditions for which we wish the prediction, shape ``(n_init_conditions, n_features)``.
             t (int): Number of steps to predict (return the last one).
-            observables (callable or numpy.ndarray or None): Callable, ndarray of shape ``(n_samples, n_obs_features)`` or ``None``. If ``ndarray``, it must be the observable evaluated at ``self.Y_fit``. If ``None``, the observable is assumed to be the identity map (i.e., one predicts the state itself).
+            observables (callable, numpy.ndarray or None): Callable, array of shape ``(n_samples, n_obs_features)`` or ``None``. If array, it must be the observable evaluated at ``self.Y_fit``. If ``None`` returns the predictions for the state.
 
         Returns:
-            numpy.ndarray: The predicted (expected) state/observable at time :math:`t`, shape ``(n_init_conditions, n_obs_features)``.
+           The predicted (expected) state/observable at time :math:`t`, shape ``(n_init_conditions, n_obs_features)``.
         """
 
         if observables is None:
@@ -143,16 +140,14 @@ class EDMD(BaseModel):
     def eig(self, eval_left_on: Optional[np.ndarray] = None, eval_right_on: Optional[np.ndarray] = None) \
             -> Union[np.ndarray, tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]]:
         """
-        Computes the eigenvalues of the Koopman operator and optionally evaluates left and right eigenfunctions.
+        Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right eigenfunctions.
 
         Parameters:
-            eval_left_on (numpy.ndarray or None): State of the system to evaluate the left eigenfunction on, shape `(n_samples, n_features)`.
-            eval_right_on (numpy.ndarray or None): State of the system to evaluate the right eigenfunction on, shape `(n_samples, n_features)`.
+            eval_left_on (numpy.ndarray or None): States of the system to evaluate the left eigenfunctions on, shape ``(n_samples, n_features)``.
+            eval_right_on (numpy.ndarray or None): States of the system to evaluate the right eigenfunctions on, shape ``(n_samples, n_features)``.
 
         Returns:
-            numpy.ndarray: Eigenvalues of the Koopman operator, shape `(rank,)`.
-            numpy.ndarray or None: Left eigenfunction evaluated at `eval_left_on`, shape `(n_samples, rank)` if `eval_left_on` is not None.
-            numpy.ndarray or None: Right eigenfunction evaluated at `eval_right_on`, shape `(n_samples, rank)` if `eval_right_on` is not None.
+            numpy.ndarray or tuple: (eigenvalues, left eigenfunctions, right eigenfunctions) - Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. Left eigenfunctions evaluated at ``eval_left_on``, shape ``(n_samples, rank)`` if ``eval_left_on`` is not ``None``. Right eigenfunction evaluated at ``eval_right_on``, shape ``(n_samples, rank)`` if ``eval_right_on`` is not ``None``.
         """
 
         check_is_fitted(self, ['U', 'cov_XY'])
@@ -174,16 +169,16 @@ class EDMD(BaseModel):
             phi_Xin_r = self.feature_map(eval_right_on)
             return w, primal.evaluate_eigenfunction(phi_Xin_l, vl), primal.evaluate_eigenfunction(phi_Xin_r, vr)
     
-    def modes(self, Xin: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None) -> np.ndarray:
+    def modes(self, X: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None) -> np.ndarray:
         """
-        Computes the Koopman mode decomposition of one or more observables of the system at the state `X`.
+        Computes the mode decomposition of the Koopman/Transfer operator of one or more observables of the system at the state ``X``.
 
         Parameters:
-            Xin (numpy.ndarray): Initial conditions of the system for which the modes are returned, shape `(n_init_conditions, n_features)`.
-            observables (callable or numpy.ndarray or None): Callable, ndarray of shape `(n_samples, n_obs_features)` or None. If ndarray, it must be the observable evaluated at `self.Y_fit`. If None, the observable is assumed to be the identity map (i.e., one gets the modes of the state itself).
+            X (numpy.ndarray): States of the system for which the modes are returned, shape ``(n_states, n_features)``.
+            observables (callable, numpy.ndarray or None): Callable, array of shape ``(n_samples, n_obs_features)`` or ``None``. If array, it must be the observable evaluated at ``self.Y_fit``. If ``None`` returns the predictions for the state.
 
         Returns:
-            numpy.ndarray: Modes of the system at the state `X`, shape `(self.rank, num_init_conditions, n_obs_features)`.
+            numpy.ndarray: Modes of the system at the state ``X``, shape ``(self.rank, n_states, n_obs_features)``.
         """
 
         if observables is None:
@@ -202,15 +197,15 @@ class EDMD(BaseModel):
 
         check_is_fitted(self, ['U', 'X_fit', 'cov_XY'])
         phi_X = self.feature_map(self.X_fit)
-        phi_Xin = self.feature_map(Xin)
+        phi_Xin = self.feature_map(X)
         _gamma = primal.estimator_modes(self.U, self.cov_XY, phi_X, phi_Xin)
         return np.squeeze(np.matmul(_gamma, _obs))  # [rank, num_initial_conditions, num_observables]
 
-    def svd(self) -> np.ndarray:
-        """Singular values of the Koopman operator.
+    def svals(self) -> np.ndarray:
+        """Singular values of the Koopman/Transger operator.
 
         Returns:
-            S: The estimated singular values of the Koopman operator, shape `(rank,)`.
+            numpy.ndarray: The estimated singular values of the Koopman/Transfer operator, shape `(rank,)`.
         """        
         check_is_fitted(self, ['U', 'cov_XY'])
         return primal.svdvals(self.U, self.cov_XY)
@@ -220,11 +215,13 @@ class EDMD(BaseModel):
         with open(path, '+wb') as outfile:
             pickle.dump(self, outfile)
     
-    @staticmethod
-    def load(path: os.PathLike):
+    @classmethod
+    def load(cls, path: os.PathLike):
         path = Path(path)
         with open(path, '+rb') as infile:
-            return pickle.load(infile)
+            restored_obj = pickle.load(infile)
+            assert type(restored_obj) == cls
+            return restored_obj
 
     def _init_covs(self, X: np.ndarray, Y: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
@@ -276,9 +273,9 @@ class EDMD(BaseModel):
         if hasattr(self, '_eig_cache'):
             del self._eig_cache
 
-class DMD(EDMD):
+class DMD(ExtendedDMD):
     def __init__(self, 
-                reduced_rank: bool = False,
+                reduced_rank: bool = True,
                 rank: Optional[int] = 5, 
                 tikhonov_reg: float = 0,
                 svd_solver: str = 'full',

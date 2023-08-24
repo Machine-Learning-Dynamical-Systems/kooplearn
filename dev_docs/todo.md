@@ -1,15 +1,10 @@
-### EDMD
-- [x] Add `is_fitted` property. 
-- [x] Re-Implement saving and loading utilities
-- [x] Rename attributes in a decent way (Remove `sklearn` dependence)
-- [ ] Implement numerical rank revealing on the primal algorithms (RRR still Missing).
+### Documentation
+- [ ] Add a Shared Bibliography file
+### ExtendedDMD
 - [ ] Add power iteration QR normalization for the randomized RRR algorithms.
   - [ ] Test the randomized algorithms.
 .
 ### Algorithms
-- [x] Implement the primal algorithm to fit RRR without Tikhonov reg.
-- [x] Add the possibility to compute left eigenvectors for the primal algorithms.
-- [x] Implement `fit_rand_principal_component_regression` in primal.py
 - [ ] Implement the following metrics:
     - [ ] Squared loss
     - [ ] Prediction error

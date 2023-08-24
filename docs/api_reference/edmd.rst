@@ -1,7 +1,10 @@
-Extended Dynamic Mode Decomposition
-===================================
+DMD estimators
+=====================================
 
 .. currentmodule:: kooplearn
 
-.. autoclass:: EDMD
+.. autoclass:: ExtendedDMD
+    :members:
+
+.. autoclass:: KernelLowRankRegressor
     :members:

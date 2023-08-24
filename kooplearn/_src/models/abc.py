@@ -24,7 +24,7 @@ class BaseModel(abc.ABC):
     def save(self, path: os.PathLike):
         pass
     
-    @staticmethod
+    @classmethod
     @abc.abstractmethod
     def load(path: os.PathLike):
         pass

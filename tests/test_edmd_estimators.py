@@ -4,7 +4,7 @@ import numpy as np
 from pathlib import Path
 from shutil import rmtree
 from pathlib import Path
-from kooplearn._src.models.edmd import EDMD
+from kooplearn._src.models.edmd import ExtendedDMD
 from kooplearn._src.models.abc import FeatureMap, IdentityFeatureMap
 from kooplearn.data.datasets.stochastic import LinearModel
 
@@ -39,14 +39,14 @@ class PolyFeatureMap(FeatureMap):
 @pytest.mark.parametrize('tikhonov_reg', [None, 0., 1e-10, 1e-5])
 @pytest.mark.parametrize('svd_solver', ['full', 'arnoldi', 'wrong'])
 @pytest.mark.parametrize('observables', [None, lambda x: x[:, 0], np.random.rand(NUM_SAMPLES, 1)])
-def test_EDMD_fit_predict_eig_modes_save_load(feature_map, reduced_rank, rank, tikhonov_reg, svd_solver, observables):
+def test_ExtendedDMD_fit_predict_eig_modes_save_load(feature_map, reduced_rank, rank, tikhonov_reg, svd_solver, observables):
     
     dataset = make_linear_system()
     _Z = dataset.generate(np.zeros(DIM), NUM_SAMPLES)
     X, Y = _Z[:-1], _Z[1:]
     if svd_solver not in ['full', 'arnoldi']:
         with pytest.raises(ValueError):
-            model = EDMD(
+            model = ExtendedDMD(
                 feature_map=feature_map,
                 reduced_rank=reduced_rank,
                 rank=rank,
@@ -54,7 +54,7 @@ def test_EDMD_fit_predict_eig_modes_save_load(feature_map, reduced_rank, rank, t
                 svd_solver=svd_solver,
             )
     else:
-        model = EDMD(
+        model = ExtendedDMD(
                 feature_map=feature_map,
                 reduced_rank=reduced_rank,
                 rank=rank,
@@ -90,7 +90,7 @@ def test_EDMD_fit_predict_eig_modes_save_load(feature_map, reduced_rank, rank, t
         assert vals.ndim == 1
         tmp_path = Path(__file__).parent / f'tmp/model.bin'
         model.save(tmp_path)
-        restored_model = EDMD.load(tmp_path)
+        restored_model = ExtendedDMD.load(tmp_path)
 
         assert np.allclose(model.cov_X, restored_model.cov_X)
         assert np.allclose(model.cov_Y, restored_model.cov_Y)

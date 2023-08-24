@@ -1,15 +1,15 @@
 from numpy.typing import ArrayLike
 from kooplearn._src.models.abc import TrainableFeatureMap
-from kooplearn._src.models.edmd import EDMD
+from kooplearn._src.models.edmd import ExtendedDMD
 
 
-class EncoderModel(EDMD):
+class EncoderModel(ExtendedDMD):
     """Encoder Model
 
-    Encoder model is a special case of EDMD where the feature map is trainable.
+    Encoder model is a special case of ExtendedDMD where the feature map is trainable.
 
     Parameters:
-        feature_map: Feature map used for the EDMD algorithm.
+        feature_map: Feature map used for the ExtendedDMD algorithm.
         reduced_rank: Whether to use a reduced rank estimator.
         randomized: Whether to use a randomized algorithm.
         rank: Rank of the estimator.
