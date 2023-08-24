@@ -4,7 +4,7 @@ from numpy.typing import ArrayLike
 from scipy.linalg import eig, eigh, solve
 from scipy.sparse.linalg import eigsh
 from kooplearn._src.utils import topk
-from kooplearn._src.linalg import weighted_norm
+from kooplearn._src.linalg import weighted_norm, spd_neg_pow
 from sklearn.utils.extmath import randomized_svd
 import logging
 
@@ -15,21 +15,43 @@ def fit_reduced_rank_regression(
         rank: int,  # Rank of the estimator
         svd_solver: str = 'arnoldi'  # SVD solver to use. Arnoldi is faster for low ranks.
 ):
-    dim = C_X.shape[0]
-    reg_input_covariance = C_X + tikhonov_reg * np.identity(dim, dtype=C_X.dtype)
-    _crcov = C_XY @ C_XY.T
+    if tikhonov_reg == 0.:
+        return _fit_reduced_rank_regression_noreg(C_X, C_XY, rank, svd_solver)
+    else:
+        dim = C_X.shape[0]
+        reg_input_covariance = C_X + tikhonov_reg * np.identity(dim, dtype=C_X.dtype)
+        _crcov = C_XY @ C_XY.T
+        if svd_solver == 'arnoldi':
+            # Adding a small buffer to the Arnoldi-computed eigenvalues.
+            values, vectors = eigsh(_crcov, rank + 3, M=reg_input_covariance)
+        else:
+            values, vectors = eigh(_crcov, reg_input_covariance)
+
+        top_eigs = topk(values, rank)
+        vectors = vectors[:, top_eigs.indices]
+
+        _norms = weighted_norm(vectors, reg_input_covariance)
+        vectors = vectors @ np.diag(_norms ** (-1.0))
+        return vectors
+
+def _fit_reduced_rank_regression_noreg(
+        C_X: np.ndarray,  # Input covariance matrix
+        C_XY: np.ndarray,  # Cross-covariance matrix
+        rank: int,  # Rank of the estimator
+        svd_solver: str = 'arnoldi'  # SVD solver to use. Arnoldi is faster for low ranks.
+        ):      
+    rsqrt_C_X = spd_neg_pow(C_X, -0.5)
+    B = rsqrt_C_X @ C_XY 
+    _crcov = B @ B.T
     if svd_solver == 'arnoldi':
         # Adding a small buffer to the Arnoldi-computed eigenvalues.
-        values, vectors = eigsh(_crcov, rank + 3, M=reg_input_covariance)
+        values, vectors = eigsh(_crcov, rank + 3)
     else:
-        values, vectors = eigh(_crcov, reg_input_covariance)
+        values, vectors = eigh(_crcov)
 
     top_eigs = topk(values, rank)
     vectors = vectors[:, top_eigs.indices]
-
-    _norms = weighted_norm(vectors, reg_input_covariance)
-    vectors = vectors @ np.diag(_norms ** (-1.0))
-    return vectors
+    return rsqrt_C_X @ vectors
 
 def fit_rand_reduced_rank_regression(
         C_X: np.ndarray,  # Input covariance matrix
@@ -49,6 +71,7 @@ def fit_rand_reduced_rank_regression(
     for _ in range(iterated_power):
         _tmp_sketch = solve(reg_input_covariance, sketch, assume_a='pos')
         sketch = _crcov @ _tmp_sketch
+        # TODO add power iteration QR normalization.
 
     sketch_p = solve(reg_input_covariance, sketch, assume_a='pos')
 

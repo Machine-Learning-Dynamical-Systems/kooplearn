@@ -3,6 +3,7 @@
 - [x] Re-Implement saving and loading utilities
 - [x] Rename attributes in a decent way (Remove `sklearn` dependence)
 - [ ] Implement numerical rank revealing on the primal algorithms (RRR still Missing).
+- [ ] Add power iteration QR normalization for the randomized RRR algorithms.
 
 ### Algorithms
 - [ ] Implement the primal algorithm to fit RRR without Tikhonov reg.

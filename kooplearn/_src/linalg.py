@@ -3,6 +3,23 @@ import numpy as np
 from sklearn.utils import check_array
 from warnings import warn
 
+def spd_neg_pow(M: np.ndarray, exponent: float = -1.0, cutoff: Optional[float] = None , strategy: str = 'trunc') -> np.ndarray:
+    """
+    Truncated eigenvalue decomposition of A
+    """
+    if cutoff is None:
+        cutoff = 10.*M.shape[0]*np.finfo(M.dtype).eps
+
+    w, v = np.linalg.eigh(M)
+    if strategy == 'trunc':
+        sanitized_w = np.where(w <= cutoff, 1.0, w)
+        inv_w = np.where(w > cutoff, sanitized_w**exponent, 0.0)
+        v = np.where(w > cutoff, v, 0.0)
+    elif strategy == 'tikhonov':
+        inv_w = (w + cutoff)**exponent
+    else:
+        raise NotImplementedError(f"Strategy {strategy} not implemented")
+    return np.linalg.multi_dot([v, np.diag(inv_w), v.T])
 
 def weighted_norm(A: np.ndarray, M: Optional[np.ndarray] = None):
     r"""Weighted norm of the columns of A.

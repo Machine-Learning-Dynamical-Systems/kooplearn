@@ -1,8 +1,6 @@
 from typing import NamedTuple
 import numpy as np
 
-
-
 class TopKReturnType(NamedTuple):
     values: np.ndarray
     indices: np.ndarray
