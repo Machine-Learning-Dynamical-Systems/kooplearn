@@ -1,6 +1,6 @@
 ### EDMD
-- [ ] Add `is_fitted` property. 
-- [ ] Re-Implement saving and loading utilities
+- [x] Add `is_fitted` property. 
+- [x] Re-Implement saving and loading utilities
 - [x] Rename attributes in a decent way (Remove `sklearn` dependence)
 
 ### Algorithms

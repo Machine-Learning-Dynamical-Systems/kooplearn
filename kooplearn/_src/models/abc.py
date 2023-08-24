@@ -1,12 +1,10 @@
 from __future__ import annotations
-
 import abc
 import os
 from typing import Optional, Union, Callable
 
 import numpy as np
 from numpy.typing import ArrayLike
-
 
 # Abstract base classes defining the interface to implement when extending kooplearn
 class BaseModel(abc.ABC):

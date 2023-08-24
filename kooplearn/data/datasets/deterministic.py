@@ -3,7 +3,6 @@ from numpy.typing import ArrayLike
 import scipy.integrate
 from kooplearn.data.datasets.misc import DataGenerator
 
-
 class Duffing(DataGenerator):
     def __init__(self, alpha=0.5, beta=0.0625, gamma=0.1, delta=2.5, omega=2.0, dt=0.01):
         self.alpha = alpha
@@ -24,7 +23,6 @@ class Duffing(DataGenerator):
         t_span = (0, t_eval[-1])
         sol = scipy.integrate.solve_ivp(self.D, t_span, X0, t_eval=t_eval, method='RK45')
         return sol.y.T
-
 
 class Lorenz63(DataGenerator):
     def __init__(self, sigma=10, mu=28, beta=8 / 3, dt=0.01):

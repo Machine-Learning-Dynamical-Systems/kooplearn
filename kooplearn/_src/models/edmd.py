@@ -19,7 +19,7 @@ class EDMD(BaseModel):
     
     Parameters:
         feature_map (callable): Feature map used for the EDMD algorithm.
-        reduced_rank (bool): Whether to use the reduced rank regression estimator  in [1].
+        reduced_rank (bool): Whether to use the reduced rank regression estimator introduced in [1].
         rank (int): Rank of the estimator. If ``None``, return the full rank estimator.
         tikhonov_reg (float): Tikhonov regularization coefficient.
         svd_solver (str): SVD solver used. Currently supported: 'arnoldi', 'full', 'randomized'.
@@ -67,16 +67,25 @@ class EDMD(BaseModel):
 
         self.feature_map = feature_map
         self.reduced_rank = reduced_rank
+        self._is_fitted = False
+    
+    @property
+    def is_fitted(self) -> bool:
+        return self._is_fitted
     
     def fit(self, X: ArrayLike, Y: ArrayLike):
-        """Fits the EDMD model.
+        """
+        Fits the EDMD model.
 
         Use either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
 
         Parameters:
-            X: X training data of shape (n_samples, n_features) corresponding to the state at time t.
-            Y: Y training data of shape (n_samples, n_features) corresponding to the state at time t+1.
+            X (numpy.ndarray): X training data of shape ``(n_samples, n_features)`` corresponding to the state at time t.
+            Y (numpy.ndarray): Y training data of shape ``(n_samples, n_features)`` corresponding to the state at time t+1.
+        
+        Returns:
+            self: return the fitted estimator
         """
         self._pre_fit_checks(X, Y)
         if self.reduced_rank:
@@ -93,22 +102,22 @@ class EDMD(BaseModel):
         
         #Final Checks
         check_is_fitted(self, ['U', 'cov_XY', 'cov_X', 'cov_Y', 'X_fit', 'Y_fit'])
+        self._is_fitted = True
         return self
         
     def predict(self, X: np.ndarray, t: int = 1, observables: Optional[Union[Callable, np.ndarray]] = None) \
             -> np.ndarray:
         """
-        Predicts the state at time `t + 1` given the current state `X`.
-
-        Optionally, can predict an observable of the state at time `t + 1`.
+        Predicts the state at instant :math:`t` given the current state `X`.
+        Optionally, can predict any observable of the state at time `t`.
 
         Parameters:
-            X (numpy.ndarray): Initial conditions for which we wish the prediction, shape `(n_init_conditions, n_features)`.
+            X (numpy.ndarray): Initial conditions for which we wish the prediction, shape ``(n_init_conditions, n_features)``.
             t (int): Number of steps to predict (return the last one).
-            observables (callable or numpy.ndarray or None): Callable, ndarray of shape ``(n_samples, n_obs_features)`` or `None`. If ndarray, it must be the observable evaluated at `self.Y_fit`. If `None`, the observable is assumed to be the identity map (i.e., one predicts the state itself).
+            observables (callable or numpy.ndarray or None): Callable, ndarray of shape ``(n_samples, n_obs_features)`` or ``None``. If ``ndarray``, it must be the observable evaluated at ``self.Y_fit``. If ``None``, the observable is assumed to be the identity map (i.e., one predicts the state itself).
 
         Returns:
-            numpy.ndarray: The predicted observable at time math:`t + 1`, shape `(n_init_conditions, n_obs_features)`.
+            numpy.ndarray: The predicted observable at time :math:`t`, shape ``(n_init_conditions, n_obs_features)``.
         """
 
         if observables is None:

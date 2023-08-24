@@ -15,11 +15,9 @@ from pathlib import Path
 
 try:
     import sdeint
-
     _has_sdeint = True
 except ImportError:
     _has_sdeint = False
-
 
 class MockData(DataGenerator):
     def __init__(self, num_features: int = 50, rng_seed: Optional[int] = None):
@@ -29,7 +27,6 @@ class MockData(DataGenerator):
     def generate(self, X0: ArrayLike, T: int = 1):
         return self.rng.random((T + 1, self.num_features))
 
-
 class LinearModel(DiscreteTimeDynamics):
     def __init__(self, A: np.ndarray, noise: float = 0., rng_seed: Optional[int] = None):
         self.A = A
@@ -38,7 +35,6 @@ class LinearModel(DiscreteTimeDynamics):
 
     def _step(self, X: np.ndarray):
         return self.A @ X + self.noise * self.rng.standard_normal(size=X.shape)
-
 
 class RegimeChangeVAR(DiscreteTimeDynamics):
     def __init__(self, phi1: np.ndarray, phi2: np.ndarray, transition: np.ndarray, noise: float = 0.,
@@ -58,7 +54,6 @@ class RegimeChangeVAR(DiscreteTimeDynamics):
         else:
             self.current_state = 1
             return self.phi2 @ X + self.noise * self.rng.standard_normal(size=X.shape)
-
 
 # Noisy Logistic Map
 class CosineDistribution:
