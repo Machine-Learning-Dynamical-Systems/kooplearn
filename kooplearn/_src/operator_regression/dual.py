@@ -7,7 +7,6 @@ from scipy.sparse.linalg._eigen.arpack.arpack import IterInv
 from sklearn.utils.extmath import randomized_svd
 from kooplearn._src.utils import topk
 from kooplearn._src.linalg import modified_QR, weighted_norm, _rank_reveal
-import pdb
 
 def regularize(M: np.ndarray, reg: float):
     """Regularize a matrix by adding a multiple of the identity matrix to it.
@@ -80,12 +79,11 @@ def _fit_reduced_rank_regression_noreg(
         # Whether to return the singular values of the projector. (Development purposes)
 ) -> tuple[np.ndarray, np.ndarray] or tuple[np.ndarray, np.ndarray, np.ndarray]:
     # Solve the Hermitian eigenvalue problem to find V
-    pdb.set_trace()
     if svd_solver != 'full':
-        sigma_sq, V = eigsh(K_Y, rank)
+        sigma_sq, V = eigsh(K_Y, rank + 3)
     else:
         sigma_sq, V = eigh(K_Y)
-        V = V[:, topk(sigma_sq, rank).indices]
+    V = V[:, topk(sigma_sq, rank).indices]
 
     # Normalize V
     _V_norm = np.linalg.norm(V, ord=2, axis=0) / np.sqrt(V.shape[0])
@@ -97,9 +95,9 @@ def _fit_reduced_rank_regression_noreg(
         for i in range(U.shape[1]):
             U[:, i] = lsqr(K_X, V[:, i])[0]  # Not optimal with this explicit loop
     else:
-        U = lstsq(K_X, V)[0]
+        U = lstsq(K_X, V, cond = 10.*K_X.shape[0]*np.finfo(K_X.dtype).eps)[0]
     if _return_singular_values:
-        return U, V, sigma_sq
+        return U, V, topk(sigma_sq, rank).values
     else:
         return U, V
 

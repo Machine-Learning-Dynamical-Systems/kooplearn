@@ -73,6 +73,8 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
         primal.evaluate_eigenfunction(X_test, primal_lv),
         primal.evaluate_eigenfunction(X_test, primal_rv)
     )
+    if tikhonov_reg == 0.:
+        pdb.set_trace()
 
     assert dual_predict.shape == (num_test_pts, num_features)
     

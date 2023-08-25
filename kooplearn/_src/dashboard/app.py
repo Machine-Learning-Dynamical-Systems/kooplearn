@@ -5,7 +5,7 @@ from dash import Dash
 import argparse
 
 from kooplearn._src.dashboard.visualizer import Visualizer
-from kooplearn._src.models.kernel import KernelReducedRank
+from kooplearn._src.models.kernel import KernelDMD
 from sklearn.gaussian_process.kernels import DotProduct
 from kooplearn.data.datasets import MockData
 import pickle

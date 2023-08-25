@@ -5,7 +5,7 @@ from kooplearn.data.datasets import MockData
 
 
 @pytest.mark.parametrize('scale_factor', [0.1, 10])
-@pytest.mark.parametrize('tikhonov_reg', [1e-3])
+@pytest.mark.parametrize('tikhonov_reg', [0., 1e-3])
 @pytest.mark.parametrize('svd_solver', ['full', 'arnoldi'])
 def test_reduced_rank_tikhonov_primal_scale_invariance(svd_solver, tikhonov_reg, scale_factor):
     num_features = 10
@@ -31,7 +31,7 @@ def test_reduced_rank_tikhonov_primal_scale_invariance(svd_solver, tikhonov_reg,
     assert np.allclose(G, G_scaled)
     
 @pytest.mark.parametrize('scale_factor', [0.1, 10])
-@pytest.mark.parametrize('tikhonov_reg', [1e-3])
+@pytest.mark.parametrize('tikhonov_reg', [0., 1e-3])
 @pytest.mark.parametrize('svd_solver', ['full', 'arnoldi'])
 def test_reduced_rank_tikhonov_dual_scale_invariance(svd_solver, tikhonov_reg, scale_factor):
     num_features = 10
