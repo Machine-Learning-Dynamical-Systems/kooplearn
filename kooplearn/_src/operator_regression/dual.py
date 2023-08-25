@@ -1,14 +1,13 @@
 from typing import Optional
 import logging
 import numpy as np
-from numpy.typing import ArrayLike
 from scipy.linalg import eig, eigh, LinAlgError, pinvh, lstsq
 from scipy.sparse.linalg import eigs, eigsh, lsqr
 from scipy.sparse.linalg._eigen.arpack.arpack import IterInv
 from sklearn.utils.extmath import randomized_svd
 from kooplearn._src.utils import topk
-from kooplearn._src.linalg import modified_QR, weighted_norm
-
+from kooplearn._src.linalg import modified_QR, weighted_norm, _rank_reveal
+import pdb
 
 def regularize(M: np.ndarray, reg: float):
     """Regularize a matrix by adding a multiple of the identity matrix to it.
@@ -50,10 +49,9 @@ def fit_reduced_rank_regression(
             sigma_sq, U = eig(K, regularize(K_X, tikhonov_reg))
 
         max_imag_part = np.max(U.imag)
-        if max_imag_part >= 2.2e-10:
+        if max_imag_part >= 10.*U.shape[0]*np.finfo(U.dtype).eps:
             logging.warning(f"The computed projector is not real. The Kernel matrix is severely ill-conditioned.")
         U = np.real(U)
-
         # Post-process U. Promote numerical stability via additional QR decoposition if necessary.
         U = U[:, topk(sigma_sq.real, rank).indices]
 
@@ -82,6 +80,7 @@ def _fit_reduced_rank_regression_noreg(
         # Whether to return the singular values of the projector. (Development purposes)
 ) -> tuple[np.ndarray, np.ndarray] or tuple[np.ndarray, np.ndarray, np.ndarray]:
     # Solve the Hermitian eigenvalue problem to find V
+    pdb.set_trace()
     if svd_solver != 'full':
         sigma_sq, V = eigsh(K_Y, rank)
     else:
@@ -182,25 +181,25 @@ def fit_rand_reduced_rank_regression(
 
 def fit_principal_component_regression(
         K_X: np.ndarray,  # Kernel matrix of the input data
-        tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter, can be zero
+        tikhonov_reg: float = 0.,  # Tikhonov regularization parameter, can be zero
         rank: Optional[int] = None,  # Rank of the estimator
         svd_solver: str = 'arnoldi',  # Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
-        rcond: float = 2.2e-16  # Threshold for the singular values
 ) -> tuple[np.ndarray, np.ndarray]:
     dim = K_X.shape[0]
+    
     if rank is None:
         rank = dim
     assert rank <= dim, f"Rank too high. The maximum value for this problem is {dim}"
-    alpha = dim * tikhonov_reg
-    tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
+    reg_K_X = regularize(K_X, tikhonov_reg)
     if svd_solver == 'arnoldi':
-        S, V = eigsh(K_X + tikhonov, k=rank)
+        values, vectors = eigsh(reg_K_X, k=rank + 3)
     elif svd_solver == 'full':
-        S, V = eigh(K_X + tikhonov)
+        values, vectors = eigh(reg_K_X)
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
-    S, V = _postprocess_tikhonov_fit(S, V, rank, dim, rcond)
-    return V, V
+    vectors, values, rsqrt_values = _rank_reveal(values, vectors, rank)
+    vectors = np.sqrt(dim)*vectors @ np.diag(rsqrt_values)
+    return vectors, vectors
 
 def fit_nystrom_tikhonov(
         N_X: np.ndarray,  # Kernel matrix of the input inducing points
@@ -209,7 +208,6 @@ def fit_nystrom_tikhonov(
         KN_Y: np.ndarray,  # Kernel matrix between the output data and the output inducing points
         tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter (can be 0)
         # rank: Optional[int] = None,  # Rank of the estimator
-        # rcond: float = 2.2e-16,  # Threshold for the singular values
 ) -> tuple[np.ndarray, np.ndarray]:
     # TODO Not using the Rank parameter fix it.
     num_training_pts = KN_X.shape[0]
@@ -219,53 +217,31 @@ def fit_nystrom_tikhonov(
     V = lstsq(N_Y, U)[0]
     return U, V
 
-
 def fit_rand_principal_component_regression(
         K_X: np.ndarray,  # Kernel matrix of the input data
         tikhonov_reg: float,  # Tikhonov regularization parameter
         rank: int,  # Rank of the estimator
         n_oversamples: int,  # Number of oversamples
         iterated_power: int,  # Number of iterations for the power method
-        rcond: float = 2.2e-16,  # Threshold for the singular values
         rng_seed: Optional[int] = None,  # Seed for the random number generator
         _return_singular_values: bool = False
         # Whether to return the singular values of the projector. (Development purposes)
 ):
     dim = K_X.shape[0]
-    alpha = dim * tikhonov_reg
-    tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
-    V, S, _ = randomized_svd(K_X + tikhonov, rank, n_oversamples=n_oversamples, n_iter=iterated_power,
-                             random_state=rng_seed)
-    S, V = _postprocess_tikhonov_fit(S, V, rank, dim, rcond)
+    vectors, values, _ = randomized_svd(
+        regularize(K_X), 
+        rank, 
+        n_oversamples=n_oversamples, 
+        n_iter=iterated_power, 
+        random_state=rng_seed
+        )
+
+    vectors, values, rsqrt_values = _rank_reveal(values, vectors, rank)
+    vectors = np.sqrt(dim)*vectors @ np.diag(rsqrt_values)
     if _return_singular_values:
-        return V, V, S
+        return vectors, vectors, values
     else:
-        return V, V
-
-def _postprocess_tikhonov_fit(
-        S: ArrayLike,  # Singular values
-        V: ArrayLike,  # Eigenvectors
-        rank: int,  # Desired rank
-        dim: int,  # Dimension of the problem
-        rcond: float  # Threshold for the singular values
-):
-    top_svals = topk(S, rank)
-    V = V[:, top_svals.indices]
-    S = top_svals.values
-
-    _test = S > rcond
-    if all(_test):
-        V = np.sqrt(dim) * (V @ np.diag(S ** -0.5))
-    else:
-        V = np.sqrt(dim) * (V[:, _test] @ np.diag(S[_test] ** -0.5))
-        logging.warning(
-            f"The numerical rank of the projector ({V.shape[1]}) is smaller than the selected rank ({rank}). "
-            f"{rank - V.shape[1]} degrees of freedom will be ignored.")
-        _zeroes = np.zeros((V.shape[0], rank - V.shape[1]))
-        V = np.c_[V, _zeroes]
-        assert V.shape[1] == rank
-    return S, V
-
+        return vectors, vectors
 
 def predict(
         num_steps: int,  # Number of steps to predict (return the last one)
@@ -285,7 +261,6 @@ def predict(
     M = np.linalg.matrix_power(V_K_XY_U, num_steps - 1)
     return np.linalg.multi_dot([K_dot_U, M, V_dot_obs])
 
-
 def estimator_eig(
         U: np.ndarray,  # Projection matrix: first output of the fit functions defined above
         V: np.ndarray,  # Projection matrix: second output of the fit functions defined above
@@ -298,6 +273,7 @@ def estimator_eig(
     W_YX = np.linalg.multi_dot([V.T, r_dim * K_YX, U])
     W_X = np.linalg.multi_dot([U.T, r_dim * K_X, U])
 
+
     values, vl, vr = eig(W_YX, left=True, right=True)  # Left -> V, Right -> U
 
     r_perm = np.argsort(values)
@@ -308,20 +284,20 @@ def estimator_eig(
 
     # Normalization in RKHS
     norm_r = weighted_norm(vr, W_X)
-    vr = vr @ np.diag(norm_r ** (-1))
+    r_normr = np.where(norm_r == 0., 0., norm_r**-1)
+    vr = vr @ np.diag(r_normr)
 
     # Bi-orthogonality of left eigenfunctions
     norm_l = np.diag(np.linalg.multi_dot([vl.T, W_YX, vr]))
-    vl = vl / norm_l
+    r_norm_l = np.where(norm_l == 0., 0., norm_l**-1)
+    vl = vl * r_norm_l
     return values, V @ vl, U @ vr
-
 
 def estimator_modes(K_Xin_X: np.ndarray, rv: np.ndarray, lv: np.ndarray):
     r_dim = lv.shape[0] ** -0.5
     rv_in = evaluate_eigenfunction(K_Xin_X, rv).T  # [rank, num_initial_conditions]
     lv_obs = r_dim * lv.T  # [rank, num_observations]
     return rv_in[:, :, None] * lv_obs[:, None, :]  # [rank, num_init_conditions, num_training_points]
-
 
 def evaluate_eigenfunction(
         K_Xin_X_or_Y: np.ndarray,
@@ -331,7 +307,6 @@ def evaluate_eigenfunction(
 ):
     rsqrt_dim = (K_Xin_X_or_Y.shape[1]) ** (-0.5)
     return np.linalg.multi_dot([rsqrt_dim * K_Xin_X_or_Y, vr_or_vl])
-
 
 def svdvals(
         U: np.ndarray,  # Projection matrix: first output of the fit functions defined above

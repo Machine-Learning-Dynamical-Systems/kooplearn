@@ -90,7 +90,6 @@ def test_ExtendedDMD_fit_predict_eig_modes_save_load(feature_map, reduced_rank, 
         tmp_path = Path(__file__).parent / f'tmp/model.bin'
         model.save(tmp_path)
         restored_model = ExtendedDMD.load(tmp_path)
-
         assert np.allclose(model.cov_X, restored_model.cov_X)
         assert np.allclose(model.cov_Y, restored_model.cov_Y)
         assert np.allclose(model.cov_XY, restored_model.cov_XY)

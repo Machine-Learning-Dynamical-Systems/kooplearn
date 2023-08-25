@@ -1,6 +1,7 @@
 import pytest
 from typing import NamedTuple
 import numpy as np
+import pdb
 from kooplearn._src.operator_regression import primal, dual
 from kooplearn.data.datasets import MockData
 
@@ -48,7 +49,6 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
 
     # Dual
     U, V = dual.fit_reduced_rank_regression(K_X, K_Y, tikhonov_reg, rank, svd_solver=svd_solver)
-
     dual_predict = dual.predict(dt, U, V, K_YX, K_testX, Y)
     dual_eig, dual_lv, dual_rv = dual.estimator_eig(U, V, K_X, K_YX)
     dual_modes = dual.estimator_modes(X_test @ (X.T), dual_rv, dual_lv)
@@ -75,11 +75,12 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
     )
 
     assert dual_predict.shape == (num_test_pts, num_features)
+    
     assert np.allclose(primal_modes, dual_modes)
     assert np.allclose(primal_predict, dual_predict)
     assert _compare_evd(evd_primal, evd_dual)
 
-@pytest.mark.parametrize('tikhonov_reg', [1e-3])
+@pytest.mark.parametrize('tikhonov_reg', [0., 1e-3])
 @pytest.mark.parametrize('rank', [5, None])
 @pytest.mark.parametrize('svd_solver', ['full', 'arnoldi'])
 @pytest.mark.parametrize('dt', [1, 2, 3])
@@ -107,6 +108,7 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
     U, V = dual.fit_principal_component_regression(K_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
 
     dual_predict = dual.predict(dt, U, V, K_YX, K_testX, Y)
+    
     dual_eig, dual_lv, dual_rv = dual.estimator_eig(U, V, K_X, K_YX)
     dual_modes = dual.estimator_modes(X_test @ (X.T), dual_rv, dual_lv)
 
@@ -131,8 +133,8 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
         primal.evaluate_eigenfunction(X_test, primal_rv)
     )
 
-    assert dual_predict.shape == (num_test_pts, num_features)
-
+    assert primal_predict.shape == (num_test_pts, num_features)
+    
     assert np.allclose(primal_predict, dual_predict)
     if rank is not None:
         assert np.allclose(primal_modes, dual_modes)

@@ -2,6 +2,8 @@ from typing import Optional
 import numpy as np
 from sklearn.utils import check_array
 from warnings import warn
+import logging
+from kooplearn._src.utils import topk
 
 def spd_neg_pow(M: np.ndarray, exponent: float = -1.0, cutoff: Optional[float] = None , strategy: str = 'trunc') -> np.ndarray:
     """
@@ -9,14 +11,13 @@ def spd_neg_pow(M: np.ndarray, exponent: float = -1.0, cutoff: Optional[float] =
     """
     if cutoff is None:
         cutoff = 10.*M.shape[0]*np.finfo(M.dtype).eps
-
     w, v = np.linalg.eigh(M)
     if strategy == 'trunc':
         sanitized_w = np.where(w <= cutoff, 1.0, w)
-        inv_w = np.where(w > cutoff, sanitized_w**exponent, 0.0)
+        inv_w = np.where(w > cutoff, (sanitized_w**np.abs(exponent))**np.sign(exponent), 0.0)
         v = np.where(w > cutoff, v, 0.0)
     elif strategy == 'tikhonov':
-        inv_w = (w + cutoff)**exponent
+        inv_w = ((w + cutoff)**np.abs(exponent))**np.sign(exponent)
     else:
         raise NotImplementedError(f"Strategy {strategy} not implemented")
     return np.linalg.multi_dot([v, np.diag(inv_w), v.T])
@@ -45,6 +46,8 @@ def weighted_norm(A: np.ndarray, M: Optional[np.ndarray] = None):
                 0.5 * (np.conj(A) * _A + np.conj(A) * _A_T),
                 axis=0)
         )
+    rcond = 10.*A.shape[0]*np.finfo(A.dtype).eps
+    norm = np.where(norm < rcond, 0.0, norm)
     return np.sqrt(norm)
 
 
@@ -87,7 +90,7 @@ def _column_pivot(Q, R, k, squared_norms, columns_permutation):
     return Q, R, squared_norms, columns_permutation
 
 
-def modified_QR(A: np.ndarray, M: Optional[np.ndarray] = None, column_pivoting: bool = False, rtol: float = 2.2e-16,
+def modified_QR(A: np.ndarray, M: Optional[np.ndarray] = None, column_pivoting: bool = False, rtol: Optional[float] = None,
                 verbose: bool = False):
     """Modified QR algorithm with column pivoting. Implementation follows the algorithm described in [1].
 
@@ -96,7 +99,7 @@ def modified_QR(A: np.ndarray, M: Optional[np.ndarray] = None, column_pivoting: 
         M (ndarray or LinearOperator, optional): PSD linear operator. If not None, the vectors are orthonormalized with
          respect to the scalar product induced by M. Defaults to None corresponding to Identity matrix.
         column_pivoting (bool, optional): Whether column pivoting is performed. Defaults to False.
-        rtol (float, optional): relative tolerance in determining the numerical rank of A. Defaults to 2.2e-16.
+        rtol (float, optional): relative tolerance in determining the numerical rank of A. Defaults to 10*A.shape[0]*eps.
         This parameter is used only when ``column_pivoting == True``.
         verbose (bool, optional): Whether to print informations and warnings about the progress of the algorithm.
         Defaults to False.
@@ -115,6 +118,8 @@ def modified_QR(A: np.ndarray, M: Optional[np.ndarray] = None, column_pivoting: 
     Q = np.copy(A)
     R = np.zeros((num_vecs, num_vecs), dtype=dtype)
 
+    if rtol is None:
+        rtol = 10.*A.shape[0]*np.finfo(A.dtype).eps
     _roundoff = 1e-8  # From reference paper
     _tau = 1e-2  # From reference paper
 
@@ -166,3 +171,38 @@ def modified_QR(A: np.ndarray, M: Optional[np.ndarray] = None, column_pivoting: 
         return Q[:, :effective_rank], R[:effective_rank], columns_permutation[:effective_rank]
     else:
         return Q[:, :effective_rank], R[:effective_rank]
+
+def _rank_reveal(
+    values: np.ndarray,
+    vectors: np.ndarray,
+    rank: int,  # Desired rank
+    rcond: Optional[float] = None  # Threshold for the singular values
+):
+    if rcond is None:
+        rcond = 10.*values.shape[0]*np.finfo(values.dtype).eps
+    top_vals = topk(values, rank)
+    vectors = vectors[:, top_vals.indices]
+    values = top_vals.values
+
+    _ftest = values > rcond
+    if all(_ftest):
+        rsqrt_vals = (np.sqrt(values))**-1
+    else:
+        values = values[_ftest]
+        vectors = vectors[:, _ftest]
+        logging.warning(
+            f"The numerical rank of the result ({vectors.shape[1]}) is smaller than the desired rank ({rank}).\n {rank - vectors.shape[1]} degrees of freedom will be ignored.")
+        #Compute stable sqrt
+        rsqrt_vals = (np.sqrt(values))**-1
+        # Fill the missing values with zeroes
+        num_missing = rank - values.shape[0]
+        vectors = np.concatenate([
+            vectors, 
+            np.zeros((vectors.shape[0], num_missing))], axis=1)
+        values = np.concatenate([values, np.zeros(num_missing)])
+        rsqrt_vals = np.concatenate([rsqrt_vals, np.zeros(num_missing)])
+    
+    assert vectors.shape[1] == rank
+    assert values.shape[0] == rank
+    assert rsqrt_vals.shape[0] == rank
+    return vectors, values, rsqrt_vals

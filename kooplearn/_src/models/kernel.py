@@ -142,7 +142,6 @@ class KernelDMD(BaseModel, RegressorMixin):
     def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
         """Eigenvalues and eigenvectors of the estimated Koopman operator.
         
-
         Args:
             eval_left_on (Optional[ArrayLike], optional): _description_. Defaults to None.
             eval_right_on (Optional[ArrayLike], optional): _description_. Defaults to None.

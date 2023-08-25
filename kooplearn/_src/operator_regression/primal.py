@@ -4,9 +4,8 @@ from numpy.typing import ArrayLike
 from scipy.linalg import eig, eigh, solve
 from scipy.sparse.linalg import eigsh
 from kooplearn._src.utils import topk
-from kooplearn._src.linalg import weighted_norm, spd_neg_pow
+from kooplearn._src.linalg import weighted_norm, spd_neg_pow, _rank_reveal
 from sklearn.utils.extmath import randomized_svd
-import logging
 
 def fit_reduced_rank_regression(
         C_X: np.ndarray,  # Input covariance matrix
@@ -39,7 +38,6 @@ def _fit_reduced_rank_regression_noreg(
         C_XY: np.ndarray,  # Cross-covariance matrix
         rank: int,  # Rank of the estimator
         svd_solver: str = 'arnoldi',  # SVD solver to use. Arnoldi is faster for low ranks.
-        rcond: float = 2.2e-16,  # Threshold for the singular values
         ):      
     rsqrt_C_X = spd_neg_pow(C_X, -0.5)
     B = rsqrt_C_X @ C_XY 
@@ -50,7 +48,7 @@ def _fit_reduced_rank_regression_noreg(
     else:
         values, vectors = eigh(_crcov)
 
-    values, vectors = _rank_reveal(values, vectors, rank, rcond)
+    vectors, _, _ = _rank_reveal(values, vectors, rank)
     return rsqrt_C_X @ vectors
 
 def fit_rand_reduced_rank_regression(
@@ -85,10 +83,9 @@ def fit_rand_reduced_rank_regression(
 
 def fit_principal_component_regression(
         C_X: np.ndarray,  # Input covariance matrix
-        tikhonov_reg: float,  # Tikhonov regularization parameter, can be 0
+        tikhonov_reg: float = 0.,  # Tikhonov regularization parameter, can be 0
         rank: Optional[int] = None,  # Rank of the estimator
         svd_solver: str = 'arnoldi',  # SVD solver to use. Arnoldi is faster for low ranks.
-        rcond: float = 2.2e-16,  # Threshold for the singular values
 ):
     dim = C_X.shape[0]
     if rank is None:
@@ -97,12 +94,13 @@ def fit_principal_component_regression(
     reg_input_covariance = C_X + tikhonov_reg * np.identity(dim, dtype=C_X.dtype)
     if svd_solver == 'arnoldi':
         values, vectors = eigsh(reg_input_covariance, k=rank, which='LM')
-    else:
+    elif svd_solver == 'full':
         values, vectors = eigh(reg_input_covariance)
-
-    values, vectors = _rank_reveal(values, vectors, rank, rcond)
-    rsqrt_evals = np.diag(np.concatenate([values ** (-0.5), np.zeros(rank - values.shape[0])]))
-    return vectors @ rsqrt_evals
+    else:
+        raise ValueError(f"Unknown svd_solver {svd_solver}")
+    
+    vectors, _, rsqrt_evals = _rank_reveal(values, vectors, rank)
+    return vectors @ np.diag(rsqrt_evals)
 
 def fit_rand_principal_component_regression(
         C_X: ArrayLike,  # Input covariance matrix
@@ -122,35 +120,8 @@ def fit_rand_principal_component_regression(
     vectors, values, _ = randomized_svd(reg_input_covariance, rank, n_oversamples=n_oversamples, n_iter=iterated_power,
                              random_state=rng_seed)
 
-    values, vectors = _rank_reveal(values, vectors, rank, rcond)
-    rsqrt_evals = np.diag(np.concatenate([values ** (-0.5), np.zeros(rank - values.shape[0])]))
-    return vectors @ rsqrt_evals
-
-def _rank_reveal(
-        values: np.ndarray,
-        vectors: np.ndarray,
-        rank: int,  # Desired rank
-        rcond: float  # Threshold for the singular values
-):
-    top_vals = topk(values, rank)
-
-    V = vectors[:, top_vals.indices]
-    S = top_vals.values
-
-    _test = S > rcond
-    if all(_test):
-        pass
-    else:
-        S = S[_test]
-        V = V[:, _test]
-        logging.warning(
-            f"The numerical rank of the projector ({V.shape[1]}) is smaller than the selected rank ({rank}). "
-            f"{rank - V.shape[1]} degrees of freedom will be ignored.")
-        _zeroes = np.zeros((V.shape[0], rank - V.shape[1]))
-        V = np.c_[V, _zeroes]
-        assert V.shape[1] == rank
-    return S, V
-
+    vectors, _, rsqrt_evals = _rank_reveal(values, vectors, rank, rcond)
+    return vectors @ np.diag(rsqrt_evals)
 
 def predict(
         num_steps: int,  # Number of steps to predict (return the last one)
