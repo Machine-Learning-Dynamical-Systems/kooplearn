@@ -84,17 +84,17 @@ def _fit_reduced_rank_regression_noreg(
     values_X, U_X = eigh(K_X)
     U_X, _, _ = _rank_reveal(values_X, U_X, K_X.shape[0]) 
     proj_X = U_X @ U_X.T
-    L = proj_X @ K_Y @ proj_X
+    L = proj_X @ K_Y
     if svd_solver != 'full':
         sigma_sq, V = eigs(L, rank + 3)
     else:
-        sigma_sq, V = eig(L)    
+        sigma_sq, V = eig(L)
+    
     V = V[:, topk(sigma_sq, rank).indices]
     # Normalize V
     _V_norm = np.linalg.norm(V, ord=2, axis=0) / np.sqrt(V.shape[0])
     rcond = 10.*K_X.shape[0]*np.finfo(K_X.dtype).eps
     _inv_V_norm = np.where(_V_norm < rcond, 0., _V_norm**-1)
-    print(_V_norm)
     V = V @ np.diag(_inv_V_norm)
 
     # Solve the least squares problem to determine U
@@ -103,7 +103,7 @@ def _fit_reduced_rank_regression_noreg(
         for i in range(U.shape[1]):
             U[:, i] = lsqr(K_X, V[:, i])[0]  # Not optimal with this explicit loop
     else:
-        U = lstsq(K_X, V, cond = 10.*K_X.shape[0]*np.finfo(K_X.dtype).eps)[0]
+        U = lstsq(K_X, V)[0]
     if _return_singular_values:
         return U, V, topk(sigma_sq, rank).values
     else:
@@ -279,7 +279,6 @@ def estimator_eig(
     W_YX = np.linalg.multi_dot([V.T, r_dim * K_YX, U])
     W_X = np.linalg.multi_dot([U.T, r_dim * K_X, U])
 
-
     values, vl, vr = eig(W_YX, left=True, right=True)  # Left -> V, Right -> U
 
     r_perm = np.argsort(values)
@@ -295,7 +294,7 @@ def estimator_eig(
 
     # Bi-orthogonality of left eigenfunctions
     norm_l = np.diag(np.linalg.multi_dot([vl.T, W_YX, vr]))
-    r_norm_l = np.where(norm_l == 0., 0., norm_l**-1)
+    r_norm_l = np.where(np.abs(norm_l) == 0, 0., norm_l**-1)
     vl = vl * r_norm_l
     return values, V @ vl, U @ vr
 

@@ -16,8 +16,8 @@ def topk(vec: np.ndarray, k: int):
     return TopKReturnType(values, indices)
 
 def parse_cplx_eig(vec: np.ndarray):
-    _real_eigs_mask = (vec.imag == 0.)
-    real_eigs = vec[_real_eigs_mask]
+    _real_eigs_mask = (np.abs(vec.imag) <= np.finfo(vec.dtype).eps)
+    real_eigs = vec[_real_eigs_mask].real
     _cplx_eigs_mask = np.logical_not(_real_eigs_mask)
     cplx_eigs = vec[_cplx_eigs_mask]
     cplx_conj_pairs_idxs = _parse_cplx_conj_pairs(cplx_eigs)

@@ -14,9 +14,12 @@ def _compare_up_to_sign(a: np.ndarray, b: np.ndarray) -> bool:
     return np.allclose(np.abs(a), np.abs(b))
 
 def _compare_evd(evd_1: EigenDecomposition, evd_2: EigenDecomposition) -> bool:
-    evd_1_sort = np.argsort(evd_1.values)
-    evd_2_sort = np.argsort(evd_2.values)
-    assert np.allclose(evd_1.values[evd_1_sort], evd_2.values[evd_2_sort])
+    _ev1 = np.around(np.copy(evd_1.values), decimals=5)
+    _ev2 = np.around(np.copy(evd_2.values), decimals=5)
+    evd_1_sort = np.argsort(_ev1, kind='stable')
+    evd_2_sort = np.argsort(_ev2, kind='stable')
+
+    assert np.allclose(_ev1[evd_1_sort], _ev2[evd_2_sort])
     assert _compare_up_to_sign(evd_1.left[:, evd_1_sort], evd_2.left[:, evd_2_sort])
     assert _compare_up_to_sign(evd_1.right[:, evd_1_sort], evd_2.right[:, evd_2_sort])
     return True
@@ -52,6 +55,7 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
     dual_predict = dual.predict(dt, U, V, K_YX, K_testX, Y)
     dual_eig, dual_lv, dual_rv = dual.estimator_eig(U, V, K_X, K_YX)
     dual_modes = dual.estimator_modes(X_test @ (X.T), dual_rv, dual_lv)
+    
 
     evd_dual = EigenDecomposition(
         dual_eig,
@@ -73,9 +77,9 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
         primal.evaluate_eigenfunction(X_test, primal_lv),
         primal.evaluate_eigenfunction(X_test, primal_rv)
     )
-
+    # if tikhonov_reg == 0.:
+    #     pdb.set_trace()
     assert dual_predict.shape == (num_test_pts, num_features)
-    
     #assert np.allclose(primal_modes, dual_modes)
     assert np.allclose(primal_predict, dual_predict)
     assert _compare_evd(evd_primal, evd_dual)
