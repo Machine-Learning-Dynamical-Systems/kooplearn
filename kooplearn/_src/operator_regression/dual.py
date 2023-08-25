@@ -79,15 +79,23 @@ def _fit_reduced_rank_regression_noreg(
         # Whether to return the singular values of the projector. (Development purposes)
 ) -> tuple[np.ndarray, np.ndarray] or tuple[np.ndarray, np.ndarray, np.ndarray]:
     # Solve the Hermitian eigenvalue problem to find V
-    if svd_solver != 'full':
-        sigma_sq, V = eigsh(K_Y, rank + 3)
-    else:
-        sigma_sq, V = eigh(K_Y)
-    V = V[:, topk(sigma_sq, rank).indices]
+    logging.warn("The least-squares solution (tikhonov_reg == 0) of the reduced rank problem in the kernel setting is computationally very inefficient. Consider adding a small regularization parameter.")
 
+    values_X, U_X = eigh(K_X)
+    U_X, _, _ = _rank_reveal(values_X, U_X, K_X.shape[0]) 
+    proj_X = U_X @ U_X.T
+    L = proj_X @ K_Y @ proj_X
+    if svd_solver != 'full':
+        sigma_sq, V = eigs(L, rank + 3)
+    else:
+        sigma_sq, V = eig(L)    
+    V = V[:, topk(sigma_sq, rank).indices]
     # Normalize V
     _V_norm = np.linalg.norm(V, ord=2, axis=0) / np.sqrt(V.shape[0])
-    V = V @ np.diag(_V_norm ** -1)
+    rcond = 10.*K_X.shape[0]*np.finfo(K_X.dtype).eps
+    _inv_V_norm = np.where(_V_norm < rcond, 0., _V_norm**-1)
+    print(_V_norm)
+    V = V @ np.diag(_inv_V_norm)
 
     # Solve the least squares problem to determine U
     if svd_solver != 'full':

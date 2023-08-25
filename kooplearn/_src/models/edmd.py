@@ -15,7 +15,7 @@ import logging
 class ExtendedDMD(BaseModel):
     """
     Extended Dynamic Mode Decomposition (ExtendedDMD) Model.
-    Implements the ExtendedDMD estimators approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator following the approach described in [1].
+    Implements the ExtendedDMD estimators approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator following the approach described in :cite:t:`Kostic2022`.
     
     Parameters:
         feature_map (callable): Dictionary of functions used for the ExtendedDMD algorithm. Should be a subclass of ``kooplearn._src.models.abc.FeatureMap``.
@@ -34,9 +34,6 @@ class ExtendedDMD(BaseModel):
         cov_Y : Covariance matrix of the feature map evaluated at Y_fit, shape ``(n_features, n_features)``.
         cov_XY : Cross-covariance matrix of the feature map evaluated at X_fit and Y_fit, shape ``(n_features, n_features)``.
         U : Projection matrix of shape (n_features, rank). The Koopman/Transfer operator is approximated as :math:`U U^T \mathrm{cov_{XY}}`.
-    
-    References:
-        [1] Vladimir Kostic, Pietro Novelli, Andreas Maurer, Carlo Ciliberto, Lorenzo Rosasco, and Massimiliano Pontil. “Learning Dynamical Systems via Koopman Operator Regression in Reproducing Kernel Hilbert Spaces.” arXiv, December 13, 2022. http://arxiv.org/abs/2205.14027.
     """
 
     def __init__(self, 

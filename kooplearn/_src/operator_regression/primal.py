@@ -47,7 +47,7 @@ def _fit_reduced_rank_regression_noreg(
         values, vectors = eigsh(_crcov, rank + 3)
     else:
         values, vectors = eigh(_crcov)
-    vectors, _, _ = _rank_reveal(values, vectors, rank)
+    vectors, _vals, _ = _rank_reveal(values, vectors, rank)
     return rsqrt_C_X @ vectors
 
 def fit_rand_reduced_rank_regression(

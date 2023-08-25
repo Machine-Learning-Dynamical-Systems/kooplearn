@@ -3,7 +3,6 @@
 ### ExtendedDMD
 - [ ] Add power iteration QR normalization for the randomized RRR algorithms.
   - [ ] Test the randomized algorithms.
-.
 ### Algorithms
 - [ ] Implement the following metrics:
     - [ ] Squared loss
@@ -29,6 +28,7 @@
 - [ ] Can be cool to add fluid-dynamics simulation. See, e.g. [JAX-FLUIDS](https://github.com/tumaer/JAXFLUIDS/) for an easy way to generate them.
 
 ### Testing
+- [ ] `low_level_primal_dual_consistency` is failing on the RRR algorithm. I have nailed down the fact that **in theory**, the non-zero eigenvalues of $K_{Y}$ and $C^{\dagger/2}_{X}C_{XY}C_{YX}C^{\dagger/2}_{X}$ should be the same, but in practice they are not.
 - [ ] Document functions
 - [x] Test primal-dual matching on eigenfunctions (on top of eigenvalues). In general, study how coverage works.
 - Test data generation for each one of the methods

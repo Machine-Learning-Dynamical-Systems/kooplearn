@@ -47,6 +47,8 @@ dev = [
   "pytest",
   "sphinx",
   "sphinx-book-theme",
+  "sphinxcontrib-bibtex",
+  "sphinx-autobuild"
 ]
 
 [project.urls]  # Optional
