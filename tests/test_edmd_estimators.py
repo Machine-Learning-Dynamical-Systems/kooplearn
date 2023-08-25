@@ -3,7 +3,6 @@ from scipy.stats import special_ortho_group
 import numpy as np
 from pathlib import Path
 from shutil import rmtree
-from pathlib import Path
 from kooplearn._src.models.edmd import ExtendedDMD
 from kooplearn._src.models.abc import FeatureMap, IdentityFeatureMap
 from kooplearn.data.datasets.stochastic import LinearModel

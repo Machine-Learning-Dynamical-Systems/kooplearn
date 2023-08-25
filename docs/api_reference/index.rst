@@ -4,4 +4,4 @@ API Reference
 .. toctree:: 
     :maxdepth: 4
 
-    edmd
+    dmd_models

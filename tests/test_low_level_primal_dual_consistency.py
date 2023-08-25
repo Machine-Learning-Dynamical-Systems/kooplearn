@@ -20,7 +20,7 @@ def _compare_evd(evd_1: EigenDecomposition, evd_2: EigenDecomposition) -> bool:
     assert _compare_up_to_sign(evd_1.right[:, evd_1_sort], evd_2.right[:, evd_2_sort])
     return True
 
-@pytest.mark.parametrize('tikhonov_reg', [1e-3])
+@pytest.mark.parametrize('tikhonov_reg', [0.0, 1e-3])
 @pytest.mark.parametrize('svd_solver', ['full', 'arnoldi'])
 @pytest.mark.parametrize('dt', [1, 2, 3])
 def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_reg):

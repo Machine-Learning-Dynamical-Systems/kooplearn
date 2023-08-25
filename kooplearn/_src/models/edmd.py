@@ -65,8 +65,6 @@ class ExtendedDMD(BaseModel):
         self.svd_solver = svd_solver
         self.iterated_power = iterated_power
         self.n_oversamples = n_oversamples
-
-        self.feature_map = feature_map
         self.reduced_rank = reduced_rank
         self._is_fitted = False
     

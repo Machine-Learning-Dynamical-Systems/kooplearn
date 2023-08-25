@@ -3,8 +3,10 @@ DMD estimators
 
 .. currentmodule:: kooplearn
 
+.. autoclass:: DMD
+
 .. autoclass:: ExtendedDMD
     :members:
 
-.. autoclass:: KernelLowRankRegressor
+.. autoclass:: KernelDMD
     :members:
