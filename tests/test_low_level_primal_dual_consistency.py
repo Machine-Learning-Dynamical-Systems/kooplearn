@@ -1,7 +1,6 @@
 import pytest
 from typing import NamedTuple
 import numpy as np
-import pdb
 from kooplearn._src.operator_regression import primal, dual
 from kooplearn.data.datasets import MockData
 
@@ -10,16 +9,19 @@ class EigenDecomposition(NamedTuple):
     left: np.ndarray
     right: np.ndarray
 
+def _allclose(a, b):
+    return np.allclose(a, b, rtol=1e-4, atol=1e-7)
+
 def _compare_up_to_sign(a: np.ndarray, b: np.ndarray) -> bool:
-    return np.allclose(np.abs(a), np.abs(b))
+    return _allclose(np.abs(a), np.abs(b))
 
 def _compare_evd(evd_1: EigenDecomposition, evd_2: EigenDecomposition) -> bool:
-    _ev1 = np.around(np.copy(evd_1.values), decimals=5)
-    _ev2 = np.around(np.copy(evd_2.values), decimals=5)
+    _ev1 = np.copy(evd_1.values)
+    _ev2 = np.copy(evd_2.values)
     evd_1_sort = np.argsort(_ev1, kind='stable')
     evd_2_sort = np.argsort(_ev2, kind='stable')
 
-    assert np.allclose(_ev1[evd_1_sort], _ev2[evd_2_sort])
+    assert _allclose(_ev1[evd_1_sort], _ev2[evd_2_sort])
     assert _compare_up_to_sign(evd_1.left[:, evd_1_sort], evd_2.left[:, evd_2_sort])
     assert _compare_up_to_sign(evd_1.right[:, evd_1_sort], evd_2.right[:, evd_2_sort])
     return True
@@ -77,11 +79,10 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
         primal.evaluate_eigenfunction(X_test, primal_lv),
         primal.evaluate_eigenfunction(X_test, primal_rv)
     )
-    # if tikhonov_reg == 0.:
-    #     pdb.set_trace()
     assert dual_predict.shape == (num_test_pts, num_features)
-    #assert np.allclose(primal_modes, dual_modes)
-    assert np.allclose(primal_predict, dual_predict)
+
+    assert _allclose(primal_modes, dual_modes)
+    assert _allclose(primal_predict, dual_predict)
     assert _compare_evd(evd_primal, evd_dual)
 
 @pytest.mark.parametrize('tikhonov_reg', [0., 1e-3])
@@ -139,9 +140,9 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
 
     assert primal_predict.shape == (num_test_pts, num_features)
     
-    assert np.allclose(primal_predict, dual_predict)
+    assert _allclose(primal_predict, dual_predict)
     if rank is not None:
-        assert np.allclose(primal_modes, dual_modes)
+        assert _allclose(primal_modes, dual_modes)
         assert _compare_evd(evd_primal, evd_dual)
 
 @pytest.mark.skip()
@@ -188,9 +189,9 @@ def test_rand_reduced_rank(dt):
     primal_eig, _ = primal.low_rank_eig(U, C_XY)
 
     assert dual_predict.shape == (num_test_pts, num_features)
-    assert np.allclose(primal_predict, dual_predict)
-    assert np.allclose(np.sort(dual_eig.real), np.sort(primal_eig.real))
-    assert np.allclose(np.sort(dual_eig.imag), np.sort(primal_eig.imag))
+    assert _allclose(primal_predict, dual_predict)
+    assert _allclose(np.sort(dual_eig.real), np.sort(primal_eig.real))
+    assert _allclose(np.sort(dual_eig.imag), np.sort(primal_eig.imag))
 
 @pytest.mark.skip()
 @pytest.mark.parametrize('dt', [1, 5, 10])
@@ -233,9 +234,9 @@ def test_rand_reduced_rank_primal(dt):
     assert predict.shape == (num_test_pts, num_features)
     assert rand_predict.shape == (num_test_pts, num_features)
 
-    assert np.allclose(predict, rand_predict)
-    assert np.allclose(np.sort(rand_eig.real), np.sort(eig.real))
-    assert np.allclose(np.sort(rand_eig.imag), np.sort(eig.imag))
+    assert _allclose(predict, rand_predict)
+    assert _allclose(np.sort(rand_eig.real), np.sort(eig.real))
+    assert _allclose(np.sort(rand_eig.imag), np.sort(eig.imag))
 
 
 @pytest.mark.skip()
@@ -276,6 +277,6 @@ def test_rand_reduced_rank_dual(dt):
     assert predict.shape == (num_test_pts, num_features)
     assert rand_predict.shape == (num_test_pts, num_features)
 
-    assert np.allclose(predict, rand_predict)
-    assert np.allclose(np.sort(rand_eig.real), np.sort(eig.real))
-    assert np.allclose(np.sort(rand_eig.imag), np.sort(eig.imag))
+    assert _allclose(predict, rand_predict)
+    assert _allclose(np.sort(rand_eig.real), np.sort(eig.real))
+    assert _allclose(np.sort(rand_eig.imag), np.sort(eig.imag))

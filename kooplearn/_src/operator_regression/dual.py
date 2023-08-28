@@ -5,7 +5,7 @@ from scipy.linalg import eig, eigh, LinAlgError, pinvh, lstsq
 from scipy.sparse.linalg import eigs, eigsh, lsqr
 from scipy.sparse.linalg._eigen.arpack.arpack import IterInv
 from sklearn.utils.extmath import randomized_svd
-from kooplearn._src.utils import topk
+from kooplearn._src.utils import topk, fuzzy_parse_complex
 from kooplearn._src.linalg import modified_QR, weighted_norm, _rank_reveal
 
 def regularize(M: np.ndarray, reg: float):
@@ -280,13 +280,13 @@ def estimator_eig(
     W_X = np.linalg.multi_dot([U.T, r_dim * K_X, U])
 
     values, vl, vr = eig(W_YX, left=True, right=True)  # Left -> V, Right -> U
-
+    values = fuzzy_parse_complex(values)
     r_perm = np.argsort(values)
     vr = vr[:, r_perm]
     l_perm = np.argsort(values.conj())
     vl = vl[:, l_perm]
     values = values[r_perm]
-
+    
     # Normalization in RKHS
     norm_r = weighted_norm(vr, W_X)
     r_normr = np.where(norm_r == 0., 0., norm_r**-1)

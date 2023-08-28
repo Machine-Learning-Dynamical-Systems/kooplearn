@@ -3,6 +3,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 from scipy.linalg import eig, eigh, solve
 from scipy.sparse.linalg import eigsh
+from kooplearn._src.utils import fuzzy_parse_complex
 from kooplearn._src.utils import topk
 from kooplearn._src.linalg import weighted_norm, spd_neg_pow, _rank_reveal
 from sklearn.utils.extmath import randomized_svd
@@ -146,6 +147,8 @@ def estimator_eig(
     # Using the trick described in https://arxiv.org/abs/1905.11490
     M = np.linalg.multi_dot([U.T, C_XY, U])
     values, lv, rv = eig(M, left=True, right=True)
+    
+    values = fuzzy_parse_complex(values)
 
     r_perm = np.argsort(values)
     l_perm = np.argsort(values.conj())
@@ -172,7 +175,7 @@ def estimator_modes(
     # Using the trick described in https://arxiv.org/abs/1905.11490
     M = np.linalg.multi_dot([U.T, C_XY, U])
     values, lv, rv = eig(M, left=True, right=True)
-
+    values = fuzzy_parse_complex(values)
     r_perm = np.argsort(values)
     l_perm = np.argsort(values.conj())
     # values = values[r_perm]
