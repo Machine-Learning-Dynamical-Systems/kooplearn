@@ -18,12 +18,3 @@ Kooplearn
    :maxdepth: 2
    
    api_reference/index
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`

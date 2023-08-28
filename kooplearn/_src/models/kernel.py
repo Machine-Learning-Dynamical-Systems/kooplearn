@@ -14,6 +14,31 @@ from kooplearn._src.operator_regression import dual
 from kooplearn._src.models.abc import BaseModel
 
 class KernelDMD(BaseModel, RegressorMixin):
+    """
+    Kernel Dynamic Mode Decomposition (KernelDMD) Model.
+    Implements the KernelDMD estimators approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator following the approach described in :cite:t:`Kostic2022`.
+
+    Parameters:
+        kernel (sklearn.gaussian_process.kernels.Kernel): sklearn Kernel object. Defaults to `DotProduct`.
+        reduced_rank (bool): If ``True`` initializes the reduced rank estimator introduced in [1], if ``False`` initializes the classical principal component estimator.
+        rank (int): Rank of the estimator. Defaults to 5.
+        tikhonov_reg (float): Tikhonov regularization coefficient. ``None`` is equivalent to ``tikhonov_reg = 0``, and internally calls specialized stable algorithms to deal with this specific case.
+        svd_solver (str): Solver used to perform the internal SVD calcuations. Currently supported: `full`, uses LAPACK solvers, `arnoldi`, uses ARPACK solvers, `randomized`, uses randomized SVD algorithms as described in TODO [add ref.].
+        iterated_power (int): Number of power iterations when using a randomized algorithm (``svd_solver == 'randomized'``).
+        n_oversamples (int): Number of oversamples when using a randomized algorithm (``svd_solver == 'randomized'``).
+        optimal_sketching (bool): Sketching strategy for the randomized solver. If `True` performs optimal sketching (computaitonally expensive but more accurate).
+        rng_seed (int): Random Number Generator seed. Only used when ``svd_solver == 'randomized'``.  Defaults to ``None``, that is no explicit seed is setted.
+    
+    Attributes:
+        X_fit : Training data of shape ``(n_samples, n_features)`` corresponding to a collection of sampled states.
+        Y_fit : Evolved training data of shape ``(n_samples, n_features)`` corresponding the evolution of ``X_fit`` after one step.
+        kernel_X : Kernel matrix of the states X_fit, shape ``(n_samples, n_samples)``.
+        kernel_Y : Kernel matrix of the states Y_fit, shape ``(n_samples, n_samples)``.
+        kernel_XY : Cross-kernel matrix of the states X_fit and Y_fit, shape ``(n_samples, n_samples)``.
+        U : Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :cite:t:`Kostic2022`).
+        V : Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :cite:t:`Kostic2022`).
+
+    """
     def __init__(
             self,
             kernel: Kernel = DotProduct(),
@@ -26,28 +51,6 @@ class KernelDMD(BaseModel, RegressorMixin):
             optimal_sketching: bool = False,
             rng_seed: Optional[int] = None,
     ):
-        """Low rank Estimator for the Koopman Operator
-        Args:
-            kernel (Kernel, optional): Kernel object implemented according to the specification found in the `kernels`
-            submodule. Defaults to Linear.
-            rank (int, optional): Rank of the estimator. Defaults to 5.
-            tikhonov_reg (float, optional): Tikhonov regularization parameter. Defaults to 0.
-            svd_solver (str, optional):
-                If 'full', run exact SVD calling LAPACK solver functions. Warning: 'full' is not compatible with the
-                'keops' backend.
-                If 'arnoldi', run SVD truncated to rank calling ARPACK solver functions.
-                If 'randomized', run randomized SVD by the method of [add ref.]  
-                Defaults to 'full'.
-            iterated_power (int, optional): Number of iterations for the power method computed by solver = 'randomized'.
-             Must be of range :math:`[0, \\infty)`. Defaults to 2, ignored if solver != 'randomized'.
-            n_oversamples (int, optional): This parameter is only relevant when solver = 'randomized'. It corresponds
-            to the additional number of random vectors to sample the range of X so as to ensure proper conditioning.
-            Defaults to 10, ignored if solver != 'randomized'.
-            optimal_sketching (bool, optional): Sketching strategy for the randomized solver. If true performs optimal
-             sketching (computaitonally more expensive but more accurate).
-             Defaults to False, ignored if solver != 'randomized'.
-        """
-
         # Initial checks
         if svd_solver not in ['full', 'arnoldi', 'randomized']:
             raise ValueError('Invalid svd_solver. Allowed values are \'full\', \'arnoldi\' and \'randomized\'.')
@@ -76,6 +79,17 @@ class KernelDMD(BaseModel, RegressorMixin):
         return self._is_fitted    
 
     def fit(self, X: ArrayLike, Y: ArrayLike):
+        """
+        Fits the KernelDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
+        depending on the parameters of the model.
+
+        Parameters:
+            X : Training data of shape ``(n_samples, n_features)`` corresponding to a collection of sampled states.
+            Y : Evolved training data of shape ``(n_samples, n_features)`` corresponding the evolution of ``X`` after one step.
+        
+        Returns:
+            self (KernelDMD): The fitted estimator.
+        """
         self.pre_fit_checks(X, Y)
         if self.reduced_rank:
             if self.svd_solver == 'randomized':
@@ -99,6 +113,19 @@ class KernelDMD(BaseModel, RegressorMixin):
         return self   
 
     def predict(self, X: ArrayLike, t: int = 1, observables: Optional[Union[Callable, ArrayLike]] = None):
+        """
+        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial condition ``X``.
+        
+        If ``observables`` are not ``None``, returns the analogue quantity for the observable instead.
+
+        Parameters:
+            X (numpy.ndarray): Initial conditions for which we wish the prediction, shape ``(n_init_conditions, n_features)``.
+            t (int): Number of steps to predict (return the last one).
+            observables (callable, numpy.ndarray or None): Callable, array of shape ``(n_samples, n_obs_features)`` or ``None``. If array, it must be the observable evaluated at ``self.Y_fit``. If ``None`` returns the predictions for the state.
+
+        Returns:
+           The predicted (expected) state/observable at time :math:`t`, shape ``(n_init_conditions, n_obs_features)``.
+        """
         check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y', 'kernel_YX', 'X_fit', 'Y_fit'])
 
         if observables is None:
@@ -119,6 +146,16 @@ class KernelDMD(BaseModel, RegressorMixin):
         return dual.predict(t, self.U, self.V, self.kernel_YX, K_Xin_X, _obs)
 
     def modes(self, Xin: ArrayLike, observables: Optional[Union[Callable, ArrayLike]] = None):
+        """
+        Computes the mode decomposition of the Koopman/Transfer operator of one or more observables of the system at the state ``X``.
+
+        Parameters:
+            X (numpy.ndarray): States of the system for which the modes are returned, shape ``(n_states, n_features)``.
+            observables (callable, numpy.ndarray or None): Callable, array of shape ``(n_samples, n_obs_features)`` or ``None``. If array, it must be the observable evaluated at ``self.Y_fit``. If ``None`` returns the predictions for the state.
+
+        Returns:
+            numpy.ndarray: Modes of the system at the state ``X``, shape ``(self.rank, n_states, n_obs_features)``.
+        """
         if observables is None:
             _obs = self.Y_fit
         elif callable(observables):
@@ -140,17 +177,15 @@ class KernelDMD(BaseModel, RegressorMixin):
         return np.squeeze(np.matmul(_gamma, _obs))  # [rank, num_initial_conditions, num_observables]
 
     def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
-        """Eigenvalues and eigenvectors of the estimated Koopman operator.
-        
-        Args:
-            eval_left_on (Optional[ArrayLike], optional): _description_. Defaults to None.
-            eval_right_on (Optional[ArrayLike], optional): _description_. Defaults to None.
+        """
+        Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right eigenfunctions.
+
+        Parameters:
+            eval_left_on (numpy.ndarray or None): States of the system to evaluate the left eigenfunctions on, shape ``(n_samples, n_features)``.
+            eval_right_on (numpy.ndarray or None): States of the system to evaluate the right eigenfunctions on, shape ``(n_samples, n_features)``.
 
         Returns:
-            tuple: (evals, fl, fr) where evals is an array of shape (self.rank,) containing the eigenvalues of the
-            estimated Koopman operator, fl and fr are arrays containing the evaluation of the left and
-            right eigenfunctions of the estimated Koopman operator on the data passed to the arguments eval_left_on
-            and eval_right_on respectively.
+            numpy.ndarray or tuple: (eigenvalues, left eigenfunctions, right eigenfunctions) - Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. Left eigenfunctions evaluated at ``eval_left_on``, shape ``(n_samples, rank)`` if ``eval_left_on`` is not ``None``. Right eigenfunction evaluated at ``eval_right_on``, shape ``(n_samples, rank)`` if ``eval_right_on`` is not ``None``.
         """
         check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y', 'kernel_YX', 'X_fit', 'Y_fit'])
         if hasattr(self, '_eig_cache'):
@@ -176,6 +211,11 @@ class KernelDMD(BaseModel, RegressorMixin):
                     kernel_Xin_X_or_Y_right, vr)
 
     def svals(self):
+        """Singular values of the Koopman/Transger operator.
+
+        Returns:
+            numpy.ndarray: The estimated singular values of the Koopman/Transfer operator, shape `(rank,)`.
+        """  
         check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y'])
         return dual.svdvals(self.U, self.V, self.kernel_X, self.kernel_Y)
 

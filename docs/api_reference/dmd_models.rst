@@ -5,8 +5,7 @@ DMD estimators
 .. autoclass:: ExtendedDMD
     :members:
 
+.. autoclass:: DMD
+
 .. autoclass:: KernelDMD
     :members:
-
-.. bibliography::
-    :style: plain

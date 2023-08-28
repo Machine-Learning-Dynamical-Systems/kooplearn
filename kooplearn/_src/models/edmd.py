@@ -22,7 +22,7 @@ class ExtendedDMD(BaseModel):
         reduced_rank (bool): If ``True`` initializes the reduced rank estimator introduced in [1], if ``False`` initializes the classical principal component estimator.
         rank (int): Rank of the estimator. ``None`` returns the full rank estimator.
         tikhonov_reg (float): Tikhonov regularization coefficient. ``None`` is equivalent to ``tikhonov_reg = 0``, and internally calls specialized stable algorithms to deal with this specific case.
-        svd_solver (str): SVD solver used. Currently supported: 'arnoldi', 'full', 'randomized'.
+        svd_solver (str): Solver used to perform the internal SVD calcuations. Currently supported: `full`, uses LAPACK solvers, `arnoldi`, uses ARPACK solvers, `randomized`, uses randomized SVD algorithms as described in TODO [add ref.].
         iterated_power (int): Number of power iterations when using a randomized algorithm (``svd_solver == 'randomized'``).
         n_oversamples (int): Number of oversamples when using a randomized algorithm (``svd_solver == 'randomized'``).
         rng_seed (int): Random Number Generator seed. Only used when ``svd_solver == 'randomized'``.  Defaults to ``None``, that is no explicit seed is setted.
@@ -269,6 +269,10 @@ class ExtendedDMD(BaseModel):
             del self._eig_cache
 
 class DMD(ExtendedDMD):
+    """
+    Dynamic Mode Decomposition (DMD) Model.
+    Implements the classical DMD estimator approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator. This model just a minimal wrapper around ``ExtendedDMD`` setting the feature map to the identity function. 
+    """
     def __init__(self, 
                 reduced_rank: bool = True,
                 rank: Optional[int] = 5, 
