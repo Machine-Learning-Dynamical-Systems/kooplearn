@@ -39,7 +39,7 @@ class ExtendedDMD(BaseModel):
     def __init__(self, 
                 feature_map: FeatureMap = IdentityFeatureMap(), 
                 reduced_rank: bool = True,
-                rank: Optional[int] = 5, 
+                rank: Optional[int] = None, 
                 tikhonov_reg: Optional[float] = None,
                 svd_solver: str = 'full',
                 iterated_power: int = 1,
@@ -262,7 +262,7 @@ class ExtendedDMD(BaseModel):
         self.Y_fit = Y
 
         if self.rank is None:
-            self.rank = min(X.shape)
+            self.rank = min(self.cov_X.shape)
             logging.info(f"Rank of the estimator set to {self.rank}")
 
         if hasattr(self, '_eig_cache'):

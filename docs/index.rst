@@ -17,4 +17,5 @@ Kooplearn
 .. toctree::
    :maxdepth: 2
    
+   examples/index
    api_reference/index

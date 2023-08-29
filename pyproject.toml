@@ -38,17 +38,16 @@ visualizer = [
 docs = [
   "sphinx",
   "sphinx-book-theme",
-  "sphinx-design"
+  "sphinx-design",
+  "sphinxcontrib-bibtex",
+  "sphinx-autobuild",
+  "myst-nb"
 ]
 dev = [
   "kooplearn[deepkoopman]",
   "kooplearn[visualizer]",
   "kooplearn[docs]",
-  "pytest",
-  "sphinx",
-  "sphinx-book-theme",
-  "sphinxcontrib-bibtex",
-  "sphinx-autobuild"
+  "pytest"
 ]
 
 [project.urls]  # Optional

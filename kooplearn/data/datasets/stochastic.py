@@ -9,7 +9,6 @@ from scipy.integrate import quad, romb
 from scipy.stats import beta
 from scipy.special import binom
 from scipy.stats.sampling import NumericalInversePolynomial
-from tqdm import tqdm
 import math
 from pathlib import Path
 
@@ -142,7 +141,7 @@ class LogisticMap(DiscreteTimeDynamics):
             N = self.N
             eps = 1e-10
             A = np.zeros((N + 1, N + 1))
-            for i in tqdm(range(N + 1), desc='Init: Transfer matrix'):
+            for i in range(N + 1):
                 for j in range(N + 1):
                     alpha = lambda x: self._feature(self.map(x), i)
                     beta = lambda x: self._feature(x, j)
