@@ -11,6 +11,7 @@ from kooplearn._src.utils import check_is_fitted, create_base_dir
 from kooplearn._src.models.abc import BaseModel, FeatureMap, IdentityFeatureMap
 from kooplearn._src.operator_regression import primal
 import logging
+logger = logging.getLogger('kooplearn')
 
 class ExtendedDMD(BaseModel):
     """
@@ -263,7 +264,7 @@ class ExtendedDMD(BaseModel):
 
         if self.rank is None:
             self.rank = min(self.cov_X.shape)
-            logging.info(f"Rank of the estimator set to {self.rank}")
+            logger.info(f"Rank of the estimator set to {self.rank}")
 
         if hasattr(self, '_eig_cache'):
             del self._eig_cache

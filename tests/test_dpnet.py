@@ -6,7 +6,6 @@ from kooplearn._src.deep_learning.architectures.MLPModel import MLPModel
 from kooplearn._src.models.encoder_decoder import EncoderModel
 import torch
 
-
 def fit_dpnet_model_example(num_samples, num_features, lb_window_size, rank, epochs):
     seed = 42
     rng = np.random.default_rng(seed)

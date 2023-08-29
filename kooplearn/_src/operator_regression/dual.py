@@ -8,6 +8,8 @@ from sklearn.utils.extmath import randomized_svd
 from kooplearn._src.utils import topk, fuzzy_parse_complex
 from kooplearn._src.linalg import modified_QR, weighted_norm, _rank_reveal
 
+logger = logging.getLogger('kooplearn')
+
 def regularize(M: np.ndarray, reg: float):
     """Regularize a matrix by adding a multiple of the identity matrix to it.
     Args:
@@ -49,7 +51,7 @@ def fit_reduced_rank_regression(
 
         max_imag_part = np.max(U.imag)
         if max_imag_part >= 10.*U.shape[0]*np.finfo(U.dtype).eps:
-            logging.warning(f"The computed projector is not real. The Kernel matrix is severely ill-conditioned.")
+            logger.warning(f"The computed projector is not real. The Kernel matrix is severely ill-conditioned.")
         U = np.real(U)
         # Post-process U. Promote numerical stability via additional QR decoposition if necessary.
         U = U[:, topk(sigma_sq.real, rank).indices]
@@ -58,7 +60,7 @@ def fit_reduced_rank_regression(
         U, _, columns_permutation = modified_QR(U, M=norm_inducing_op, column_pivoting=True)
         U = U[:, np.argsort(columns_permutation)]
         if U.shape[1] < rank:
-            logging.warning(
+            logger.warning(
                 f"The numerical rank of the projector is smaller than the selected rank ({rank}). {rank - U.shape[1]} "
                 f"degrees of freedom will be ignored.")
             _zeroes = np.zeros((U.shape[0], rank - U.shape[1]))
@@ -79,7 +81,7 @@ def _fit_reduced_rank_regression_noreg(
         # Whether to return the singular values of the projector. (Development purposes)
 ) -> tuple[np.ndarray, np.ndarray] or tuple[np.ndarray, np.ndarray, np.ndarray]:
     # Solve the Hermitian eigenvalue problem to find V
-    logging.warn("The least-squares solution (tikhonov_reg == 0) of the reduced rank problem in the kernel setting is computationally very inefficient. Consider adding a small regularization parameter.")
+    logger.warning("The least-squares solution (tikhonov_reg == 0) of the reduced rank problem in the kernel setting is computationally very inefficient. Consider adding a small regularization parameter.")
 
     values_X, U_X = eigh(K_X)
     U_X, _, _ = _rank_reveal(values_X, U_X, K_X.shape[0]) 
