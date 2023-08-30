@@ -241,13 +241,12 @@ def fit_rand_principal_component_regression(
 ):
     dim = K_X.shape[0]
     vectors, values, _ = randomized_svd(
-        regularize(K_X), 
+        regularize(K_X, tikhonov_reg), 
         rank, 
         n_oversamples=n_oversamples, 
         n_iter=iterated_power, 
         random_state=rng_seed
         )
-
     vectors, values, rsqrt_values = _rank_reveal(values, vectors, rank)
     vectors = np.sqrt(dim)*vectors @ np.diag(rsqrt_values)
     if _return_singular_values:
