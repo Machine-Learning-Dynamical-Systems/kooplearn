@@ -19,12 +19,12 @@ author = 'Pietro Novelli, Grégoire Pacreau, Bruno Belucci, Vladimir Kostic'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    'sphinxcontrib.bibtex',
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
     'sphinx_design',
-    'sphinxcontrib.bibtex',
     "myst_nb"
 ]
 

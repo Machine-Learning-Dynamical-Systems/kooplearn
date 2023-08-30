@@ -1,5 +1,6 @@
 Models
 =====================================
+
 .. currentmodule:: kooplearn.models
 
 .. autoclass:: ExtendedDMD
@@ -9,3 +10,5 @@ Models
 
 .. autoclass:: KernelDMD
     :members:
+
+.. footbibliography::

@@ -16,7 +16,7 @@ class DPNetModule(LightningModule):
     log the hyperparameters.
 
     Parameters:
-        encoder_input_class: Class of the encoder of the input. Can be any deep learning architecture (torch.nn.Module)
+        encoder: Class of the encoder of the input. Can be any deep learning architecture (torch.nn.Module)
             that takes as input a dictionary containing the key 'x_value', a tensor of
             shape (..., n_features, temporal_dim), and encodes it into a tensor of shape (..., output_dim).
         encoder_input_hyperparameters: Hyperparameters of the encoder. Must be a dictionary containing as keys the
@@ -39,18 +39,16 @@ class DPNetModule(LightningModule):
     """
     def __init__(
             self,
-            encoder_input_class: Type[nn.Module], encoder_input_hyperparameters: dict,
+            encoder: Type[nn.Module], encoder_input_hyperparameters: dict,
+            weight_sharing: bool,
             optimizer_fn: Type[torch.optim.Optimizer], optimizer_hyperparameters: dict,
             loss_fn,
             scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler], scheduler_hyperparameters: dict,
             scheduler_config: dict,
-            encoder_output_class: Type[nn.Module] = None, encoder_output_hyperparameters: dict = None,
     ):
         super().__init__()
         for k, v in encoder_input_hyperparameters.items():
             self.hparams[f'encoder_input_{k}'] = v
-        for k, v in encoder_output_hyperparameters.items():
-            self.hparams[f'encoder_output_{k}'] = v
         for k, v in optimizer_hyperparameters.items():
             self.hparams[f'optim_{k}'] = v
         for k, v in scheduler_hyperparameters.items():
@@ -58,10 +56,12 @@ class DPNetModule(LightningModule):
         for k, v in scheduler_config.items():
             self.hparams[f'sched_{k}'] = v
         self.save_hyperparameters()
-        self.encoder_input = encoder_input_class(**encoder_input_hyperparameters)
-        # If encoder_output_class is None, the encoder_output is the same as model (with shared weights)
-        if encoder_output_class is not None:
-            self.encoder_output = encoder_output_class(**encoder_output_hyperparameters)
+        self.encoder_input = encoder(**encoder_input_hyperparameters)
+        self.encoder_output = self.encoder_input
+        
+        # If weight_sharing is True, the input and output encoders are the same (with shared weights).
+        if not weight_sharing:
+            self.encoder_output = encoder(**encoder_input_hyperparameters)
         else:
             self.encoder_output = self.encoder_input
         self.optimizer_fn = optimizer_fn
@@ -95,18 +95,10 @@ class DPNetModule(LightningModule):
     def base_step(self, batch, batch_idx):
         """Default step (train loop) used for training and validation."""
         # dimensions convention (..., channels, temporal_dim)
-        # if any y is out of series, we do not use the sample from the batch
-        mask_out_of_series_left = batch['mask_out_of_series_left']
-        mask_out_of_series_right = batch['mask_out_of_series_right']
-        mask_out_of_series = mask_out_of_series_left | mask_out_of_series_right
-        batch_out_of_series = mask_out_of_series.any(dim=-1).any(dim=-1)
-        batch_in_series = ~batch_out_of_series
-        x_value = batch['x_value'][batch_in_series]
-        y_value = batch['y_value'][batch_in_series]
-        data_x = {'x_value': x_value}
-        data_y = {'x_value': y_value}
+        # if any y is out of series, we do not use the sample from the batch    
+        data_x, data_y = batch
         x_encoded = self.encoder_input(data_x)
-        # Note that encoder_output is the same as model in case we have not defined a second model
+        # Note that encoder_output is the same as model in case shared_weights is True.
         y_encoded = self.encoder_output(data_y)
         loss = self.loss_fn(x_encoded, y_encoded)
         outputs = {

@@ -36,7 +36,7 @@ class BaseModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def modes(self, Xin: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None):
+    def modes(self, X: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None):
         pass
 
     @property
@@ -60,10 +60,24 @@ class FeatureMap(abc.ABC):
         return c
 
 class TrainableFeatureMap(FeatureMap):
-    # Trainable feature maps should be callable with numpy arrays and return numpy arrays (see FeatureMap abc).
-    # Internally they can do whatever.
     @abc.abstractmethod
-    def fit(self, *a, **kw) -> None:
+    def fit(self, X: Optional[np.ndarray] = None, Y: Optional[np.ndarray] = None, **kw) -> None:
+        """Fit the feature map to the data. The trainable feature maps should implement the following interface:
+        
+        .. code-block:: python
+            
+            if (X is not None) and (Y is not None):
+                # Uses X and Y to fit the feature map
+            else:
+                # Uses the keyword arguments to fit the feature map (these can be, e.g. dataloaders or other objects)
+        
+        Trainable feature maps should be callable with numpy arrays and return numpy arrays (see ``kooplearn.abc.FeatureMap``). Internally they can do whatever.
+        
+        Args:
+            X (Optional[np.ndarray], optional): Fitting data consisting of a collection of snapshots. Defaults to None.
+            Y (Optional[np.ndarray], optional): Fitting data being the one step ahead evolution of ``X``. Defaults to None.
+            **kw (optional): Keyword arguments to be used to fit the feature map.
+        """
         pass
     
     @property

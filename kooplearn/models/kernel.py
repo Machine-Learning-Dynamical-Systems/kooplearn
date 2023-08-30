@@ -16,14 +16,14 @@ from kooplearn.abc import BaseModel
 class KernelDMD(BaseModel, RegressorMixin):
     """
     Kernel Dynamic Mode Decomposition (KernelDMD) Model.
-    Implements the KernelDMD estimators approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator following the approach described in :cite:t:`Kostic2022`.
+    Implements the KernelDMD estimators approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator following the approach described in :footcite:t:`Kostic2022`.
 
     Parameters:
         kernel (sklearn.gaussian_process.kernels.Kernel): sklearn Kernel object. Defaults to `DotProduct`.
-        reduced_rank (bool): If ``True`` initializes the reduced rank estimator introduced in [1], if ``False`` initializes the classical principal component estimator.
+        reduced_rank (bool): If ``True`` initializes the reduced rank estimator introduced in :footcite:t:`Kostic2022`, if ``False`` initializes the classical principal component estimator.
         rank (int): Rank of the estimator. Defaults to 5.
         tikhonov_reg (float): Tikhonov regularization coefficient. ``None`` is equivalent to ``tikhonov_reg = 0``, and internally calls specialized stable algorithms to deal with this specific case.
-        svd_solver (str): Solver used to perform the internal SVD calcuations. Currently supported: `full`, uses LAPACK solvers, `arnoldi`, uses ARPACK solvers, `randomized`, uses randomized SVD algorithms as described in TODO [add ref.].
+        svd_solver (str): Solver used to perform the internal SVD calcuations. Currently supported: `full`, uses LAPACK solvers, `arnoldi`, uses ARPACK solvers, `randomized`, uses randomized SVD algorithms as described in :guilabel:`TODO - ADD REF`.
         iterated_power (int): Number of power iterations when using a randomized algorithm (``svd_solver == 'randomized'``).
         n_oversamples (int): Number of oversamples when using a randomized algorithm (``svd_solver == 'randomized'``).
         optimal_sketching (bool): Sketching strategy for the randomized solver. If `True` performs optimal sketching (computaitonally expensive but more accurate).
@@ -35,8 +35,8 @@ class KernelDMD(BaseModel, RegressorMixin):
         kernel_X : Kernel matrix of the states X_fit, shape ``(n_samples, n_samples)``.
         kernel_Y : Kernel matrix of the states Y_fit, shape ``(n_samples, n_samples)``.
         kernel_XY : Cross-kernel matrix of the states X_fit and Y_fit, shape ``(n_samples, n_samples)``.
-        U : Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :cite:t:`Kostic2022`).
-        V : Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :cite:t:`Kostic2022`).
+        U : Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :footcite:t:`Kostic2022`).
+        V : Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :footcite:t:`Kostic2022`).
 
     """
     def __init__(
@@ -145,7 +145,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         K_Xin_X = self.kernel(X, self.X_fit)
         return dual.predict(t, self.U, self.V, self.kernel_YX, K_Xin_X, _obs)
 
-    def modes(self, Xin: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None):
+    def modes(self, X: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None):
         """
         Computes the mode decomposition of the Koopman/Transfer operator of one or more observables of the system at the state ``X``.
 
@@ -172,7 +172,7 @@ class KernelDMD(BaseModel, RegressorMixin):
 
         check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_YX', 'X_fit', 'Y_fit'])
         _, lv, rv = dual.estimator_eig(self.U, self.V, self.kernel_X, self.kernel_YX)
-        K_Xin_X = self.kernel(Xin, self.X_fit)
+        K_Xin_X = self.kernel(X, self.X_fit)
         _gamma = dual.estimator_modes(K_Xin_X, rv, lv)
         return np.squeeze(np.matmul(_gamma, _obs))  # [rank, num_initial_conditions, num_observables]
 

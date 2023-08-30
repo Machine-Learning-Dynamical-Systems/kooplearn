@@ -5,3 +5,8 @@ Feature Maps
 .. autoclass:: IdentityFeatureMap
 
 .. autoclass:: ConcatenateFeatureMaps
+
+.. autoclass:: DPNetsFeatureMap
+    :members:
+
+.. footbibliography::
