@@ -8,9 +8,7 @@ from kooplearn._src.deep_learning.lightning_modules.DPNetModule import DPNetModu
 from kooplearn._src.deep_learning.loss_fns.dpnet_loss import dpnets_loss
 from kooplearn.abc import TrainableFeatureMap
 
-
-
-class DPNetFeatureMap(TrainableFeatureMap):
+class DPNetsFeatureMap(TrainableFeatureMap):
     """Feature map to be used with EncoderModel to create a DPNet model.
 
     Trainable feature map based on [1]. The feature map is based on two neural networks, one for encoding the input

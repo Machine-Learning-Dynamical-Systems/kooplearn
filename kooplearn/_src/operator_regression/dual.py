@@ -92,7 +92,11 @@ def _fit_reduced_rank_regression_noreg(
     else:
         sigma_sq, V = eig(L)
     
-    V = V[:, topk(sigma_sq, rank).indices]
+    max_imag_part = np.max(V.imag)
+    if max_imag_part >= 10.*V.shape[0]*np.finfo(V.dtype).eps:
+        logger.warning(f"The computed projector is not real. The Kernel matrix is severely ill-conditioned.")
+    V = np.real(V)
+    V = V[:, topk(sigma_sq.real, rank).indices]
     # Normalize V
     _V_norm = np.linalg.norm(V, ord=2, axis=0) / np.sqrt(V.shape[0])
     rcond = 10.*K_X.shape[0]*np.finfo(K_X.dtype).eps
@@ -107,7 +111,7 @@ def _fit_reduced_rank_regression_noreg(
     else:
         U = lstsq(K_X, V)[0]
     if _return_singular_values:
-        return U, V, topk(sigma_sq, rank).values
+        return U, V, topk(sigma_sq.real, rank).values
     else:
         return U, V
 
