@@ -6,6 +6,11 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath('..')) # This is needed to import kooplearn
+
 project = 'kooplearn'
 copyright = '2023, Pietro Novelli, Grégoire Pacreau, Bruno Belucci, Vladimir Kostic'
 author = 'Pietro Novelli, Grégoire Pacreau, Bruno Belucci, Vladimir Kostic'
