@@ -7,7 +7,7 @@ name = "kooplearn"
 version = "0.0.1"  
 description = "A package to learn Koopman operators" 
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 
 authors = [
   {name = "Pietro Novelli", email = "pietronvll@gmail.com" },
