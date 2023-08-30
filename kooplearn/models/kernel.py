@@ -3,7 +3,7 @@ import numpy as np
 import os
 import pickle
 from pathlib import Path
-from numpy.typing import ArrayLike
+
 from typing import Optional, Union, Callable
 from sklearn.base import RegressorMixin
 from sklearn.utils import check_array
@@ -11,7 +11,7 @@ from kooplearn._src.utils import check_is_fitted, create_base_dir
 from sklearn.utils.validation import check_X_y
 from sklearn.gaussian_process.kernels import Kernel, DotProduct
 from kooplearn._src.operator_regression import dual
-from kooplearn._src.models.abc import BaseModel
+from kooplearn.abc import BaseModel
 
 class KernelDMD(BaseModel, RegressorMixin):
     """
@@ -78,7 +78,7 @@ class KernelDMD(BaseModel, RegressorMixin):
     def is_fitted(self) -> bool:
         return self._is_fitted    
 
-    def fit(self, X: ArrayLike, Y: ArrayLike):
+    def fit(self, X: np.ndarray, Y: np.ndarray):
         """
         Fits the KernelDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
@@ -112,7 +112,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         self._is_fitted = True
         return self   
 
-    def predict(self, X: ArrayLike, t: int = 1, observables: Optional[Union[Callable, ArrayLike]] = None):
+    def predict(self, X: np.ndarray, t: int = 1, observables: Optional[Union[Callable, np.ndarray]] = None):
         """
         Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial condition ``X``.
         
@@ -145,7 +145,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         K_Xin_X = self.kernel(X, self.X_fit)
         return dual.predict(t, self.U, self.V, self.kernel_YX, K_Xin_X, _obs)
 
-    def modes(self, Xin: ArrayLike, observables: Optional[Union[Callable, ArrayLike]] = None):
+    def modes(self, Xin: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None):
         """
         Computes the mode decomposition of the Koopman/Transfer operator of one or more observables of the system at the state ``X``.
 
@@ -176,7 +176,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         _gamma = dual.estimator_modes(K_Xin_X, rv, lv)
         return np.squeeze(np.matmul(_gamma, _obs))  # [rank, num_initial_conditions, num_observables]
 
-    def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
+    def eig(self, eval_left_on: Optional[np.ndarray] = None, eval_right_on: Optional[np.ndarray] = None):
         """
         Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right eigenfunctions.
 
@@ -219,13 +219,13 @@ class KernelDMD(BaseModel, RegressorMixin):
         check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y'])
         return dual.svdvals(self.U, self.V, self.kernel_X, self.kernel_Y)
 
-    def _init_kernels(self, X: ArrayLike, Y: ArrayLike):
+    def _init_kernels(self, X: np.ndarray, Y: np.ndarray):
         K_X = self.kernel(X)
         K_Y = self.kernel(Y)
         K_YX = self.kernel(Y, X)
         return K_X, K_Y, K_YX
 
-    def pre_fit_checks(self, X: ArrayLike, Y: ArrayLike):
+    def pre_fit_checks(self, X: np.ndarray, Y: np.ndarray):
         X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
         Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
         check_X_y(X, Y, multi_output=True)

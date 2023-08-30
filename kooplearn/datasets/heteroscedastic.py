@@ -1,4 +1,4 @@
-from kooplearn.data.datasets.misc import DataGenerator
+from kooplearn.datasets.misc import DataGenerator
 import numpy as np
 
 

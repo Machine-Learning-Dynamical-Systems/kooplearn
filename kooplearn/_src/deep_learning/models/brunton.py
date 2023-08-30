@@ -11,8 +11,8 @@ from lightning.pytorch.loggers.logger import Logger
 from kooplearn._src.deep_learning.lightning_modules.BruntonModule import BruntonModule
 from kooplearn._src.deep_learning.loss_fns.brunton_loss import brunton_loss
 from kooplearn._src.deep_learning.utils.Brunton_utils import AuxiliaryNetworkWrapper
-from kooplearn._src.models.abc import BaseModel
-from numpy.typing import ArrayLike
+from kooplearn.abc import BaseModel
+
 
 
 class BruntonModel(BaseModel):
@@ -151,7 +151,7 @@ class BruntonModel(BaseModel):
         self.trainer = None
         self.callbacks = None
 
-    def pre_fit_checks(self, X: ArrayLike, Y: ArrayLike):
+    def pre_fit_checks(self, X: np.ndarray, Y: np.ndarray):
         """Performs pre-fit checks on the training data.
 
         Use check_array and check_X_y from sklearn to check the training data, initialize the covariance matrices and
@@ -175,7 +175,7 @@ class BruntonModel(BaseModel):
         self.initialize_callbacks()
         self.initialize_trainer()
 
-    def fit(self, X: ArrayLike, Y: ArrayLike, datamodule: L.LightningDataModule = None):
+    def fit(self, X: np.ndarray, Y: np.ndarray, datamodule: L.LightningDataModule = None):
         """Fits the Brunton model.
 
         A datamodule is required for this model.
@@ -192,7 +192,7 @@ class BruntonModel(BaseModel):
         self.initialize()
         self.trainer.fit(model=self.dnn_model_module, datamodule=self.datamodule)
 
-    def predict(self, X: np.ndarray, t: int = 1, observables: Optional[Union[Callable, ArrayLike]] = None,
+    def predict(self, X: np.ndarray, t: int = 1, observables: Optional[Union[Callable, np.ndarray]] = None,
                 only_last_value=True) -> np.ndarray:
         """Predicts the state at time = t + 1 given the current state X.
 

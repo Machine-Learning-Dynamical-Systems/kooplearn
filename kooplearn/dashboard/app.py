@@ -5,9 +5,9 @@ from dash import Dash
 import argparse
 
 from kooplearn._src.dashboard.visualizer import Visualizer
-from kooplearn._src.models.kernel import KernelDMD
+from kooplearn.models.kernel import KernelDMD
 from sklearn.gaussian_process.kernels import DotProduct
-from kooplearn.data.datasets import MockData
+from kooplearn.datasets import MockData
 import pickle
 
 APP_TITLE = "Koopman Modes Dashboard"

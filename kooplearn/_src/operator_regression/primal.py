@@ -1,6 +1,6 @@
 from typing import Optional
 import numpy as np
-from numpy.typing import ArrayLike
+
 from scipy.linalg import eig, eigh, solve
 from scipy.sparse.linalg import eigsh
 from kooplearn._src.utils import fuzzy_parse_complex
@@ -103,7 +103,7 @@ def fit_principal_component_regression(
     return vectors @ np.diag(rsqrt_evals)
 
 def fit_rand_principal_component_regression(
-        C_X: ArrayLike,  # Input covariance matrix
+        C_X: np.ndarray,  # Input covariance matrix
         tikhonov_reg: float,  # Tikhonov regularization parameter
         rank: int,  # Rank of the estimator
         n_oversamples: int,  # Number of oversamples

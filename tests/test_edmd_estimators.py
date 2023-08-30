@@ -3,9 +3,9 @@ from scipy.stats import special_ortho_group
 import numpy as np
 from pathlib import Path
 from shutil import rmtree
-from kooplearn._src.models.edmd import ExtendedDMD
-from kooplearn._src.models.abc import FeatureMap, IdentityFeatureMap
-from kooplearn.data.datasets.stochastic import LinearModel
+from kooplearn.models.edmd import ExtendedDMD
+from kooplearn.abc import FeatureMap, IdentityFeatureMap
+from kooplearn.datasets.stochastic import LinearModel
 
 
 TRUE_RANK = 5

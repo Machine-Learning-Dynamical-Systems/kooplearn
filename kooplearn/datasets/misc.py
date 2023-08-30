@@ -1,22 +1,22 @@
 import abc
 from typing import NamedTuple
 import numpy as np
-from numpy.typing import ArrayLike
+
 from tqdm import tqdm
 
 class LinalgDecomposition(NamedTuple):
-    values: ArrayLike
-    x: ArrayLike
-    functions: ArrayLike
+    values: np.ndarray
+    x: np.ndarray
+    functions: np.ndarray
 
 # General utility classes
 class DataGenerator(abc.ABC):
     @abc.abstractmethod
-    def generate(self, X0: ArrayLike, T: int = 1):
+    def generate(self, X0: np.ndarray, T: int = 1):
         pass
 
 class DiscreteTimeDynamics(DataGenerator):
-    def generate(self, X0: ArrayLike, T: int = 1, show_progress: bool = False):
+    def generate(self, X0: np.ndarray, T: int = 1, show_progress: bool = False):
         memory = np.zeros((T + 1,) + X0.shape)
         memory[0] = X0
         if show_progress:
@@ -29,5 +29,5 @@ class DiscreteTimeDynamics(DataGenerator):
         return memory
 
     @abc.abstractmethod
-    def _step(self, X: ArrayLike):
+    def _step(self, X: np.ndarray):
         pass

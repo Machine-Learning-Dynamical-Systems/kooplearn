@@ -1,3 +1,10 @@
+# Update - Aug 29
+Things to do, and note:
+1. The projection score is not correct (lacks one cross covariance)
+2. The relaxed score should have a square on the cross covariance
+3. Rename the regularizers with more meaningful names
+4. Add the scores also in a `numpy` version inside `kooplearn.metrics`
+
 # First Review (Pietro, answered by Bruno)
 The code is far too complex to be putted in this form. Some comments:
 

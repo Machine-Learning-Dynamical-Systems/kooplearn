@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kooplearn"  
-version = "0.0.1"  
+version = "0.2.0-dev"  
 description = "A package to learn Koopman operators" 
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 
 authors = [
   {name = "Pietro Novelli", email = "pietronvll@gmail.com" },
@@ -54,7 +54,7 @@ dev = [
 "Homepage" = "https://github.com/CSML-IIT-UCL/kooplearn"
 
 [project.scripts] 
-kooplearn-dashboard = "kooplearn._src.dashboard.app:main"
+kooplearn-dashboard = "kooplearn.dashboard.app:main"
 
 [tool.ruff]
 line-length = 300

@@ -1,8 +1,8 @@
 from typing import Optional
-from kooplearn.data.datasets.misc import DataGenerator, DiscreteTimeDynamics, LinalgDecomposition
+from kooplearn.datasets.misc import DataGenerator, DiscreteTimeDynamics, LinalgDecomposition
 from kooplearn._src.utils import topk
 import numpy as np
-from numpy.typing import ArrayLike
+
 import scipy
 import scipy.sparse
 from scipy.integrate import quad, romb
@@ -23,7 +23,7 @@ class MockData(DataGenerator):
         self.rng = np.random.default_rng(rng_seed)
         self.num_features = num_features
 
-    def generate(self, X0: ArrayLike, T: int = 1):
+    def generate(self, X0: np.ndarray, T: int = 1):
         return self.rng.random((T + 1, self.num_features))
 
 class LinearModel(DiscreteTimeDynamics):
@@ -105,7 +105,7 @@ class LogisticMap(DiscreteTimeDynamics):
         else:
             return self._evals
 
-    def _step(self, X_0: ArrayLike):
+    def _step(self, X_0: np.ndarray):
         return self.map(X_0, noisy=self._noisy)
 
     def pdf(self, x):
@@ -213,13 +213,13 @@ class MullerBrownPotential(DataGenerator):
         result = sdeint.itoint(self.neg_grad_potential, self.noise_term, X0, tspan, self.rng)
         return result
 
-    def potential(self, X: ArrayLike):
+    def potential(self, X: np.ndarray):
         t1 = X[0] - self.X
         t2 = X[1] - self.Y
         tinexp = self.a * (t1 ** 2) + self.b * t1 * t2 + self.c * (t2 ** 2)
         return np.dot(self.A, np.exp(tinexp))
 
-    def neg_grad_potential(self, x: ArrayLike, t: ArrayLike):
+    def neg_grad_potential(self, x: np.ndarray, t: np.ndarray):
         """
         A_j * exp[a_j * (x1^2 - 2 * x1 * X_j) + b_j * (x1 * x2 - x1 * Y_j)]
 
@@ -237,7 +237,7 @@ class MullerBrownPotential(DataGenerator):
             np.dot(self.A, tinexp * grad_inner_exp_x2),
         ]) / self.kt
 
-    def noise_term(self, x: ArrayLike, t: ArrayLike):
+    def noise_term(self, x: np.ndarray, t: np.ndarray):
         return np.diag([math.sqrt(2 * 1e-2), math.sqrt(2 * 1e-2)])
 
 class LangevinTripleWell1D(DiscreteTimeDynamics):
@@ -306,7 +306,7 @@ class LangevinTripleWell1D(DiscreteTimeDynamics):
         dX = F * self._inv_gamma * self.dt + np.sqrt(2.0 * self.kt * self.dt * self._inv_gamma) * xi
         return X + dX
 
-    def force_fn(self, x: ArrayLike):
+    def force_fn(self, x: np.ndarray):
         return -1. * (-128 * np.exp(-80 * ((-0.5 + x) ** 2)) * (-0.5 + x) - 512 * np.exp(-80 * (x ** 2)) * x + 32 * (
                 x ** 7) - 160 * np.exp(-40 * ((0.5 + x) ** 2)) * (0.5 + x))
 
@@ -319,7 +319,7 @@ class LangevinTripleWell1D(DiscreteTimeDynamics):
             return 1.0
 
     def _standardize_evd(self, evd: LinalgDecomposition, dx: float,
-                         density: Optional[ArrayLike] = None) -> LinalgDecomposition:
+                         density: Optional[np.ndarray] = None) -> LinalgDecomposition:
         # Sorting and normalizing
         sort_perm = np.flip(np.argsort(evd.values.real))
         functions = (evd.vectors[:, sort_perm]).real

@@ -4,6 +4,7 @@ from sklearn.utils import check_array
 from warnings import warn
 import logging
 from kooplearn._src.utils import topk
+logger = logging.getLogger('kooplearn')
 
 def spd_neg_pow(M: np.ndarray, exponent: float = -1.0, cutoff: Optional[float] = None , strategy: str = 'trunc') -> np.ndarray:
     """
@@ -190,7 +191,7 @@ def _rank_reveal(
     else:
         values = values[_ftest]
         vectors = vectors[:, _ftest]
-        logging.warning(
+        logger.warning(
             f"The numerical rank of the result ({vectors.shape[1]}) is smaller than the desired rank ({rank}).\n {rank - vectors.shape[1]} degrees of freedom will be ignored.")
         #Compute stable sqrt
         rsqrt_vals = (np.sqrt(values))**-1

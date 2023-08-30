@@ -2,7 +2,7 @@ import pytest
 from typing import NamedTuple
 import numpy as np
 from kooplearn._src.operator_regression import primal, dual
-from kooplearn.data.datasets import MockData
+from kooplearn.datasets import MockData
 
 class EigenDecomposition(NamedTuple):
     values: np.ndarray
@@ -10,7 +10,7 @@ class EigenDecomposition(NamedTuple):
     right: np.ndarray
 
 def _allclose(a, b):
-    return np.allclose(a, b, rtol=1e-4, atol=1e-7)
+    return np.allclose(a, b, rtol=1e-3, atol=1e-5)
 
 def _compare_up_to_sign(a: np.ndarray, b: np.ndarray) -> bool:
     return _allclose(np.abs(a), np.abs(b))

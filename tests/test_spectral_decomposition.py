@@ -1,19 +1,19 @@
 import pytest
 import numpy as np
-from numpy.typing import ArrayLike
-from kooplearn.data.datasets import MockData
+
+from kooplearn.datasets import MockData
 from kooplearn._src.operator_regression import primal, dual
 
-def _primal_right_normalization(right_vectors: ArrayLike):
+def _primal_right_normalization(right_vectors: np.ndarray):
     _norms = np.sum(right_vectors.conj() * right_vectors, axis=0)
     return np.allclose(_norms, np.ones(_norms.shape[0]))
 
-def _primal_eigenvalue_equation(eigenvalues: ArrayLike, left_vectors: ArrayLike, right_vectors: ArrayLike,
-                                estimator: ArrayLike):
+def _primal_eigenvalue_equation(eigenvalues: np.ndarray, left_vectors: np.ndarray, right_vectors: np.ndarray,
+                                estimator: np.ndarray):
     reconstruction = np.linalg.multi_dot([right_vectors, np.diag(eigenvalues), left_vectors.T])
     return np.allclose(estimator, reconstruction)
 
-def _primal_biortogonality(left_vectors: ArrayLike, right_vectors: ArrayLike):
+def _primal_biortogonality(left_vectors: np.ndarray, right_vectors: np.ndarray):
     return np.allclose((left_vectors.T) @ right_vectors, np.eye(left_vectors.shape[1]))
 
 @pytest.mark.parametrize('tikhonov_reg', [1e-3])
@@ -39,12 +39,12 @@ def test_primal_eig_decomposition(tikhonov_reg, svd_solver):
     assert _primal_eigenvalue_equation(eig, lv, rv, estimator)
     assert _primal_biortogonality(lv, rv)
 
-def _dual_right_normalization(right_vectors: ArrayLike, K_X: ArrayLike):
+def _dual_right_normalization(right_vectors: np.ndarray, K_X: np.ndarray):
     r_dim = (K_X.shape[0]) ** (-1)
     _norms = np.sum(right_vectors.conj() * (r_dim*K_X@right_vectors), axis=0)
     return np.allclose(_norms, np.ones(_norms.shape[0]))
 
-def _dual_biortogonality(left_vectors: ArrayLike, right_vectors: ArrayLike, K_YX: ArrayLike):
+def _dual_biortogonality(left_vectors: np.ndarray, right_vectors: np.ndarray, K_YX: np.ndarray):
     r_dim = (K_YX.shape[0]) ** (-1)
     return np.allclose(np.linalg.multi_dot([left_vectors.T, r_dim*K_YX, right_vectors]), np.eye(left_vectors.shape[1]))
 
