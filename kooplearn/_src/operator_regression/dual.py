@@ -13,10 +13,10 @@ logger = logging.getLogger('kooplearn')
 def regularize(M: np.ndarray, reg: float):
     """Regularize a matrix by adding a multiple of the identity matrix to it.
     Args:
-        M (ArrayLike): Matrix to regularize.
+        M (np.ndarray): Matrix to regularize.
         reg (float): Regularization parameter.
     Returns:
-        ArrayLike: Regularized matrix.
+        np.ndarray: Regularized matrix.
     """
     return M + reg * M.shape[0] * np.identity(M.shape[0], dtype=M.dtype)
 

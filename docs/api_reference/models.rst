@@ -1,6 +1,6 @@
-DMD estimators
+Models
 =====================================
-.. currentmodule:: kooplearn
+.. currentmodule:: kooplearn.models
 
 .. autoclass:: ExtendedDMD
     :members:

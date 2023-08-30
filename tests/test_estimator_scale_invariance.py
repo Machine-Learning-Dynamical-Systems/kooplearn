@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from kooplearn._src.operator_regression import primal, dual
-from kooplearn.data.datasets import MockData
+from kooplearn.datasets import MockData
 
 
 @pytest.mark.parametrize('scale_factor', [0.5, 2])

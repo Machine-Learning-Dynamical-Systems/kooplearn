@@ -4,20 +4,26 @@ import os
 from typing import Optional, Union, Callable
 
 import numpy as np
-from numpy.typing import ArrayLike
+
 
 # Abstract base classes defining the interface to implement when extending kooplearn
 class BaseModel(abc.ABC):
     @abc.abstractmethod
-    def fit(self, X: ArrayLike, Y: ArrayLike):
+    def fit(self, X: np.ndarray, Y: np.ndarray):
+        """Fit the model to the data.
+
+        Args:
+            X (np.ndarray): Fitting data consisting of a collection of snapshots.
+            Y (np.ndarray): Fitting data being the one-step-ahead evolution of ``X``.
+        """
         pass
 
     @abc.abstractmethod
-    def predict(self, X: ArrayLike, t: int = 1, observables: Optional[Union[Callable, ArrayLike]] = None):
+    def predict(self, X: np.ndarray, t: int = 1, observables: Optional[Union[Callable, np.ndarray]] = None):
         pass
 
     @abc.abstractmethod
-    def eig(self, eval_left_on: Optional[ArrayLike] = None, eval_right_on: Optional[ArrayLike] = None):
+    def eig(self, eval_left_on: Optional[np.ndarray] = None, eval_right_on: Optional[np.ndarray] = None):
         pass
 
     @abc.abstractmethod
@@ -38,8 +44,6 @@ class BaseModel(abc.ABC):
     def is_fitted(self) -> bool:
         pass
 
-
-
 class FeatureMap(abc.ABC):
     @abc.abstractmethod
     def __call__(self, X: np.ndarray) -> np.ndarray:
@@ -54,12 +58,6 @@ class FeatureMap(abc.ABC):
             c = phi_X.T @ phi_Y
         c *= (X.shape[0]) ** (-1)
         return c
-
-
-class IdentityFeatureMap(FeatureMap):
-    def __call__(self, X: np.ndarray):
-        return X
-
 
 class TrainableFeatureMap(FeatureMap):
     # Trainable feature maps should be callable with numpy arrays and return numpy arrays (see FeatureMap abc).

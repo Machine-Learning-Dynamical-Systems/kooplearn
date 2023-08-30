@@ -6,8 +6,8 @@ import torch
 from torch import nn
 from kooplearn._src.deep_learning.lightning_modules.DPNetModule import DPNetModule
 from kooplearn._src.deep_learning.loss_fns.dpnet_loss import dpnets_loss
-from kooplearn._src.models.abc import TrainableFeatureMap
-from numpy.typing import ArrayLike
+from kooplearn.abc import TrainableFeatureMap
+
 
 
 class DPNetFeatureMap(TrainableFeatureMap):
@@ -153,7 +153,7 @@ class DPNetFeatureMap(TrainableFeatureMap):
         self.initialize_callbacks()
         self.initialize_trainer()
 
-    def fit(self, X: ArrayLike, Y: ArrayLike, datamodule: L.LightningDataModule = None):
+    def fit(self, X: np.ndarray, Y: np.ndarray, datamodule: L.LightningDataModule = None):
         """Fits the DPNet feature map.
 
         A datamodule is required for this model.

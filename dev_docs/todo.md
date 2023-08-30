@@ -3,6 +3,8 @@
 ### ExtendedDMD
 - [ ] Add power iteration QR normalization for the randomized RRR algorithms.
   - [ ] Test the randomized algorithms.
+- [ ] On the `fit` method check if the feature map is trainable, if so, check if it is fitted, if not, fit it.
+
 ### Algorithms
 - [ ] Implement the following metrics:
     - [ ] Squared loss

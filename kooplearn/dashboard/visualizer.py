@@ -1,6 +1,6 @@
 from kooplearn._src.dashboard.utils import create_frequency_plot, create_plot_eigs, create_2d_plot_modes, \
     create_plot_modes, create_plot_pred, create_combined_plot_modes, create_combined_2d_plot_modes
-from kooplearn._src.models.abc import BaseModel
+from kooplearn.abc import BaseModel
 import numpy as np
 import pandas
 

@@ -2,7 +2,7 @@ import pytest
 from typing import NamedTuple
 import numpy as np
 from kooplearn._src.operator_regression import primal, dual
-from kooplearn.data.datasets import MockData
+from kooplearn.datasets import MockData
 
 class EigenDecomposition(NamedTuple):
     values: np.ndarray

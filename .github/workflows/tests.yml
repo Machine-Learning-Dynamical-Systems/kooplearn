@@ -1,9 +1,8 @@
 name: Run Tests and Coverage
 
 on:
-  push:
-    branches:
-      - main  # Change this to your main branch name
+  schedule:
+    - cron: "0 0 */3 * *"
 
 jobs:
   test:

@@ -1,7 +1,7 @@
 import numpy as np
-from numpy.typing import ArrayLike
+
 import scipy.integrate
-from kooplearn.data.datasets.misc import DataGenerator
+from kooplearn.datasets.misc import DataGenerator
 
 class Duffing(DataGenerator):
     def __init__(self, alpha=0.5, beta=0.0625, gamma=0.1, delta=2.5, omega=2.0, dt=0.01):
@@ -17,7 +17,7 @@ class Duffing(DataGenerator):
             self.omega * t)])
         return dx
 
-    def generate(self, X0: ArrayLike, T: int = 1):
+    def generate(self, X0: np.ndarray, T: int = 1):
         sim_time = self.dt * (T + 1)
         t_eval = np.linspace(0, sim_time, T + 1, endpoint=True)
         t_span = (0, t_eval[-1])
@@ -32,7 +32,7 @@ class Lorenz63(DataGenerator):
         self.dt = dt
         self.M_lin = np.array([[-self.sigma, self.sigma, 0], [self.mu, 0, 0], [0, 0, -self.beta]])
 
-    def generate(self, X0: ArrayLike, T: int = 1):
+    def generate(self, X0: np.ndarray, T: int = 1):
         sim_time = self.dt * (T + 1)
         t_eval = np.linspace(0, sim_time, T + 1, endpoint=True)
         t_span = (0, t_eval[-1])

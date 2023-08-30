@@ -4,5 +4,6 @@ API Reference
 .. toctree:: 
     :maxdepth: 1
 
-    dmd_models
+    models
+    feature_maps
     abc

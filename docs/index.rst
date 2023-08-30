@@ -67,7 +67,6 @@ Features
 
             Kooplearn is designed with extensibility in mind. In :mod:`kooplearn.abc <kooplearn.abc>` we expose simple abstract base classes which allow you to quickly build kooplearn-compatible components.
 
-
 ----
 
 Installation
@@ -76,13 +75,19 @@ Installation
 .. code-block:: bash
 
    pip install kooplearn
-   # or to install the latest version of kooplearn:
+   # Or to install the latest version of kooplearn from git:
    pip install --upgrade git+https://github.com/CSML-IIT-UCL/kooplearn.git
 
 
 Basic usage
 ^^^^^^^^^^^^
 TODO: add basic usage example 
+
+----
+
+Dashboard
+^^^^^^^^^^^^
+TODO: add dashboard example with .gif animation
 
 ----
 
@@ -126,6 +131,7 @@ Learn more
 .. toctree::
    :maxdepth: 1
    
+   getting_started
    examples/index
    guides/index
    api_reference/index

@@ -3,7 +3,7 @@ import pandas as pd
 from kooplearn._src.deep_learning.data_utils.TimeseriesDataModule import TimeseriesDataModule
 from kooplearn._src.deep_learning.feature_maps.DPNetFeatureMap import DPNetFeatureMap
 from kooplearn._src.deep_learning.architectures.MLPModel import MLPModel
-from kooplearn._src.models.encoder_decoder import EncoderModel
+from kooplearn.models.encoder_decoder import EncoderModel
 import torch
 
 def fit_dpnet_model_example(num_samples, num_features, lb_window_size, rank, epochs):

@@ -4,11 +4,12 @@ import os
 from pathlib import Path
 import pickle
 from typing import Optional, Callable, Union
-from numpy.typing import ArrayLike
+
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_X_y
 from kooplearn._src.utils import check_is_fitted, create_base_dir
-from kooplearn._src.models.abc import BaseModel, FeatureMap, IdentityFeatureMap
+from kooplearn.abc import BaseModel, FeatureMap
+from kooplearn.models.feature_maps import IdentityFeatureMap
 from kooplearn._src.operator_regression import primal
 import logging
 logger = logging.getLogger('kooplearn')
@@ -19,7 +20,7 @@ class ExtendedDMD(BaseModel):
     Implements the ExtendedDMD estimators approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator following the approach described in :cite:t:`Kostic2022`.
     
     Parameters:
-        feature_map (callable): Dictionary of functions used for the ExtendedDMD algorithm. Should be a subclass of ``kooplearn._src.models.abc.FeatureMap``.
+        feature_map (callable): Dictionary of functions used for the ExtendedDMD algorithm. Should be a subclass of ``kooplearn.abc.FeatureMap``.
         reduced_rank (bool): If ``True`` initializes the reduced rank estimator introduced in [1], if ``False`` initializes the classical principal component estimator.
         rank (int): Rank of the estimator. ``None`` returns the full rank estimator.
         tikhonov_reg (float): Tikhonov regularization coefficient. ``None`` is equivalent to ``tikhonov_reg = 0``, and internally calls specialized stable algorithms to deal with this specific case.
@@ -70,7 +71,7 @@ class ExtendedDMD(BaseModel):
     def is_fitted(self) -> bool:
         return self._is_fitted
     
-    def fit(self, X: ArrayLike, Y: ArrayLike):
+    def fit(self, X: np.ndarray, Y: np.ndarray):
         """
         Fits the ExtendedDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
@@ -238,7 +239,7 @@ class ExtendedDMD(BaseModel):
         cov_XY = self.feature_map.cov(X, Y)
         return cov_X, cov_Y, cov_XY
 
-    def _pre_fit_checks(self, X: ArrayLike, Y: ArrayLike):
+    def _pre_fit_checks(self, X: np.ndarray, Y: np.ndarray):
         """Performs pre-fit checks on the training data.
 
         Use check_array and check_X_y from sklearn to check the training data, initialize the covariance matrices and
@@ -252,6 +253,8 @@ class ExtendedDMD(BaseModel):
         X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
         Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
         check_X_y(X, Y, multi_output=True)
+
+        #TODO - check if the feature map is trainable, if so, check if it is fitted, if not, fit it.
 
         cov_X, cov_Y, cov_XY = self._init_covs(X, Y)
 

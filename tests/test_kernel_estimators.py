@@ -3,9 +3,9 @@ from scipy.stats import special_ortho_group
 from shutil import rmtree
 import numpy as np
 from pathlib import Path
-from kooplearn._src.models import KernelDMD
+from kooplearn.models import KernelDMD
 from sklearn.gaussian_process.kernels import DotProduct, RBF, Matern
-from kooplearn.data.datasets.stochastic import LinearModel
+from kooplearn.datasets.stochastic import LinearModel
 
 
 TRUE_RANK = 5

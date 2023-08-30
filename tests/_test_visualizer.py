@@ -1,7 +1,7 @@
 from kooplearn._src.dashboard.visualizer import Visualizer
-from kooplearn._src.models.kernel import KernelReducedRank
+from kooplearn.models.kernel import KernelReducedRank
 from sklearn.gaussian_process.kernels import DotProduct
-from kooplearn.data.datasets import MockData
+from kooplearn.datasets import MockData
 
 dataset = MockData(num_features=5, rng_seed=0)
 _Z = dataset.generate(None, 10)
