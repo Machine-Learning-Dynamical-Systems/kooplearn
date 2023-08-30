@@ -1,8 +1,8 @@
-<p align = "center">
+<p align = "left">
   <img src="logo.svg" alt="SVG Image" style="width:50%;"/>
 </p>
 
-# `kooplearn`: Learn Koopman Operators for Dynamical Systems
+# `kooplearn`: Learn Koopman and transfer operators of Dynamical Systems
 
 `kooplearn` is a Python library designed for learning Koopman operators or transfer operators associated with dynamical systems. It provides an array of algorithms for model training and analysis, enabling users to perform forecasting, spectral decomposition, and modal decomposition based on the learned operator.
 
