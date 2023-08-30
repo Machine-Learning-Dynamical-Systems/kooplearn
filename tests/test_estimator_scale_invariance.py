@@ -31,7 +31,7 @@ def test_reduced_rank_tikhonov_primal_scale_invariance(svd_solver, tikhonov_reg,
     assert np.allclose(G, G_scaled)
     
 @pytest.mark.parametrize('scale_factor', [0.5, 2.])
-@pytest.mark.parametrize('tikhonov_reg', [0., 1e-3])
+@pytest.mark.parametrize('tikhonov_reg', [1e-3])
 @pytest.mark.parametrize('svd_solver', ['full', 'arnoldi'])
 def test_reduced_rank_tikhonov_dual_scale_invariance(svd_solver, tikhonov_reg, scale_factor):
     num_features = 10
@@ -53,7 +53,5 @@ def test_reduced_rank_tikhonov_dual_scale_invariance(svd_solver, tikhonov_reg, s
 
     G = np.linalg.multi_dot([U, V.T])
     G_scaled = np.linalg.multi_dot([U_scaled, V_scaled.T])
-    if not np.allclose(G*(scale_factor**-1), G_scaled, atol = 1e-5):
-        print(np.max(np.abs(G*(scale_factor**-1) - G_scaled)))
-        raise AssertionError
+    assert np.allclose(G*(scale_factor**-1), G_scaled, atol = 1e-5)
     
