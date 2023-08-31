@@ -1,9 +1,16 @@
+> Do NOT delete completed tasks.
+
 ### Documentation
-- [ ] Add a Shared Bibliography file
+- [x] Add a Shared Bibliography file
+- [ ] Document everything in `kooplearn.abc`.
+
 ### ExtendedDMD
 - [ ] Add power iteration QR normalization for the randomized RRR algorithms.
-  - [ ] Test the randomized algorithms.
-- [ ] On the `fit` method check if the feature map is trainable, if so, check if it is fitted, if not, fit it.
+
+### EncoderModel
+- [ ] Rewrite it by subclassing `kooplearn.models.ExtendedDMD`
+- [ ] Implement the loading and saving utilities - pay attention to saving the feature map.
+- [ ] Drop the requirements for the data to be of shape `[n_samples, n_features]`, and allow for a general `[n_samples, ...]`.
 
 ### Algorithms
 - [ ] Implement the following metrics:
@@ -26,38 +33,33 @@
     - [ ] Muller Brown
 - [X] Duffing Oscillator
 - [ ] Langevin driven by $\alpha$-stable noise.
-- [ ] Add or check that is added a RNG for every stochastic term for reproducibility.
-- [ ] Can be cool to add fluid-dynamics simulation. See, e.g. [JAX-FLUIDS](https://github.com/tumaer/JAXFLUIDS/) for an easy way to generate them.
+- [ ] Add or check that is added a RNG for every stochastic term for reproducibility.
+- [ ] Can be cool to add fluid-dynamics simulation. See, e.g. [JAX-FLUIDS](https://github.com/tumaer/JAXFLUIDS/) for an easy way to generate them.
+- [ ] Add pre-computed assets for the eigenfunctions/eigenvalues of the 1D triple well as well as Muller-Brown if possible.
 
 ### Testing
-- [ ] `low_level_primal_dual_consistency` is failing on the RRR algorithm. I have nailed down the fact that **in theory**, the non-zero eigenvalues of $K_{Y}$ and $C^{\dagger/2}_{X}C_{XY}C_{YX}C^{\dagger/2}_{X}$ should be the same, but in practice they are not.
-- [ ] Document functions
+- [x] `low_level_primal_dual_consistency` is failing on the RRR algorithm. I have nailed down the fact that **in theory**, the non-zero eigenvalues of $K_{Y}$ and $C^{\dagger/2}_{X}C_{XY}C_{YX}C^{\dagger/2}_{X}$ should be the same, but in practice they are not.
 - [x] Test primal-dual matching on eigenfunctions (on top of eigenvalues). In general, study how coverage works.
-- Test data generation for each one of the methods
+- [ ] Test data generation for each one of the methods
     - [ ] Duffing
     - [ ] Lorenz63
     - [ ] Linear
     - [ ] Logistic
     - [ ] Muller-Brown
     - [ ] 1D Triple Well
-- [ ] Test _randomized_ algorithms (not clear how to do that now).
-- [x] Test the left eigenfunctions of the primal algorithm: FAILING.
-- [x] Add pre-computed assets for the eigenfunctions/eigenvalues of the 1D triple well as well as Muller-Brown if possible.
+- [ ] Test _randomized_ algorithms (not clear how to do that now).
+- [x] Test the left eigenfunctions of the primal algorithm.
 - [x] Handle the case of 0 Tikhonov regularization.
 
 ### Make the code clearer
-- [ ] [Most important in my opinion] create and DOCUMENT a standard notation of the variables used throughout the 
+- [x] Create and DOCUMENT a standard notation of the variables used throughout the 
   code, with name, shape and meaning of each variable.
-- [ ] [Most important in my opinion] _src/operator_regression/dual -> Make the code clearer by providing references to 
-  algorithms, specifying the equation that is being solved and occasionally commenting equations when many steps are 
-  involved.
-- [ ] [Most important in my opinion] _src/operator_regression/primal -> same as above
-- [ ] models/edmd -> docstring + define every variable stored in the model (self + ['U_', 'V_', 'K_X_', 'K_YX_', 
-  'X_fit_', 'Y_fit_'], define shapes of the variables
-- [ ] models/kernel -> define every variable stored in the model (self + ['U_', 'V_', 'K_X_', 'K_YX_', 
-  'X_fit_', 'Y_fit_'], define shapes of the variables
-- [ ] models/kernel -> we are adding many hyperparameters for each solver, maybe one class for each solver or create 
+- [ ] `kooplearn._src.operator_regression.dual`: Make the code clearer by providing references to algorithms, specifying the equation that is being solved and occasionally commenting equations when many steps are involved.
+- [ ] `kooplearn._src.operator_regression.primal`: As above
+- [x] `kooplearn.models.edmd`: Docstring + define every variable stored in the model (self + `['U_', 'V_', 'K_X_', 'K_YX_', 
+  'X_fit_', 'Y_fit_']`, define shapes of the variables
+- [x] `kooplearn.models.kernel`: Define every variable stored in the model (self + `['U_', 'V_', 'K_X_', 'K_YX_', 
+  'X_fit_', 'Y_fit_']`, define shapes of the variables
+- [x] `kooplearn.models.kernel`: We are adding many hyperparameters for each solver, maybe one class for each solver or create 
   a solver object that we can pass for each model
-- [ ] [Really Personal Opinion] I would avoid using any one-letter variable name, even if the context is clear. 
-  For example, instead of C_X I would at least write cov_X as cov is the name of a common function from numpy 
-  and other libraries. 
+- [x] I (Bruno) would avoid using any one-letter variable name, even if the context is clear. For example, instead of C_X I would at least write cov_X as cov is the name of a common function from numpy and other libraries. 
