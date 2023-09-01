@@ -4,7 +4,8 @@ import numpy as np
 from pathlib import Path
 from shutil import rmtree
 from kooplearn.models.edmd import ExtendedDMD
-from kooplearn.abc import FeatureMap, IdentityFeatureMap
+from kooplearn.abc import FeatureMap
+from kooplearn.models.feature_maps import IdentityFeatureMap
 from kooplearn.datasets.stochastic import LinearModel
 
 
