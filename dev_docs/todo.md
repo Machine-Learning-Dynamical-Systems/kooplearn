@@ -7,10 +7,23 @@
 ### ExtendedDMD
 - [ ] Add power iteration QR normalization for the randomized RRR algorithms.
 
+### DPNets
+- Implement different regularization functions:
+  - [ ] Frobenius.
+  - [ ] Von-Neumann divergence.
+  - [ ] Log + Frobenius defined as $-\log(x) + x^2 - x$.
+- [ ] Remove the constraint for the data to be a dict with keys `x_value` and `y_value`.
+- [ ] Design a flexible way to include different data timesteps in each batch, to then work with the Chapman-Kolmogorov regularization.
+
 ### EncoderModel
 - [ ] Rewrite it by subclassing `kooplearn.models.ExtendedDMD`
 - [ ] Implement the loading and saving utilities - pay attention to saving the feature map.
 - [ ] Drop the requirements for the data to be of shape `[n_samples, n_features]`, and allow for a general `[n_samples, ...]`.
+
+A point to reason on:
+1. Each `TrainableFeatureMap` should come with its data-loading scheme, and should be able to produce the covariances and data arrays needed by the primal algorithms to work. The `predict` and `modes` functions should then work coherently with this data-loading structure.
+
+Thoughts: this scheme might be a bit too general, and possibly detrimental. At this stage we only have DPNets to work with.
 
 ### Algorithms
 - [ ] Implement the following metrics:

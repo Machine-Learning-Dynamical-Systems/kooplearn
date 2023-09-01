@@ -37,7 +37,6 @@ For the kernel DMD I have dropped the custom kernel objects defined in `kooplear
 - [x] Add a **robust** function that, given a list of complex numbers containing only pure reals and couples of complex conjugates, return two masks, one with the indices of the real numbers and one with the indices of only one of the elements of the CC pair.
    - Add complementary function to perform checks and sum reductions
 - [x] Modify the mode function to return **everything** (i.e. including the initial condition) except of the eigenvalue.
-
 ***
 ## Jul 3 '23
 ###### Grégoire:

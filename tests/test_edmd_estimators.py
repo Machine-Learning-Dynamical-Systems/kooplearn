@@ -8,7 +8,6 @@ from kooplearn.abc import FeatureMap
 from kooplearn.models.feature_maps import IdentityFeatureMap
 from kooplearn.datasets.stochastic import LinearModel
 
-
 TRUE_RANK = 5
 DIM = 20
 NUM_SAMPLES = 50

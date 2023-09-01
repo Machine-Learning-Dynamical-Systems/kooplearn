@@ -1,6 +1,5 @@
 import torch
 
-
 def dpnets_loss(x_encoded: torch.Tensor, y_encoded: torch.Tensor, p_loss_coef: float = 1.0, s_loss_coef: float = 0,
                 reg_1_coef: float = 0, reg_2_coef: float = 0, rank: int = None):
     """Computes the loss used in [1].
