@@ -1,11 +1,13 @@
-from functools import partial
+import os
+from pathlib import Path
 from typing import Type, Optional
 import lightning as L
 from lightning.pytorch.loggers.logger import Logger
 import numpy as np
 import torch
 from torch import nn
-from kooplearn.models.feature_maps.DPNets.module import DPNetModule
+from kooplearn._src.utils import create_base_dir
+from kooplearn.models.feature_maps.DPNets.lightning_module import DPNetsLightningModule
 from kooplearn.models.feature_maps.DPNets.loss_and_reg_fns import dpnets_loss
 from kooplearn.abc import TrainableFeatureMap
 from torch.utils.data import TensorDataset, DataLoader
@@ -13,20 +15,19 @@ from torch.utils.data import TensorDataset, DataLoader
 class DPNetsFeatureMap(TrainableFeatureMap):
     """Feature map to be used in conjunction to `kooplearn.models.EncoderModel` to create a DPNet model.
 
-    Trainable feature map based on :footcite:`Kostic2023DPNets`. The feature map is based on two neural networks, one for encoding the initial states and another for encoding the evolved states.
+    Trainable feature map based on Kostic et al. (2023) :footcite:`Kostic2023DPNets`. The feature map is based on an encoder network trained so that its output features are maximally invariant under the action of the Koopman/Transfer operator.
 
     The feature map is implemented using `Pytorch Lightning <https://lightning.ai/>`_.
 
     Parameters:
-        encoder (torch.nn.Module): Class of the neural network used for encoding the input. Can be any ``torch.nn.Module`` taking as input a dictionary containing the key 'x_value', a tensor of
-            shape (..., n_features, temporal_dim), and encodes it into a tensor of shape (..., output_dimension).
+        encoder (torch.nn.Module): Torch module used as data encoder. Can be any ``torch.nn.Module`` taking as input a tensor of shape ``(n_samples, ...)`` and returning a *two-dimensional* tensor of shape ``(n_samples, encoded_dimension)``.
         encoder_kwargs (dict): Hyperparameters used for initializing the encoder.
-        proj_loss (float): Coefficient of the projection score :footcite:`Kostic2023DPNets` :math:`\\mathcal{P}`.
-        relaxed_loss (float): Coefficient of the relaxed score :footcite:`Kostic2023DPNets` :math:`\\mathcal{S}`.
         metric_reg (float): Coefficient of metric regularization :footcite:`Kostic2023DPNets` :math:`\\mathcal{P}`
         optimizer_fn (torch.optim.Optimizer): Any Totch optimizer.
         optimizer_kwargs (dict): Hyperparameters used for initializing the optimizer.
         trainer_kwargs (dict): Keyword arguments used to initialize the `Lightning trainer <https://lightning.ai/docs/pytorch/stable/common/trainer.html>`_.
+        use_relaxed_loss (bool): Whether to use the relaxed loss :footcite:`Kostic2023DPNets` :math:`\\mathcal{S}` in place of the projection loss. It is advisable to set ``use_relaxed_score = True`` in numerically challenging scenarios. Defaults to ``False``. 
+        loss_coefficient (float): Coefficient premultiplying the loss function. Defaults to ``1.0``.
         metric_reg_type (str): Type of metric regularization. Can be either ``'fro'``, ``'von_neumann'`` or ``'log_fro'``. Defaults to ``'fro'``. :guilabel:`TODO - ADD REF`.
         weight_sharing (bool): Whether to share the weights between the encoder of the initial data and the encoder of the evolved data. As reported in :footcite:`Kostic2023DPNets`, this can be safely set to ``True`` when the dynamical system is time-reversal invariant. Defaults to ``False``.
         scheduler_fn (torch.optim.lr_scheduler.LRScheduler): A Torch learning rate scheduler function.
@@ -43,76 +44,57 @@ class DPNetsFeatureMap(TrainableFeatureMap):
             self,
             #Model
             encoder: Type[nn.Module], encoder_kwargs: dict,
-            proj_loss: float,
-            relaxed_loss: float,
             metric_reg: float,
             # Optimization
             optimizer_fn: Type[torch.optim.Optimizer], optimizer_kwargs: dict,
             #Pytorch Lightning 
             trainer_kwargs: dict,
             # Keyword Arguments
+            use_relaxed_loss: bool = False,
+            loss_coefficient: float = 1.0,
             metric_reg_type: str = 'fro',
             weight_sharing: bool = False,
-            scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler] = None, scheduler_kwargs: dict = None,
-            scheduler_config: dict = None,
+            scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler] = None, scheduler_kwargs: dict = {},
+            scheduler_config: dict = {},
             callbacks_fns: list[Type[L.Callback]] = None, callbacks_kwargs: list[dict] = None,
-            logger_fn: Type[Logger] = None, logger_kwargs: dict = None,
+            logger_fn: Type[Logger] = None, logger_kwargs: dict = {},
             seed: Optional[int] = None
     ):
         #Set rng seed
         L.seed_everything(seed)
         self.seed = seed
-        #Save parameters
-        self.encoder = encoder
-        self.encoder_kwargs = encoder_kwargs
-        self.optimizer_fn = optimizer_fn
-        self.optimizer_kwargs = optimizer_kwargs
-        self.scheduler_fn = scheduler_fn
-        self.scheduler_kwargs = scheduler_kwargs if scheduler_kwargs else {}
-        self.scheduler_config = scheduler_config if scheduler_config else {}
-        
-        self.weight_sharing = weight_sharing
-        self.proj_loss = proj_loss
-        self.relaxed_loss = relaxed_loss
-        self.metric_reg = metric_reg
-        self.metric_reg_type = metric_reg_type
+        #Init Lightning module
+        self._lightning_module = DPNetsLightningModule(
+            encoder=encoder, encoder_kwargs=encoder_kwargs,
+            weight_sharing=weight_sharing,
+            metric_reg=metric_reg,
+            use_relaxed_loss=use_relaxed_loss,
+            loss_coefficient=loss_coefficient,
+            metric_reg_type=metric_reg_type,
+            optimizer_fn=optimizer_fn, optimizer_kwargs=optimizer_kwargs,
+            scheduler_fn=scheduler_fn, scheduler_kwargs=scheduler_kwargs,
+            scheduler_config=scheduler_config,
+        )
+        #Init trainer components
+        if metric_reg_type not in ['fro', 'von_neumann', 'log_fro']:
+            raise ValueError('metric_reg_type must be either fro, von_neumann or log_fro')
+        else:
+            self.metric_reg_type = metric_reg_type
 
         #Init trainer
         self._initialize_callbacks(callbacks_fns, callbacks_kwargs)
         self._initialize_logger(logger_fn, logger_kwargs)
         self._initialize_trainer(trainer_kwargs)
-        
-        #Init model        
-        
-        
-        #TODO
-        self.loss_fn = partial(dpnets_loss, rank=rank, p_loss_coef=p_loss_coef, s_loss_coef=s_loss_coef,
-                               reg_1_coef=reg_1_coef, reg_2_coef=reg_2_coef)
-        
-        self.dnn_model_module = None
-        self.model = None
+
         self._is_fitted = False
 
     @property
     def is_fitted(self):
         return self._is_fitted
 
-    def initialize_model_module(self):
-        """Initializes the DPNet lightning module."""
-        self.dnn_model_module = DPNetModule(
-            encoder=self.encoder,
-            weight_sharing=self.weight_sharing,
-            encoder_input_kwargs=self.encoder_input_kwargs,
-            optimizer_fn=self.optimizer_fn, optimizer_kwargs=self.optimizer_kwargs,
-            loss_fn=self.loss_fn,
-            scheduler_fn=self.scheduler_fn, scheduler_kwargs=self.scheduler_kwargs,
-            scheduler_config=self.scheduler_config,
-        )
-
     def _initialize_logger(self, logger_fn, logger_kwargs):
         if logger_fn is not None:
-            _kw = logger_kwargs if logger_kwargs else {}
-            self.logger = logger_fn(**_kw)
+            self.logger = logger_fn(**logger_kwargs)
         else:
             self.logger = None
 
@@ -131,13 +113,16 @@ class DPNetsFeatureMap(TrainableFeatureMap):
         """Initializes the trainer."""
         self.trainer = L.Trainer(trainer_kwargs, callbacks=self.callbacks, logger=self.logger)
 
-    def initialize(self):
-        """Initializes the feature map."""
-        self.initialize_logger()
-        self.initialize_model_module()
-        self.initialize_callbacks()
-        self.initialize_trainer()
+    def save(self, path: os.PathLike):
+        path = Path(path)
+        create_base_dir(path)
+        raise NotImplementedError
 
+    @classmethod
+    def load(cls, path: os.PathLike):
+        raise NotImplementedError
+
+    # |--- NEEDS WORK ---|
     def fit(self, X: Optional[np.ndarray] = None, Y: Optional[np.ndarray] = None, datamodule: L.LightningDataModule = None):
         """Fits the DPNet feature map.
 
