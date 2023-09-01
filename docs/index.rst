@@ -132,6 +132,7 @@ Learn more
    
    getting_started
    examples/index
+   datasets
    guides/index
    api_reference/index
 
