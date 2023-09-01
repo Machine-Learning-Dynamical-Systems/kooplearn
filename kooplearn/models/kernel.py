@@ -141,9 +141,12 @@ class KernelDMD(BaseModel, RegressorMixin):
         assert _obs.shape[0] == self.X_fit.shape[0]
         if _obs.ndim == 1:
             _obs = _obs[:, None]
+        _obs_shape = _obs.shape
+        if _obs.ndim > 2:
+            _obs = _obs.reshape(_obs.shape[0], -1)
 
         K_Xin_X = self.kernel(X, self.X_fit)
-        return dual.predict(t, self.U, self.V, self.kernel_YX, K_Xin_X, _obs)
+        return dual.predict(t, self.U, self.V, self.kernel_YX, K_Xin_X, _obs).reshape(_obs_shape)
 
     def modes(self, X: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None):
         """
@@ -151,10 +154,10 @@ class KernelDMD(BaseModel, RegressorMixin):
 
         Parameters:
             X (numpy.ndarray): States of the system for which the modes are returned, shape ``(n_states, n_features)``.
-            observables (callable, numpy.ndarray or None): Callable, array of shape ``(n_samples, n_obs_features)`` or ``None``. If array, it must be the observable evaluated at ``self.Y_fit``. If ``None`` returns the predictions for the state.
+            observables (callable, numpy.ndarray or None): Callable, array of shape ``(n_samples, ...)`` or ``None``. If array, it must be the observable evaluated at ``self.Y_fit``. If ``None`` returns the predictions for the state.
 
         Returns:
-            numpy.ndarray: Modes of the system at the state ``X``, shape ``(self.rank, n_states, n_obs_features)``.
+            numpy.ndarray: Modes of the system at the state ``X``, shape ``(self.rank, n_states, ...)``.
         """
         if observables is None:
             _obs = self.Y_fit
@@ -169,12 +172,17 @@ class KernelDMD(BaseModel, RegressorMixin):
         assert _obs.shape[0] == self.X_fit.shape[0]
         if _obs.ndim == 1:
             _obs = _obs[:, None]
+        _obs_shape = _obs.shape
+        if _obs.ndim > 2:
+            _obs = _obs.reshape(_obs.shape[0], -1)
 
         check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_YX', 'X_fit', 'Y_fit'])
         _, lv, rv = dual.estimator_eig(self.U, self.V, self.kernel_X, self.kernel_YX)
         K_Xin_X = self.kernel(X, self.X_fit)
         _gamma = dual.estimator_modes(K_Xin_X, rv, lv)
-        return np.squeeze(np.matmul(_gamma, _obs))  # [rank, num_initial_conditions, num_observables]
+
+        expected_shape = (self.rank, X.shape[0], _obs_shape[1])
+        return np.squeeze(np.matmul(_gamma, _obs).reshape(expected_shape))  # [rank, num_initial_conditions, num_observables]
 
     def eig(self, eval_left_on: Optional[np.ndarray] = None, eval_right_on: Optional[np.ndarray] = None):
         """

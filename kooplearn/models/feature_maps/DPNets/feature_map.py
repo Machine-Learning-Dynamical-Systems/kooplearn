@@ -122,42 +122,22 @@ class DPNetsFeatureMap(TrainableFeatureMap):
     def load(cls, path: os.PathLike):
         raise NotImplementedError
 
-    # |--- NEEDS WORK ---|
-    def fit(self, X: Optional[np.ndarray] = None, Y: Optional[np.ndarray] = None, datamodule: L.LightningDataModule = None):
+    def fit(self, datamodule: L.LightningDataModule):
         """Fits the DPNet feature map.
 
         A datamodule is required for this model.
 
         Parameters:
-            X: X training data of shape (n_samples, n_features) corresponding to the state at time t.
-            Y: Y training data of shape (n_samples, n_features) corresponding to the state at time t+1.
-            datamodule: Pytorch lightning datamodule.
+            datamodule (lightning.LightningDataModule): `Pytorch Lightning datamodule <https://lightning.ai/docs/pytorch/stable/data/datamodule.html#lightningdatamodule>`_.
         """
-        if (X is not None) and (Y is not None):
-            _X = torch.tensor(X, dtype=torch.float32)
-            _Y = torch.tensor(Y, dtype=torch.float32)
-            ds = TensorDataset(_X, _Y)
-            #Create a full-batch dataloader from X and Y
-            dl = DataLoader(ds, batch_size=len(ds))
-            self.trainer.fit(model=self.dnn_model_module, train_dataloaders=dl)
-        elif datamodule is not None:
-            self.trainer.fit(model=self.dnn_model_module, datamodule=self.datamodule)
-        else:
-            raise ValueError('Either X and Y or datamodule must be specified.')
+        self.trainer.fit(model=self._lightning_module, datamodule = datamodule)
         self._is_fitted = True
 
-    def __call__(self, X):
-        #TODO use the "predict" method instead of this one
-        """Applies the feature map to X."""
-        if not torch.is_tensor(X):
-            X = torch.tensor(X, dtype=torch.float32)
-        if X.shape[-1] == self.datamodule.lb_window_size*self.datamodule.train_dataset.values.shape[-1]:
-            # In this case X is (n_samples, n_features*lb_window_size), but we want
-            # (n_samples, n_features, lb_window_size)
-            X = X.unflatten(-1, (self.datamodule.train_dataset.values.shape[-1], self.datamodule.lb_window_size))
-        self.dnn_model_module.eval()
+    def __call__(self, X: np.ndarray) -> np.ndarray:
+        X = torch.from_numpy(X).float()
+        X.to(self._lightning_module.device)
+        self._lightning_module.eval()
         with torch.no_grad():
-            model_output = self.dnn_model_module(X)
-        return model_output.detach().numpy()  # Everything should be outputted as a Numpy array
-    # In the case where X is the entire dataset, we should implement a dataloader to avoid memory issues
-    # (prediction on batches). For this we should implement a predict_step and call predict on the trainer.
+            embedded_X = self._lightning_module.encoder_init(X)
+            embedded_X = embedded_X.detach().numpy()
+        return embedded_X

@@ -6,9 +6,11 @@ Models
 .. autoclass:: ExtendedDMD
     :members:
 
-.. autoclass:: DMD
+.. autoclass:: DeepEDMD
 
 .. autoclass:: KernelDMD
     :members:
+
+.. autoclass:: DMD
 
 .. footbibliography::

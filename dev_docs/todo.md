@@ -3,22 +3,26 @@
 ### Documentation
 - [x] Add a Shared Bibliography file
 - [ ] Document everything in `kooplearn.abc`.
+- [ ] Do a complete pass on the documentation adding cross-links to class and attributes.
 
 ### ExtendedDMD
 - [ ] Add power iteration QR normalization for the randomized RRR algorithms.
+- [x] Lift the constraint of having 2D observables in `modes` and `predict`
+- [x] Do as above for `KernelDMD`
 
 ### DPNets
 - Implement different regularization functions:
-  - [ ] Frobenius.
-  - [ ] Von-Neumann divergence.
-  - [ ] Log + Frobenius defined as $-\log(x) + x^2 - x$.
-- [ ] Remove the constraint for the data to be a dict with keys `x_value` and `y_value`.
+  - [x] Frobenius.
+  - [x] Von-Neumann divergence.
+  - [x] Log + Frobenius defined as $-\log(x) + x^2 - x$.
+- [x] Remove the constraint for the data to be a dict with keys `x_value` and `y_value`.
 - [ ] Design a flexible way to include different data timesteps in each batch, to then work with the Chapman-Kolmogorov regularization.
+- [ ] Implement Saving and Loading functions to be called by `DeepEDMD`.
 
-### EncoderModel
-- [ ] Rewrite it by subclassing `kooplearn.models.ExtendedDMD`
+### ~~EncoderModel~~ DeepEDMD Model
+- [x] Rewrite it by subclassing `kooplearn.models.ExtendedDMD`
 - [ ] Implement the loading and saving utilities - pay attention to saving the feature map.
-- [ ] Drop the requirements for the data to be of shape `[n_samples, n_features]`, and allow for a general `[n_samples, ...]`.
+- [x] Drop the requirements for the data to be of shape `[n_samples, n_features]`, and allow for a general `[n_samples, ...]`.
 
 A point to reason on:
 1. Each `TrainableFeatureMap` should come with its data-loading scheme, and should be able to produce the covariances and data arrays needed by the primal algorithms to work. The `predict` and `modes` functions should then work coherently with this data-loading structure.

@@ -129,10 +129,13 @@ class ExtendedDMD(BaseModel):
         assert _obs.shape[0] == self.X_fit.shape[0]
         if _obs.ndim == 1:
             _obs = _obs[:, None]
+        _obs_shape = _obs.shape
+        if _obs.ndim > 2:
+            _obs = _obs.reshape(_obs.shape[0], -1)
 
         phi_Xin = self.feature_map(X)
         phi_X = self.feature_map(self.X_fit)
-        return primal.predict(t, self.U, self.cov_XY, phi_Xin, phi_X, _obs)
+        return (primal.predict(t, self.U, self.cov_XY, phi_Xin, phi_X, _obs)).reshape(_obs_shape)
 
     def eig(self, eval_left_on: Optional[np.ndarray] = None, eval_right_on: Optional[np.ndarray] = None) \
             -> Union[np.ndarray, tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]]:
@@ -172,10 +175,10 @@ class ExtendedDMD(BaseModel):
 
         Parameters:
             X (numpy.ndarray): States of the system for which the modes are returned, shape ``(n_states, n_features)``.
-            observables (callable, numpy.ndarray or None): Callable, array of shape ``(n_samples, n_obs_features)`` or ``None``. If array, it must be the observable evaluated at ``self.Y_fit``. If ``None`` returns the predictions for the state.
+            observables (callable, numpy.ndarray or None): Callable, array of shape ``(n_samples, ...)`` or ``None``. If array, it must be the observable evaluated at ``self.Y_fit``. If ``None`` returns the predictions for the state.
 
         Returns:
-            numpy.ndarray: Modes of the system at the state ``X``, shape ``(self.rank, n_states, n_obs_features)``.
+            numpy.ndarray: Modes of the system at the state ``X``, shape ``(self.rank, n_states, ...)``.
         """
 
         if observables is None:
@@ -191,12 +194,17 @@ class ExtendedDMD(BaseModel):
         assert _obs.shape[0] == self.X_fit.shape[0]
         if _obs.ndim == 1:
             _obs = _obs[:, None]
+        _obs_shape = _obs.shape
+        if _obs.ndim > 2:
+            _obs = _obs.reshape(_obs.shape[0], -1)
 
         check_is_fitted(self, ['U', 'X_fit', 'cov_XY'])
         phi_X = self.feature_map(self.X_fit)
         phi_Xin = self.feature_map(X)
         _gamma = primal.estimator_modes(self.U, self.cov_XY, phi_X, phi_Xin)
-        return np.squeeze(np.matmul(_gamma, _obs))  # [rank, num_initial_conditions, num_observables]
+
+        expected_shape = (self.rank, X.shape[0]) + _obs_shape[1:]
+        return np.squeeze(np.matmul(_gamma, _obs).reshape(expected_shape))  # [rank, num_initial_conditions, ...]
 
     def svals(self) -> np.ndarray:
         """Singular values of the Koopman/Transger operator.
