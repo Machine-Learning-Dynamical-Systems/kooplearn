@@ -8,9 +8,7 @@ import torch
 from torch import nn
 from kooplearn._src.utils import create_base_dir
 from kooplearn.models.feature_maps.DPNets.lightning_module import DPNetsLightningModule
-from kooplearn.models.feature_maps.DPNets.loss_and_reg_fns import dpnets_loss
 from kooplearn.abc import TrainableFeatureMap
-from torch.utils.data import TensorDataset, DataLoader
 
 class DPNetsFeatureMap(TrainableFeatureMap):
     """Feature map to be used in conjunction to `kooplearn.models.EncoderModel` to create a DPNet model.
@@ -111,7 +109,7 @@ class DPNetsFeatureMap(TrainableFeatureMap):
 
     def _initialize_trainer(self, trainer_kwargs):
         """Initializes the trainer."""
-        self.trainer = L.Trainer(trainer_kwargs, callbacks=self.callbacks, logger=self.logger)
+        self.trainer = L.Trainer(**trainer_kwargs, callbacks=self.callbacks, logger=self.logger)
 
     def save(self, path: os.PathLike):
         path = Path(path)

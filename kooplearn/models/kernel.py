@@ -141,12 +141,13 @@ class KernelDMD(BaseModel, RegressorMixin):
         assert _obs.shape[0] == self.X_fit.shape[0]
         if _obs.ndim == 1:
             _obs = _obs[:, None]
-        _obs_shape = _obs.shape
+        _obs_trailing_dims = _obs.shape[1:]
+        expected_shape = (X.shape[0],) + _obs_trailing_dims
         if _obs.ndim > 2:
             _obs = _obs.reshape(_obs.shape[0], -1)
 
         K_Xin_X = self.kernel(X, self.X_fit)
-        return dual.predict(t, self.U, self.V, self.kernel_YX, K_Xin_X, _obs).reshape(_obs_shape)
+        return dual.predict(t, self.U, self.V, self.kernel_YX, K_Xin_X, _obs).reshape(expected_shape)
 
     def modes(self, X: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None):
         """

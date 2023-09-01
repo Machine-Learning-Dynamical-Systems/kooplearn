@@ -51,7 +51,7 @@ class DPNetsLightningModule(LightningModule):
             self.hparams[f'sched_{k}'] = v
         self.save_hyperparameters()
         
-        self.weigth_sharing = weight_sharing
+        self.weight_sharing = weight_sharing
         self.encoder_init = encoder(**encoder_kwargs)        
         # If weight_sharing is True, the input and output encoders are the same (with shared weights).
         if not self.weight_sharing:
@@ -92,7 +92,7 @@ class DPNetsLightningModule(LightningModule):
         """Default step (train loop) used for training and validation."""    
         X, Y = batch
         encoded_X = self.encoder_init(X)
-        # encoder_evolved = encoder_init if self.weigth_sharing == True.
+        # encoder_evolved = encoder_init if self.weight_sharing == True.
         encoded_Y = self.encoder_evolved(Y)
 
         _norm = torch.rsqrt(torch.tensor(X.shape[0]))

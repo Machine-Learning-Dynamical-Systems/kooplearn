@@ -129,13 +129,14 @@ class ExtendedDMD(BaseModel):
         assert _obs.shape[0] == self.X_fit.shape[0]
         if _obs.ndim == 1:
             _obs = _obs[:, None]
-        _obs_shape = _obs.shape
+        _obs_trailing_dims = _obs.shape[1:]
+        expected_shape = (X.shape[0],) + _obs_trailing_dims
         if _obs.ndim > 2:
             _obs = _obs.reshape(_obs.shape[0], -1)
 
         phi_Xin = self.feature_map(X)
         phi_X = self.feature_map(self.X_fit)
-        return (primal.predict(t, self.U, self.cov_XY, phi_Xin, phi_X, _obs)).reshape(_obs_shape)
+        return (primal.predict(t, self.U, self.cov_XY, phi_Xin, phi_X, _obs)).reshape(expected_shape)
 
     def eig(self, eval_left_on: Optional[np.ndarray] = None, eval_right_on: Optional[np.ndarray] = None) \
             -> Union[np.ndarray, tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]]:
@@ -261,8 +262,6 @@ class ExtendedDMD(BaseModel):
         X = np.asarray(check_array(X, order='C', dtype=float, copy=True))
         Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True))
         check_X_y(X, Y, multi_output=True)
-
-        #TODO - check if the feature map is trainable, if so, check if it is fitted, if not, fit it.
 
         cov_X, cov_Y, cov_XY = self._init_covs(X, Y)
 

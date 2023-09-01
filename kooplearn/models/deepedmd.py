@@ -116,7 +116,7 @@ class DeepEDMD(ExtendedDMD):
         """
         X = np.asarray(check_array(X, order='C', dtype=float, copy=True, allow_nd=True, ensure_2d=False))
         Y = np.asarray(check_array(Y, order='C', dtype=float, copy=True, allow_nd=True, ensure_2d=False))
-        check_X_y(X, Y, multi_output=True, allow_nd=True, ensure_2d=False)
+        assert X.shape[0] == Y.shape[0]
 
         self._data_shape = X.shape[1:]
 
