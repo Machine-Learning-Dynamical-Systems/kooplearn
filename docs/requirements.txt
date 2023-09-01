@@ -12,4 +12,4 @@ sphinxcontrib-bibtex
 # Need to pin docutils to 0.16 to make bulleted lists appear correctly on
 # ReadTheDocs: https://stackoverflow.com/a/68008428
 docutils==0.16
-kooplearn==0.2.0.dev0
+kooplearn==0.2.0.dev0[torch]

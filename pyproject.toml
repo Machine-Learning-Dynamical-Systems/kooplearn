@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-deepkoopman = [
+torch = [
   "torch",
   "lightning",
   "pandas",
@@ -44,7 +44,7 @@ docs = [
   "myst-nb"
 ]
 dev = [
-  "kooplearn[deepkoopman]",
+  "kooplearn[torch]",
   "kooplearn[visualizer]",
   "kooplearn[docs]",
   "pytest"
