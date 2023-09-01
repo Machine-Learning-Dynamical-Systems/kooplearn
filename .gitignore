@@ -150,5 +150,8 @@ workspace.code-workspace
 .DS_Store
 .vscode
 
-#Kooplearn specifics
+# Logging
 **/lightning_logs
+
+# Private tests
+**/private_tests
