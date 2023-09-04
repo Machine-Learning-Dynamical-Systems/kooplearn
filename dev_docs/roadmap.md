@@ -7,6 +7,7 @@ Agreed on redefining the smallest unit of data accepted by all of our algorithms
   <img src="assets/context_window_cheme.svg" alt="SVG Image" style="width:50%;"/>
 </p>
 
+Above, pictorial representation of the context-window based data approach.
 ***
 #### Aug 20, 2023
 ###### Pie:
