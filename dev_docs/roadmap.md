@@ -1,4 +1,13 @@
 # Roadmap
+#### Sep 4, 2023
+###### Pie&Vladi:
+Agreed on redefining the smallest unit of data accepted by all of our algorithms as a tuple: `(ArrayLike[context_window, features], target_idx)`.
+
+<p align = "center">
+  <img src="assets/context_window_cheme.svg" alt="SVG Image" style="width:50%;"/>
+</p>
+
+***
 #### Aug 20, 2023
 ###### Pie:
 For the kernel DMD I have dropped the custom kernel objects defined in `kooplearn._src.kernels` and relied instead on `sklearn.gaussian_processes.kernels`, which better documented, supported and allow for easy HP tuning. Minimal API changing, working to have running tests. Check that `ExtendedDMD` models are working too.
