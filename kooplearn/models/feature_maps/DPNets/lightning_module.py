@@ -125,8 +125,8 @@ class DPNetsLightningModule(LightningModule):
         if with_metrics:
             with torch.no_grad():
                 metrics = {
-                    'projection_score': projection_loss(cov_X, cov_Y, cov_XY),
-                    'relaxed_projection_score': relaxed_projection_loss(cov_X, cov_Y, cov_XY),
+                    'projection_score/full': -1.0*projection_loss(cov_X, cov_Y, cov_XY),
+                    'projection_score/relaxed': -1.0*relaxed_projection_loss(cov_X, cov_Y, cov_XY),
                     'reg': reg_fn(cov_X, cov_Y),
                     'condition_number': torch.linalg.cond(cov_X),
                     'rank': torch.linalg.matrix_rank(cov_X),

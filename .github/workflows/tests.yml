@@ -1,4 +1,4 @@
-name: Run Tests and Coverage
+name: Unit Tests
 
 on:
   schedule:
@@ -30,17 +30,3 @@ jobs:
 
       - name: Run Tests
         run: pytest -s tests
-
-      - name: Install Test Dependencies for Coverage
-        run: python -m pip install coverage
-
-      - name: Run Coverage
-        run: coverage run -m pytest tests
-
-      - name: Generate Coverage Report
-        run: coverage report -m
-
-      - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v2
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}  # You need to set up this secret in your repository settings
