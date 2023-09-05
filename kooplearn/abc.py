@@ -21,7 +21,7 @@ class BaseModel(abc.ABC):
     @abc.abstractmethod
     def predict(self, data: np.ndarray, t: int = 1, observables: Optional[Union[Callable, np.ndarray]] = None):
         """
-        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial condition ``X``.
+        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial conditions represented by the lookback slice of ``data``. 
         
         If ``observables`` are not ``None``, returns the analogue quantity for the observable instead.
 
@@ -61,14 +61,16 @@ class BaseModel(abc.ABC):
     @abc.abstractmethod
     def modes(self, data: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None):
         """
-        Computes the mode decomposition of the Koopman/Transfer operator of one or more observables of the system at the state ``X``.
+        Computes the mode decomposition of the Koopman/Transfer operator of one or more observables of the system at the states defined by ``data``.
+        
+        By letting :math:`(\\lambda_i, \\psi_i, \\xi_i)_{i = 1}^{r}` be the eigentriplets of the Koopman/Transfer operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
 
         Args:
             data (numpy.ndarray): Array of context windows. The lookback slice defines the initial conditions out of which the modes are computed, shape ``(n_init_conditions, context_len, *features_shape)``..
             observables (callable, numpy.ndarray or None): Callable, array of context windows of shape ``(n_samples, context_len, *obs_features_shape)`` or ``None``. If array, it must be the observable evaluated at the training data. If ``None`` returns the predictions for the state.
 
         Returns:
-            numpy.ndarray: Modes of the system at the state ``X``, shape ``(self.rank, n_states, ...)``.
+            numpy.ndarray: Modes of the system at the states defined by ``data``, shape ``(self.rank, n_states, ...)``.
         """
         pass
 

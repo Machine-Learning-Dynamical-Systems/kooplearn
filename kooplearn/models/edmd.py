@@ -31,10 +31,10 @@ class ExtendedDMD(BaseModel):
 
     Attributes:
         data_fit : Training data. Array of context windows of shape ``(n_samples, context_len, *features_shape)`` corresponding to a collection of sampled states.
-        cov_X : Covariance matrix of the feature map evaluated at X_fit.
-        cov_Y : Covariance matrix of the feature map evaluated at Y_fit.
-        cov_XY : Cross-covariance matrix of the feature map evaluated at X_fit and Y_fit.
-        U : Projection matrix of shape (n_features, rank). The Koopman/Transfer operator is approximated as :math:`U U^T \mathrm{cov_{XY}}`.
+        cov_X : Covariance matrix of the feature map evaluated at the initial states.
+        cov_Y : Covariance matrix of the feature map evaluated at the evolved states.
+        cov_XY : Cross-covariance matrix between initial and evolved states.
+        U : Projection matrix of shape (n_out_features, rank). The Koopman/Transfer operator is approximated as :math:`U U^T \mathrm{cov_{XY}}`.
     """
 
     def __init__(self, 
@@ -74,7 +74,7 @@ class ExtendedDMD(BaseModel):
     def fit(self, data: np.ndarray, lookback_len: Optional[int] = None) -> ExtendedDMD:
         """
         Fits the ExtendedDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
-        depending on the parameters of the model. The feature map will act on arrays of shape ``(n_samples, lookback_len, *features_shape)``. The outputs of the feature map are **always** reshaped to 2D arrays of shape ``(n_samples, -1)``.
+        depending on the parameters of the model. Internally, the feature map will be evaluated on arrays of shape ``(n_samples, lookback_len, *features_shape)``. The outputs of the feature map are **always** reshaped to 2D arrays of shape ``(n_samples, -1)``.
 
         .. warning::
 
@@ -108,12 +108,12 @@ class ExtendedDMD(BaseModel):
     def predict(self, data: np.ndarray, t: int = 1, observables: Optional[Union[Callable, np.ndarray]] = None) \
             -> np.ndarray:
         """
-        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial condition ``X``.
+        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial conditions represented by the lookback slice of ``data``. The first axis of ``data`` must either match the lookback length or the context length of the training data. In the latter case, the (1-dimensional) lookforward slice will be ignored
         
         If ``observables`` are not ``None``, returns the analogue quantity for the observable instead.
 
         Args:
-            data (numpy.ndarray): Array of context windows with the same shape of the training data. The lookforward slice will be ignored, while the lookback slice defines the initial conditions from which we wish to predict, shape ``(n_init_conditions, context_len, *features_shape)``.
+            data (numpy.ndarray): Array of context windows. The lookback slice defines the initial conditions from which we wish to predict, shape ``(n_init_conditions, context_len, *features_shape)``.
             t (int): Number of steps to predict (return the last one).
             observables (callable, numpy.ndarray or None): Callable, array of context windows of shape ``(n_samples, context_len, *obs_features_shape)`` or ``None``. If array, it must be the observable evaluated at the training data. If ``None`` returns the predictions for the state.
 
@@ -161,8 +161,8 @@ class ExtendedDMD(BaseModel):
         Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right eigenfunctions.
 
         Args:
-            eval_left_on (numpy.ndarray or None): States of the system to evaluate the left eigenfunctions on, shape ``(n_samples, n_features)``.
-            eval_right_on (numpy.ndarray or None): States of the system to evaluate the right eigenfunctions on, shape ``(n_samples, n_features)``.
+            eval_left_on (numpy.ndarray or None): Array of context windows used to to evaluate the left eigenfunctions on, shape ``(n_samples, context_len, *features_shape)``.
+            eval_right_on (numpy.ndarray or None): Array of context windows used to evaluate the right eigenfunctions on, shape ``(n_samples, context_len, *features_shape)``.
 
         Returns:
             numpy.ndarray or tuple: (eigenvalues, left eigenfunctions, right eigenfunctions) - Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. Left eigenfunctions evaluated at ``eval_left_on``, shape ``(n_samples, rank)`` if ``eval_left_on`` is not ``None``. Right eigenfunction evaluated at ``eval_right_on``, shape ``(n_samples, rank)`` if ``eval_right_on`` is not ``None``.
@@ -194,14 +194,16 @@ class ExtendedDMD(BaseModel):
     
     def modes(self, data: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None) -> np.ndarray:
         """
-        Computes the mode decomposition of the Koopman/Transfer operator of one or more observables of the system at the state ``X``.
+        Computes the mode decomposition of the Koopman/Transfer operator of one or more observables of the system at the states defined by ``data``.
+        
+        By letting :math:`(\\lambda_i, \\psi_i, \\xi_i)_{i = 1}^{r}` be the eigentriplets of the Koopman/Transfer operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
 
         Args:
-            data (numpy.ndarray): States of the system for which the modes are returned, shape ``(n_states, n_features)``.
-            observables (callable, numpy.ndarray or None): Callable, array of shape ``(n_samples, ...)`` or ``None``. If array, it must be the observable evaluated at ``self.Y_fit``. If ``None`` returns the predictions for the state.
+            data (numpy.ndarray): Array of context windows. The lookback slice defines the initial conditions out of which the modes are computed, shape ``(n_init_conditions, context_len, *features_shape)``..
+            observables (callable, numpy.ndarray or None): Callable, array of context windows of shape ``(n_samples, context_len, *obs_features_shape)`` or ``None``. If array, it must be the observable evaluated at the training data. If ``None`` returns the predictions for the state.
 
         Returns:
-            numpy.ndarray: Modes of the system at the state ``X``, shape ``(self.rank, n_states, ...)``.
+            numpy.ndarray: Modes of the system at the states defined by ``data``, shape ``(self.rank, n_states, ...)``.
         """
         check_is_fitted(self, ['U', 'data_fit', 'cov_XY', '_lookback_len'])
         #Shape checks:
