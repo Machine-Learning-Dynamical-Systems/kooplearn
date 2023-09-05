@@ -49,11 +49,12 @@ def stack_lookback(
         np.ndarray: Array of length 2 contexts where the lookback windows of the input arrays are stacked on axis 2. The shape of the output array is therefore ``(n_samples, 2, lookback_len, *features_shape)``.
     """
     contexts = np.asanyarray(contexts)
+    contexts = np.atleast_2d(contexts)
     assert contexts.ndim >= 2
     if lookback_len is None:
         lookback_len = contexts.shape[1] - 1
     
-    if lookback_len > contexts.shape[1] - 1:
+    if lookback_len >= contexts.shape[1]:
         raise ValueError(f'Invalid lookback_len={lookback_len} for contexts of shape {contexts.shape}.')
     elif lookback_len < 1:
         raise ValueError(f'Invalid lookback_len={lookback_len}.')
@@ -63,5 +64,3 @@ def stack_lookback(
     _in = _ctx[:, :-1, ...]
     _out = _ctx[:, 1:, ...]
     return np.stack((_in, _out), axis=1)
-
-    
