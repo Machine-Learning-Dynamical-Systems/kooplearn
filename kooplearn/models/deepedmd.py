@@ -24,7 +24,7 @@ class DeepEDMD(ExtendedDMD):
 
         The feature map passed as a first argument should be already trained, that is ``feature_map.is_fitted == True``. If this is not the case, a ``NotFittedError`` is raised.
     
-    Parameters:
+    Args:
         feature_map (callable): *Trained* feature map used for the DeepEDMD algorithm. Should be a subclass of :class:`kooplearn.abc.TrainableFeatureMap`.
         reduced_rank (bool): If ``True`` initializes the reduced rank estimator introduced in :footcite:t:`Kostic2022`, if ``False`` initializes the classical principal component estimator.
         rank (int): Rank of the estimator. ``None`` returns the full rank estimator.
@@ -79,7 +79,7 @@ class DeepEDMD(ExtendedDMD):
         """
         Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right eigenfunctions.
 
-        Parameters:
+        Args:
             eval_left_on (numpy.ndarray or None): States of the system to evaluate the left eigenfunctions on, shape ``(n_samples, n_features)``.
             eval_right_on (numpy.ndarray or None): States of the system to evaluate the right eigenfunctions on, shape ``(n_samples, n_features)``.
 
@@ -109,7 +109,7 @@ class DeepEDMD(ExtendedDMD):
         Use check_array and check_X_y from sklearn to check the training data, initialize the covariance matrices and
         save the training data.
 
-        Parameters:
+        Args:
             X: X training data of shape (n_samples, ...) corresponding to the state at time t.
             Y: Y training data of shape (n_samples, ...) corresponding to the state at time t+1.
 

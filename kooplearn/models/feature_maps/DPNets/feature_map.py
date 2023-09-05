@@ -17,7 +17,7 @@ class DPNetsFeatureMap(TrainableFeatureMap):
 
     The feature map is implemented using `Pytorch Lightning <https://lightning.ai/>`_.
 
-    Parameters:
+    Args:
         encoder (torch.nn.Module): Torch module used as data encoder. Can be any ``torch.nn.Module`` taking as input a tensor of shape ``(n_samples, ...)`` and returning a *two-dimensional* tensor of shape ``(n_samples, encoded_dimension)``.
         encoder_kwargs (dict): Hyperparameters used for initializing the encoder.
         metric_reg (float): Coefficient of metric regularization :footcite:`Kostic2023DPNets` :math:`\\mathcal{P}`
@@ -125,7 +125,7 @@ class DPNetsFeatureMap(TrainableFeatureMap):
 
         A datamodule is required for this model.
 
-        Parameters:
+        Args:
             datamodule (lightning.LightningDataModule): `Pytorch Lightning datamodule <https://lightning.ai/docs/pytorch/stable/data/datamodule.html#lightningdatamodule>`_.
         """
         self.trainer.fit(model=self._lightning_module, datamodule = datamodule)

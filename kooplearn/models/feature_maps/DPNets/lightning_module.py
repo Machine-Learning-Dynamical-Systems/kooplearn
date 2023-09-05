@@ -12,7 +12,7 @@ class DPNetsLightningModule(LightningModule):
     Note: We split the class/functions from the keyword arguments to be able to easily save and load the model and
     log the hyperparameters.
 
-    Parameters:
+    Args:
         encoder (torch.nn.Module): Torch module used as data encoder. Can be any ``torch.nn.Module`` taking as input a tensor of shape ``(n_samples, ...)`` and returning a *two-dimensional* tensor of shape ``(n_samples, encoded_dimension)``.
         encoder_kwargs (dict): Hyperparameters used for initializing the encoder.
         weight_sharing (bool): Whether to share the weights between the encoder of the initial data and the encoder of the evolved data. As reported in :footcite:`Kostic2023DPNets`, this can be safely set to ``True`` when the dynamical system is time-reversal invariant. Defaults to ``False``.

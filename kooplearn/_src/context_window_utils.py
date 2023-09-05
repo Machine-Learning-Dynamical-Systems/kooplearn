@@ -3,6 +3,40 @@ from typing import Optional
 import logging
 logger = logging.getLogger('kooplearn')
 
+def check_contexts(
+    contexts: np.ndarray,
+    lookback_len: Optional[int],
+    enforce_len1_lookforward: bool = False 
+):
+    if contexts.ndim < 2:
+        raise ValueError(f'Invalid shape {contexts.shape}. contexts must have at least two dimensions.')
+    
+    if contexts.ndim == 2:
+        logger.warn(f'contexts has shape {contexts.shape}. The first axis is assumed to be the time axis. Adding a new axis to the end to represent features.')
+        contexts = contexts[:, :, np.newaxis]
+    
+    if lookback_len is None:
+        return True
+    else:
+        if enforce_len1_lookforward and lookback_len < contexts.shape[1] - 1:
+            raise ValueError(f'The lookforward window has length {contexts.shape[1] - lookback_len}, but it should be of length 1.')
+        
+        if lookback_len >= contexts.shape[1]:
+            raise ValueError(f'Invalid lookback_len={lookback_len} for contexts of shape {contexts.shape}.')
+        
+        if lookback_len < 1:
+            raise ValueError(f'Invalid lookback_len={lookback_len}.')
+        return contexts
+    
+def pad_lookforward(
+    contexts: np.ndarray,
+    lookback_len: Optional[int] = None,
+):
+    contexts = check_contexts(contexts, lookback_len)
+    if lookback_len is None:
+        lookback_len = contexts.shape[1] - 1
+    return NotImplementedError
+
 def trajectory_to_contexts(
     trajectory: np.ndarray,
     context_window_len: int,
@@ -38,12 +72,12 @@ def stack_lookback(
     """_summary_
 
     Args:
-        contexts (np.ndarray): Array of contexts with shape ``(n_samples, len_context, *features_shape)``
+        contexts (np.ndarray): Array of contexts with shape ``(n_samples, context_len, *features_shape)``
         lookback_len (Optional[int], optional): Length of the lookback window associated to the contexts. Defaults to None.
 
         .. caution::
 
-        If the lookforward window is larger than 1, ``len_context - lookback_len - 1`` snapshots will be discarted for each context window.
+        If the lookforward window is larger than 1, ``context_len - lookback_len - 1`` snapshots will be discarted for each context window.
 
     Returns:
         np.ndarray: Array of length 2 contexts where the lookback windows of the input arrays are stacked on axis 2. The shape of the output array is therefore ``(n_samples, 2, lookback_len, *features_shape)``.

@@ -26,7 +26,7 @@ class TimeseriesDataModule(L.LightningDataModule):
     Automates the creation of train, validation and test datasets by providing the number of samples for each set. For
     more details on the datasets, see the documentation of the TimeseriesDataset class.
 
-    Parameters:
+    Args:
         df_series: Pandas dataframe containing the time series.
         n_train: Number of training samples.
         n_valid: Number of validation samples.

@@ -18,7 +18,7 @@ class KernelDMD(BaseModel, RegressorMixin):
     Kernel Dynamic Mode Decomposition (KernelDMD) Model.
     Implements the KernelDMD estimators approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator following the approach described in :footcite:t:`Kostic2022`.
 
-    Parameters:
+    Args:
         kernel (sklearn.gaussian_process.kernels.Kernel): sklearn Kernel object. Defaults to `DotProduct`.
         reduced_rank (bool): If ``True`` initializes the reduced rank estimator introduced in :footcite:t:`Kostic2022`, if ``False`` initializes the classical principal component estimator.
         rank (int): Rank of the estimator. Defaults to 5.
@@ -83,7 +83,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         Fits the KernelDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
 
-        Parameters:
+        Args:
             X : Training data of shape ``(n_samples, n_features)`` corresponding to a collection of sampled states.
             Y : Evolved training data of shape ``(n_samples, n_features)`` corresponding the evolution of ``X`` after one step.
         
@@ -118,7 +118,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         
         If ``observables`` are not ``None``, returns the analogue quantity for the observable instead.
 
-        Parameters:
+        Args:
             X (numpy.ndarray): Initial conditions for which we wish the prediction, shape ``(n_init_conditions, n_features)``.
             t (int): Number of steps to predict (return the last one).
             observables (callable, numpy.ndarray or None): Callable, array of shape ``(n_samples, n_obs_features)`` or ``None``. If array, it must be the observable evaluated at ``self.Y_fit``. If ``None`` returns the predictions for the state.
@@ -153,7 +153,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         """
         Computes the mode decomposition of the Koopman/Transfer operator of one or more observables of the system at the state ``X``.
 
-        Parameters:
+        Args:
             X (numpy.ndarray): States of the system for which the modes are returned, shape ``(n_states, n_features)``.
             observables (callable, numpy.ndarray or None): Callable, array of shape ``(n_samples, ...)`` or ``None``. If array, it must be the observable evaluated at ``self.Y_fit``. If ``None`` returns the predictions for the state.
 
@@ -189,7 +189,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         """
         Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right eigenfunctions.
 
-        Parameters:
+        Args:
             eval_left_on (numpy.ndarray or None): States of the system to evaluate the left eigenfunctions on, shape ``(n_samples, n_features)``.
             eval_right_on (numpy.ndarray or None): States of the system to evaluate the right eigenfunctions on, shape ``(n_samples, n_features)``.
 

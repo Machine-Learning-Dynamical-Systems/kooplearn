@@ -38,7 +38,7 @@ class TimeseriesDataset(Dataset):
     consecutive time steps that we want to generate. This is useful for the Brunton Model where we need to ensure
     linearity and prediction across multiple time steps.
 
-    Parameters:
+    Args:
         df_series: Pandas dataframe containing the time series.
         idx_start: Start index of the time series.
         idx_end: End index of the time series.

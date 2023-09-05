@@ -1,18 +1,18 @@
 > Do NOT delete completed tasks.
 ### Refactoring to the context-window data paradigm
 
-- [x] Take a decision on the name of the variables: current proposal is `data`, `lookback_len`.
+- [x] Take a decision on the name of the variables: current proposal is `data/contexts`, `lookback_len`.
 - [x] Take a decision on the defaults of `lookback_len`. Either `lookback_len = 1` or `lookback_len = None`, that is taking in the context window _except the last snapshot_ as lookback. In practical scenarios I argue that the second option is better.
 
 ###### Module `kooplearn.abc`
-- [ ] Edit the Abstract Base Class definition for `kooplearn.abc.BaseModel` on `fit`, `predict`, `eig`, `modes`.
+- [x] Edit the Abstract Base Class definition for `kooplearn.abc.BaseModel` on `fit`, `predict`, `eig`, `modes`.
 - [ ] The `FeatureMap.cov` must be popped out of it and moved into `kooplearn._src.utils`, as I do not find a reasonable default behaviour in the context-window data paradigm.
-- [ ] `kooplearn.abc.TrainableFeatureMap` must now have a `lookback_len` keyword ~~(or equivalent, should we opt for a different nomenclature)~~.
+- [x] `kooplearn.abc.TrainableFeatureMap` must now have a `lookback_len` keyword ~~(or equivalent, should we opt for a different nomenclature)~~.
 
 ###### Modules `kooplearn.models.ExtendedDMD`, `kooplearn.models.KernelDMD` and `kooplearn.models.DeepEDMD`
-- [ ] `fit(X, Y) -> fit(data, lookback_len = None)`
-- [ ] Throw a Warning if `lookback_len != -1` (we cannot use future steps in these methods)
-- [ ] Save `lookback_len` at fitting so that it can be used back in prediction. If `lookback_len = -1` save it as `data.shape[1] - 1`.
+- [x] `fit(X, Y) -> fit(data, lookback_len = None)`
+- [x] Throw a ~~Warning~~ Error if `lookback_len != context_len - 1` (we cannot use future steps in these methods)
+- [x] Save `lookback_len` at fitting so that it can be used back in prediction.
 - [ ] Implement the changes in the `fit` documentation.
 - [ ] `predict(X, t, observables)` should now return only the `lookback_len` prediction.
 - [ ] Observables, if passed as a precomputed array, must now be of shape `[n_init, context_len, ...]`. And they should be evaluated on the train dataset. We will perform the required slicing internally.
@@ -26,7 +26,7 @@
 - [ ] Perform shape checks at the beginning of every epoch (`batch_idx == 0`).
 
 ###### Input-Output utilities
-- [ ] Add Numpy utilities to convert from a trajectory to a context window **view**. This avoids unnecessary memory usage. 
+- [x] Add Numpy utilities to convert from a trajectory to a context window **view**. This avoids unnecessary memory usage. 
 - [ ] Write a function to add `nan` padding for inference data (in which we do not know the target, nor the lookforward.)
 - [ ] Adapt Bruno's `datamodule`.
 

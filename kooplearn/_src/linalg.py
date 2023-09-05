@@ -207,3 +207,24 @@ def _rank_reveal(
     assert values.shape[0] == rank
     assert rsqrt_vals.shape[0] == rank
     return vectors, values, rsqrt_vals
+
+def cov(X: np.ndarray, Y: Optional[np.ndarray] = None):
+    X = np.atleast_2d(X)
+    if X.ndim > 2:
+        logger.warn(f"Input array has more than 2 dimensions ({X.ndim}). It will be reshaped to 2D by flattening the traling dimensions.")
+        X = X.reshape(X.shape[0], -1)
+        X *= (X.shape[0]) ** (-0.5)
+
+    if Y is None:
+        c = X.T @ X
+    else:
+        if X.shape[0] != Y.shape[0]:
+            raise ValueError(
+                f"Shape mismatch: the covariance between two arrays can be computed only if they have the same initial dimension. Got {X.shape[0]} and {Y.shape[0]}.")
+        Y = np.atleast_2d(Y)
+        if Y.ndim > 2:
+            logger.warn(f"Input array has more than 2 dimensions ({Y.ndim}). It will be reshaped to 2D by flattening the traling dimensions.")
+            Y = Y.reshape(Y.shape[0], -1)
+            Y *= (Y.shape[0]) ** (-0.5)
+        c = X.T @ Y
+    return c

@@ -6,7 +6,7 @@ import torch.nn as nn
 class MLPModel(nn.Module):
     """Simple MLP model.
 
-    Parameters:
+    Args:
         input_dim: input dimension
         output_dim: output dimension
         hidden_dims: list of hidden dimensions

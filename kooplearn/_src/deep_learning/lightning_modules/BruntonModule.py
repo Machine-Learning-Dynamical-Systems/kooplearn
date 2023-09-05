@@ -13,7 +13,7 @@ class BruntonModule(LightningModule):
     Note: We split the class/functions from the keyword arguments to be able to easily save and load the model and
     log the hyperparameters.
 
-    Parameters:
+    Args:
         encoder_class: Class of the encoder. Can be any deep learning architecture (torch.nn.Module) that
             takes as input a dictionary containing the key 'x_value', a tensor of shape (..., n_features, temporal_dim),
             and encodes it into a tensor of shape (..., p) where p is the dimension of the autoencoder subspace.

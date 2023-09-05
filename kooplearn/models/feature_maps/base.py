@@ -14,7 +14,7 @@ class IdentityFeatureMap(FeatureMap):
 class ConcatenateFeatureMaps(FeatureMap):
     """Concatenate multiple functions into a feature map. The functions should return Numpy arrays which can be concatenated along their last axis. Before returning, the feature maps are standardized to ``(n_samples, n_features)``.
 
-    Parameters:
+    Args:
         feature_maps (Iterable of callables): A list of callables which return numpy arrays.
     """
     def __init__(self, feature_maps: Iterable[Callable]):
