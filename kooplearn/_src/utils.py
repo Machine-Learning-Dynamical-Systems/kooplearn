@@ -1,9 +1,11 @@
-from typing import NamedTuple
+from typing import NamedTuple, Callable
 import numpy as np
 import os
 import math
 from pathlib import Path
 from scipy.spatial.distance import pdist
+import logging
+logger = logging.getLogger('kooplearn')
 
 class TopKReturnType(NamedTuple):
     values: np.ndarray
@@ -92,3 +94,16 @@ def create_base_dir(path: os.PathLike):
     base_path = path.parent
     if not base_path.exists():
         base_path.mkdir(parents=True)
+
+def enforce_2d_output(fn: Callable) -> Callable:
+    def _wrap(*a, **kw):
+        res = fn(*a, **kw)
+        res = np.asanyarray(res)
+        if res.ndim <= 1:
+            return np.atleast_2d(res)
+        elif res.ndim == 2:
+            return res
+        else:
+            logger.warn("The output has more than two dimensions. Flattening the trailing ones.")
+            return np.reshape(res, (res.shape[0], -1))
+    return _wrap

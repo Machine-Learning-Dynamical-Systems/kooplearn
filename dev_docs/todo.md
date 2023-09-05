@@ -10,10 +10,11 @@
 - [x] `kooplearn.abc.TrainableFeatureMap` must now have a `lookback_len` keyword ~~(or equivalent, should we opt for a different nomenclature)~~.
 
 ###### Modules `kooplearn.models.ExtendedDMD`, `kooplearn.models.KernelDMD` and `kooplearn.models.DeepEDMD`
+- [ ] Implement functions to be called at the I/O boundaries to reshape the I/O data in a coherent fashion.
 - [x] `fit(X, Y) -> fit(data, lookback_len = None)`
 - [x] Throw a ~~Warning~~ Error if `lookback_len != context_len - 1` (we cannot use future steps in these methods)
 - [x] Save `lookback_len` at fitting so that it can be used back in prediction.
-- [ ] Implement the changes in the `fit` documentation.
+- [x] Implement the changes in the `fit` documentation.
 - [ ] `predict(X, t, observables)` should now return only the `lookback_len` prediction.
 - [ ] Observables, if passed as a precomputed array, must now be of shape `[n_init, context_len, ...]`. And they should be evaluated on the train dataset. We will perform the required slicing internally.
 - [ ] Assert that either `X.shape[1] == lookback_len`, or `X.shape[1] == context_len`. If `np.isnan(X[:, lookback_len:, :]).all() == False` throw an error. I could in principle raise a warning and discard the unused columns, but I prefer to be explicit to avoid confusion.

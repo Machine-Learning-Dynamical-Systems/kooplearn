@@ -5,8 +5,8 @@ from pathlib import Path
 import pickle
 from typing import Optional, Callable, Union
 
-from kooplearn._src.context_window_utils import check_contexts, stack_lookback
-from kooplearn._src.utils import check_is_fitted, create_base_dir
+from kooplearn._src.context_window_utils import check_contexts, contexts_to_markov_predict_states, contexts_to_markov_train_states
+from kooplearn._src.utils import check_is_fitted, create_base_dir, enforce_2d_output
 from kooplearn._src.linalg import cov
 from kooplearn.abc import BaseModel, FeatureMap
 from kooplearn.models.feature_maps import IdentityFeatureMap
@@ -54,7 +54,8 @@ class ExtendedDMD(BaseModel):
         if svd_solver == 'randomized' and n_oversamples < 0:
             raise ValueError('Invalid n_oversamples. Must be non-negative.')
         self.rng_seed = rng_seed
-        self.feature_map = feature_map
+        self._picklable_feature_map = feature_map
+        self.feature_map = enforce_2d_output(feature_map)
         self.rank = rank
         if tikhonov_reg is None:
             self.tikhonov_reg = 0.
@@ -73,7 +74,7 @@ class ExtendedDMD(BaseModel):
     def fit(self, data: np.ndarray, lookback_len: Optional[int] = None) -> ExtendedDMD:
         """
         Fits the ExtendedDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
-        depending on the parameters of the model.
+        depending on the parameters of the model. The feature map will act on arrays of shape ``(n_samples, lookback_len, *features_shape)``. The outputs of the feature map are **always** reshaped to 2D arrays of shape ``(n_samples, -1)``.
 
         .. warning::
 
@@ -100,7 +101,7 @@ class ExtendedDMD(BaseModel):
         self.U = vectors
         
         #Final Checks
-        check_is_fitted(self, ['U', 'cov_XY', 'cov_X', 'cov_Y', 'data_fit', '_lookback_len', '_stacked_shape'])
+        check_is_fitted(self, ['U', 'cov_XY', 'cov_X', 'cov_Y', 'data_fit', '_lookback_len'])
         self._is_fitted = True
         return self
         
@@ -119,13 +120,15 @@ class ExtendedDMD(BaseModel):
         Returns:
            The predicted (expected) state/observable at time :math:`t`, shape ``(n_init_conditions, n_obs_features)``.
         """
-        check_is_fitted(self, ['U', 'cov_XY', 'cov_X', 'cov_Y', 'data_fit', '_lookback_len', '_stacked_shape'])
-        data = check_contexts(data, self._lookback_len, enforce_len1_lookforward=True)
+        check_is_fitted(self, ['U', 'cov_XY', 'cov_X', 'cov_Y', 'data_fit', '_lookback_len'])
+        
+        #Shape checks:
+        data = check_contexts(data, self._lookback_len, warn_len0_lookforward=True)
+        if not ((data.shape[1] == self.data_fit.shape[1]) or (data.shape[1] == self._lookback_len)):
+            raise ValueError(f"Shape mismatch between training data and inference data. The inference data has context length {data.shape[1]}, while the training data has context length {self.data_fit.shape[1]}.")
 
-        X = data[:, :self._lookback_len, ...]
-        X_fit = self.data_fit[:, :self._lookback_len, ...]
-
-        Y_fit = self.data_fit[:, self._lookback_len:, ...][:, None, ...]
+        X_inference, _ = contexts_to_markov_predict_states(data, self._lookback_len)
+        X_fit, Y_fit = contexts_to_markov_predict_states(self.data_fit, self._lookback_len)
 
         if observables is None:
             _obs = Y_fit
@@ -136,16 +139,19 @@ class ExtendedDMD(BaseModel):
         else:
             raise ValueError(
                 "Observables must be either None, a callable or a Numpy array of the observable evaluated at the Y training points.")
-        assert _obs.shape[0] == X_fit.shape[0]
+        
+        assert _obs.shape[0] == Y_fit.shape[0], f"Observables have {_obs.shape[0]} samples while the number of training data is {Y_fit.shape[0]}."
+        
         if _obs.ndim == 1:
             _obs = _obs[:, None]
+        
         _obs_trailing_dims = _obs.shape[1:]
-        expected_shape = (X.shape[0],) + _obs_trailing_dims
+        expected_shape = (X_inference.shape[0],) + _obs_trailing_dims
         if _obs.ndim > 2:
             _obs = _obs.reshape(_obs.shape[0], -1)
 
-        phi_Xin = self.feature_map(X).reshape(X.shape[0], -1)
-        phi_X = self.feature_map(X_fit).reshape(X_fit.shape[0], -1)
+        phi_Xin = self.feature_map(X_inference)
+        phi_X = self.feature_map(X_fit)
 
         return (primal.predict(t, self.U, self.cov_XY, phi_Xin, phi_X, _obs)).reshape(expected_shape)
 
@@ -162,7 +168,7 @@ class ExtendedDMD(BaseModel):
             numpy.ndarray or tuple: (eigenvalues, left eigenfunctions, right eigenfunctions) - Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. Left eigenfunctions evaluated at ``eval_left_on``, shape ``(n_samples, rank)`` if ``eval_left_on`` is not ``None``. Right eigenfunction evaluated at ``eval_right_on``, shape ``(n_samples, rank)`` if ``eval_right_on`` is not ``None``.
         """
 
-        check_is_fitted(self, ['U', 'cov_XY'])
+        check_is_fitted(self, ['U', 'cov_XY', '_lookback_len'])
         if hasattr(self, '_eig_cache'):
             w, vl, vr = self._eig_cache
         else:
@@ -171,51 +177,64 @@ class ExtendedDMD(BaseModel):
         if eval_left_on is None and eval_right_on is None:
             return w
         elif eval_left_on is None and eval_right_on is not None:
-            phi_Xin = self.feature_map(eval_right_on)
+            X, _ = contexts_to_markov_predict_states(eval_right_on, self._lookback_len)
+            phi_Xin = self.feature_map(X)
             return w, primal.evaluate_eigenfunction(phi_Xin, vr)
         elif eval_left_on is not None and eval_right_on is None:
-            phi_Xin = self.feature_map(eval_left_on)
+            X, _ = contexts_to_markov_predict_states(eval_left_on, self._lookback_len)
+            phi_Xin = self.feature_map(X)
             return w, primal.evaluate_eigenfunction(phi_Xin, vl)
         elif eval_left_on is not None and eval_right_on is not None:
-            phi_Xin_l = self.feature_map(eval_left_on)
-            phi_Xin_r = self.feature_map(eval_right_on)
+            Xr, _ = contexts_to_markov_predict_states(eval_right_on, self._lookback_len)
+            Xl, _ = contexts_to_markov_predict_states(eval_left_on, self._lookback_len)
+            phi_Xin_l = self.feature_map(Xl)
+            phi_Xin_r = self.feature_map(Xr)
+            
             return w, primal.evaluate_eigenfunction(phi_Xin_l, vl), primal.evaluate_eigenfunction(phi_Xin_r, vr)
     
-    def modes(self, X: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None) -> np.ndarray:
+    def modes(self, data: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None) -> np.ndarray:
         """
         Computes the mode decomposition of the Koopman/Transfer operator of one or more observables of the system at the state ``X``.
 
         Args:
-            X (numpy.ndarray): States of the system for which the modes are returned, shape ``(n_states, n_features)``.
+            data (numpy.ndarray): States of the system for which the modes are returned, shape ``(n_states, n_features)``.
             observables (callable, numpy.ndarray or None): Callable, array of shape ``(n_samples, ...)`` or ``None``. If array, it must be the observable evaluated at ``self.Y_fit``. If ``None`` returns the predictions for the state.
 
         Returns:
             numpy.ndarray: Modes of the system at the state ``X``, shape ``(self.rank, n_states, ...)``.
         """
+        check_is_fitted(self, ['U', 'data_fit', 'cov_XY', '_lookback_len'])
+        #Shape checks:
+        data = check_contexts(data, self._lookback_len, warn_len0_lookforward=True)
+        if not ((data.shape[1] == self.data_fit.shape[1]) or (data.shape[1] == self._lookback_len)):
+            raise ValueError(f"Shape mismatch between training data and inference data. The inference data has context length {data.shape[1]}, while the training data has context length {self.data_fit.shape[1]}.")
+
+        X_inference, _ = contexts_to_markov_predict_states(data, self._lookback_len)
+        X_fit, Y_fit = contexts_to_markov_predict_states(self.data_fit, self._lookback_len)
 
         if observables is None:
-            _obs = self.Y_fit
+            _obs = Y_fit
         elif callable(observables):
-            _obs = observables(self.Y_fit)
+            _obs = observables(Y_fit)
         elif isinstance(observables, np.ndarray):
             _obs = observables
         else:
             raise ValueError(
                 "observables must be either None, a callable or a Numpy array of the observable evaluated at the "
                 "Y training points.")
-        assert _obs.shape[0] == self.X_fit.shape[0]
+        assert _obs.shape[0] == X_fit.shape[0], f"Observables have {_obs.shape[0]} samples while the number of training data is {Y_fit.shape[0]}."
         if _obs.ndim == 1:
             _obs = _obs[:, None]
         _obs_shape = _obs.shape
         if _obs.ndim > 2:
             _obs = _obs.reshape(_obs.shape[0], -1)
 
-        check_is_fitted(self, ['U', 'X_fit', 'cov_XY'])
-        phi_X = self.feature_map(self.X_fit)
-        phi_Xin = self.feature_map(X)
+        phi_X = self.feature_map(X_fit)
+        phi_Xin = self.feature_map(X_inference)
+
         _gamma = primal.estimator_modes(self.U, self.cov_XY, phi_X, phi_Xin)
 
-        expected_shape = (self.rank, X.shape[0]) + _obs_shape[1:]
+        expected_shape = (self.rank, X_inference.shape[0]) + _obs_shape[1:]
         return np.squeeze(np.matmul(_gamma, _obs).reshape(expected_shape))  # [rank, num_initial_conditions, ...]
 
     def svals(self) -> np.ndarray:
@@ -229,6 +248,7 @@ class ExtendedDMD(BaseModel):
 
     def save(self, path: os.PathLike):
         create_base_dir(path)
+        del self.feature_map
         with open(path, '+wb') as outfile:
             pickle.dump(self, outfile)
     
@@ -238,9 +258,10 @@ class ExtendedDMD(BaseModel):
         with open(path, '+rb') as infile:
             restored_obj = pickle.load(infile)
             assert type(restored_obj) == cls
+            restored_obj.feature_map = enforce_2d_output(restored_obj._picklable_feature_map)
             return restored_obj
 
-    def _init_covs(self, stacked_data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _init_covs(self, X: np.ndarray, Y: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Initializes the covariance matrices `cov_X`, `cov_Y`, and `cov_XY`.
 
@@ -253,8 +274,9 @@ class ExtendedDMD(BaseModel):
                 - ``cov_Y`` (np.ndarray): Covariance matrix of the feature map evaluated at Y, shape ``(n_features, n_features)``.
                 - ``cov_XY`` (np.ndarray): Cross-covariance matrix of the feature map evaluated at X and Y, shape ``(n_features, n_features)``.
         """
-        X = self.feature_map(stacked_data[:, 0, ...])
-        Y = self.feature_map(stacked_data[:, 1, ...])
+        X = self.feature_map(X)
+        Y = self.feature_map(Y)
+
         cov_X = cov(X)
         cov_Y = cov(Y)
         cov_XY = cov(X, Y)
@@ -270,24 +292,20 @@ class ExtendedDMD(BaseModel):
             lookback_len (Optional[int], optional): Length of the lookback window associated to the contexts. Defaults to None, corresponding to ``lookback_len = context_len - 1``.
 
         """
-        data = check_contexts(data, lookback_len, enforce_len1_lookforward=True)
         if lookback_len is None:
             lookback_len = data.shape[1] - 1
-
+        data = check_contexts(data, lookback_len, enforce_len1_lookforward=True)
         if hasattr(self, '_lookback_len'):
             del self._lookback_len
         #Save the lookback length as a private attribute of the model
         self._lookback_len = lookback_len
+        X_fit, Y_fit = contexts_to_markov_train_states(data, self._lookback_len)
 
-        stacked_data = stack_lookback(data, self._lookback_len)
-        if hasattr(self, '_stacked_shape'):
-            del self._stacked_shape
-        self._stacked_shape = stacked_data.shape[2:] #Useful for reshaping
-        self.cov_X, self.cov_Y, self.cov_XY = self._init_covs(stacked_data)
+        self.cov_X, self.cov_Y, self.cov_XY = self._init_covs(X_fit, Y_fit)
         self.data_fit = data
 
         if self.rank is None:
-            self.rank = min(self.cov_X.shape)
+            self.rank = min(self.cov_X.shape[0], self.data_fit.shape[0])
             logger.info(f"Rank of the estimator set to {self.rank}")
 
         if hasattr(self, '_eig_cache'):

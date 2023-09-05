@@ -83,6 +83,12 @@ class BaseModel(abc.ABC):
         pass
 
 class FeatureMap(abc.ABC):
+    """Abstract Base Class for feature maps. The :func:`__call__` method must accept a batch of context windows of shape ``(n_samples, context_len, *features_shape)`` and return a batch of features of shape ``(n_samples, out_features)``.
+
+    .. warning::
+
+        The feature map should return a two dimensional array. Though this is not a strict condition, models such as :class:`kooplearn.models.ExtendedDMD`, :class:`kooplearn.models.KernelDMD` and :class:`kooplearn.models.DeepEDMD` will automatically flatten the results. 
+    """
     @abc.abstractmethod
     def __call__(self, data: np.ndarray) -> np.ndarray:
         pass

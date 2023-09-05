@@ -4,38 +4,28 @@ import logging
 logger = logging.getLogger('kooplearn')
 
 def check_contexts(
-    contexts: np.ndarray,
-    lookback_len: Optional[int],
-    enforce_len1_lookforward: bool = False 
+    data: np.ndarray,
+    lookback_len: int,
+    enforce_len1_lookforward: bool = False,
+    warn_len0_lookforward: bool = False,
 ):
-    if contexts.ndim < 2:
-        raise ValueError(f'Invalid shape {contexts.shape}. contexts must have at least two dimensions.')
-    
-    if contexts.ndim == 2:
-        logger.warn(f'contexts has shape {contexts.shape}. The first axis is assumed to be the time axis. Adding a new axis to the end to represent features.')
-        contexts = contexts[:, :, np.newaxis]
-    
-    if lookback_len is None:
-        return True
-    else:
-        if enforce_len1_lookforward and lookback_len < contexts.shape[1] - 1:
-            raise ValueError(f'The lookforward window has length {contexts.shape[1] - lookback_len}, but it should be of length 1.')
-        
-        if lookback_len >= contexts.shape[1]:
-            raise ValueError(f'Invalid lookback_len={lookback_len} for contexts of shape {contexts.shape}.')
-        
-        if lookback_len < 1:
-            raise ValueError(f'Invalid lookback_len={lookback_len}.')
-        return contexts
-    
-def pad_lookforward(
-    contexts: np.ndarray,
-    lookback_len: Optional[int] = None,
-):
-    contexts = check_contexts(contexts, lookback_len)
-    if lookback_len is None:
-        lookback_len = contexts.shape[1] - 1
-    return NotImplementedError
+    data = np.asanyarray(data)
+    assert isinstance(lookback_len, int), f"The lookback_len must be an int, while {type(lookback_len)=}"
+
+    if data.ndim < 2:
+        raise ValueError(f'Invalid shape {data.shape}. The data must have at least two dimensions [n_samples, context_len].')  
+    if data.ndim == 2:
+        logger.warn(f'The data has two axes, with an overall shape {data.shape}. The first axis is the time axis, whereas the second axis is the context axis. Appending a new axis to the end to represent (1-dimensional) features.')
+        data = data[:, :, np.newaxis]
+    if enforce_len1_lookforward and (lookback_len != data.shape[1] - 1):
+        raise ValueError(f'The lookforward window has length {data.shape[1] - lookback_len}, but it should be of length 1.')
+    if warn_len0_lookforward and lookback_len == data.shape[1]:
+        logger.warn("The data has no lookforward window. This means that it can only be used for inference, but not for training.")
+    if lookback_len > data.shape[1]:
+        raise ValueError(f'Invalid lookback_len={lookback_len} for data of shape {data.shape}.')
+    if lookback_len < 1:
+        raise ValueError(f'Invalid lookback_len={lookback_len}.')
+    return data
 
 def trajectory_to_contexts(
     trajectory: np.ndarray,
@@ -65,11 +55,11 @@ def trajectory_to_contexts(
     _res = np.moveaxis(_res, -1, 1)[:, ::time_lag, ...]
     return _res
 
-def stack_lookback(
+def contexts_to_markov_train_states(
     contexts: np.ndarray,
-    lookback_len: Optional[int] = None
+    lookback_len: int,
 ) -> np.ndarray:
-    """_summary_
+    """TODO: Docstring for contexts_to_markov_IO_states.
 
     Args:
         contexts (np.ndarray): Array of contexts with shape ``(n_samples, context_len, *features_shape)``
@@ -77,34 +67,44 @@ def stack_lookback(
 
         .. caution::
 
-        If the lookforward window is larger than 1, ``context_len - lookback_len - 1`` snapshots will be discarted for each context window.
+        If the lookforward window is larger than 1, ``context_len - lookback_len - 1`` an error will be raised.
 
     Returns:
-        np.ndarray: Array of length 2 contexts where the lookback windows of the input arrays are stacked on axis 2. The shape of the output array is therefore ``(n_samples, 2, lookback_len, *features_shape)``.
+        tuple(np.ndarray, np.ndarray): TODO.
     """
-    contexts = np.asanyarray(contexts)
-    contexts = np.atleast_2d(contexts)
-    assert contexts.ndim >= 2
-    if lookback_len is None:
-        lookback_len = contexts.shape[1] - 1
     
-    if lookback_len >= contexts.shape[1]:
-        raise ValueError(f'Invalid lookback_len={lookback_len} for contexts of shape {contexts.shape}.')
-    elif lookback_len < 1:
-        raise ValueError(f'Invalid lookback_len={lookback_len}.')
-    elif lookback_len < contexts.shape[1] - 1:
-        logger.warn(f"The lookforward window ({contexts.shape[1] - lookback_len}) is larger than 1. For each context window, {contexts.shape[1] - lookback_len - 1} snapshots will be discarted.")
-    _ctx = contexts[:, :lookback_len + 1, ...]
-    _in = _ctx[:, :-1, ...]
-    _out = _ctx[:, 1:, ...]
-    return np.stack((_in, _out), axis=1)
+    contexts = check_contexts(contexts, lookback_len=lookback_len, enforce_len1_lookforward=True)
 
-def unstack_lookback(contexts: np.ndarray):
-    contexts = np.asanyarray(contexts)
-    if contexts.ndim == 2:
-        contexts = contexts[np.newaxis, ...]
-    if contexts.shape[1] != 2:
-        raise ValueError(f'Invalid shape {contexts.shape}. The second axis must have length 2 to be unstacked.')
-    _in = contexts[:, 0, ...]
-    _out = contexts[:, 1, -1, ...]
-    return np.concatenate((_in, _out[:, np.newaxis, ...]), axis=1)
+    _init = contexts[:, :-1, ...]
+    _evolution = contexts[:, 1:, ...]
+    return _init, _evolution
+
+def contexts_to_markov_predict_states(
+    contexts: np.ndarray,
+    lookback_len: int,
+) -> np.ndarray:
+    """TODO: Docstring for contexts_to_markov_IO_states.
+
+    Args:
+        contexts (np.ndarray): Array of contexts with shape ``(n_samples, context_len, *features_shape)``
+        lookback_len (Optional[int], optional): Length of the lookback window associated to the contexts. Defaults to None.
+
+        .. caution::
+
+        If the lookforward window is larger than 1, ``context_len - lookback_len - 1`` an error will be raised.
+
+    Returns:
+        tuple(np.ndarray, np.ndarray): TODO.
+    """
+
+    contexts = check_contexts(contexts, lookback_len=lookback_len)
+    if lookback_len == contexts.shape[1]:
+        X = contexts
+        Y = None
+    elif lookback_len + 1 == contexts.shape[1]:
+        X = contexts[:, :-1, ...]
+        Y = contexts[:, -1, ...]
+    else:
+        raise ValueError(f'Invalid lookback_len={lookback_len} for contexts of shape {contexts.shape}.')
+    
+    return X, Y
