@@ -64,3 +64,13 @@ def stack_lookback(
     _in = _ctx[:, :-1, ...]
     _out = _ctx[:, 1:, ...]
     return np.stack((_in, _out), axis=1)
+
+def unstack_lookback(contexts: np.ndarray):
+    contexts = np.asanyarray(contexts)
+    if contexts.ndim == 2:
+        contexts = contexts[np.newaxis, ...]
+    if contexts.shape[1] != 2:
+        raise ValueError(f'Invalid shape {contexts.shape}. The second axis must have length 2 to be unstacked.')
+    _in = contexts[:, 0, ...]
+    _out = contexts[:, 1, -1, ...]
+    return np.concatenate((_in, _out[:, np.newaxis, ...]), axis=1)

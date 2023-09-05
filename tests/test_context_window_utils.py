@@ -1,5 +1,5 @@
 import numpy as np
-from kooplearn._src.context_window_utils import trajectory_to_contexts, stack_lookback
+from kooplearn._src.context_window_utils import trajectory_to_contexts, stack_lookback, unstack_lookback
 import pytest
 
 @pytest.mark.parametrize('context_window_len', [-1, 0, 1, 2, 3, 4])
@@ -69,3 +69,7 @@ def test_stack_lookback(context_window_len, lookback_len, trj_len, n_feature_axe
         _r = res[0]
         assert np.all(_r[0] == np.arange(lookback_len))
         assert np.all(_r[1] == np.arange(lookback_len) + 1)
+    if n_feature_axes == 0 and trj_len == 1:
+        pass
+    else:    
+        assert np.all(trj[:, :lookback_len + 1, ...] == unstack_lookback(res))
