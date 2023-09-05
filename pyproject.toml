@@ -15,7 +15,7 @@ authors = [
   {name = "Bruno Belucci", email = "bruno.belucci-teixeira@dauphine.eu"},
 ]
 dependencies = [
-  "numpy",
+  "numpy>=1.20.0", #Sliding window view
   "scipy",
   "scikit-learn",
   "tqdm"

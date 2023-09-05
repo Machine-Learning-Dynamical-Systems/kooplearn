@@ -1,3 +1,6 @@
+# Update - Sep 4
+DPNets moved in `kooplearn.models.feature_maps.DPNets`. Still lack thorough testing.
+
 # Update - Aug 29
 Things to do, and note:
 1. The projection score is not correct (lacks one cross covariance)
