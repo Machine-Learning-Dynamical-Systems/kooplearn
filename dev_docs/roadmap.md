@@ -1,4 +1,9 @@
 # Roadmap
+#### Sep 11, 2023:
+Implemented most of the functionality and docs for the context window data paradigm. Still missing `DPNets` & other auto-encoder based methods.
+
+Need a general strategy to test and sanitize the input algorithms. At the moment tests are sprinkled all over the code in an unorganized fashion.
+***
 #### Sep 4, 2023
 ###### Pie&Vladi:
 Agreed on redefining the smallest unit of data accepted by all of our algorithms as a tuple: `(ArrayLike[context_window, features], target_idx)`.

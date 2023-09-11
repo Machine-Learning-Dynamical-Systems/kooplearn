@@ -11,15 +11,15 @@
 
 ###### Modules ~~`kooplearn.models.ExtendedDMD`~~, `kooplearn.models.KernelDMD` and `kooplearn.models.DeepEDMD`
 - [x] Implement functions to be called at the I/O boundaries to reshape the I/O data in a coherent fashion.
-- [ ] `fit(X, Y) -> fit(data, lookback_len = None)`
-- [ ] Throw a ~~Warning~~ Error if `lookback_len != context_len - 1` (we cannot use future steps in these methods)
-- [ ] Save `lookback_len` at fitting so that it can be used back in prediction.
-- [ ] Implement the changes in the `fit` documentation.
-- [ ] `predict(X, t, observables)` should now return only the `lookback_len` prediction.
-- [ ] Observables, if passed as a precomputed array, must now be of shape `[n_init, context_len, ...]`. And they should be evaluated on the train dataset. We will perform the required slicing internally.
-- [ ] Assert that either `X.shape[1] == lookback_len`, or `X.shape[1] == context_len`. If `np.isnan(X[:, lookback_len:, :]).all() == False` throw an error. I could in principle raise a warning and discard the unused columns, but I prefer to be explicit to avoid confusion.
-- [ ] Document these changes accordingly.
-- [ ] Do for `modes(X, observables)` the same as done for `predict`.
+- [x] `fit(X, Y) -> fit(data, lookback_len = None)`
+- [x] Throw a ~~Warning~~ Error if `lookback_len != context_len - 1` (we cannot use future steps in these methods)
+- [x] Save `lookback_len` at fitting so that it can be used back in prediction.
+- [x] Implement the changes in the `fit` documentation.
+- [x] `predict(X, t, observables)` should now return only the `lookback_len` prediction.
+- [x] Observables, if passed as a precomputed array, must now be of shape `[n_init, context_len, ...]`. And they should be evaluated on the train dataset. We will perform the required slicing internally.
+- [x] Assert that either `X.shape[1] == lookback_len`, or `X.shape[1] == context_len`. If `np.isnan(X[:, lookback_len:, :]).all() == False` throw an error. I could in principle raise a warning and discard the unused columns, but I prefer to be explicit to avoid confusion.
+- [x] Document these changes accordingly.
+- [x] Do for `modes(X, observables)` the same as done for `predict`.
 
 ###### DPNets
 - [ ] Modify the `training_step` to get data from a context window.
@@ -35,7 +35,7 @@
 - [ ] The return of `Dataset.generate` should be a trajectory (as it is now, but double check).
 
 ###### Tests
-- [ ] Update `test_edmd_estimators`, `test_kernel_estimators`.
+- [x] Update `test_edmd_estimators`, `test_kernel_estimators`.
 - [ ] Add tests for the I/O utilities
 
 ### Documentation
@@ -106,6 +106,7 @@ Thoughts: this scheme might be a bit too general, and possibly detrimental. At t
 - [ ] Test _randomized_ algorithms (not clear how to do that now).
 - [x] Test the left eigenfunctions of the primal algorithm.
 - [x] Handle the case of 0 Tikhonov regularization.
+- [ ] *Sep 11, 2023:* Review the current tests and plan a comprehensive test suite for DMD-based estimators. 
 
 ### Make the code clearer
 - [x] Create and DOCUMENT a standard notation of the variables used throughout the 
