@@ -99,4 +99,5 @@ def test_ExtendedDMD_fit_predict_eig_modes_save_load(feature_map, reduced_rank, 
         assert np.allclose(model.cov_Y, restored_model.cov_Y)
         assert np.allclose(model.cov_XY, restored_model.cov_XY)
         assert np.allclose(model.data_fit, restored_model.data_fit)
+        assert np.allclose(model._lookback_len, model._lookback_len)
         rmtree(Path(__file__).parent / 'tmp/')
