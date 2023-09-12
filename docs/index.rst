@@ -10,7 +10,7 @@ Kooplearn
 
 .. div:: sd-text-left sd-font-italic
 
-   Koopman and Transfer operator learning in Python
+   A Python library for Koopman and Transfer operator learning
 
 ----
 
