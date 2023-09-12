@@ -3,7 +3,7 @@
 
 - [x] Take a decision on the name of the variables: current proposal is `data/contexts`, `lookback_len`.
 - [x] Take a decision on the defaults of `lookback_len`. Either `lookback_len = 1` or `lookback_len = None`, that is taking in the context window _except the last snapshot_ as lookback. In practical scenarios I argue that the second option is better.
-- [ ] The lookback length should be defined a the model initialization, and not upon fitting.
+- [x] The lookback length should be defined a the model initialization, and not upon fitting.
 
 ###### Module `kooplearn.abc`
 - [x] Edit the Abstract Base Class definition for `kooplearn.abc.BaseModel` on `fit`, `predict`, `eig`, `modes`.
@@ -37,11 +37,11 @@
 
 ###### Tests
 - [x] Update `test_edmd_estimators`, `test_kernel_estimators`.
-- [ ] Add tests for the I/O utilities
+- [x] Add tests for the I/O utilities
 
 ### Documentation
 - [x] Add a Shared Bibliography file
-- [ ] Document everything in `kooplearn.abc`.
+- [x] Document everything in `kooplearn.abc`.
 - [ ] Do a complete pass on the documentation adding cross-links to class and attributes.
 
 ### ExtendedDMD

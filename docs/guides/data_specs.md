@@ -1,3 +1,4 @@
+(kooplearn_data_paradigm)=
 # Kooplearn's data paradigm
 In this guide we give a short account of kooplearn's data paradigm, which is based on context windows. 
 

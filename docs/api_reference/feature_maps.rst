@@ -10,11 +10,11 @@ Implemented Feature Maps:
 
 .. currentmodule:: kooplearn.models.feature_maps
 
+.. autoclass:: DPNet
+    :members:
+
 .. autoclass:: IdentityFeatureMap
 
 .. autoclass:: ConcatenateFeatureMaps
-
-.. autoclass:: DPNetsFeatureMap
-    :members:
 
 .. footbibliography::

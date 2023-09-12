@@ -78,7 +78,7 @@ class BaseModel(abc.ABC):
         """Check if the model is fitted.
 
         Returns:
-            bool: Returns ``True`` if the model is fitted, ``False`` otherwise.
+            Returns ``True`` if the model is fitted, ``False`` otherwise.
         """
         pass
 
@@ -88,16 +88,18 @@ class BaseModel(abc.ABC):
         """Length of the lookback window associated to the contexts. Upon fitting, the dimension of the lookforward window will be inferred from the context window length and this attribute. Moreover, shape checks against this attribute will be performed on the data passed to :func:`fit`, :func:`predict`, :func:`eig` and :func:`modes`.
 
         Returns:
-            int: Length of the lookback window associated to the contexts.
+            Length of the lookback window associated to the contexts.
         """
         pass
 
 class FeatureMap(abc.ABC):
-    """Abstract Base Class for feature maps. The :func:`__call__` method must accept a batch of context windows of shape ``(n_samples, context_len, *features_shape)`` and return a batch of features of shape ``(n_samples, out_features)``.
+    """Abstract base class for feature maps. The :func:`__call__` method must accept a batch of data points of shape ``(n_samples, *features_shape)`` and return a batch of features of shape ``(n_samples, out_features)``.
 
-    .. warning::
+    .. caution::
 
-        A feature map should return a two dimensional array. Though this is not a strict condition, models such as :class:`kooplearn.models.ExtendedDMD`, :class:`kooplearn.models.KernelDMD` and :class:`kooplearn.models.DeepEDMD` will automatically flatten the results. 
+        As described in :ref:`kooplearn's data paradigm <kooplearn_data_paradigm>`, the inputs passed to the methods of :class:`BaseModel` will be in the form of batches of context windows. :class:`FeatureMap`, instances are a notable departure from this paradigm, and we expect a feature map to be called on batches of data points, not context windows. The context windows should be parsed internally by :class:`BaseModel` and passed to the feature map as batches of appropriate data points.
+
+        This behaviour is designed to facilitate the reuse of feature maps across different models, and possibly even outside of kooplearn.
     """
     @abc.abstractmethod
     def __call__(self, data: np.ndarray) -> np.ndarray:
@@ -121,6 +123,6 @@ class TrainableFeatureMap(FeatureMap):
         """Length of the lookback window associated to the contexts. Upon fitting, the dimension of the lookforward window will be inferred from the context window length and this attribute.
 
         Returns:
-            int: Length of the lookback window associated to the contexts.
+            Length of the lookback window associated to the contexts.
         """
         pass

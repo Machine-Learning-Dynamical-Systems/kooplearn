@@ -80,14 +80,30 @@ class DPNetsLightningModule(LightningModule):
         return optimizer
 
     def training_step(self, train_batch, batch_idx):
+        if batch_idx == 0:
+            self._check_batch_shape(train_batch)
         return self.base_step(train_batch)
 
     def validation_step(self, valid_batch, batch_idx):
+        if batch_idx == 0:
+            self._check_batch_shape(valid_batch)
         return self.base_step(valid_batch)
 
     def forward(self, X: Type[torch.Tensor]):
         return self.encoder_init(X)
-
+    
+    def _check_batch_shape(self, batch):
+        if batch.shape[1] != 2:
+            raise NotImplementedError('DPNets only supports batches with context length = 2.')
+            #TODO release this limitation by implementing the chapman-kolmogorov reg
+        with torch.no_grad():
+            _X = batch[:, 0, ...]
+            _out = self.encoder_init(_X)
+            if _out.shape[0] != _X.shape[0]:
+                raise ValueError('The encoder must return a tensor of shape (n_samples, encoded_dimension).')
+            if len(_out.shape) != 2:
+                raise ValueError('The encoder must return a tensor of shape (n_samples, encoded_dimension).')
+    
     def base_step(self, batch, with_metrics: bool = True):
         """Default step (train loop) used for training and validation."""    
         X, Y = batch
