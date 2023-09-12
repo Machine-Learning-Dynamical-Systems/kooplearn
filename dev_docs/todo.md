@@ -1,8 +1,47 @@
 > Do NOT delete completed tasks.
+### Refactoring to the context-window data paradigm
+
+- [x] Take a decision on the name of the variables: current proposal is `data/contexts`, `lookback_len`.
+- [x] Take a decision on the defaults of `lookback_len`. Either `lookback_len = 1` or `lookback_len = None`, that is taking in the context window _except the last snapshot_ as lookback. In practical scenarios I argue that the second option is better.
+- [x] The lookback length should be defined a the model initialization, and not upon fitting.
+
+###### Module `kooplearn.abc`
+- [x] Edit the Abstract Base Class definition for `kooplearn.abc.BaseModel` on `fit`, `predict`, `eig`, `modes`.
+- [x] The `FeatureMap.cov` must be popped out of it and moved into `kooplearn._src.utils`, as I do not find a reasonable default behaviour in the context-window data paradigm.
+- [x] `kooplearn.abc.TrainableFeatureMap` must now have a `lookback_len` keyword ~~(or equivalent, should we opt for a different nomenclature)~~.
+
+###### Modules ~~`kooplearn.models.ExtendedDMD`~~, `kooplearn.models.KernelDMD` and `kooplearn.models.DeepEDMD`
+- [x] Implement functions to be called at the I/O boundaries to reshape the I/O data in a coherent fashion.
+- [x] `fit(X, Y) -> fit(data, lookback_len = None)`
+- [x] Throw a ~~Warning~~ Error if `lookback_len != context_len - 1` (we cannot use future steps in these methods)
+- [x] Save `lookback_len` at fitting so that it can be used back in prediction.
+- [x] Implement the changes in the `fit` documentation.
+- [x] `predict(X, t, observables)` should now return only the `lookback_len` prediction.
+- [x] Observables, if passed as a precomputed array, must now be of shape `[n_init, context_len, ...]`. And they should be evaluated on the train dataset. We will perform the required slicing internally.
+- [x] Assert that either `X.shape[1] == lookback_len`, or `X.shape[1] == context_len`. If `np.isnan(X[:, lookback_len:, :]).all() == False` throw an error. I could in principle raise a warning and discard the unused columns, but I prefer to be explicit to avoid confusion.
+- [x] Document these changes accordingly.
+- [x] Do for `modes(X, observables)` the same as done for `predict`.
+
+###### DPNets
+- [ ] Modify the `training_step` to get data from a context window.
+- [ ] Add Chapman-Kolmogorov Regularization
+- [ ] Perform shape checks at the beginning of every epoch (`batch_idx == 0`).
+
+###### Input-Output utilities
+- [x] Add Numpy utilities to convert from a trajectory to a context window **view**. This avoids unnecessary memory usage. 
+- [ ] Write a function to add `nan` padding for inference data (in which we do not know the target, nor the lookforward.)
+- [ ] Adapt Bruno's `datamodule`.
+
+###### Datasets
+- [ ] The return of `Dataset.generate` should be a trajectory (as it is now, but double check).
+
+###### Tests
+- [x] Update `test_edmd_estimators`, `test_kernel_estimators`.
+- [x] Add tests for the I/O utilities
 
 ### Documentation
 - [x] Add a Shared Bibliography file
-- [ ] Document everything in `kooplearn.abc`.
+- [x] Document everything in `kooplearn.abc`.
 - [ ] Do a complete pass on the documentation adding cross-links to class and attributes.
 
 ### ExtendedDMD
@@ -16,7 +55,7 @@
   - [x] Von-Neumann divergence.
   - [x] Log + Frobenius defined as $-\log(x) + x^2 - x$.
 - [x] Remove the constraint for the data to be a dict with keys `x_value` and `y_value`.
-- [ ] Design a flexible way to include different data timesteps in each batch, to then work with the Chapman-Kolmogorov regularization.
+- [x] ~~Design a flexible way to include different data timesteps in each batch, to then work with the Chapman-Kolmogorov regularization~~ See [the list fo the new data paradigm.](#refactoring-to-the-context-window-data-paradigm).
 - [ ] Implement Saving and Loading functions to be called by `DeepEDMD`.
 
 ### ~~EncoderModel~~ DeepEDMD Model
@@ -33,6 +72,7 @@ Thoughts: this scheme might be a bit too general, and possibly detrimental. At t
 - [ ] Implement the following metrics:
     - [ ] Squared loss
     - [ ] Prediction error
+    - [ ] Directed Hausdorff for spectra error estimation.
 - [ ] Replace dynamic list creation (append) followed by torch.cat or torch.stack with an initialized tensor and 
   indexing (probably faster).
 
@@ -67,6 +107,7 @@ Thoughts: this scheme might be a bit too general, and possibly detrimental. At t
 - [ ] Test _randomized_ algorithms (not clear how to do that now).
 - [x] Test the left eigenfunctions of the primal algorithm.
 - [x] Handle the case of 0 Tikhonov regularization.
+- [ ] *Sep 11, 2023:* Review the current tests and plan a comprehensive test suite for DMD-based estimators. 
 
 ### Make the code clearer
 - [x] Create and DOCUMENT a standard notation of the variables used throughout the 

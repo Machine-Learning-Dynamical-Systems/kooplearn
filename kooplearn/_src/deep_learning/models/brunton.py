@@ -29,7 +29,7 @@ class BruntonModel(BaseModel):
     Nonlinear Dynamics.” Nature Communications 9, no. 1 (November 23, 2018): 4950.
     https://doi.org/10.1038/s41467-018-07210-0.
 
-    Parameters:
+    Args:
 
         encoder_class: Class of the encoder. Can be any deep learning architecture (torch.nn.Module) that
             takes as input a dictionary containing the key 'x_value', a tensor of shape (..., n_features, temporal_dim),
@@ -157,7 +157,7 @@ class BruntonModel(BaseModel):
         Use check_array and check_X_y from sklearn to check the training data, initialize the covariance matrices and
         save the training data.
 
-        Parameters:
+        Args:
             X: X training data of shape (n_samples, n_features) corresponding to the state at time t.
             Y: Y training data of shape (n_samples, n_features) corresponding to the state at time t+1.
 
@@ -180,7 +180,7 @@ class BruntonModel(BaseModel):
 
         A datamodule is required for this model.
 
-        Parameters:
+        Args:
             X: X training data of shape (n_samples, n_features) corresponding to the state at time t.
             Y: Y training data of shape (n_samples, n_features) corresponding to the state at time t+1.
             datamodule: Pytorch lightning datamodule.
@@ -198,7 +198,7 @@ class BruntonModel(BaseModel):
 
         Optionally can predict an observable of the state at time = t + 1.
 
-        Parameters:
+        Args:
             X: Current state of the system, shape (n_samples, n_features).
             t: Number of steps to predict (return the last one).
             observables: TODO add description and check if we can use it.
@@ -233,7 +233,7 @@ class BruntonModel(BaseModel):
         Note that the Brunton model does not support evaluation of right eigenfunctions. As the eigenvalues are
         dependent of the state, if eval_left_on is None, the eigenvalues of the last training sample are returned.
 
-        Parameters:
+        Args:
             eval_left_on: State of the system to evaluate the left eigenfunction on, shape (n_samples, n_features).
             eval_right_on: State of the system to evaluate the right eigenfunction on, shape (n_samples, n_features).
 
@@ -276,7 +276,7 @@ class BruntonModel(BaseModel):
         Optionally can compute the modes of an observable of the system at the state X.
         TODO verify how and if it is correct
 
-        Parameters:
+        Args:
             Xin: State of the system, shape (n_samples, n_features).
             observables: TODO add description if we can use them
 

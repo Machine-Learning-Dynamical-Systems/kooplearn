@@ -1,4 +1,24 @@
 # Roadmap
+#### Sep 12, 2023:
+A list of models to implement:
+
+- [ ] [Deep learning for universal linear embeddings of nonlinear dynamics
+ (2017)](https://arxiv.org/abs/1712.09707)
+- [ ] [Forecasting Sequential Data using Consistent Koopman Autoencoders
+ (2020)](https://arxiv.org/abs/2003.02236)
+- [ ] [Learning Koopman Invariant Subspaces for Dynamic Mode Decomposition
+(2017)](https://arxiv.org/abs/1710.04340)
+- [ ] [Learning Deep Neural Network Representations for Koopman Operators of Nonlinear Dynamical Systems
+(2017)](https://arxiv.org/abs/1708.06850)
+- [ ] [Linearly-Recurrent Autoencoder Networks for Learning Dynamics
+(2017)](https://arxiv.org/abs/1712.01378)
+- [ ] [Extended dynamic mode decomposition with dictionary learning: a data-driven adaptive spectral decomposition of the Koopman operator (2017)](https://arxiv.org/abs/1707.00225)
+***
+#### Sep 11, 2023:
+Implemented most of the functionality and docs for the context window data paradigm. Still missing `DPNets` & other auto-encoder based methods.
+
+Need a general strategy to test and sanitize the input algorithms. At the moment tests are sprinkled all over the code in an unorganized fashion.
+***
 #### Sep 4, 2023
 ###### Pie&Vladi:
 Agreed on redefining the smallest unit of data accepted by all of our algorithms as a tuple: `(ArrayLike[context_window, features], target_idx)`.

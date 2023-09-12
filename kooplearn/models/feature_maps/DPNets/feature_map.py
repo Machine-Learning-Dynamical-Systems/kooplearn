@@ -9,15 +9,17 @@ from torch import nn
 from kooplearn._src.utils import create_base_dir
 from kooplearn.models.feature_maps.DPNets.lightning_module import DPNetsLightningModule
 from kooplearn.abc import TrainableFeatureMap
+import logging
+logger = logging.getLogger('kooplearn')
 
-class DPNetsFeatureMap(TrainableFeatureMap):
+class DPNet(TrainableFeatureMap):
     """Feature map to be used in conjunction to `kooplearn.models.EncoderModel` to create a DPNet model.
 
     Trainable feature map based on Kostic et al. (2023) :footcite:`Kostic2023DPNets`. The feature map is based on an encoder network trained so that its output features are maximally invariant under the action of the Koopman/Transfer operator.
 
     The feature map is implemented using `Pytorch Lightning <https://lightning.ai/>`_.
 
-    Parameters:
+    Args:
         encoder (torch.nn.Module): Torch module used as data encoder. Can be any ``torch.nn.Module`` taking as input a tensor of shape ``(n_samples, ...)`` and returning a *two-dimensional* tensor of shape ``(n_samples, encoded_dimension)``.
         encoder_kwargs (dict): Hyperparameters used for initializing the encoder.
         metric_reg (float): Coefficient of metric regularization :footcite:`Kostic2023DPNets` :math:`\\mathcal{P}`
@@ -120,15 +122,19 @@ class DPNetsFeatureMap(TrainableFeatureMap):
     def load(cls, path: os.PathLike):
         raise NotImplementedError
 
-    def fit(self, datamodule: L.LightningDataModule):
+    def fit(self, **trainer_fit_kwargs):
         """Fits the DPNet feature map.
 
         A datamodule is required for this model.
 
-        Parameters:
-            datamodule (lightning.LightningDataModule): `Pytorch Lightning datamodule <https://lightning.ai/docs/pytorch/stable/data/datamodule.html#lightningdatamodule>`_.
+        Args:
+            trainer_fit_kwargs (dict-like): A dictionary of arguments to be passed to a Lightning trainer upon calling the ``fit`` function. The available arguments are listed in `Pytorch Lightning's documentation  <https://lightning.ai/docs/pytorch/stable/common/trainer.html#fit>`_. The ``model`` keyword *should not* be specified in ``trainer_fit_kwargs``.
         """
-        self.trainer.fit(model=self._lightning_module, datamodule = datamodule)
+        if 'model' in trainer_fit_kwargs:
+            logger.warn("The 'model' keyword should not be specified in trainer_fit_kwargs. The model is automatically set to the DPNet feature map, and the provided model is ignored.")
+            trainer_fit_kwargs = trainer_fit_kwargs.copy()
+            del trainer_fit_kwargs['model']
+        self.trainer.fit(model=self._lightning_module, **trainer_fit_kwargs)
         self._is_fitted = True
 
     def __call__(self, X: np.ndarray) -> np.ndarray:

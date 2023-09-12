@@ -11,7 +11,7 @@ class AuxiliaryNetworkWrapper(nn.Module):
     This wrapper allows us to use any architecture for the auxiliary network as long as it takes the input_dim and
     output_dim as arguments.
 
-    Parameters:
+    Args:
 
         model_architecture: Architecture of the auxiliary network. Can be any deep learning architecture
             (torch.nn.Module) that will be wrapped in a AuxiliaryNetworkWrapper. The auxiliary

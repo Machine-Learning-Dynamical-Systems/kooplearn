@@ -9,7 +9,7 @@ def brunton_loss(
 ) -> torch.Tensor:
     """Computes the loss used in [1]
 
-    Parameters:
+    Args:
         decoded_encoded_x_value: value of x after being encoded and then decoded.
         x_value: value of x.
         advanced_encoded_m_x_value: value of x (m consecutive values) after being encoded and then advanced of one time

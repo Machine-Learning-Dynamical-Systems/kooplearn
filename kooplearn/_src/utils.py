@@ -1,9 +1,11 @@
-from typing import NamedTuple
+from typing import NamedTuple, Callable
 import numpy as np
 import os
 import math
 from pathlib import Path
 from scipy.spatial.distance import pdist
+import logging
+logger = logging.getLogger('kooplearn')
 
 class TopKReturnType(NamedTuple):
     values: np.ndarray
@@ -85,10 +87,42 @@ class NotFittedError(Exception):
 def check_is_fitted(obj: object, attr_list: list[str]):
     for attr in attr_list:
         if not hasattr(obj, attr):
-            raise NotFittedError(f"{obj.__class__.__name__} is not fitted. Please call the 'fit' method first.")
+            raise NotFittedError(f"Attribute \"{attr}\" not found. {obj.__class__.__name__} is not fitted. Please call the 'fit' method first.")
 
 def create_base_dir(path: os.PathLike):
     path = Path(path)
     base_path = path.parent
     if not base_path.exists():
         base_path.mkdir(parents=True)
+
+def enforce_2d_output(fn: Callable) -> Callable:
+    def _wrap(*a):
+        res = fn(*a)
+        res = np.asanyarray(res)
+        if res.ndim <= 1:
+            return np.atleast_2d(res)
+        elif res.ndim == 2:
+            return res
+        else:
+            logger.warn("The output has more than two dimensions. Flattening the trailing ones.")
+            return np.reshape(res, (res.shape[0], -1))
+    return _wrap
+
+def enforce_2d_inputs(fn: Callable) -> Callable:
+    def _wrap(*a):
+        _reshaped_a = []
+        for _a in a:
+            if _a is None:
+                _reshaped_a.append(None)
+            else:
+                _a = np.asanyarray(_a)
+                if _a.ndim <= 1:
+                    _reshaped_a.append(np.atleast_2d(_a))
+                elif _a.ndim == 2:
+                    _reshaped_a.append(_a)
+                else:
+                    logger.warn("The input has more than two dimensions. Flattening the trailing ones.")
+                    _reshaped_a.append(np.reshape(_a, (_a.shape[0], -1)))
+        res = fn(*_reshaped_a)
+        return res
+    return _wrap
