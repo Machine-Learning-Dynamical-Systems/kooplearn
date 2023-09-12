@@ -65,7 +65,7 @@ def test_KernelDMD_fit_predict_eig_modes_save_load(kernel, reduced_rank, rank, s
             assert X_pred.shape == (data.shape[0],) + data.shape[2:]
             modes = model.modes(data, observables=observables)
             assert modes.shape == (rank, ) + (data.shape[0],) + data.shape[2:]
-        elif isinstance(observables, np.ndarray):
+        elif isinstance(observables, str):
             assert observables == 'array'
             observables = np.random.rand(data.shape[0], 1, 2, 3)
             X_pred = model.predict(data, observables=observables)

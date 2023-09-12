@@ -6,11 +6,12 @@ import pickle
 from typing import Optional, Callable, Union
 
 from kooplearn._src.context_window_utils import check_contexts, contexts_to_markov_predict_states, contexts_to_markov_train_states
-from kooplearn._src.utils import check_is_fitted, create_base_dir, enforce_2d_output, _parse_DMD_observables
+from kooplearn._src.utils import check_is_fitted, create_base_dir, enforce_2d_output
 from kooplearn._src.linalg import cov
 from kooplearn.abc import BaseModel, FeatureMap
 from kooplearn.models.feature_maps import IdentityFeatureMap
 from kooplearn._src.operator_regression import primal
+from kooplearn._src.operator_regression.utils import _parse_DMD_observables
 import logging
 logger = logging.getLogger('kooplearn')
 

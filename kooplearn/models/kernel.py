@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Optional, Union, Callable
 from sklearn.base import RegressorMixin
 from kooplearn._src.context_window_utils import check_contexts, contexts_to_markov_predict_states, contexts_to_markov_train_states
-from kooplearn._src.utils import check_is_fitted, create_base_dir, enforce_2d_inputs, _parse_DMD_observables
+from kooplearn._src.utils import check_is_fitted, create_base_dir, enforce_2d_inputs
+from kooplearn._src.operator_regression.utils import _parse_DMD_observables
 from sklearn.gaussian_process.kernels import Kernel, DotProduct
 from kooplearn._src.operator_regression import dual
 from kooplearn.abc import BaseModel
@@ -123,7 +124,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         self.V = V
 
         #Final Checks
-        check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y', 'kernel_YX', 'X_fit', 'Y_fit'])
+        check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y', 'kernel_YX', 'data_fit', '_lookback_len'])
         self._is_fitted = True
         return self   
 
