@@ -96,8 +96,8 @@ def create_base_dir(path: os.PathLike):
         base_path.mkdir(parents=True)
 
 def enforce_2d_output(fn: Callable) -> Callable:
-    def _wrap(*a, **kw):
-        res = fn(*a, **kw)
+    def _wrap(*a):
+        res = fn(*a)
         res = np.asanyarray(res)
         if res.ndim <= 1:
             return np.atleast_2d(res)

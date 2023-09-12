@@ -1,5 +1,4 @@
 import numpy as np
-from typing import Optional
 import logging
 logger = logging.getLogger('kooplearn')
 
@@ -105,6 +104,5 @@ def contexts_to_markov_predict_states(
         X = contexts[:, :-1, ...]
         Y = contexts[:, -1, ...]
     else:
-        raise ValueError(f'Invalid lookback_len={lookback_len} for contexts of shape {contexts.shape}.')
-    
+        raise ValueError(f'Invalid lookback_len={lookback_len} for contexts of shape {contexts.shape}.') 
     return X, Y

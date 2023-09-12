@@ -31,12 +31,12 @@ class KernelDMD(BaseModel, RegressorMixin):
     
     .. tip::
 
-        When ``lookback_len > 1``, the snapshots in the lookback window are first passed through the feature map and the results are then flattened and concatenated together. Concatenating multiple consecutive snapshots to form DMD estimators is a technique known as Hankel-DMD, originally proposed by :footcite:t:`Arbabi2017`. The covariance matrices are then computed on the resulting array of shape ``(n_samples, lookback_len*prod(features_shape))``.
+        A powerful DMD variation proposed by :footcite:t:`Arbabi2017`, known as Hankel-DMD, evaluates the Koopman/Transfer estimators by stacking consecutive snapshots together in a Hankel matrix. When this model is fitted context windows of length > 2, the lookback window length is automatically set to ``context_len - 1``. Upon fitting, the whole lookback window is flattened and *concatenated* together before evaluating the kernel function, thus realizing an Hankel-KDMD estimator. 
     
     Attributes:
         data_fit : Training data: array of context windows of shape ``(n_samples, context_len, *features_shape)``.
-        kernel_X : Kernel matrix evaluated at the initial states, that is ``data_fit[:, :lookback_len, ...]`. Shape ``(n_samples, n_samples)``
-        kernel_Y : Kernel matrix evaluated at the evolved states, that is ``data_fit[:, 1:lookback_len + 1, ...]``. Shape ``(n_samples, n_samples)``
+        kernel_X : Kernel matrix evaluated at the initial states, that is ``self.data_fit[:, :self.lookback_len, ...]`. Shape ``(n_samples, n_samples)``
+        kernel_Y : Kernel matrix evaluated at the evolved states, that is ``self.data_fit[:, 1:self.lookback_len + 1, ...]``. Shape ``(n_samples, n_samples)``
         kernel_XY : Cross-kernel matrix between initial and evolved states. Shape ``(n_samples, n_samples)``.
         U : Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :footcite:t:`Kostic2022`).
         V : Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :footcite:t:`Kostic2022`).
@@ -80,12 +80,17 @@ class KernelDMD(BaseModel, RegressorMixin):
 
         self.reduced_rank = reduced_rank
         self._is_fitted = False
+        self._lookback_len = -1
+
+    @property
+    def lookback_len(self) -> bool:
+        return self._lookback_len      
         
     @property
     def is_fitted(self) -> bool:
         return self._is_fitted    
 
-    def fit(self, data: np.ndarray, lookback_len: Optional[int] = None) -> KernelDMD:
+    def fit(self, data: np.ndarray) -> KernelDMD:
         """
         Fits the KernelDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model. 
@@ -93,20 +98,22 @@ class KernelDMD(BaseModel, RegressorMixin):
         
         .. attention::
 
-            Internally, the data will be reshaped to ``(n_samples, lookback_len, lookback_len*prod(features_shape))`` before computing the kernel matrices. This is particularly important when ``lookback_len > 1``. See the note below for more details.
+            If ``context_len = data.shape[1] > 2``, the attribute :attr:`lookback_len` will be automatically set to ``context_len - 1``. The data will be first flattened along the trailing dimensions before computing the kernel function. The pseudo-code of this operation is
 
-        .. attention::
+            .. code-block:: python
 
-            Extended DMD is an algorithm which uses lookforward windows of length strictly equal to 1. Therefore, if ``lookback_len`` is not ``None``, it must match ``lookback_len == context_len - 1``. Otherwise an error is raised.
+                X = data[:, :self.lookback_len, ...] #Y = data[:, 1:self.lookback_len + 1, ...]
+                #Flatten the trailing dimensions
+                X = X.reshape(data.shape[0], -1) 
+                self.kernel_X = self.kernel(X)
 
         Args:
             data (np.ndarray): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``.
-            lookback_len (Optional[int], optional): Length of the lookback window associated to the contexts. Defaults to None, corresponding to ``lookback_len = context_len - 1``.
         
         Returns:
             The fitted estimator.
         """
-        self._pre_fit_checks(data, lookback_len)
+        self._pre_fit_checks(data)
         if self.reduced_rank:
             if self.svd_solver == 'randomized':
                 if self.tikhonov_reg == 0.0:
@@ -124,32 +131,32 @@ class KernelDMD(BaseModel, RegressorMixin):
         self.V = V
 
         #Final Checks
-        check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y', 'kernel_YX', 'data_fit', '_lookback_len'])
+        check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y', 'kernel_YX', 'data_fit', 'lookback_len'])
         self._is_fitted = True
         return self   
 
     def predict(self, data: np.ndarray, t: int = 1, observables: Optional[Union[Callable, np.ndarray]] = None) \
             -> np.ndarray:
         """
-        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial conditions ``X = data[:, self._lookback_len:, ...]`` being the lookback slice of ``data``. 
+        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial conditions ``X = data[:, self.lookback_len:, ...]`` being the lookback slice of ``data``. 
         
         .. attention::
             
-            ``data.shape[1]`` must either match the lookback length declared upon calling ``fit(data, lookback_len)`` or the context length of the training data ``self.data_fit.shape[1]``. Otherwise, an error is raised.
+            ``data.shape[1]`` must either match the lookback length ``self.lookback_len`` or the context length of the training data ``self.data_fit.shape[1]``. Otherwise, an error is raised.
         
         If ``observables`` are not ``None``, returns the analogue quantity for the observable instead.
 
         Args:
-            data (numpy.ndarray): Initial conditions to predict. Array of context windows with shape ``(n_init_conditions, *self.data_fit.shape[1:])`` or ``(n_init_conditions, self._lookback_len, *self.data_fit.shape[2:])`` (see the note above).
+            data (numpy.ndarray): Initial conditions to predict. Array of context windows with shape ``(n_init_conditions, *self.data_fit.shape[1:])`` or ``(n_init_conditions, self.lookback_len, *self.data_fit.shape[2:])`` (see the note above).
             t (int): Number of steps in the future to predict (returns the last one).
             observables (callable, numpy.ndarray or None): Callable, array of context windows of shape ``(self.data_fit.shape[0], self.data_fit.shape[1], *obs_features_shape)`` or ``None``. If array, it must be the desired observable evaluated on the *lookforward slice* of the training data. If ``None`` returns the predictions for the state.
 
         Returns:
            The predicted (expected) state/observable at time :math:`t`, shape ``(n_init_conditions, *obs_features_shape)``.
         """
-        check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y', 'kernel_YX', 'data_fit', '_lookback_len'])
+        check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y', 'kernel_YX', 'data_fit', 'lookback_len'])
 
-        _obs, expected_shape, X_inference, X_fit = _parse_DMD_observables(observables, data, self.data_fit, self._lookback_len)
+        _obs, expected_shape, X_inference, X_fit = _parse_DMD_observables(observables, data, self.data_fit, self.lookback_len)
 
         K_Xin_X = self.kernel(X_inference, X_fit)
         return dual.predict(t, self.U, self.V, self.kernel_YX, K_Xin_X, _obs).reshape(expected_shape)
@@ -166,32 +173,32 @@ class KernelDMD(BaseModel, RegressorMixin):
             (eigenvalues, left eigenfunctions, right eigenfunctions) - Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. If ``eval_left_on`` or ``eval_right_on``  are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on``/``eval_right_on``: shape ``(n_samples, rank)``.
         """
 
-        check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y', 'kernel_YX', '_lookback_len', 'data_fit'])
+        check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y', 'kernel_YX', 'lookback_len', 'data_fit'])
         if hasattr(self, '_eig_cache'):
             w, vl, vr = self._eig_cache
         else:
             w, vl, vr = dual.estimator_eig(self.U, self.V, self.kernel_X, self.kernel_YX)
             self._eig_cache = (w, vl, vr)
         
-        X_fit, Y_fit = contexts_to_markov_train_states(self.data_fit, self._lookback_len)
+        X_fit, Y_fit = contexts_to_markov_train_states(self.data_fit, self.lookback_len)
         if eval_left_on is None and eval_right_on is None:
             # (eigenvalues,)
             return w
         elif eval_left_on is None and eval_right_on is not None:
             # (eigenvalues, right eigenfunctions)
-            X, _ = contexts_to_markov_predict_states(eval_right_on, self._lookback_len)
+            X, _ = contexts_to_markov_predict_states(eval_right_on, self.lookback_len)
             kernel_Xin_X_or_Y = self.kernel(X, X_fit)
             return w, dual.evaluate_eigenfunction(kernel_Xin_X_or_Y, vr)
         elif eval_left_on is not None and eval_right_on is None:
             # (eigenvalues, left eigenfunctions)
-            X, _ = contexts_to_markov_predict_states(eval_left_on, self._lookback_len)
+            X, _ = contexts_to_markov_predict_states(eval_left_on, self.lookback_len)
             kernel_Xin_X_or_Y = self.kernel(X, Y_fit)
             return w, dual.evaluate_eigenfunction(kernel_Xin_X_or_Y, vl)
         elif eval_left_on is not None and eval_right_on is not None:
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
 
-            Xr, _ = contexts_to_markov_predict_states(eval_right_on, self._lookback_len)
-            Xl, _ = contexts_to_markov_predict_states(eval_left_on, self._lookback_len)
+            Xr, _ = contexts_to_markov_predict_states(eval_right_on, self.lookback_len)
+            Xl, _ = contexts_to_markov_predict_states(eval_left_on, self.lookback_len)
 
             kernel_Xin_X_or_Y_left = self.kernel(Xl, Y_fit)
             kernel_Xin_X_or_Y_right = self.kernel(Xr, X_fit)
@@ -211,9 +218,9 @@ class KernelDMD(BaseModel, RegressorMixin):
         Returns:
             Modes of the system at the states defined by ``data``. Array of shape ``(self.rank, n_states, ...)``.
         """
-        check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_YX', '_lookback_len', 'data_fit'])
+        check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_YX', 'lookback_len', 'data_fit'])
         
-        _obs, expected_shape, X_inference, X_fit = _parse_DMD_observables(observables, data, self.data_fit, self._lookback_len)
+        _obs, expected_shape, X_inference, X_fit = _parse_DMD_observables(observables, data, self.data_fit, self.lookback_len)
 
         if hasattr(self, '_eig_cache'):
             _, lv, rv = self._eig_cache
@@ -241,24 +248,21 @@ class KernelDMD(BaseModel, RegressorMixin):
         K_YX = self.kernel(Y, X)
         return K_X, K_Y, K_YX
 
-    def _pre_fit_checks(self, data: np.ndarray, lookback_len: Optional[int] = None) -> None:
+    def _pre_fit_checks(self, data: np.ndarray) -> None:
         """Performs pre-fit checks on the training data.
 
         Use :func:`check_contexts` to check and sanitize the input data, initialize the kernel matrices and saves the training data.
 
         Args:
             data (np.ndarray): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``.
-            lookback_len (Optional[int], optional): Length of the lookback window associated to the contexts. Defaults to None, corresponding to ``lookback_len = context_len - 1``.
-
         """
-        if lookback_len is None:
-            lookback_len = data.shape[1] - 1
+        lookback_len = data.shape[1] - 1
         data = check_contexts(data, lookback_len, enforce_len1_lookforward=True)
         if hasattr(self, '_lookback_len'):
-            del self._lookback_len
+            self._lookback_len = -1
         #Save the lookback length as a private attribute of the model
         self._lookback_len = lookback_len
-        X_fit, Y_fit = contexts_to_markov_train_states(data, self._lookback_len)
+        X_fit, Y_fit = contexts_to_markov_train_states(data, self.lookback_len)
 
         self.kernel_X, self.kernel_Y, self.kernel_YX = self._init_kernels(X_fit, Y_fit)
         self.data_fit = data
