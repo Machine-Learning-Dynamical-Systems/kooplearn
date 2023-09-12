@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional, Union, Callable
 from sklearn.base import RegressorMixin
 from kooplearn._src.context_window_utils import check_contexts, contexts_to_markov_predict_states, contexts_to_markov_train_states
-from kooplearn._src.utils import check_is_fitted, create_base_dir, enforce_2d_inputs
+from kooplearn._src.utils import check_is_fitted, create_base_dir
 from kooplearn._src.operator_regression.utils import _parse_DMD_observables
 from sklearn.gaussian_process.kernels import Kernel, DotProduct
 from kooplearn._src.operator_regression import dual
@@ -63,8 +63,7 @@ class KernelDMD(BaseModel, RegressorMixin):
             raise ValueError('Invalid n_oversamples. Must be non-negative.')
         
         self.rng_seed = rng_seed
-        self._picklable_kernel = kernel
-        self.kernel = enforce_2d_inputs(kernel)
+        self._kernel = kernel
         if not isinstance(rank, int) or rank < 1:
             raise ValueError('rank must be a positive integer.')
         
@@ -88,7 +87,13 @@ class KernelDMD(BaseModel, RegressorMixin):
         
     @property
     def is_fitted(self) -> bool:
-        return self._is_fitted    
+        return self._is_fitted
+
+    def kernel(self, X: np.ndarray, Y: Optional[np.ndarray] = None) -> np.ndarray:
+        X = X.reshape(X.shape[0], -1)
+        if Y is not None:
+            Y = Y.reshape(Y.shape[0], -1)
+        return self._kernel(X,Y)    
 
     def fit(self, data: np.ndarray) -> KernelDMD:
         """
@@ -272,7 +277,6 @@ class KernelDMD(BaseModel, RegressorMixin):
 
     def save(self, path: os.PathLike):
         create_base_dir(path)
-        del self.kernel
         with open(path, '+wb') as outfile:
             pickle.dump(self, outfile)
     
@@ -282,5 +286,4 @@ class KernelDMD(BaseModel, RegressorMixin):
         with open(path, '+rb') as infile:
             restored_obj = pickle.load(infile)
             assert type(restored_obj) == cls
-            restored_obj.kernel = enforce_2d_inputs(restored_obj._picklable_kernel)
             return restored_obj
