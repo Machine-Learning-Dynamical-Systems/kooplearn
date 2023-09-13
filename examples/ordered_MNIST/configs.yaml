@@ -1,3 +1,7 @@
 classes: 5
 train_samples: 1001
+val_ratio: 0.2
 test_samples: 1001
+rng_seed: 0
+batch_size: 128
+eval_up_to_t: 15
