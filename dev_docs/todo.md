@@ -45,7 +45,7 @@
 - [ ] Do a complete pass on the documentation adding cross-links to class and attributes.
 
 ### ExtendedDMD
-- [ ] Add `risk` method.
+- [x] Add `risk` method.
 - [ ] Add power iteration QR normalization for the randomized RRR algorithms.
 - [x] Lift the constraint of having 2D observables in `modes` and `predict`
 - [x] Do as above for `KernelDMD`

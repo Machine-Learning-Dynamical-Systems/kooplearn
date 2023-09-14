@@ -136,21 +136,24 @@ class ExtendedDMD(BaseModel):
         self._is_fitted = True
         return self
     
-    def risk(self, data: np.ndarray) -> float:
+    def risk(self, data: Optional[np.ndarray] = None) -> float:
         """Risk of the estimator on the validation ``data``.
 
         Args:
-            data (np.ndarray): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``.
+            data (np.ndarray or None): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``. If ``None``, evaluates the risk on the training data.
 
         Returns:
             Risk of the estimator, see Equation 11 of :footcite:p:`Kostic2022` for more details.
         """
-        lookback_len = data.shape[1] - 1
-        data = check_contexts(data, lookback_len, enforce_len1_lookforward=True)
+        if data is not None:
+            if data.shape[1] - 1 != self.lookback_len:
+                raise ValueError(f"The data's lookback length {data.shape[1] - 1} does not match the lookback length of the fitted model ({self.lookback_len}).")
+            data = check_contexts(data, self.lookback_len, enforce_len1_lookforward=True)
+            X_fit, Y_fit = contexts_to_markov_train_states(data, self.lookback_len)
+            cov_Xv, cov_Yv, cov_XYv = self._init_covs(X_fit, Y_fit)
+        else:
+            cov_Xv, cov_Yv, cov_XYv = self.cov_X, self.cov_Y, self.cov_XY
 
-        X_fit, Y_fit = contexts_to_markov_train_states(data, self.lookback_len)
-        
-        cov_Xv, cov_Yv, cov_XYv = self._init_covs(X_fit, Y_fit)
         return primal.estimator_risk(cov_Xv, cov_Yv, cov_XYv, self.cov_XY, self.U)
 
         

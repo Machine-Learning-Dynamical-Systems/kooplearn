@@ -138,7 +138,32 @@ class KernelDMD(BaseModel, RegressorMixin):
         #Final Checks
         check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y', 'kernel_YX', 'data_fit', 'lookback_len'])
         self._is_fitted = True
-        return self   
+        return self
+    
+    def risk(self, data: Optional[np.ndarray] = None) -> float:
+        """Risk of the estimator on the validation ``data``.
+
+        Args:
+            data (np.ndarray or None): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``. If ``None``, evaluates the risk on the training data.
+
+        Returns:
+            Risk of the estimator, see Equation 11 of :footcite:p:`Kostic2022` for more details.
+        """
+        if data is not None:
+            if data.shape[1] - 1 != self.lookback_len:
+                raise ValueError(f"The data's lookback length {data.shape[1] - 1} does not match the lookback length of the fitted model ({self.lookback_len}).")
+            data = check_contexts(data, self.lookback_len, enforce_len1_lookforward=True)
+
+            X_val, Y_val = contexts_to_markov_train_states(data, self.lookback_len)
+            X_train, Y_train = contexts_to_markov_train_states(self.data_fit, self.lookback_len)
+            kernel_Yv = self.kernel(Y_val)
+            kernel_XXv = self.kernel(X_train, X_val)
+            kernel_YYv = self.kernel(Y_train, Y_val)
+        else:
+            kernel_Yv = self.kernel_Y
+            kernel_XXv = self.kernel_X
+            kernel_YYv = self.kernel_Y
+        return dual.estimator_risk(kernel_Yv, self.kernel_Y, kernel_XXv, kernel_YYv, self.U, self.V)
 
     def predict(self, data: np.ndarray, t: int = 1, observables: Optional[Union[Callable, np.ndarray]] = None) \
             -> np.ndarray:
