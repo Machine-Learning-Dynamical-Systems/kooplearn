@@ -154,4 +154,5 @@ workspace.code-workspace
 **/lightning_logs
 
 # Private tests
-**/private_tests
+**/__data__
+**/__ckpts__
