@@ -333,3 +333,19 @@ def svdvals(
     v = v.real
     v[v < 0] = 0
     return np.sqrt(v)
+
+def estimator_risk(
+  kernel_Yv: np.ndarray,  # Kernel matrix of the output validation data
+  kernel_Y: np.ndarray, # Kernel matrix of the output training data
+  kernel_XXv: np.ndarray, # Cross-Kernel matrix of the input train/validation data   
+  kernel_YYv: np.ndarray, # Cross-Kernel matrix of the output train/validation data
+  U: np.ndarray,  # Projection matrix: first output of the fit functions defined above
+  V: np.ndarray,  # Projection matrix: second output of the fit functions defined above   
+):
+    rdim_train = (kernel_Y.shape[0]) ** (-1)
+    rdim_val = (kernel_Yv.shape[0]) ** (-1)
+
+    r_Y = rdim_val*np.trace(kernel_Yv)
+    r_XY = -2*rdim_val*rdim_train*np.trace(np.linalg.multi_dot([kernel_YYv.T, V, U.T, kernel_XXv]))
+    r_X = rdim_val*(rdim_train**2)*np.trace(np.linalg.multi_dot([kernel_XXv.T,U, V.T,kernel_Y, V, U.T, kernel_XXv]))
+    return r_Y + r_XY + r_X

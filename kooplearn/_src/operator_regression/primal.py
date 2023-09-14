@@ -198,13 +198,24 @@ def estimator_modes(
     lv_obs = np.linalg.multi_dot([r_dim * phi_X, U, lv]).T
     return rv_in[:, :, None] * lv_obs[:, None, :]  # [rank, num_init_conditions, num_training_points]
 
-
 def evaluate_eigenfunction(
-        phi_Xin: np.ndarray,  # Feature map evaluated on the initial conditions
-        lv_or_rv: np.ndarray,  # Left or right eigenvector, as returned by estimator_eig
+    phi_Xin: np.ndarray,  # Feature map evaluated on the initial conditions
+    lv_or_rv: np.ndarray,  # Left or right eigenvector, as returned by estimator_eig
 ):
     return phi_Xin @ lv_or_rv
 
 def svdvals(U, C_XY):
     M = np.linalg.multi_dot([U, U.T, C_XY])
     return np.linalg.svd(M, compute_uv=False)
+
+def estimator_risk(
+    cov_Xv: np.ndarray,  # Covariance matrix of the input validation data
+    cov_Yv: np.ndarray,  # Covariance matrix of the output validation data
+    cov_XYv: np.ndarray,  # Cross-covariance matrix of the validation data
+    cov_XY: np.ndarray,  # Cross-covariance matrix of the training data
+    U: np.ndarray,  # Projection matrix, as returned by the fit functions defined above
+):
+    r_Y = np.trace(cov_Yv)
+    r_XY = -2*np.trace(np.linalg.multi_dot([cov_XY.T, U, U.T, cov_XYv]))
+    r_X = np.trace(np.linalg.multi_dot([cov_XY.T, U, U.T, cov_Xv, U, U.T, cov_XY]))
+    return r_Y + r_XY + r_X

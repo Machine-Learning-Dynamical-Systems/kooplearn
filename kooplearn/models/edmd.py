@@ -135,6 +135,24 @@ class ExtendedDMD(BaseModel):
         check_is_fitted(self, ['U', 'cov_XY', 'cov_X', 'cov_Y', 'data_fit', 'lookback_len'])
         self._is_fitted = True
         return self
+    
+    def risk(self, data: np.ndarray) -> float:
+        """Risk of the estimator on the validation ``data``.
+
+        Args:
+            data (np.ndarray): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``.
+
+        Returns:
+            Risk of the estimator, see Equation 11 of :footcite:p:`Kostic2022` for more details.
+        """
+        lookback_len = data.shape[1] - 1
+        data = check_contexts(data, lookback_len, enforce_len1_lookforward=True)
+
+        X_fit, Y_fit = contexts_to_markov_train_states(data, self.lookback_len)
+        
+        cov_Xv, cov_Yv, cov_XYv = self._init_covs(X_fit, Y_fit)
+        return primal.estimator_risk(cov_Xv, cov_Yv, cov_XYv, self.cov_XY, self.U)
+
         
     def predict(self, data: np.ndarray, t: int = 1, observables: Optional[Union[Callable, np.ndarray]] = None) \
             -> np.ndarray:

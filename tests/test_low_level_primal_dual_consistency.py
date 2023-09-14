@@ -46,6 +46,7 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
     C_X = rdim * ((X.T) @ X)
 
     K_Y = Y @ (Y.T)
+    C_Y = rdim * ((Y.T) @ Y)
 
     K_YX = Y @ (X.T)
     C_XY = rdim * ((X.T) @ Y)
@@ -79,8 +80,11 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
         primal.evaluate_eigenfunction(X_test, primal_lv),
         primal.evaluate_eigenfunction(X_test, primal_rv)
     )
-    assert dual_predict.shape == (num_test_pts, num_features)
 
+    assert dual_predict.shape == (num_test_pts, num_features)
+    risk_primal = primal.estimator_risk(C_X, C_Y, C_XY, C_XY, U_primal) 
+    risk_dual = dual.estimator_risk(K_Y, K_Y, K_X, K_Y, U, V)
+    assert _allclose(risk_primal, risk_dual)
     assert _allclose(primal_modes, dual_modes)
     assert _allclose(primal_predict, dual_predict)
     assert _compare_evd(evd_primal, evd_dual)
@@ -107,6 +111,9 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
     K_YX = Y @ (X.T)
     C_XY = rdim * ((X.T) @ Y)
 
+    K_Y = Y @ (Y.T)
+    C_Y = rdim * ((Y.T) @ Y)
+
     K_testX = X_test @ (X.T)
 
     # Dual
@@ -126,11 +133,11 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
     assert dual_predict.shape == (num_test_pts, num_features)
 
     # Primal
-    U = primal.fit_principal_component_regression(C_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
+    U_primal = primal.fit_principal_component_regression(C_X, tikhonov_reg, rank=rank, svd_solver=svd_solver)
 
-    primal_predict = primal.predict(dt, U, C_XY, X_test, X, Y)
-    primal_eig, primal_lv, primal_rv = primal.estimator_eig(U, C_XY)
-    primal_modes = primal.estimator_modes(U, C_XY, X, X_test)
+    primal_predict = primal.predict(dt, U_primal, C_XY, X_test, X, Y)
+    primal_eig, primal_lv, primal_rv = primal.estimator_eig(U_primal, C_XY)
+    primal_modes = primal.estimator_modes(U_primal, C_XY, X, X_test)
 
     evd_primal = EigenDecomposition(
         primal_eig,
@@ -139,7 +146,9 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
     )
 
     assert primal_predict.shape == (num_test_pts, num_features)
-    
+    risk_primal = primal.estimator_risk(C_X, C_Y, C_XY, C_XY, U_primal) 
+    risk_dual = dual.estimator_risk(K_Y, K_Y, K_X, K_Y, U, V)
+    assert _allclose(risk_primal, risk_dual)
     assert _allclose(primal_predict, dual_predict)
     if rank is not None:
         assert _allclose(primal_modes, dual_modes)
