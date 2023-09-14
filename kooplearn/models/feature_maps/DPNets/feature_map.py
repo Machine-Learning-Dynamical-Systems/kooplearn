@@ -53,6 +53,7 @@ class DPNet(TrainableFeatureMap):
             use_relaxed_loss: bool = False,
             loss_coefficient: float = 1.0,
             metric_reg_type: str = 'fro',
+            lookback_len: int = 1, #Not used for the moment, will be used for CK-regulraization
             weight_sharing: bool = False,
             scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler] = None, scheduler_kwargs: dict = {},
             scheduler_config: dict = {},
@@ -88,9 +89,15 @@ class DPNet(TrainableFeatureMap):
 
         self._is_fitted = False
 
+        self._lookback_len = lookback_len
+
     @property
     def is_fitted(self):
         return self._is_fitted
+
+    @property
+    def lookback_len(self):
+        return self._lookback_len
 
     def _initialize_logger(self, logger_fn, logger_kwargs):
         if logger_fn is not None:

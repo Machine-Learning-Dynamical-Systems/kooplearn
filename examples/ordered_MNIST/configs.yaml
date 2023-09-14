@@ -5,3 +5,4 @@ test_samples: 1001
 rng_seed: 0
 batch_size: 128
 eval_up_to_t: 15
+reduced_rank: False

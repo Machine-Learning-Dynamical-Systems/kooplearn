@@ -106,7 +106,7 @@ class DPNetsLightningModule(LightningModule):
     
     def base_step(self, batch, with_metrics: bool = True):
         """Default step (train loop) used for training and validation."""    
-        X, Y = batch
+        X, Y = batch[:, 0, ...], batch[:, 1, ...]
         encoded_X = self.encoder_init(X)
         # encoder_evolved = encoder_init if self.weight_sharing == True.
         encoded_Y = self.encoder_evolved(Y)
