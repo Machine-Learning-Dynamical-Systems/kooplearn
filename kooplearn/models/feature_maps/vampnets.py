@@ -24,7 +24,6 @@ class VAMPNet(TrainableFeatureMap):
             seed: Optional[int] = None):
         
         lightning.seed_everything(seed)
-        self._lookback_len = -1 #Dummy init value, will be determined at fit time.
         self.lightning_trainer = trainer
         self.lightning_module = VAMPModule(
             lobe,
@@ -36,6 +35,8 @@ class VAMPNet(TrainableFeatureMap):
             center_covariances=center_covariances
         )
         self.seed = seed
+        self._lookback_len = -1 #Dummy init value, will be determined at fit time.
+        self._is_fitted = False
     
     @property
     def is_fitted(self):
@@ -49,9 +50,14 @@ class VAMPNet(TrainableFeatureMap):
     def save(self, path: os.PathLike):
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
+        
+        #Save the trainer
+        torch.save(self.lightning_trainer, path / 'lightning_trainer.bin')
+        #Save the lightning checkpoint
         ckpt = path / 'lightning.ckpt'
         self.lightning_trainer.save_checkpoint(str(ckpt))
         del self.lightning_module
+        del self.lightning_trainer
         model = path / 'kooplearn_model.pkl'
         with open (model, 'wb') as f:
             pickle.dump(self, f)  
@@ -60,11 +66,12 @@ class VAMPNet(TrainableFeatureMap):
     @classmethod
     def load(cls, path: os.PathLike):
         path = Path(path)
-        model = path / 'kooplearn_model.pkl'
+        trainer = torch.load(path / 'lightning_trainer.bin')
         ckpt = path / 'lightning.ckpt'
-        with open(model, 'rb') as f:
+        with open(path / 'kooplearn_model.pkl', 'rb') as f:
             restored_obj = pickle.load(f)
         assert isinstance(restored_obj, cls)
+        restored_obj.lightning_trainer = trainer
         restored_obj.lightning_module = VAMPModule.load_from_checkpoint(str(ckpt))
         return restored_obj
 
