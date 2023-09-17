@@ -155,7 +155,7 @@ class VAMPModule(lightning.LightningModule):
     
     def training_step(self, train_batch, batch_idx):
         X, Y = train_batch[:, :-1, ...], train_batch[:, 1:, ...]
-        encoded_X, encoded_Y = self(X), self(Y)
+        encoded_X, encoded_Y = self.forward(X), self.forward(Y, time_lagged=True)
         
         if self.hparams.center_covariances:
             encoded_X -= encoded_X.mean(dim=0, keepdim=True)
@@ -173,9 +173,15 @@ class VAMPModule(lightning.LightningModule):
         
         return loss
     
-    def forward(self, X: torch.Tensor) -> torch.Tensor:
+    def forward(self, X: torch.Tensor, time_lagged: bool = False) -> torch.Tensor:
         lookback_len = X.shape[1]
         batch_size = X.shape[0]
-        X = X.view(lookback_len*batch_size, -1)
-        encoded_X = self.lobe(X).view(batch_size, lookback_len, -1)
+        trail_dims = X.shape[2:]
+        X = X.view(lookback_len*batch_size, *trail_dims)
+        if time_lagged:
+            encoded_X = self.lobe_timelagged(X)
+        else:
+            encoded_X = self.lobe(X)
+        trail_dims = encoded_X.shape[1:]
+        encoded_X = encoded_X.view(batch_size, lookback_len, *trail_dims)
         return encoded_X.view(batch_size, -1)
