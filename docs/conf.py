@@ -34,6 +34,26 @@ source_suffix = {
     '.myst': 'myst-nb',
 }
 
+templates_path = ['_templates']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+autodoc_typehints = "none"
+
+# -- Options for HTML output -------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
+html_theme = 'sphinx_book_theme'
+html_logo = '../logo.svg'
+
+html_theme_options = {
+    'repository_url': 'https://github.com/CSML-IIT-UCL/kooplearn',
+    'use_repository_button': True,  # add a 'link to repository' button
+    'use_issues_button': False,  # add an 'Open an Issue' button
+    'path_to_docs': (
+        'docs'
+    ), 
+    'prev_next_buttons_location': None,
+    'show_navbar_depth': 1,
+}
+
 bibtex_bibfiles = ['bibliography.bib']
 
 myst_enable_extensions = [
@@ -41,13 +61,3 @@ myst_enable_extensions = [
     "dollarmath",
     "html_image"
 ]
-
-templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-autodoc_typehints = "none"
-
-# -- Options for HTML output -------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
-#html_static_path = ['_assets']
-html_theme = 'sphinx_book_theme'
-html_logo = '../logo.svg'
