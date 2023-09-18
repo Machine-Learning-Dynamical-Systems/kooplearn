@@ -8,8 +8,7 @@
 
 import os
 import sys
-
-sys.path.insert(0, os.path.abspath('..')) # This is needed to import kooplearn
+sys.path.insert(0, os.path.abspath('..')) #Importing kooplearn for autodoc
 
 project = 'kooplearn'
 copyright = '2023, Pietro Novelli, Grégoire Pacreau, Bruno Belucci, Vladimir Kostic'
@@ -25,7 +24,7 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
     'sphinx_design',
-    "myst_nb"
+    'myst_nb'
 ]
 
 source_suffix = {
