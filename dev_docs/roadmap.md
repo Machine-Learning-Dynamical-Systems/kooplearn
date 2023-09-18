@@ -1,5 +1,5 @@
 # Roadmap
-#### Sep 12, 2023:
+#### Sep 12 - 18, 2023:
 A list of models to implement:
 
 - [x] [Deep learning for universal linear embeddings of nonlinear dynamics
