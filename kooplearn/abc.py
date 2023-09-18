@@ -9,11 +9,8 @@ import numpy as np
 # Abstract base classes defining the interface to implement when extending kooplearn
 class BaseModel(abc.ABC):
     @abc.abstractmethod
-    def fit(self, data: np.ndarray):
-        """Fit the model to the data.
-
-        Args:
-            data (np.ndarray): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``. The length of the lookforward and lookback windows will be inferred from the context window length and the :attr:`lookback_len` attribute.
+    def fit(self, *a, **kw):
+        """Fit the model to the data. The signature of this function must be specified from the derived class. For example, in :class:`kooplearn.models.ExtendedDMD`, the signature is ``fit(self, data: np.ndarray)``, while in -TODO add AutoEncoder example.
         """
         pass
 

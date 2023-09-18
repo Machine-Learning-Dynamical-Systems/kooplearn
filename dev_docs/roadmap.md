@@ -4,6 +4,8 @@ A list of models to implement:
 
 - [ ] [Deep learning for universal linear embeddings of nonlinear dynamics
  (2017)](https://arxiv.org/abs/1712.09707)
+- [ ] [Deep Dynamical Modeling and Control of
+Unsteady Fluid Flows](https://arxiv.org/pdf/1805.07472.pdf)
 - [ ] [Forecasting Sequential Data using Consistent Koopman Autoencoders
  (2020)](https://arxiv.org/abs/2003.02236)
 - [ ] [Learning Koopman Invariant Subspaces for Dynamic Mode Decomposition
@@ -13,6 +15,9 @@ A list of models to implement:
 - [ ] [Linearly-Recurrent Autoencoder Networks for Learning Dynamics
 (2017)](https://arxiv.org/abs/1712.01378)
 - [ ] [Extended dynamic mode decomposition with dictionary learning: a data-driven adaptive spectral decomposition of the Koopman operator (2017)](https://arxiv.org/abs/1707.00225)
+- [x] [VAMPnets for deep learning of molecular kinetics](https://www.nature.com/articles/s41467-017-02388-1)
+  - Missing the $p \neq 2$ case to implement in `kooplearn.nn.functional`
+  - Missing docstrings
 ***
 #### Sep 11, 2023:
 Implemented most of the functionality and docs for the context window data paradigm. Still missing `DPNets` & other auto-encoder based methods.

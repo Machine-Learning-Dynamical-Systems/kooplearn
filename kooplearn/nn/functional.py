@@ -1,4 +1,6 @@
-import torch
+from kooplearn._src.check_deps import check_torch_deps
+check_torch_deps()
+import torch  # noqa: E402
 
 def VAMP_score(cov_X, cov_Y, cov_XY, schatten_norm: int = 2):
     if schatten_norm == 2:
