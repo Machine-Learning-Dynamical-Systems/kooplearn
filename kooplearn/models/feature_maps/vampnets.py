@@ -7,6 +7,7 @@ from pathlib import Path
 import pickle
 import numpy as np
 import logging
+import weakref
 from kooplearn.nn.functional import VAMP_score
 logger = logging.getLogger('kooplearn')
 
@@ -32,7 +33,8 @@ class VAMPNet(TrainableFeatureMap):
             lobe_timelagged=lobe_timelagged,
             lobe_timelagged_kwargs=lobe_timelagged_kwargs,
             schatten_norm=schatten_norm,
-            center_covariances=center_covariances
+            center_covariances=center_covariances,
+            kooplearn_feature_map_weakref = weakref.ref(self)
         )
         self.seed = seed
         self._lookback_len = -1 #Dummy init value, will be determined at fit time.
@@ -123,11 +125,10 @@ class VAMPNet(TrainableFeatureMap):
     
     def __call__(self, X: np.ndarray) -> np.ndarray:
         X = torch.from_numpy(X).float()
-        X.to(self.lightning_module.device)
         self.lightning_module.eval()
         with torch.no_grad():
-            embedded_X = self.lightning_module.lobe(X)
-            embedded_X = embedded_X.detach().numpy()
+            embedded_X = self.lightning_module.lobe(X.to(self.lightning_module.device))
+            embedded_X = embedded_X.detach().cpu().numpy()
         return embedded_X
 
 class VAMPModule(lightning.LightningModule):
@@ -139,16 +140,18 @@ class VAMPModule(lightning.LightningModule):
         lobe_timelagged: Optional[torch.nn.Module] = None,
         lobe_timelagged_kwargs: dict = {},
         schatten_norm: int = 2,
-        center_covariances: bool = True):
+        center_covariances: bool = True,
+        kooplearn_feature_map_weakref = None):
         
         super().__init__()
-        self.save_hyperparameters(ignore=["lobe", "optimizer_fn"])
+        self.save_hyperparameters(ignore=["lobe", "optimizer_fn", "kooplearn_feature_map_weakref"])
         self.lobe = lobe(**lobe_kwargs)
         if lobe_timelagged is not None:
             self.lobe_timelagged = lobe_timelagged(**lobe_timelagged_kwargs)
         else:
             self.lobe_timelagged = self.lobe
         self._optimizer = optimizer_fn
+        self._kooplearn_feature_map_weakref = kooplearn_feature_map_weakref
 
     def configure_optimizers(self):
         return self._optimizer(self.parameters(), **self.hparams.optimizer_kwargs)
@@ -168,9 +171,8 @@ class VAMPModule(lightning.LightningModule):
         cov_X = torch.mm(encoded_X.T, encoded_X)
         cov_Y = torch.mm(encoded_Y.T, encoded_Y)
         cov_XY = torch.mm(encoded_X.T, encoded_Y)
-
         loss = -1*VAMP_score(cov_X, cov_Y, cov_XY, schatten_norm=self.hparams.schatten_norm)
-        
+        self.log('train/VAMP_score', -1.0*loss.item(), on_step=True, prog_bar=True, logger=True)
         return loss
     
     def forward(self, X: torch.Tensor, time_lagged: bool = False) -> torch.Tensor:
