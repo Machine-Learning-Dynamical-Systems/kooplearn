@@ -2,8 +2,11 @@
 #### Sep 12, 2023:
 A list of models to implement:
 
-- [ ] [Deep learning for universal linear embeddings of nonlinear dynamics
+- [x] [Deep learning for universal linear embeddings of nonlinear dynamics
  (2017)](https://arxiv.org/abs/1712.09707)
+    - Not adding the sup-norm term for the moment. Ask the authors clarifications about it. 
+    - Need to implement the `modes` and eigenfunction evaluation. (Done for this will be done for every AE model)
+    - In the `kooplearn` data paradigm describe how the basic functions of `kooplearn.abc.BaseModel` should work in practice. At the moment the scheme is that `predict: [batch_size, context_len, *features] -> [batch_size, *features]`.
 - [ ] [Deep Dynamical Modeling and Control of
 Unsteady Fluid Flows](https://arxiv.org/pdf/1805.07472.pdf)
 - [ ] [Forecasting Sequential Data using Consistent Koopman Autoencoders
