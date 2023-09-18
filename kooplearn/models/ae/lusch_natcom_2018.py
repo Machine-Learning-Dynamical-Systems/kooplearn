@@ -5,8 +5,13 @@ from kooplearn.abc import BaseModel
 from typing import Optional, Union, Callable
 import weakref
 import numpy as np
+from scipy.linalg import eig
 from kooplearn._src.utils import check_is_fitted
 from kooplearn._src.check_deps import check_torch_deps
+from kooplearn._src.context_window_utils import check_contexts
+from kooplearn.models.ae.utils import _encode, _decode, _evolve
+import logging
+logger = logging.getLogger('kooplearn')
 check_torch_deps()
 import torch  # noqa: E402
 import lightning  # noqa: E402
@@ -83,20 +88,53 @@ class LuschKutzBrunton(BaseModel):
         self.lightning_trainer.fit(model=self.lightning_module, train_dataloaders=train_dataloaders, val_dataloaders=val_dataloaders, datamodule=datamodule, ckpt_path=ckpt_path)
         self._is_fitted = True
 
-    def _to_torch(self, data: np.ndarray):
+    def _move_contexts_to_torch(self, data: np.ndarray):
         check_is_fitted('_fit_data_trail_dims', self)
-        
+        data = check_contexts(data, lookback_len=self.lookback_len)
+        if data.shape[1] != self.lookback_len:
+            logger.warn(f'The model can perform inference only on the lookback slices of the data. Contexts of length {data.shape[1]} are provided, while the lookback length is {self.lookback_len}. The contexts will be truncated to [:, :{self.lookback_len}, ...]')
+            data = data[:, :self.lookback_len, ...]
         model_device = self.lightning_module.device
         return torch.from_numpy(data).float().to(model_device)
 
     def predict(self, data: np.ndarray, t: int = 1, observables: Optional[Union[Callable, np.ndarray]] = None):
-        pass
+        data = self._move_contexts_to_torch(data)
+        n_samples = data.shape[0]
+        lookback_len = data.shape[1]
+        assert lookback_len == self.lookback_len
+        trail_dims = data.shape[2:]
+        with torch.no_grad():
+            K = self.lightning_module.koopman_operator.weight
+            data = data.view(n_samples*lookback_len, *trail_dims)
+            encoded_data = self.lightning_module._encode(data)
+            evolved_encoding = torch.mm(encoded_data, torch.matrix_power(K, t))
+            evolved_encoding = evolved_encoding.view(n_samples, lookback_len, -1)
+            evolved_data = self.lightning_module._decode(evolved_encoding)
+            evolved_data = evolved_data.detach().cpu().numpy()[:, -1, ...] #Hardcoding the lookback len
+        if observables is None:
+            return evolved_data    
+        elif callable(observables):
+            return observables(evolved_data)
+        else:
+            raise NotImplementedError("Only callable observables or None are supported at the moment.")
 
     def modes(self, data: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None):
         pass
 
     def eig(self, eval_left_on: Optional[np.ndarray] = None, eval_right_on: Optional[np.ndarray] = None):
-        pass
+        if hasattr(self, '_eig_cache'):
+            w, vl, vr = self._eig_cache
+        else:
+            K = self.lightning_module.koopman_operator.weight
+            K_np = K.detach().cpu().numpy()
+            w, vl, vr = eig(K_np, left=True, right=True)
+            self._eig_cache = w, vl, vr
+        
+        if eval_left_on is None and eval_right_on is None:
+            # (eigenvalues,)
+            return w
+        else:
+            raise NotImplementedError("Left and right eigenfunction evaluations are not supported at the moment.")
 
     #TODO: Test
     def save(self, path: os.PathLike):
@@ -160,9 +198,9 @@ class LuschKutzBruntonModule(lightning.LightningModule):
     
     def training_step(self, train_batch, batch_idx):
         lookback_len = self._kooplearn_model_weakref().lookback_len
-        encoded_batch = self._encode(train_batch)
-        evolved_batch = self._evolve(encoded_batch)
-        decoded_batch = self._decode(evolved_batch)
+        encoded_batch = _encode(train_batch, self.encoder)
+        evolved_batch = _evolve(encoded_batch, lookback_len, self.koopman_operator)
+        decoded_batch = _decode(evolved_batch, self.decoder)
 
         MSE = torch.nn.MSELoss()
         #Reconstruction + prediction loss
@@ -183,40 +221,6 @@ class LuschKutzBruntonModule(lightning.LightningModule):
 
         loss = alpha_rec*rec_loss + alpha_pred*pred_loss + alpha_lin*lin_loss
         return loss
-    
-    def _encode(self, contexts_batch: torch.Tensor):
-        # Caution: this method is designed only for internal calling.
-        batch_size = contexts_batch.shape[0]
-        context_len = contexts_batch.shape[1]
-        trail_dims = contexts_batch.shape[2:]
-        X = contexts_batch.view(batch_size*context_len, *trail_dims) #Apply encoder to each snapshot in parallel
-        Z = self.encoder(X)
-        trail_dims = Z.shape[1:]
-        return Z.view(batch_size, context_len, *trail_dims) # [batch_size, context_len, latent_dim]
-    
-    def _evolve(self, encoded_contexts_batch: torch.Tensor):
-        # Caution: this method is designed only for internal calling.
-        context_len = encoded_contexts_batch.shape[1]
-        evolved_contexts_batch = torch.zeros_like(encoded_contexts_batch)
-
-        #Apply Koopman operator
-        K = self.koopman_operator.weight 
-        for exp in range(context_len): #Not efficient but working
-            K_exp = torch.matrix_power(K, exp)
-            Z = encoded_contexts_batch[:, 0, ...] #Initial condition
-            Z = torch.mm(Z, K_exp)
-            evolved_contexts_batch[:, exp, ...] = Z
-        return evolved_contexts_batch # [batch_size, context_len, latent_dim]
-
-    def _decode(self, encoded_contexts_batch: torch.Tensor):
-        # Caution: this method is designed only for internal calling.
-        batch_size = encoded_contexts_batch.shape[0]
-        context_len = encoded_contexts_batch.shape[1]
-        trail_dims = encoded_contexts_batch.shape[2:]
-        X = encoded_contexts_batch.view(batch_size*context_len, *trail_dims)
-        Z = self.decoder(X)
-        trail_dims = Z.shape[1:]
-        return Z.view(batch_size, context_len, *trail_dims) # [batch_size, context_len, **trail_dims]
     
     def _check_shape(self, batch: torch.Tensor):
         assert batch.ndim >= 3, f"Batch must have at least 3 dimensions corresponding to (batch_size, context_len, *feature_dims), got {batch.ndim}."

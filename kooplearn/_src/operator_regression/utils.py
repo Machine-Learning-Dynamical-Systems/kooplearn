@@ -3,7 +3,7 @@ import numpy as np
 
 def _parse_DMD_observables(observables, data, data_fit, lookback_len):
     #Shape checks:
-    data = check_contexts(data, lookback_len, warn_len0_lookforward=False)
+    data = check_contexts(data, lookback_len,)
     if not ((data.shape[1] == data_fit.shape[1]) or (data.shape[1] == lookback_len)):
         raise ValueError(f"Shape mismatch between training data and inference data. The inference data has context length {data.shape[1]}, while the training data has context length {data_fit.shape[1]}.")
 
