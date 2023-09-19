@@ -94,7 +94,7 @@ class KernelDMD(BaseModel, RegressorMixin):
             Y = Y.reshape(Y.shape[0], -1)
         return self._kernel(X,Y)    
 
-    def fit(self, data: np.ndarray) -> KernelDMD:
+    def fit(self, data: np.ndarray, verbose: bool = True) -> KernelDMD:
         """
         Fits the KernelDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model. 
@@ -137,7 +137,8 @@ class KernelDMD(BaseModel, RegressorMixin):
         #Final Checks
         check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y', 'kernel_YX', 'data_fit', 'lookback_len'])
         self._is_fitted = True
-        print(f"Fitted {self.__class__.__name__} model. Lookback length set to {self.lookback_len}")
+        if verbose:
+            print(f"Fitted {self.__class__.__name__} model. Lookback length set to {self.lookback_len}")
         return self
     
     def risk(self, data: Optional[np.ndarray] = None) -> float:

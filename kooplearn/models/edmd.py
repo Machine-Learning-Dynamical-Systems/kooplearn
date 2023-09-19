@@ -91,7 +91,7 @@ class ExtendedDMD(BaseModel):
         feat_X = feat_X.reshape(_n_samples, self.lookback_len, *_trail_dims)
         return feat_X.reshape(_n_samples, -1)
     
-    def fit(self, data: np.ndarray) -> ExtendedDMD:
+    def fit(self, data: np.ndarray, verbose: bool = True) -> ExtendedDMD:
         """
         Fits the ExtendedDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model. 
@@ -133,7 +133,8 @@ class ExtendedDMD(BaseModel):
         #Final Checks
         check_is_fitted(self, ['U', 'cov_XY', 'cov_X', 'cov_Y', 'data_fit', 'lookback_len'])
         self._is_fitted = True
-        print(f"Fitted {self.__class__.__name__} model. Lookback length set to {self.lookback_len}")
+        if verbose:
+            print(f"Fitted {self.__class__.__name__} model. Lookback length set to {self.lookback_len}")
         return self
     
     def risk(self, data: Optional[np.ndarray] = None) -> float:

@@ -80,7 +80,8 @@ class VAMPNet(TrainableFeatureMap):
             train_dataloaders = None,
             val_dataloaders = None,
             datamodule: Optional[lightning.LightningDataModule] = None,
-            ckpt_path: Optional[str] = None):
+            ckpt_path: Optional[str] = None,
+            verbose: bool = True):
         """Fits the VAMPNet feature map. Accepts the same arguments as :meth:`lightning.Trainer.fit`, except for the ``model`` keyword, which is automatically set to the VAMPNet feature map.
 
         Args:
@@ -118,7 +119,8 @@ class VAMPNet(TrainableFeatureMap):
                 break
 
         self._lookback_len = context_len - 1
-        print(f"Fitting {self.__class__.__name__}. Lookback window length set to {self.lookback_len}")
+        if verbose:
+            print(f"Fitting {self.__class__.__name__}. Lookback window length set to {self.lookback_len}")
         self.lightning_trainer.fit(model=self.lightning_module, train_dataloaders=train_dataloaders, val_dataloaders=val_dataloaders, datamodule=datamodule, ckpt_path=ckpt_path)
         self._is_fitted = True
     
