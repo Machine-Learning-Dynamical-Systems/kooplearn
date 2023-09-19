@@ -138,7 +138,7 @@ class DPNet(TrainableFeatureMap):
             trainer_fit_kwargs (dict-like): A dictionary of arguments to be passed to a Lightning trainer upon calling the ``fit`` function. The available arguments are listed in `Pytorch Lightning's documentation  <https://lightning.ai/docs/pytorch/stable/common/trainer.html#fit>`_. The ``model`` keyword *should not* be specified in ``trainer_fit_kwargs``.
         """
         if 'model' in trainer_fit_kwargs:
-            logger.warn("The 'model' keyword should not be specified in trainer_fit_kwargs. The model is automatically set to the DPNet feature map, and the provided model is ignored.")
+            logger.warning("The 'model' keyword should not be specified in trainer_fit_kwargs. The model is automatically set to the DPNet feature map, and the provided model is ignored.")
             trainer_fit_kwargs = trainer_fit_kwargs.copy()
             del trainer_fit_kwargs['model']
         self.trainer.fit(model=self._lightning_module, **trainer_fit_kwargs)

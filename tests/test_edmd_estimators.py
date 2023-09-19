@@ -3,7 +3,7 @@ from scipy.stats import special_ortho_group
 import numpy as np
 from pathlib import Path
 from shutil import rmtree
-from kooplearn._src.context_window_utils import trajectory_to_contexts
+from kooplearn._src.context_window_utils import traj_to_contexts
 from kooplearn.models.edmd import ExtendedDMD
 from kooplearn.abc import FeatureMap
 from kooplearn.models.feature_maps import IdentityFeatureMap
@@ -44,7 +44,7 @@ def test_ExtendedDMD_fit_predict_eig_modes_save_load(feature_map, reduced_rank, 
     
     dataset = make_linear_system()
     _Z = dataset.generate(np.zeros(DIM), NUM_SAMPLES)
-    data = trajectory_to_contexts(_Z, lookback_len + 1)
+    data = traj_to_contexts(_Z, lookback_len + 1)
     if svd_solver not in ['full', 'arnoldi']:
         with pytest.raises(ValueError):
             model = ExtendedDMD(

@@ -2,9 +2,9 @@ import numpy as np
 import logging
 logger = logging.getLogger('kooplearn')
 
-def trajectory_to_contexts(
+def traj_to_contexts(
     trajectory: np.ndarray,
-    context_window_len: int,
+    context_window_len: int = 2,
     time_lag: int = 1
 ):
     """

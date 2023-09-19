@@ -3,7 +3,7 @@ from scipy.stats import special_ortho_group
 from shutil import rmtree
 import numpy as np
 from pathlib import Path
-from kooplearn._src.context_window_utils import trajectory_to_contexts
+from kooplearn._src.context_window_utils import traj_to_contexts
 from kooplearn.models import KernelDMD
 from sklearn.gaussian_process.kernels import DotProduct, RBF, Matern
 from kooplearn.datasets.stochastic import LinearModel
@@ -38,7 +38,7 @@ def test_KernelDMD_fit_predict_eig_modes_save_load(kernel, reduced_rank, rank, s
     
     dataset = make_linear_system()
     _Z = dataset.generate(np.zeros(DIM), NUM_SAMPLES)
-    data = trajectory_to_contexts(_Z, lookback_len + 1)
+    data = traj_to_contexts(_Z, lookback_len + 1)
     if solver not in ['full', 'arnoldi']:
         with pytest.raises(ValueError):
             model = KernelDMD(

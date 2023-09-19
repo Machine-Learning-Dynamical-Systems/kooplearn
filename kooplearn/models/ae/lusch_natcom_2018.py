@@ -92,7 +92,7 @@ class LuschKutzBrunton(BaseModel):
         check_is_fitted('_fit_data_trail_dims', self)
         data = check_contexts(data, lookback_len=self.lookback_len)
         if data.shape[1] != self.lookback_len:
-            logger.warn(f'The model can perform inference only on the lookback slices of the data. Contexts of length {data.shape[1]} are provided, while the lookback length is {self.lookback_len}. The contexts will be truncated to [:, :{self.lookback_len}, ...]')
+            logger.warning(f'The model can perform inference only on the lookback slices of the data. Contexts of length {data.shape[1]} are provided, while the lookback length is {self.lookback_len}. The contexts will be truncated to [:, :{self.lookback_len}, ...]')
             data = data[:, :self.lookback_len, ...]
         model_device = self.lightning_module.device
         return torch.from_numpy(data).float().to(model_device)
