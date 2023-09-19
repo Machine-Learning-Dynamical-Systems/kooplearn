@@ -1,5 +1,6 @@
-from typing import NamedTuple, Callable
+from typing import NamedTuple
 import numpy as np
+from numpy.typing import ArrayLike
 import os
 import math
 from pathlib import Path
@@ -7,6 +8,43 @@ from scipy.spatial.distance import pdist
 import logging
 logger = logging.getLogger('kooplearn')
 
+#Exceptions
+class NotFittedError(Exception):
+    pass
+
+class ShapeError(Exception):
+    pass
+
+#Misc Utils
+def check_is_fitted(obj: object, attr_list: list[str]):
+    for attr in attr_list:
+        if not hasattr(obj, attr):
+            raise NotFittedError(f"Attribute \"{attr}\" not found. {obj.__class__.__name__} is not fitted. Please call the 'fit' method first.")
+
+def create_base_dir(path: os.PathLike):
+    path = Path(path)
+    base_path = path.parent
+    if not base_path.exists():
+        base_path.mkdir(parents=True)
+
+def check_contexts_shape(
+    data: ArrayLike,
+    lookback_len: int,
+    is_inference_data: bool = False
+):
+    if not isinstance(lookback_len, int):
+        raise ValueError(f"The lookback_len must be an int, while {type(lookback_len)=}")
+    if lookback_len < 1:
+        raise ValueError(f'Invalid lookback_len={lookback_len}.')
+    if data.ndim < 3: #Numpy/Torch/Jax compatible
+        raise ShapeError(f'Invalid shape {data.shape}. The data must have be at least three dimensional [batch_size, context_len, *features].')    
+    if lookback_len > data.shape[1]:
+        raise ShapeError(f'Invalid lookback_len={lookback_len} for data of shape {data.shape}.')
+    if is_inference_data:
+        if data.shape[1] != lookback_len:
+            raise ShapeError(f'Invalid context length ({data.shape[1]}). For inference data, context window length should be matching the lookback length ({lookback_len})')
+
+#Sorting and parsing
 class TopKReturnType(NamedTuple):
     values: np.ndarray
     indices: np.ndarray
@@ -80,49 +118,3 @@ def _parse_cplx_conj_pairs(cplx_conj_vec: np.ndarray):
                 idx_list.append(_idx_tuple_r)
     _pos_phase_idxs = [i[0] for i in idx_list]
     return np.asarray(_pos_phase_idxs, dtype=int)
-
-class NotFittedError(Exception):
-    pass
-
-def check_is_fitted(obj: object, attr_list: list[str]):
-    for attr in attr_list:
-        if not hasattr(obj, attr):
-            raise NotFittedError(f"Attribute \"{attr}\" not found. {obj.__class__.__name__} is not fitted. Please call the 'fit' method first.")
-
-def create_base_dir(path: os.PathLike):
-    path = Path(path)
-    base_path = path.parent
-    if not base_path.exists():
-        base_path.mkdir(parents=True)
-
-def enforce_2d_output(fn: Callable) -> Callable:
-    def _wrap(*a):
-        res = fn(*a)
-        res = np.asanyarray(res)
-        if res.ndim <= 1:
-            return np.atleast_2d(res)
-        elif res.ndim == 2:
-            return res
-        else:
-            logger.warn("The output has more than two dimensions. Flattening the trailing ones.")
-            return np.reshape(res, (res.shape[0], -1))
-    return _wrap
-
-def enforce_2d_inputs(fn: Callable) -> Callable:
-    def _wrap(*a):
-        _reshaped_a = []
-        for _a in a:
-            if _a is None:
-                _reshaped_a.append(None)
-            else:
-                _a = np.asanyarray(_a)
-                if _a.ndim <= 1:
-                    _reshaped_a.append(np.atleast_2d(_a))
-                elif _a.ndim == 2:
-                    _reshaped_a.append(_a)
-                else:
-                    logger.warn("The input has more than two dimensions. Flattening the trailing ones.")
-                    _reshaped_a.append(np.reshape(_a, (_a.shape[0], -1)))
-        res = fn(*_reshaped_a)
-        return res
-    return _wrap

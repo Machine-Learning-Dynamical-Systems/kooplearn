@@ -1,4 +1,17 @@
 # Roadmap
+#### Sep 19, 2023:
+Do **not** perform shape inference, on tensors of with `ndim` smaller than the minimum required. I should rather return a (standard) Error.
+
+Rationalize checks and errors throughout the code.
+
+Add context windows utilities for `torch`.
+
+Create a common benchmark to run every model against. 
+
+`.fit()` should ingest tensors of shape `[batch_size, context_len, *features]`, while `.predict()`, `.eig()` and `.modes()` should ingest tensors of shape `[batch_size, lookback_len, *features]`.
+
+In the docs provide a table with the implemented models, references and notes.
+***
 #### Sep 12 - 18, 2023:
 A list of models to implement:
 

@@ -5,13 +5,12 @@ from pathlib import Path
 import pickle
 from typing import Optional, Callable, Union
 
-from kooplearn._src.context_window_utils import check_contexts, contexts_to_markov_predict_states, contexts_to_markov_train_states
-from kooplearn._src.utils import check_is_fitted, create_base_dir
+from kooplearn._src.utils import check_is_fitted, create_base_dir, check_contexts_shape, ShapeError
 from kooplearn._src.linalg import cov
 from kooplearn.abc import BaseModel, FeatureMap
 from kooplearn.models.feature_maps import IdentityFeatureMap
 from kooplearn._src.operator_regression import primal
-from kooplearn._src.operator_regression.utils import _parse_DMD_observables
+from kooplearn._src.operator_regression.utils import parse_observables, contexts_to_markov_train_states
 import logging
 logger = logging.getLogger('kooplearn')
 
@@ -81,7 +80,7 @@ class ExtendedDMD(BaseModel):
         return self._is_fitted
     
     def feature_map(self, X: np.ndarray):
-        assert X.shape[1] == self.lookback_len, f"Invalid lookback length. Expected an array of shape (:, self.lookback_len, ...) = (:, {self.lookback_len}, ...), got (:, {X.shape[1]}, ...)."
+        check_contexts_shape(X, self.lookback_len, is_inference_data=True)
         _trail_dims = X.shape[2:]
         _n_samples = X.shape[0]
         new_shape = (_n_samples*self.lookback_len, *_trail_dims)
@@ -134,6 +133,7 @@ class ExtendedDMD(BaseModel):
         #Final Checks
         check_is_fitted(self, ['U', 'cov_XY', 'cov_X', 'cov_Y', 'data_fit', 'lookback_len'])
         self._is_fitted = True
+        print(f"Fitted {self.__class__.__name__} model. Lookback length set to {self.lookback_len}")
         return self
     
     def risk(self, data: Optional[np.ndarray] = None) -> float:
@@ -146,9 +146,10 @@ class ExtendedDMD(BaseModel):
             Risk of the estimator, see Equation 11 of :footcite:p:`Kostic2022` for more details.
         """
         if data is not None:
+            check_contexts_shape(data, self.lookback_len)
+            data = np.asanyarray(data)
             if data.shape[1] - 1 != self.lookback_len:
-                raise ValueError(f"The data's lookback length {data.shape[1] - 1} does not match the lookback length of the fitted model ({self.lookback_len}).")
-            data = check_contexts(data, self.lookback_len, enforce_len1_lookforward=True)
+                raise ShapeError(f"The  context length ({data.shape[1]}) of the validation data does not match the context length of the training data ({self.lookback_len + 1}).")
             X_fit, Y_fit = contexts_to_markov_train_states(data, self.lookback_len)
             cov_Xv, cov_Yv, cov_XYv = self._init_covs(X_fit, Y_fit)
         else:
@@ -164,12 +165,12 @@ class ExtendedDMD(BaseModel):
         
         .. attention::
             
-            ``data.shape[1]`` must either match the lookback length ``self.lookback_len`` or the context length of the training data ``self.data_fit.shape[1]``. Otherwise, an error is raised.
+            ``data.shape[1]`` must match the lookback length ``self.lookback_len``. Otherwise, an error is raised.
         
         If ``observables`` are not ``None``, returns the analogue quantity for the observable instead.
 
         Args:
-            data (numpy.ndarray): Initial conditions to predict. Array of context windows with shape ``(n_init_conditions, *self.data_fit.shape[1:])`` or ``(n_init_conditions, self.lookback_len, *self.data_fit.shape[2:])`` (see the note above).
+            data (numpy.ndarray): Initial conditions to predict. Array of context windows with shape ``(n_init_conditions, self.lookback_len, *self.data_fit.shape[2:])`` (see the note above).
             t (int): Number of steps in the future to predict (returns the last one).
             observables (callable, numpy.ndarray or None): Callable, array of context windows of shape ``(self.data_fit.shape[0], *obs_features_shape)`` or ``None``. If array, it must be the desired observable evaluated on the *lookforward slice* of the training data. If ``None`` returns the predictions for the state.
 
@@ -177,7 +178,7 @@ class ExtendedDMD(BaseModel):
            The predicted (expected) state/observable at time :math:`t`, shape ``(n_init_conditions, *obs_features_shape)``.
         """
         check_is_fitted(self, ['U', 'cov_XY', 'cov_X', 'cov_Y', 'data_fit', 'lookback_len'])
-        _obs, expected_shape, X_inference, X_fit = _parse_DMD_observables(observables, data, self.data_fit, self.lookback_len)
+        _obs, expected_shape, X_inference, X_fit = parse_observables(observables, data, self.data_fit, self.lookback_len)
         
         phi_Xin = self.feature_map(X_inference)
         phi_X = self.feature_map(X_fit)
@@ -190,8 +191,8 @@ class ExtendedDMD(BaseModel):
         Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right eigenfunctions.
 
         Args:
-            eval_left_on (numpy.ndarray or None): Array of context windows on which the left eigenfunctions are evaluated, shape ``(n_samples, *self.data_fit.shape[1:])``.
-            eval_right_on (numpy.ndarray or None): Array of context windows on which the right eigenfunctions are evaluated, shape ``(n_samples, *self.data_fit.shape[1:])``.
+            eval_left_on (numpy.ndarray or None): Array of context windows on which the left eigenfunctions are evaluated, shape ``(n_samples, lookback_len, *features)``.
+            eval_right_on (numpy.ndarray or None): Array of context windows on which the right eigenfunctions are evaluated, shape ``(n_samples, lookback_len, *features)``.
 
         Returns:
             Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. If ``eval_left_on`` or ``eval_right_on``  are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on``/``eval_right_on``: shape ``(n_samples, rank)``.
@@ -209,20 +210,20 @@ class ExtendedDMD(BaseModel):
             return w
         elif eval_left_on is None and eval_right_on is not None:
             # (eigenvalues, right eigenfunctions)
-            X, _ = contexts_to_markov_predict_states(eval_right_on, self.lookback_len)
-            phi_Xin = self.feature_map(X)
+            check_contexts_shape(eval_right_on, self.lookback_len, is_inference_data=True)
+            phi_Xin = self.feature_map(eval_right_on)
             return w, primal.evaluate_eigenfunction(phi_Xin, vr)
         elif eval_left_on is not None and eval_right_on is None:
             # (eigenvalues, left eigenfunctions)
-            X, _ = contexts_to_markov_predict_states(eval_left_on, self.lookback_len)
-            phi_Xin = self.feature_map(X)
+            check_contexts_shape(eval_left_on, self.lookback_len, is_inference_data=True)
+            phi_Xin = self.feature_map(eval_left_on)
             return w, primal.evaluate_eigenfunction(phi_Xin, vl)
         elif eval_left_on is not None and eval_right_on is not None:
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
-            Xr, _ = contexts_to_markov_predict_states(eval_right_on, self.lookback_len)
-            Xl, _ = contexts_to_markov_predict_states(eval_left_on, self.lookback_len)
-            phi_Xin_l = self.feature_map(Xl)
-            phi_Xin_r = self.feature_map(Xr)
+            check_contexts_shape(eval_right_on, self.lookback_len, is_inference_data=True)
+            check_contexts_shape(eval_left_on, self.lookback_len, is_inference_data=True)
+            phi_Xin_l = self.feature_map(eval_left_on)
+            phi_Xin_r = self.feature_map(eval_right_on)
             
             return w, primal.evaluate_eigenfunction(phi_Xin_l, vl), primal.evaluate_eigenfunction(phi_Xin_r, vr)
     
@@ -233,14 +234,13 @@ class ExtendedDMD(BaseModel):
         Informally, if :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`. See :footcite:t:`Kostic2022` for more details.
 
         Args:
-            data (numpy.ndarray): Initial conditions to compute the modes on. See :func:`predict` for additional details.
-            observables (callable, numpy.ndarray or None): Callable, array of context windows of shape ``(n_samples, self.data_fit.shape[1], *obs_features_shape)`` or ``None``. If array, it must be the desired observable evaluated on the *lookforward slice* of the training data. If ``None`` returns the predictions for the state.
+            data (numpy.ndarray): Initial conditions to compute the modes on. See :func:`predict` for additional details on the shape.
+            observables (callable, numpy.ndarray or None): Callable, array of context windows of shape ``(self.data_fit.shape[0], *obs_features_shape)`` or ``None``. If array, it must be the desired observable evaluated on the *lookforward slice* of the training data. If ``None`` returns the predictions for the state.
         Returns:
             Modes of the system at the states defined by ``data``. Array of shape ``(self.rank, n_samples, ...)``.
         """
         check_is_fitted(self, ['U', 'data_fit', 'cov_XY', 'lookback_len', 'data_fit'])
-        
-        _obs, expected_shape, X_inference, X_fit = _parse_DMD_observables(observables, data, self.data_fit, self.lookback_len)
+        _obs, expected_shape, X_inference, X_fit = parse_observables(observables, data, self.data_fit, self.lookback_len)
 
         phi_X = self.feature_map(X_fit)
         phi_Xin = self.feature_map(X_inference)
@@ -248,7 +248,7 @@ class ExtendedDMD(BaseModel):
         _gamma = primal.estimator_modes(self.U, self.cov_XY, phi_X, phi_Xin)
 
         expected_shape = (self.rank,) + expected_shape
-        return np.squeeze(np.matmul(_gamma, _obs).reshape(expected_shape))  # [rank, num_initial_conditions, ...]
+        return np.matmul(_gamma, _obs).reshape(expected_shape)  # [rank, num_initial_conditions, ...]
 
     def svals(self) -> np.ndarray:
         """Singular values of the Koopman/Transfer operator.
@@ -296,16 +296,16 @@ class ExtendedDMD(BaseModel):
     def _pre_fit_checks(self, data: np.ndarray) -> None:
         """Performs pre-fit checks on the training data.
 
-        Use :func:`check_contexts` to check and sanitize the input data, initialize the covariance matrices and saves the training data.
+        Use :func:`check_contexts_shape` to check and sanitize the input data, initialize the covariance matrices and saves the training data.
 
         Args:
             data (np.ndarray): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``.
         """
         lookback_len = data.shape[1] - 1
-        data = check_contexts(data, lookback_len, enforce_len1_lookforward=True)
-        if hasattr(self, '_lookback_len'):
-            self._lookback_len = -1
-        #Save the lookback length as a private attribute of the model
+        check_contexts_shape(data, lookback_len)
+        data = np.asanyarray(data)
+        
+        #Save the lookback length
         self._lookback_len = lookback_len
         X_fit, Y_fit = contexts_to_markov_train_states(data, self.lookback_len)
 

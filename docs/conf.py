@@ -49,7 +49,6 @@ html_theme_options = {
     'path_to_docs': (
         'docs'
     ), 
-    'prev_next_buttons_location': None,
     'show_navbar_depth': 1,
 }
 

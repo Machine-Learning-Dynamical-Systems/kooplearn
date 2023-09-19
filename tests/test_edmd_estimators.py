@@ -64,32 +64,33 @@ def test_ExtendedDMD_fit_predict_eig_modes_save_load(feature_map, reduced_rank, 
             )
         assert model.is_fitted is False
         model.fit(data)
+        test_data = data[:, :lookback_len, ...]
         assert model.is_fitted is True
         if observables is None:
-            X_pred = model.predict(data, observables=observables)
+            X_pred = model.predict(test_data, observables=observables)
             assert X_pred.shape == (data.shape[0],) + data.shape[2:]
-            modes = model.modes(data, observables=observables)
+            modes = model.modes(test_data, observables=observables)
             assert modes.shape == (rank, ) + (data.shape[0],) + data.shape[2:]
         elif isinstance(observables, str):
             assert observables == 'array'
             observables = np.random.rand(data.shape[0], 1, 2, 3)
-            X_pred = model.predict(data, observables=observables)
+            X_pred = model.predict(test_data, observables=observables)
             assert X_pred.shape == observables.shape
-            modes = model.modes(data, observables=observables)
-            _target_shape = np.squeeze(np.zeros((rank, ) + observables.shape)).shape
+            modes = model.modes(test_data, observables=observables)
+            _target_shape = (rank, ) + observables.shape
             assert modes.shape == _target_shape
         else:
             Y = data[:, -1, ...]
             _dummy_vec = observables(Y)
             if _dummy_vec.ndim == 1:
                 _dummy_vec = _dummy_vec[:, None]
-            X_pred = model.predict(data, observables=observables)
+            X_pred = model.predict(test_data, observables=observables)
             assert X_pred.shape == _dummy_vec.shape
-            modes = model.modes(data, observables=observables)
-            _target_shape = np.squeeze(np.zeros((rank, ) + _dummy_vec.shape)).shape
+            modes = model.modes(test_data, observables=observables)
+            _target_shape = (rank, ) + _dummy_vec.shape
             assert modes.shape == _target_shape
 
-        vals, lv, rv = model.eig(eval_left_on=data, eval_right_on=data)
+        vals, lv, rv = model.eig(eval_left_on=test_data, eval_right_on=test_data)
         assert vals.shape[0] == rank
         assert vals.ndim == 1
         tmp_path = Path(__file__).parent / f'tmp/model.bin'

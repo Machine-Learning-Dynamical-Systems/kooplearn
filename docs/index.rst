@@ -132,6 +132,7 @@ Learn more
    
    getting_started
    examples/index
+   model_zoo
    datasets
    guides/index
    api_reference/index
