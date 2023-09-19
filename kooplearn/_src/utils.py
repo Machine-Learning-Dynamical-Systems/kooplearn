@@ -32,11 +32,12 @@ def check_contexts_shape(
     lookback_len: int,
     is_inference_data: bool = False
 ):
+    #Numpy/Torch/Jax compatible
     if not isinstance(lookback_len, int):
         raise ValueError(f"The lookback_len must be an int, while {type(lookback_len)=}")
     if lookback_len < 1:
         raise ValueError(f'Invalid lookback_len={lookback_len}.')
-    if data.ndim < 3: #Numpy/Torch/Jax compatible
+    if data.ndim < 3: 
         raise ShapeError(f'Invalid shape {data.shape}. The data must have be at least three dimensional [batch_size, context_len, *features].')    
     if lookback_len > data.shape[1]:
         raise ShapeError(f'Invalid lookback_len={lookback_len} for data of shape {data.shape}.')

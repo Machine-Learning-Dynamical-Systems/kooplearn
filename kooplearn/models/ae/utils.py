@@ -1,5 +1,5 @@
 import torch
-from typing import Optional
+from typing import Optional, Union
 
 #A bit of code copy paste but it's ok for now
 def _encode(contexts_batch: torch.Tensor, encoder: torch.nn.Module):
@@ -26,16 +26,16 @@ def _decode(encoded_contexts_batch: torch.Tensor, decoder: torch.nn.Module):
     trail_dims = Z.shape[1:]
     return Z.view(batch_size, context_len, *trail_dims) # [batch_size, context_len, **trail_dims]
     
-def _evolve(encoded_contexts_batch: torch.Tensor, lookback_len: int, forward_operator: torch.nn.Module, backward_operator: Optional[torch.nn.Module] = None):
+def _evolve(encoded_contexts_batch: torch.Tensor, lookback_len: int, forward_operator: Union[torch.nn.Parameter, torch.Tensor], backward_operator: Optional[torch.nn.Module] = None):
     # Caution: this method is designed only for internal calling.
     context_len = encoded_contexts_batch.shape[1]
     X_init = encoded_contexts_batch[:, lookback_len - 1, ...] #Initial condition
     evolved_contexts_batch = torch.zeros_like(encoded_contexts_batch)
 
     #Apply Koopman operator
-    K_forward = forward_operator.weight 
+    K_forward = forward_operator 
     if backward_operator is not None:
-        K_backward = backward_operator.weight
+        K_backward = backward_operator
     else:
         K_backward = None
 

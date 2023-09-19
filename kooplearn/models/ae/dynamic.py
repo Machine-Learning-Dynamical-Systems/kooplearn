@@ -6,9 +6,8 @@ from typing import Optional, Union, Callable
 import weakref
 import numpy as np
 from scipy.linalg import eig
-from kooplearn._src.utils import check_is_fitted
+from kooplearn._src.utils import check_is_fitted, check_contexts_shape
 from kooplearn._src.check_deps import check_torch_deps
-from kooplearn._src.context_window_utils import check_contexts
 from kooplearn.models.ae.utils import _encode, _decode, _evolve
 import logging
 logger = logging.getLogger('kooplearn')
@@ -16,7 +15,7 @@ check_torch_deps()
 import torch  # noqa: E402
 import lightning  # noqa: E402
 
-class LuschKutzBrunton(BaseModel):
+class DynamicAE(BaseModel):
     def __init__(
             self,
             encoder: torch.nn.Module,
@@ -27,15 +26,17 @@ class LuschKutzBrunton(BaseModel):
             loss_weights: dict = {'rec': 1., 'pred': 1., 'lin': 1.},
             encoder_kwargs: dict = {},
             decoder_kwargs: dict = {},
+            use_lstsq_for_lin_loss: bool = False, #If true, implements "Deep Dynamical Modeling and Control of Unsteady Fluid Flows" by Morton et al. (2018)
             seed: Optional[int] = None):
         lightning.seed_everything(seed)
         self.lightning_trainer = trainer
-        self.lightning_module = LuschKutzBruntonModule(
+        self.lightning_module = DynamicAEModule(
             encoder, decoder, latent_dim,
             optimizer_fn, optimizer_kwargs,
             loss_weights=loss_weights,
             encoder_kwargs=encoder_kwargs,
             decoder_kwargs=decoder_kwargs,
+            use_lstsq_for_lin_loss = use_lstsq_for_lin_loss,
             kooplearn_model_weakref = weakref.ref(self)
         )
         self.seed = seed
@@ -75,40 +76,46 @@ class LuschKutzBrunton(BaseModel):
         if train_dataloaders is None:
             assert isinstance(datamodule, lightning.LightningDataModule)   
             for batch in datamodule.train_dataloader():
-                self.check_shape(batch)
-                self._fit_data_trail_dims = batch.shape[2:]
+                self.lightning_module.dry_run(batch)
+                self._state_trail_dims = tuple(batch.shape[2:])
                 break
         else:
             assert isinstance(train_dataloaders, torch.utils.data.DataLoader)         
             for batch in train_dataloaders:
-                self.lightning_module._check_shape(batch)
-                self._fit_data_trail_dims = batch.shape[2:]
+                self.lightning_module.dry_run(batch)
+                self._state_trail_dims = tuple(batch.shape[2:])
                 break
         
         self.lightning_trainer.fit(model=self.lightning_module, train_dataloaders=train_dataloaders, val_dataloaders=val_dataloaders, datamodule=datamodule, ckpt_path=ckpt_path)
         self._is_fitted = True
 
-    def _move_contexts_to_torch(self, data: np.ndarray):
-        check_is_fitted('_fit_data_trail_dims', self)
-        data = check_contexts(data, lookback_len=self.lookback_len)
-        if data.shape[1] != self.lookback_len:
-            logger.warning(f'The model can perform inference only on the lookback slices of the data. Contexts of length {data.shape[1]} are provided, while the lookback length is {self.lookback_len}. The contexts will be truncated to [:, :{self.lookback_len}, ...]')
-            data = data[:, :self.lookback_len, ...]
+    def _np_to_torch(self, data: np.ndarray):
+        check_contexts_shape(data, self.lookback_len, is_inference_data=True)
         model_device = self.lightning_module.device
         return torch.from_numpy(data).float().to(model_device)
+    
+    def _torch_to_np(self, data: torch.Tensor):
+        pass
 
     def predict(self, data: np.ndarray, t: int = 1, observables: Optional[Union[Callable, np.ndarray]] = None):
-        data = self._move_contexts_to_torch(data)
+        data = self._np_to_torch(data)
         n_samples = data.shape[0]
-        lookback_len = data.shape[1]
-        assert lookback_len == self.lookback_len
-        trail_dims = data.shape[2:]
+
+        check_is_fitted('_state_trail_dims', self)
+        assert tuple(data.shape[2:]) == self._state_trail_dims
+
         with torch.no_grad():
-            K = self.lightning_module.koopman_operator.weight
-            data = data.view(n_samples*lookback_len, *trail_dims)
-            encoded_data = self.lightning_module._encode(data)
-            evolved_encoding = torch.mm(encoded_data, torch.matrix_power(K, t))
-            evolved_encoding = evolved_encoding.view(n_samples, lookback_len, -1)
+            encoded_data = _encode(data, self.lightning_module.encoder)
+
+            if self.lightning_module.hparams.use_lstsq_for_lin_loss:
+                X, Y = encoded_data[:, 0, ...], encoded_data[:, 1, ...]
+                evolution_operator = torch.linalg.lstsq(X, Y).solution
+            else:
+                evolution_operator = self.lightning_module.koopman_operator
+
+            exp_evolution_operator = torch.matrix_power(evolution_operator, t)
+            evolved_encoding = torch.mm(exp_evolution_operator, encoded_data[:, 0, ...].T).T
+            evolved_encoding = evolved_encoding.view(n_samples, self.lookback_len, -1)
             evolved_data = self.lightning_module._decode(evolved_encoding)
             evolved_data = evolved_data.detach().cpu().numpy()[:, -1, ...] #Hardcoding the lookback len
         if observables is None:
@@ -119,7 +126,7 @@ class LuschKutzBrunton(BaseModel):
             raise NotImplementedError("Only callable observables or None are supported at the moment.")
 
     def modes(self, data: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None):
-        pass
+        raise NotImplementedError()
 
     def eig(self, eval_left_on: Optional[np.ndarray] = None, eval_right_on: Optional[np.ndarray] = None):
         if hasattr(self, '_eig_cache'):
@@ -162,7 +169,7 @@ class LuschKutzBrunton(BaseModel):
             restored_obj = pickle.load(f)
         assert isinstance(restored_obj, cls)
         restored_obj.lightning_trainer = trainer
-        restored_obj.lightning_module = LuschKutzBruntonModule.load_from_checkpoint(str(ckpt))
+        restored_obj.lightning_module = DynamicAEModule.load_from_checkpoint(str(ckpt))
         return restored_obj
 
     @property
@@ -173,7 +180,7 @@ class LuschKutzBrunton(BaseModel):
     def lookback_len(self) -> int:
         return 1
     
-class LuschKutzBruntonModule(lightning.LightningModule):
+class DynamicAEModule(lightning.LightningModule):
     def __init__(
         self,
         encoder: torch.nn.Module,
@@ -183,13 +190,15 @@ class LuschKutzBruntonModule(lightning.LightningModule):
         loss_weights: dict = {'rec': 1., 'pred': 1., 'lin': 1.},
         encoder_kwargs: dict = {},
         decoder_kwargs: dict = {},
+        use_lstsq_for_lin_loss: bool = False,
         kooplearn_model_weakref: weakref.ReferenceType = None):
 
         super().__init__()
         self.save_hyperparameters(ignore=['kooplearn_model_weakref'])
         self.encoder = encoder(**encoder_kwargs)
         self.decoder = decoder(**decoder_kwargs)
-        self.koopman_operator = torch.nn.Linear(latent_dim, latent_dim, bias=False)
+        if not self.hparams.use_lstsq_for_lin_loss:
+            self.evolution_operator = torch.nn.Linear(latent_dim, latent_dim, bias=False).weight
         self._optimizer = optimizer_fn
         self._kooplearn_model_weakref = kooplearn_model_weakref
 
@@ -222,11 +231,20 @@ class LuschKutzBruntonModule(lightning.LightningModule):
         loss = alpha_rec*rec_loss + alpha_pred*pred_loss + alpha_lin*lin_loss
         return loss
     
-    def _check_shape(self, batch: torch.Tensor):
-        assert batch.ndim >= 3, f"Batch must have at least 3 dimensions corresponding to (batch_size, context_len, *feature_dims), got {batch.ndim}."
+    def dry_run(self, batch: torch.Tensor):
+        lookback_len = self._kooplearn_model_weakref().lookback_len
+        check_contexts_shape(batch, lookback_len)
         # Caution: this method is designed only for internal calling.
-        Z = self._encode(batch)
-        Y = self._evolve(Z)
-        X_evol = self._decode(Y) #Should fail if the shape is wrong
-        assert Z.shape == Y.shape
+        Z = _encode(batch, self.encoder)
+        
+        if self.hparams.use_lstsq_for_lin_loss:
+            X = Z[:, 0, ...]
+            Y = Z[:, 1, ...]
+            evolution_operator = torch.linalg.lstsq(X, Y).solution
+        else:
+            evolution_operator = self.evolution_operator
+        
+        Z_evolved = _evolve(Z, lookback_len, evolution_operator)
+        X_evol = _decode(Z_evolved, self.decoder) #Should fail if the shape is wrong
+        assert Z.shape == Z_evolved.shape
         assert batch.shape == X_evol.shape   
