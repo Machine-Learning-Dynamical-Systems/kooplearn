@@ -1,5 +1,5 @@
-from kooplearn._src.dashboard.utils import compute_mode_info
-from kooplearn._src.models.abc import BaseModel
+from kooplearn.dashboard.utils import compute_mode_info
+from kooplearn.abc import BaseModel
 import numpy as np
 from tqdm import tqdm 
 from utils import get_XY, compute_mode_info

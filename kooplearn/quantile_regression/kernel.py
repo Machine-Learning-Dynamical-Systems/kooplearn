@@ -1,9 +1,9 @@
-from kooplearn._src.models.kernel import KernelDMD
+from kooplearn.models.kernel import KernelDMD
 from kooplearn._src.utils import check_is_fitted
 import numpy as np
 from sklearn.isotonic import IsotonicRegression
 
-class FinKernelDMD(KernelDMD):
+class quantileDMD(KernelDMD):
     # Add-On to the LowRankRegressor inherited classes
 
     def quantile_regression(self, X, fun = lambda x : np.mean(x, axis=1), alpha=0.01, t=1, isotonic=True, rescaling=True):
