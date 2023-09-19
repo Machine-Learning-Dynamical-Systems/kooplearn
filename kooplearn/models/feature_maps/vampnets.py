@@ -52,7 +52,6 @@ class VAMPNet(TrainableFeatureMap):
     def save(self, path: os.PathLike):
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
-        
         #Save the trainer
         torch.save(self.lightning_trainer, path / 'lightning_trainer.bin')
         #Save the lightning checkpoint
@@ -119,12 +118,12 @@ class VAMPNet(TrainableFeatureMap):
                 break
 
         self._lookback_len = context_len - 1
-        
+        print(f"Fitting {self.__class__.__name__}. Lookback window length set to {self.lookback_len}")
         self.lightning_trainer.fit(model=self.lightning_module, train_dataloaders=train_dataloaders, val_dataloaders=val_dataloaders, datamodule=datamodule, ckpt_path=ckpt_path)
         self._is_fitted = True
     
     def __call__(self, X: np.ndarray) -> np.ndarray:
-        X = torch.from_numpy(X).float()
+        X = torch.from_numpy(X.copy(order='C')).float()
         self.lightning_module.eval()
         with torch.no_grad():
             embedded_X = self.lightning_module.lobe(X.to(self.lightning_module.device))
