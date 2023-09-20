@@ -24,7 +24,9 @@ class VAMPNet(TrainableFeatureMap):
             center_covariances: bool = True,
             seed: Optional[int] = None):
         
-        lightning.seed_everything(seed)
+        if seed is not None:
+            lightning.seed_everything(seed)
+        
         self.lightning_trainer = trainer
         self.lightning_module = VAMPModule(
             lobe,
