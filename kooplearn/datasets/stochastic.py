@@ -196,7 +196,7 @@ class LogisticMap(DiscreteTimeDynamics):
             logger.warning("Singular values are not positive, truncating to positive values")
             svdvals = np.where(svdvals < 0, 0, svdvals)
 
-        return svdvals, eigvals, lv, rv
+        return np.sqrt(svdvals), eigvals, lv, rv
                                           
 
 class _legacyLogisticMap(DiscreteTimeDynamics):

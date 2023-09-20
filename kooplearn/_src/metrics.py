@@ -1,17 +1,16 @@
 import numpy as np
-from scipy.spatial.distance import cdist
-
-def directed_hausdorff_distance(X, Y, metric = 'euclidean'):
+ 
+def directed_hausdorff_distance(pred: np.ndarray, reference: np.ndarray):
     """One-sided hausdorff distance between sets.
-
-    Args:
-        X (np.ndarray): An array of shape ``(n_points_X, dim)``
-        Y (np.ndarray): An array of shape ``(n_points_Y, dim)``
-        metric (str, optional): Any of the metrics accepted by ``scipy.spatial.distance.cdist``. Defaults to 'euclidean'.
-
-    Returns:
-        float: math:`\max_{x \in X}\min_{y \in Y} d(x, y)`
     """
-    _distances = cdist(X, Y, metric = metric) 
-    return np.max(np.min(_distances, axis=1))
+    pred = np.asanyarray(pred)
+    reference = np.asanyarray(reference)
+    assert pred.ndim == 1
+    assert reference.ndim == 1
 
+    distances = np.zeros((pred.shape[0], reference.shape[0]), dtype=np.float64)
+    for pred_idx, pred_pt in enumerate(pred):
+        for reference_idx, reference_pt in enumerate(reference):
+            distances[pred_idx, reference_idx] = np.abs(pred_pt - reference_pt)
+    hausdorff_dist =  np.max(np.min(distances, axis=1))
+    return hausdorff_dist
