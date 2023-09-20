@@ -43,7 +43,7 @@ class PolyFeatureMap(FeatureMap):
 def test_ExtendedDMD_fit_predict_eig_modes_save_load(feature_map, reduced_rank, rank, tikhonov_reg, svd_solver, observables, lookback_len):
     
     dataset = make_linear_system()
-    _Z = dataset.generate(np.zeros(DIM), NUM_SAMPLES)
+    _Z = dataset.sample(np.zeros(DIM), NUM_SAMPLES)
     data = traj_to_contexts(_Z, lookback_len + 1)
     if svd_solver not in ['full', 'arnoldi']:
         with pytest.raises(ValueError):

@@ -37,7 +37,7 @@ def make_linear_system():
 def test_KernelDMD_fit_predict_eig_modes_save_load(kernel, reduced_rank, rank, solver, tikhonov_reg, observables, lookback_len):
     
     dataset = make_linear_system()
-    _Z = dataset.generate(np.zeros(DIM), NUM_SAMPLES)
+    _Z = dataset.sample(np.zeros(DIM), NUM_SAMPLES)
     data = traj_to_contexts(_Z, lookback_len + 1)
     if solver not in ['full', 'arnoldi']:
         with pytest.raises(ValueError):

@@ -33,7 +33,7 @@ class DuffingOscillator(DataGenerator):
 
         duffing = DuffingOscillator(alpha=0.5, beta=0.0625, gamma=0.1, delta=2.5, omega=2.0, dt=0.01)
         initial_conditions = np.array([0.0, 0.0])
-        trajectory = duffing.generate(initial_conditions, T=100)
+        trajectory = duffing.sample(initial_conditions, T=100)
 
     """
     
@@ -70,7 +70,7 @@ class DuffingOscillator(DataGenerator):
         dx = np.array([x[1], -self.delta * x[1] - self.alpha * x[0] - self.beta * x[0] ** 3 + self.gamma * np.cos(self.omega * t)])
         return dx
 
-    def generate(self, X0: np.ndarray, T: int = 1):
+    def sample(self, X0: np.ndarray, T: int = 1):
         """
         Generate the trajectory of the Duffing oscillator.
 
@@ -114,7 +114,7 @@ class Lorenz63(DataGenerator):
 
         lorenz = Lorenz63(sigma=10, mu=28, beta=8/3, dt=0.01)
         initial_conditions = np.array([1.0, 0.0, 0.0])
-        trajectory = lorenz.generate(initial_conditions, T=100)
+        trajectory = lorenz.sample(initial_conditions, T=100)
 
     """
 
@@ -134,7 +134,7 @@ class Lorenz63(DataGenerator):
         self.dt = dt
         self.M_lin = np.array([[-self.sigma, self.sigma, 0], [self.mu, 0, 0], [0, 0, -self.beta]])
 
-    def generate(self, X0: np.ndarray, T: int = 1):
+    def sample(self, X0: np.ndarray, T: int = 1):
         """
         Generate the trajectory of the Lorenz-63 system.
 

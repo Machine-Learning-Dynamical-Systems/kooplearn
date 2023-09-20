@@ -9,7 +9,7 @@ class Garch(DataGenerator):
         self.beta = beta
         self.alpha0 = alpha0
 
-    def generate(self, X0, T=1):
+    def sample(self, X0, T=1):
         memory = np.zeros(T + 1)
         memory[0] = X0
         aux_memory = np.zeros(T + 1)
@@ -30,7 +30,7 @@ class DMgarch(DataGenerator):
         self.B = B
         self.s = s
 
-    def generate(self, X0, T=1):
+    def sample(self, X0, T=1):
         memory = np.zeros((T, X0.shape))
         memory[0] = X0
         H = np.zeros((X0.shape, X0.shape))

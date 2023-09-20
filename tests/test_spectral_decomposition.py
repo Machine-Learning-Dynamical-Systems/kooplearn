@@ -24,7 +24,7 @@ def test_primal_eig_decomposition(tikhonov_reg, svd_solver):
     rank = 5
 
     dataset = MockData(num_features=num_features, rng_seed=42)
-    _Z = dataset.generate(None, num_test_pts)
+    _Z = dataset.sample(None, num_test_pts)
     X, Y = _Z[:-1], _Z[1:]
 
     rdim = np.true_divide(1, X.shape[0])
@@ -56,7 +56,7 @@ def test_dual_eig_decomposition(tikhonov_reg, svd_solver):
     rank = 5
 
     dataset = MockData(num_features=num_features, rng_seed=42)
-    _Z = dataset.generate(None, num_test_pts)
+    _Z = dataset.sample(None, num_test_pts)
     X, Y = _Z[:-1], _Z[1:]
 
     K_X = X @ (X.T)

@@ -35,7 +35,7 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
     rank = 4
 
     dataset = MockData(num_features=num_features, rng_seed=42)
-    _Z = dataset.generate(None, num_test_pts)
+    _Z = dataset.sample(None, num_test_pts)
     X, Y = _Z[:-1], _Z[1:]
 
     rng = np.random.default_rng(42)
@@ -98,7 +98,7 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
     num_test_pts = 100
 
     dataset = MockData(num_features=num_features, rng_seed=42)
-    _Z = dataset.generate(None, num_test_pts)
+    _Z = dataset.sample(None, num_test_pts)
     X, Y = _Z[:-1], _Z[1:]
 
     rng = np.random.default_rng(42)
@@ -165,7 +165,7 @@ def test_rand_reduced_rank(dt):
     iterated_power = 2
 
     dataset = MockData(num_features=num_features, rng_seed=42)
-    _Z = dataset.generate(None, num_test_pts)
+    _Z = dataset.sample(None, num_test_pts)
     X, Y = _Z[:-1], _Z[1:]
 
     rng = np.random.default_rng(42)
@@ -213,7 +213,7 @@ def test_rand_reduced_rank_primal(dt):
     iterated_power = 3
 
     dataset = MockData(num_features=num_features, rng_seed=42)
-    _Z = dataset.generate(None, num_test_pts)
+    _Z = dataset.sample(None, num_test_pts)
     X, Y = _Z[:-1], _Z[1:]
 
     rng = np.random.default_rng(42)
@@ -259,7 +259,7 @@ def test_rand_reduced_rank_dual(dt):
     iterated_power = 2
 
     dataset = MockData(num_features=num_features, rng_seed=42)
-    _Z = dataset.generate(None, num_test_pts)
+    _Z = dataset.sample(None, num_test_pts)
     X, Y = _Z[:-1], _Z[1:]
 
     rng = np.random.default_rng(42)

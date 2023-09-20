@@ -13,7 +13,7 @@ def test_reduced_rank_tikhonov_primal_scale_invariance(svd_solver, tikhonov_reg,
     rank = 5
     
     dataset = MockData(num_features = num_features, rng_seed = 42)
-    _Z = dataset.generate(None, num_test_pts)
+    _Z = dataset.sample(None, num_test_pts)
     X, Y = _Z[:-1], _Z[1:]
 
     
@@ -39,7 +39,7 @@ def test_reduced_rank_tikhonov_dual_scale_invariance(svd_solver, tikhonov_reg, s
     rank = 5
     
     dataset = MockData(num_features = num_features, rng_seed = 42)
-    _Z = dataset.generate(None, num_test_pts)
+    _Z = dataset.sample(None, num_test_pts)
     X, Y = _Z[:-1], _Z[1:]
 
     K_X = X@(X.T)

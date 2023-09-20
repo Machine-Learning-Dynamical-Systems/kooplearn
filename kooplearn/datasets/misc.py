@@ -12,11 +12,11 @@ class LinalgDecomposition(NamedTuple):
 # General utility classes
 class DataGenerator(abc.ABC):
     @abc.abstractmethod
-    def generate(self, X0: np.ndarray, T: int = 1):
+    def sample(self, X0: np.ndarray, T: int = 1):
         pass
 
 class DiscreteTimeDynamics(DataGenerator):
-    def generate(self, X0: np.ndarray, T: int = 1, show_progress: bool = False):
+    def sample(self, X0: np.ndarray, T: int = 1, show_progress: bool = False):
         memory = np.zeros((T + 1,) + X0.shape)
         memory[0] = X0
         if show_progress:

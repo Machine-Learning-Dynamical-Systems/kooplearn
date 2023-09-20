@@ -2,7 +2,7 @@ from typing import Optional
 from kooplearn.datasets.misc import DataGenerator, DiscreteTimeDynamics, LinalgDecomposition
 from kooplearn._src.utils import topk
 import numpy as np
-
+import logging
 import scipy
 import scipy.sparse
 from scipy.integrate import quad, romb
@@ -11,6 +11,7 @@ from scipy.special import binom
 from scipy.stats.sampling import NumericalInversePolynomial
 import math
 from pathlib import Path
+logger = logging.getLogger('kooplearn')
 
 try:
     import sdeint
@@ -23,7 +24,7 @@ class MockData(DataGenerator):
         self.rng = np.random.default_rng(rng_seed)
         self.num_features = num_features
 
-    def generate(self, X0: np.ndarray, T: int = 1):
+    def sample(self, X0: np.ndarray, T: int = 1):
         return self.rng.random((T + 1, self.num_features))
 
 class LinearModel(DiscreteTimeDynamics):
@@ -65,6 +66,140 @@ class CosineDistribution:
 
 
 class LogisticMap(DiscreteTimeDynamics):
+    def __init__(self, r: float = 4.0, N: Optional[int] = None, rng_seed: Optional[int] = None):
+        self.rng_seed = rng_seed
+        self.r = r
+        self._rng = np.random.default_rng(self.rng_seed)
+        if N is not None:
+        #Noisy logistic map
+            if N % 2 != 0:
+                raise ValueError("N must be even")
+            self.has_noise = True
+            self.N = N
+            self._noise_rng = NumericalInversePolynomial(
+                CosineDistribution(N), 
+                domain=(-0.5, 0.5), 
+                mode=0, 
+                random_state=self._rng)
+            self._svdvals, self._eigvals, self._lv, self._rv = self._init_transfer_matrices()            
+        
+        else:
+            #Noiseless logistic map
+            self.has_noise = False
+
+    def predict(self, X_init: np.ndarray, T: int = 1):
+        raise NotImplementedError("This method is not implemented yet")
+
+    def eig(self, eval_left_on: Optional[np.ndarray] = None, eval_right_on: Optional[np.ndarray] = None):
+        if not self.has_noise:
+            raise ValueError("This method is only available for the noisy logistic map")
+        perron_eig_idx = np.argmax(np.abs(self._eigvals))
+
+        if eval_left_on is None and eval_right_on is None: #None
+            return self._eigvals
+        elif eval_left_on is not None and eval_right_on is None: #Only left
+            Xl = np.asanyarray(eval_left_on).reshape(-1)
+            betas_mat = np.stack([self.noise_feature(Xl, i) for i in range(self.N + 1)], axis=1) # [Xl.shape[0], N + 1]
+            
+            lfuncs = self._eigvals, betas_mat @ self._lv
+            #Standardize sign
+            perron_fun_sign = np.sign(np.sign(lfuncs[:, perron_eig_idx]).mean())
+            return lfuncs*perron_fun_sign
+        elif eval_left_on is None and eval_right_on is not None: #Only right
+            Xr = np.asanyarray(eval_right_on).reshape(-1)
+            alphas_mat = np.stack([self.noise_feature_composed_map(Xr, i) for i in range(self.N + 1)], axis=1) # [Xr.shape[0], N + 1]
+            rfuncs = self._eigvals, alphas_mat @ self._rv
+            perron_fun_sign = np.sign(np.sign(rfuncs[:, perron_eig_idx]).mean())
+            return rfuncs*perron_fun_sign
+        
+        else: #All
+            #Left
+            Xl = np.asanyarray(eval_left_on).reshape(-1)
+            betas_mat = np.stack([self.noise_feature(Xl, i) for i in range(self.N + 1)], axis=1) # [Xl.shape[0], N + 1]  
+            lfuncs = betas_mat @ self._lv
+            #Right
+            Xr = np.asanyarray(eval_right_on).reshape(-1)
+            alphas_mat = np.stack([self.noise_feature_composed_map(Xr, i) for i in range(self.N + 1)], axis=1) # [Xr.shape[0], N + 1]
+            rfuncs = alphas_mat @ self._rv
+            perron_fun_sign = np.sign(np.sign(rfuncs[:, perron_eig_idx]).mean())
+            return self._eigvals, lfuncs*perron_fun_sign, rfuncs*perron_fun_sign
+        
+    def svals(self):
+        if not self.has_noise:
+            raise ValueError("This method is only available for the noisy logistic map")  
+        return self._svdvals
+    
+    def _step(self, X_0: np.ndarray):
+        return self.map(X_0)
+
+    def map(self, X_init: np.ndarray, noisy: Optional[bool] = None):
+        if noisy is None:
+            noisy = self.has_noise
+        #Dim checks on X_init
+        if X_init.ndim == 0:
+            X_init = X_init.reshape(1, 1)
+        elif X_init.ndim == 1:
+            X_init = X_init.reshape(-1, 1)
+        elif X_init.ndim > 2:
+            raise ValueError("X_init must be a scalar, a 1D array or a 2D array")
+        if noisy:
+            y = self.r * X_init * (1 - X_init)
+            assert hasattr(self, "_noise_rng"), "Noise rng not initialized, initialize the logistic map with N != None"
+            xi = self._noise_rng.rvs(X_init.shape)
+            return np.mod(y + xi, 1)
+        else:
+            return self.r * X_init * (1 - X_init)
+    
+    def noise_feature(self, x, i): #beta
+        if not self.has_noise:
+            raise ValueError("This method is only available for the noisy logistic map")   
+        N = self.N
+        normalization_cst = np.pi / scipy.special.beta(N // 2 + 0.5, 0.5)
+        return ((np.sin(np.pi * x)) ** (N - i)) * ((np.cos(np.pi * x)) ** i) * np.sqrt(binom(N, i) * normalization_cst)
+
+    def noise_feature_composed_map(self, x, i): #alpha = beta circ logistic
+        r = self.r
+        return self.noise_feature(r * x * (1 - x), i)
+
+    def _init_transfer_matrices(self):
+        if not self.has_noise:
+            raise ValueError("This method is only available for the noisy logistic map")   
+        N = self.N
+
+        def alphas_mat_el(i: int, j: int):
+            def pairing(x):
+                return self.noise_feature_composed_map(x, i) * self.noise_feature_composed_map(x, j)
+            return scipy.integrate.quad(pairing, 0, 1)[0]
+
+        def betas_mat_el(i: int, j: int):
+            def pairing(x):
+                return self.noise_feature(x, i) * self.noise_feature(x, j)
+            return scipy.integrate.quad(pairing, 0, 1)[0]
+
+        def koopman_el(i: int, j: int):
+            def pairing(x):
+                return self.noise_feature(x, i) * self.noise_feature_composed_map(x, j)
+            return scipy.integrate.quad(pairing, 0, 1)[0]
+
+        K = np.array([[koopman_el(i, j) for j in range(N + 1)] for i in range(N + 1)])
+        A = np.array([[alphas_mat_el(i, j) for j in range(N + 1)] for i in range(N + 1)])
+        B = np.array([[betas_mat_el(i, j) for j in range(N + 1)] for i in range(N + 1)])
+
+        eigvals, lv, rv = scipy.linalg.eig(K, left=True, right=True)
+        svdvals = scipy.linalg.eigvals(B@A)
+        #Check that svdvals are real and positive
+        if not np.all(np.isreal(svdvals)):
+            logger.warning("Singular values are not real, taking the real part")
+        svdvals = svdvals.real
+        
+        if min(svdvals) < -np.finfo(svdvals.dtype).eps*len(svdvals): 
+            logger.warning("Singular values are not positive, truncating to positive values")
+            svdvals = np.where(svdvals < 0, 0, svdvals)
+
+        return svdvals, eigvals, lv, rv
+                                          
+
+class _legacyLogisticMap(DiscreteTimeDynamics):
     def __init__(self, r: float = 4.0, N: Optional[int] = None, rng_seed: Optional[int] = None):
         self._noisy = False
         self.ndim = 1
@@ -208,7 +343,7 @@ class MullerBrownPotential(DataGenerator):
         self.kt = kt
         self.rng = np.random.default_rng(rng_seed)
 
-    def generate(self, X0: np.ndarray, T: int = 1):
+    def sample(self, X0: np.ndarray, T: int = 1):
         tspan = np.arange(0, 0.1 * T, 0.1)
         result = sdeint.itoint(self.neg_grad_potential, self.noise_term, X0, tspan, self.rng)
         return result

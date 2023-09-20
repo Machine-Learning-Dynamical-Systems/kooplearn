@@ -4,7 +4,7 @@ from sklearn.gaussian_process.kernels import DotProduct
 from kooplearn.datasets import MockData
 
 dataset = MockData(num_features=5, rng_seed=0)
-_Z = dataset.generate(None, 10)
+_Z = dataset.sample(None, 10)
 X, Y = _Z[:-1], _Z[1:]
 
 model = KernelReducedRank(DotProduct())

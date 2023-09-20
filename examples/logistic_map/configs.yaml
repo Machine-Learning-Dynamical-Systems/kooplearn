@@ -1,1 +1,3 @@
 N: 20
+rng_seed: 0
+num_samples: 10000
