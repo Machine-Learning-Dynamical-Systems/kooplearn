@@ -101,16 +101,16 @@ class LogisticMap(DiscreteTimeDynamics):
             Xl = np.asanyarray(eval_left_on).reshape(-1)
             betas_mat = np.stack([self.noise_feature(Xl, i) for i in range(self.N + 1)], axis=1) # [Xl.shape[0], N + 1]
             
-            lfuncs = self._eigvals, betas_mat @ self._lv
+            lfuncs = betas_mat @ self._lv
             #Standardize sign
             perron_fun_sign = np.sign(np.sign(lfuncs[:, perron_eig_idx]).mean())
-            return lfuncs*perron_fun_sign
+            return self._eigvals, lfuncs*perron_fun_sign
         elif eval_left_on is None and eval_right_on is not None: #Only right
             Xr = np.asanyarray(eval_right_on).reshape(-1)
             alphas_mat = np.stack([self.noise_feature_composed_map(Xr, i) for i in range(self.N + 1)], axis=1) # [Xr.shape[0], N + 1]
-            rfuncs = self._eigvals, alphas_mat @ self._rv
+            rfuncs = alphas_mat @ self._rv
             perron_fun_sign = np.sign(np.sign(rfuncs[:, perron_eig_idx]).mean())
-            return rfuncs*perron_fun_sign
+            return self._eigvals, rfuncs*perron_fun_sign
         
         else: #All
             #Left

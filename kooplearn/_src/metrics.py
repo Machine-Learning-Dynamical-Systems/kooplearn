@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 
-def one_sided_hausdorff_distance(X, Y, metric = 'euclidean'):
+def directed_hausdorff_distance(X, Y, metric = 'euclidean'):
     """One-sided hausdorff distance between sets.
 
     Args:

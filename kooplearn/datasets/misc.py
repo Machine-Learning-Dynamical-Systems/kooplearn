@@ -17,6 +17,10 @@ class DataGenerator(abc.ABC):
 
 class DiscreteTimeDynamics(DataGenerator):
     def sample(self, X0: np.ndarray, T: int = 1, show_progress: bool = False):
+        X0 = np.asarray(X0)
+        if X0.ndim == 0:
+            X0 = X0[None]
+        
         memory = np.zeros((T + 1,) + X0.shape)
         memory[0] = X0
         if show_progress:

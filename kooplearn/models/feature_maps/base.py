@@ -21,5 +21,12 @@ class ConcatenateFeatureMaps(FeatureMap):
         self.feature_maps = feature_maps
     
     def __call__(self, X: np.ndarray):
-        X = np.concatenate([np.atleast_2d(fm(X)) for fm in self.feature_maps], axis = -1)
+        # Standardize shape
+        X = np.asanyarray(X)
+        if X.ndim == 0:
+            X = X.reshape(1, 1)
+        elif X.ndim == 1:
+            X = X.reshape(-1, 1)
+            
+        X = np.concatenate([fm(X) for fm in self.feature_maps], axis = -1)
         return X
