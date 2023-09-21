@@ -170,8 +170,8 @@ class DPModule(lightning.LightningModule):
         encoded_X, encoded_Y = self.forward(X), self.forward(Y, time_lagged=True)
         
         if self.hparams.center_covariances:
-            encoded_X -= encoded_X.mean(dim=0, keepdim=True)
-            encoded_Y -= encoded_Y.mean(dim=0, keepdim=True)
+            encoded_X = encoded_X - encoded_X.mean(dim=0, keepdim=True)
+            encoded_Y = encoded_Y - encoded_Y.mean(dim=0, keepdim=True)
 
         _norm = torch.rsqrt(torch.tensor(encoded_X.shape[0]))
         encoded_X *= _norm
