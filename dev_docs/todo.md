@@ -16,6 +16,7 @@
 - [x] Add Numpy utilities to convert from a trajectory to a context window **view**. This avoids unnecessary memory usage. 
 - [ ] Write a function to add `nan` padding for inference data (in which we do not know the target, nor the lookforward.)
 - [ ] Adapt Bruno's `datamodule`.
+- [ ] Test saving and loading of every deep learning model
 
 ### Datasets
 - [ ] The return of `Dataset.generate` should be a trajectory (as it is now, but double check).

@@ -148,7 +148,7 @@ class VAMPModule(lightning.LightningModule):
         
         super().__init__()
         self.save_hyperparameters(ignore=["lobe", "optimizer_fn", "kooplearn_feature_map_weakref"])
-        if ('lr' in optimizer_kwargs) or ('learning_rate' in optimizer_kwargs):
+        if ('lr' in optimizer_kwargs) or ('learning_rate' in optimizer_kwargs): #For Lightning's LearningRateFinder
             self.lr = optimizer_kwargs.get('lr', optimizer_kwargs.get('learning_rate'))
         self.lobe = lobe(**lobe_kwargs)
         if lobe_timelagged is not None:
