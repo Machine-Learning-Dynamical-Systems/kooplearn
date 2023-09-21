@@ -1,7 +1,8 @@
 N: 20
 rng_seed: 0
 num_samples: 10000
-latent_dim: 3
+latent_dim: 8
 batch_size: 2048
-mlp_layer_dims: [16, 32, 64, 32, 16]
+mlp_layer_dims: [64, 128, 512, 128, 64]
 max_epochs: 200
+log_every: 20
