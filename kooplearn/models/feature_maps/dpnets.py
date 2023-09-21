@@ -180,21 +180,23 @@ class DPModule(lightning.LightningModule):
         cov_X = torch.mm(encoded_X.T, encoded_X)
         cov_Y = torch.mm(encoded_Y.T, encoded_Y)
         cov_XY = torch.mm(encoded_X.T, encoded_Y)
-
+        
+        metrics = {}
         #Compute the losses
         if self.hparams.use_relaxed_loss:
             svd_loss = -1*relaxed_projection_score(cov_X, cov_Y, cov_XY)
+            metrics['train/relaxed_projection_score'] = -1.0*svd_loss.item()
         else:
             svd_loss = -1*VAMP_score(cov_X, cov_Y, cov_XY, schatten_norm=2)
-
-        metric_deformation_loss = 0.5*(log_fro_metric_deformation_loss(cov_X) + log_fro_metric_deformation_loss(cov_Y))
+            metrics['train/projection_score'] = -1.0*svd_loss.item()
+        if self.hparams.metric_deformation_loss_coefficient > 0.0:
+            metric_deformation_loss = 0.5*(log_fro_metric_deformation_loss(cov_X) + log_fro_metric_deformation_loss(cov_Y))
+            metric_deformation_loss *= self.hparams.metric_deformation_loss_coefficient
+            metrics['train/metric_deformation_loss'] = metric_deformation_loss.item()
+            svd_loss += metric_deformation_loss
         
-        metrics = {
-            'train/DP_score': -1.0*svd_loss.item(),
-            'train/metric_deformation_loss': metric_deformation_loss.item()
-        }
         self.log_dict(metrics, on_step=True, prog_bar=True, logger=True)
-        return svd_loss + metric_deformation_loss*self.hparams.metric_deformation_loss_coefficient
+        return svd_loss
     
     def forward(self, X: torch.Tensor, time_lagged: bool = False) -> torch.Tensor:
         # Caution: this method is designed only for internal calling by the DPNet feature map.
