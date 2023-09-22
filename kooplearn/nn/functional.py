@@ -36,7 +36,7 @@ def VAMP_score(cov_X, cov_Y, cov_XY, schatten_norm: int = 2):
         raise NotImplementedError(f"Schatten norm {schatten_norm} not implemented")
 
 def relaxed_projection_score(cov_x, cov_y, cov_xy):
-    return ((torch.linalg.matrix_norm(cov_xy, ord='fro')**2) / ((torch.linalg.matrix_norm(cov_x, ord=2) * torch.linalg.matrix_norm(cov_y, ord=2)))).mean()
+    return (torch.linalg.matrix_norm(cov_xy, ord='fro')**2) / ((torch.linalg.matrix_norm(cov_x, ord=2) * torch.linalg.matrix_norm(cov_y, ord=2)))
 
 def log_fro_metric_deformation_loss(cov):
     eps = torch.finfo(cov.dtype).eps*cov.shape[0]
