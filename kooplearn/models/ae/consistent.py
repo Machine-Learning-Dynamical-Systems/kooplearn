@@ -19,7 +19,7 @@ import lightning  # noqa: E402
 import torch  # noqa: E402
 
 
-class DynamicAE(BaseModel):
+class ConsistentAE(BaseModel):
     def __init__(
         self,
         encoder: torch.nn.Module,
@@ -28,10 +28,16 @@ class DynamicAE(BaseModel):
         optimizer_fn: torch.optim.Optimizer,
         optimizer_kwargs: dict,
         trainer: lightning.Trainer,
-        loss_weights: dict = {"rec": 1.0, "pred": 1.0, "lin": 1.0},
+        loss_weights: dict = {
+            "rec": 1.0,
+            "pred": 1.0,
+            "bwd_pred": 1.0,
+            "lin": 1.0,
+            "consistency": 1.0,
+        },
         encoder_kwargs: dict = {},
         decoder_kwargs: dict = {},
-        use_lstsq_for_evolution: bool = False,  # If true, implements "Deep Dynamical Modeling and Control of Unsteady Fluid Flows" by Morton et al. (2018)
+        backward_steps: int = 1,
         seed: Optional[int] = None,
     ):
 
@@ -46,11 +52,11 @@ class DynamicAE(BaseModel):
             loss_weights=loss_weights,
             encoder_kwargs=encoder_kwargs,
             decoder_kwargs=decoder_kwargs,
-            use_lstsq_for_evolution=use_lstsq_for_evolution,
             kooplearn_model_weakref=weakref.ref(self),
         )
         self.seed = seed
         self._is_fitted = False
+        self._bwd_steps = backward_steps
         # Todo: Add warning on lookback_len for this model
 
     def fit(
@@ -133,12 +139,7 @@ class DynamicAE(BaseModel):
             encoded_data = _encode(
                 data, self.lightning_module.encoder
             )  # [n_samples, context_len == 1, encoded_dim]
-            if self.lightning_module.hparams.use_lstsq_for_evolution:
-                evolution_operator = self.lightning_module._lstsq_evolution(
-                    encoded_data
-                )
-            else:
-                evolution_operator = self.lightning_module.evolution_operator
+            evolution_operator = self.lightning_module.evolution_operator
             exp_evolution_operator = torch.matrix_power(evolution_operator, t)
             init_data = encoded_data[
                 :, self.lookback_len - 1, ...
@@ -179,15 +180,10 @@ class DynamicAE(BaseModel):
         if hasattr(self, "_eig_cache"):
             w, vl, vr = self._eig_cache
         else:
-            if self.lightning_module.hparams.use_lstsq_for_evolution:
-                raise NotImplementedError(
-                    f"Eigenvalues and eigenvectors are not implemented when {self.lightning_module.hparams.use_lstsq_for_evolution} == True."
-                )
-            else:
-                K = self.lightning_module.evolution_operator
-                K_np = K.detach().cpu().numpy()
-                w, vl, vr = eig(K_np, left=True, right=True)
-                self._eig_cache = w, vl, vr
+            K = self.lightning_module.evolution_operator
+            K_np = K.detach().cpu().numpy()
+            w, vl, vr = eig(K_np, left=True, right=True)
+            self._eig_cache = w, vl, vr
 
         if eval_left_on is None and eval_right_on is None:
             # (eigenvalues,)
@@ -232,10 +228,10 @@ class DynamicAE(BaseModel):
 
     @property
     def lookback_len(self) -> int:
-        return 1
+        return 1 + self._bwd_steps
 
 
-class DynamicAEModule(lightning.LightningModule):
+class ConsistentAEModule(lightning.LightningModule):
     def __init__(
         self,
         encoder: torch.nn.Module,
@@ -243,10 +239,15 @@ class DynamicAEModule(lightning.LightningModule):
         latent_dim: int,
         optimizer_fn: torch.optim.Optimizer,
         optimizer_kwargs: dict,
-        loss_weights: dict = {"rec": 1.0, "pred": 1.0, "lin": 1.0},
+        loss_weights: dict = {
+            "rec": 1.0,
+            "pred": 1.0,
+            "bwd_pred": 1.0,
+            "lin": 1.0,
+            "consistency": 1.0,
+        },
         encoder_kwargs: dict = {},
         decoder_kwargs: dict = {},
-        use_lstsq_for_evolution: bool = False,
         kooplearn_model_weakref: weakref.ReferenceType = None,
     ):
 
@@ -254,9 +255,11 @@ class DynamicAEModule(lightning.LightningModule):
         self.save_hyperparameters(ignore=["kooplearn_model_weakref", "optimizer_fn"])
         self.encoder = encoder(**encoder_kwargs)
         self.decoder = decoder(**decoder_kwargs)
-        if not self.hparams.use_lstsq_for_evolution:
-            self._lin = torch.nn.Linear(latent_dim, latent_dim, bias=False)
-            self.evolution_operator = self._lin.weight
+        self._lin = torch.nn.Linear(latent_dim, latent_dim, bias=False)
+        self._bwd_lin = torch.nn.Linear(latent_dim, latent_dim, bias=False)
+        self.evolution_operator = self._lin.weight
+        self.bwd_evolution_operator = self._bwd_lin.weight
+
         self._optimizer = optimizer_fn
         if ("lr" in optimizer_kwargs) or (
             "learning_rate" in optimizer_kwargs
@@ -264,52 +267,59 @@ class DynamicAEModule(lightning.LightningModule):
             self.lr = optimizer_kwargs.get("lr", optimizer_kwargs.get("learning_rate"))
         self._kooplearn_model_weakref = kooplearn_model_weakref
 
-    def _lstsq_evolution(self, batch: torch.Tensor):
-        X = batch[:, 0, ...]
-        Y = batch[:, 1, ...]
-        return (torch.linalg.lstsq(X, Y).solution).T
-
     def configure_optimizers(self):
         return self._optimizer(self.parameters(), **self.hparams.optimizer_kwargs)
 
     def training_step(self, train_batch, batch_idx):
         lookback_len = self._kooplearn_model_weakref().lookback_len
         encoded_batch = _encode(train_batch, self.encoder)
-        if self.hparams.use_lstsq_for_evolution:
-            K = self._lstsq_evolution(encoded_batch)
-        else:
-            K = self.evolution_operator
+
+        K = self.evolution_operator
+        bwd_K = self.bwd_evolution_operator
+
         evolved_batch = _evolve(encoded_batch, lookback_len, K)
         decoded_batch = _decode(evolved_batch, self.decoder)
 
         MSE = torch.nn.MSELoss()
         # Reconstruction + prediction loss
         rec_loss = MSE(
-            train_batch[:, :lookback_len, ...], decoded_batch[:, :lookback_len, ...]
+            train_batch[:, lookback_len - 1, ...],
+            decoded_batch[:, lookback_len - 1, ...],
         )
         pred_loss = MSE(
             train_batch[:, lookback_len:, ...], decoded_batch[:, lookback_len:, ...]
         )
+        bwd_pred_loss = MSE(
+            train_batch[:, lookback_len - 1 :, ...],
+            decoded_batch[:, lookback_len - 1 :, ...],
+        )
+        # Linear loss
+        lin_loss = MSE(
+            encoded_batch[:, lookback_len:, ...], evolved_batch[:, lookback_len:, ...]
+        )
+        # Consistency loss
 
         alpha_rec = self.hparams.loss_weights.get("rec", 1.0)
         alpha_pred = self.hparams.loss_weights.get("pred", 1.0)
+        alpha_bwd_pred = self.hparams.loss_weights.get("bwd_pred", 1.0)
+        alpha_lin = self.hparams.loss_weights.get("lin", 1.0)
+        alpha_consistency = self.hparams.loss_weights.get("consistency", 1.0)
 
-        loss = alpha_rec * rec_loss + alpha_pred * pred_loss
+        loss = (
+            alpha_rec * rec_loss
+            + alpha_pred * pred_loss
+            + alpha_bwd_pred * bwd_pred_loss
+            + alpha_lin * lin_loss
+            + alpha_consistency * consistency_loss
+        )
         metrics = {
             "train/reconstruction_loss": rec_loss.item(),
             "train/prediction_loss": pred_loss.item(),
+            "train/backward_prediction_loss": bwd_pred_loss.item(),
+            "train/linear_loss": lin_loss.item(),
+            "train/consistency_loss": consistency_loss.item(),
+            "train/full_loss": loss.item(),
         }
-        if not self.hparams.use_lstsq_for_evolution:
-            # Linear loss
-            lin_loss = MSE(
-                encoded_batch[:, lookback_len:, ...],
-                evolved_batch[:, lookback_len:, ...],
-            )
-            metrics["train/linear_loss"] = lin_loss.item()
-            alpha_lin = self.hparams.loss_weights.get("lin", 1.0)
-            loss += alpha_lin * lin_loss
-
-        metrics["train/full_loss"] = loss.item()
         self.log_dict(metrics, on_step=True, prog_bar=True, logger=True)
         return loss
 
@@ -318,13 +328,16 @@ class DynamicAEModule(lightning.LightningModule):
         check_contexts_shape(batch, lookback_len)
         # Caution: this method is designed only for internal calling.
         Z = _encode(batch, self.encoder)
-        if self.hparams.use_lstsq_for_evolution:
-            X = Z[:, 0, ...]
-            Y = Z[:, 1, ...]
-            evolution_operator = (torch.linalg.lstsq(X, Y).solution).T
-        else:
-            evolution_operator = self.evolution_operator
-        Z_evolved = _evolve(Z, lookback_len, evolution_operator)
+
+        evolution_operator = self.evolution_operator
+        bwd_evolution_operator = self.bwd_evolution_operator
+
+        Z_evolved = _evolve(
+            Z,
+            lookback_len,
+            evolution_operator,
+            backward_operator=bwd_evolution_operator,
+        )
         X_evol = _decode(Z_evolved, self.decoder)  # Should fail if the shape is wrong
         assert Z.shape == Z_evolved.shape
 

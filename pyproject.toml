@@ -56,5 +56,6 @@ dev = [
 [project.scripts] 
 kooplearn-dashboard = "kooplearn.dashboard.app:main"
 
-[tool.ruff]
-line-length = 300
+[tool.isort]
+# make it compatible with black
+profile = "black"

@@ -1,25 +1,32 @@
+import logging
+import math
+import os
+from pathlib import Path
 from typing import NamedTuple
+
 import numpy as np
 from numpy.typing import ArrayLike
-import os
-import math
-from pathlib import Path
 from scipy.spatial.distance import pdist
-import logging
-logger = logging.getLogger('kooplearn')
 
-#Exceptions
+logger = logging.getLogger("kooplearn")
+
+# Exceptions
 class NotFittedError(Exception):
     pass
+
 
 class ShapeError(Exception):
     pass
 
-#Misc Utils
+
+# Misc Utils
 def check_is_fitted(obj: object, attr_list: list[str]):
     for attr in attr_list:
         if not hasattr(obj, attr):
-            raise NotFittedError(f"Attribute \"{attr}\" not found. {obj.__class__.__name__} is not fitted. Please call the 'fit' method first.")
+            raise NotFittedError(
+                f"Attribute \"{attr}\" not found. {obj.__class__.__name__} is not fitted. Please call the 'fit' method first."
+            )
+
 
 def create_base_dir(path: os.PathLike):
     path = Path(path)
@@ -27,28 +34,37 @@ def create_base_dir(path: os.PathLike):
     if not base_path.exists():
         base_path.mkdir(parents=True)
 
+
 def check_contexts_shape(
-    data: ArrayLike,
-    lookback_len: int,
-    is_inference_data: bool = False
+    data: ArrayLike, lookback_len: int, is_inference_data: bool = False
 ):
-    #Numpy/Torch/Jax compatible
+    # Numpy/Torch/Jax compatible
     if not isinstance(lookback_len, int):
-        raise ValueError(f"The lookback_len must be an int, while {type(lookback_len)=}")
+        raise ValueError(
+            f"The lookback_len must be an int, while {type(lookback_len)=}"
+        )
     if lookback_len < 1:
-        raise ValueError(f'Invalid lookback_len={lookback_len}.')
-    if data.ndim < 3: 
-        raise ShapeError(f'Invalid shape {data.shape}. The data must have be at least three dimensional [batch_size, context_len, *features].')    
+        raise ValueError(f"Invalid lookback_len={lookback_len}.")
+    if data.ndim < 3:
+        raise ShapeError(
+            f"Invalid shape {data.shape}. The data must have be at least three dimensional [batch_size, context_len, *features]."
+        )
     if lookback_len > data.shape[1]:
-        raise ShapeError(f'Invalid lookback_len={lookback_len} for data of shape {data.shape}.')
+        raise ShapeError(
+            f"Invalid lookback_len={lookback_len} for data of shape {data.shape}."
+        )
     if is_inference_data:
         if data.shape[1] != lookback_len:
-            raise ShapeError(f'Invalid context length ({data.shape[1]}). For inference data, context window length should be matching the lookback length ({lookback_len})')
+            raise ShapeError(
+                f"Invalid context length ({data.shape[1]}). For inference data, context window length should be matching the lookback length ({lookback_len})"
+            )
 
-#Sorting and parsing
+
+# Sorting and parsing
 class TopKReturnType(NamedTuple):
     values: np.ndarray
     indices: np.ndarray
+
 
 def topk(vec: np.ndarray, k: int):
     assert np.ndim(vec) == 1, "'vec' must be a 1D array"
@@ -58,49 +74,60 @@ def topk(vec: np.ndarray, k: int):
     values = vec[indices]
     return TopKReturnType(values, indices)
 
+
 def fuzzy_parse_complex(vec: np.ndarray, tol: float = 10.0):
-    assert issubclass(vec.dtype.type, np.complexfloating), "The input element should be complex"
-    rcond = tol*np.finfo(vec.dtype).eps
+    assert issubclass(
+        vec.dtype.type, np.complexfloating
+    ), "The input element should be complex"
+    rcond = tol * np.finfo(vec.dtype).eps
     pdist_real_part = pdist(vec.real[:, None])
-    #Set the same element whenever pdist is smaller than eps*tol
+    # Set the same element whenever pdist is smaller than eps*tol
     condensed_idxs = np.argwhere(pdist_real_part < rcond)[:, 0]
     fuzzy_real = vec.real.copy()
-    if condensed_idxs.shape[0] >=1:  
+    if condensed_idxs.shape[0] >= 1:
         for idx in condensed_idxs:
             i, j = row_col_from_condensed_index(vec.real.shape[0], idx)
-            avg = 0.5*(fuzzy_real[i] + fuzzy_real[j])
+            avg = 0.5 * (fuzzy_real[i] + fuzzy_real[j])
             fuzzy_real[i] = avg
             fuzzy_real[j] = avg
     fuzzy_imag = vec.imag.copy()
-    fuzzy_imag[np.abs(fuzzy_imag)<rcond] = 0.0
-    return fuzzy_real + 1j*fuzzy_imag
+    fuzzy_imag[np.abs(fuzzy_imag) < rcond] = 0.0
+    return fuzzy_real + 1j * fuzzy_imag
 
-def row_col_from_condensed_index(d,index):
+
+def row_col_from_condensed_index(d, index):
     # Credits to: https://stackoverflow.com/a/14839010
-    b = 1 - (2 * d) 
-    i = (-b - math.sqrt(b ** 2 - 8 * index)) // 2
+    b = 1 - (2 * d)
+    i = (-b - math.sqrt(b**2 - 8 * index)) // 2
     j = index + i * (b + i + 2) // 2 + 1
-    return (int(i),int(j))
+    return (int(i), int(j))
+
 
 def parse_cplx_eig(vec: np.ndarray):
-    _real_eigs_mask = (np.abs(vec.imag) <= np.finfo(vec.dtype).eps)
+    _real_eigs_mask = np.abs(vec.imag) <= np.finfo(vec.dtype).eps
     real_eigs = vec[_real_eigs_mask].real
     _cplx_eigs_mask = np.logical_not(_real_eigs_mask)
     cplx_eigs = vec[_cplx_eigs_mask]
     cplx_conj_pairs_idxs = _parse_cplx_conj_pairs(cplx_eigs)
-    return np.concatenate([np.sort(real_eigs), np.sort(cplx_eigs[cplx_conj_pairs_idxs])])
+    return np.concatenate(
+        [np.sort(real_eigs), np.sort(cplx_eigs[cplx_conj_pairs_idxs])]
+    )
+
 
 def _parse_cplx_conj_pairs(cplx_conj_vec: np.ndarray):
     if not cplx_conj_vec.shape[0] % 2 == 0:
         raise ValueError(
             f"The array must consist in a set of complex conjugate pairs, but its shape ({cplx_conj_vec.shape[0]}"
-            f" is odd).")
+            f" is odd)."
+        )
     _v_sort = np.argsort(cplx_conj_vec)
     _v_cj_sort = np.argsort(cplx_conj_vec.conj())
 
     _diff = cplx_conj_vec[_v_sort] - cplx_conj_vec.conj()[_v_cj_sort]
     if not np.allclose(_diff, np.zeros_like(_diff)):
-        raise ValueError("The provided array does not consists of complex conjugate pairs")
+        raise ValueError(
+            "The provided array does not consists of complex conjugate pairs"
+        )
 
     _v = cplx_conj_vec[_v_sort]
 

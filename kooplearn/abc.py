@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 import abc
 import os
-from typing import Optional, Union, Callable
+from typing import Callable, Optional, Union
 
 import numpy as np
 
@@ -10,15 +11,19 @@ import numpy as np
 class BaseModel(abc.ABC):
     @abc.abstractmethod
     def fit(self, *a, **kw):
-        """Fit the model to the data. The signature of this function must be specified from the derived class. For example, in :class:`kooplearn.models.ExtendedDMD`, the signature is ``fit(self, data: np.ndarray)``, while in -TODO add AutoEncoder example.
-        """
+        """Fit the model to the data. The signature of this function must be specified from the derived class. For example, in :class:`kooplearn.models.ExtendedDMD`, the signature is ``fit(self, data: np.ndarray)``, while in -TODO add AutoEncoder example."""
         pass
 
     @abc.abstractmethod
-    def predict(self, data: np.ndarray, t: int = 1, observables: Optional[Union[Callable, np.ndarray]] = None):
+    def predict(
+        self,
+        data: np.ndarray,
+        t: int = 1,
+        observables: Optional[Union[Callable, np.ndarray]] = None,
+    ):
         """
         Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial conditions ``X = data[:, self.lookback_len:, ...]`` being the lookback slice of ``data``.
-        
+
         If ``observables`` are not ``None``, returns the analogue quantity for the observable instead.
 
         Args:
@@ -32,7 +37,11 @@ class BaseModel(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def eig(self, eval_left_on: Optional[np.ndarray] = None, eval_right_on: Optional[np.ndarray] = None):
+    def eig(
+        self,
+        eval_left_on: Optional[np.ndarray] = None,
+        eval_right_on: Optional[np.ndarray] = None,
+    ):
         """
         Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right eigenfunctions.
 
@@ -48,17 +57,21 @@ class BaseModel(abc.ABC):
     @abc.abstractmethod
     def save(self, path: os.PathLike):
         pass
-    
+
     @classmethod
     @abc.abstractmethod
     def load(path: os.PathLike):
         pass
 
     @abc.abstractmethod
-    def modes(self, data: np.ndarray, observables: Optional[Union[Callable, np.ndarray]] = None):
+    def modes(
+        self,
+        data: np.ndarray,
+        observables: Optional[Union[Callable, np.ndarray]] = None,
+    ):
         """
         Computes the mode decomposition of arbitrary observables of the Koopman/Transfer operator at the states defined by ``data``.
-        
+
         Informally, if :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`. See :footcite:t:`Kostic2022` for more details.
 
         Args:
@@ -89,6 +102,7 @@ class BaseModel(abc.ABC):
         """
         pass
 
+
 class FeatureMap(abc.ABC):
     """Abstract base class for feature maps. The :func:`__call__` method must accept a batch of data points of shape ``(n_samples, *features_shape)`` and return a batch of features of shape ``(n_samples, out_features)``.
 
@@ -98,17 +112,18 @@ class FeatureMap(abc.ABC):
 
         This behaviour is designed to facilitate the reuse of feature maps across different models, and possibly even outside of kooplearn.
     """
+
     @abc.abstractmethod
     def __call__(self, data: np.ndarray) -> np.ndarray:
         pass
 
+
 class TrainableFeatureMap(FeatureMap):
     @abc.abstractmethod
     def fit(self, *a, **kw) -> None:
-        """Fit the feature map to the data.
-        """
+        """Fit the feature map to the data."""
         pass
-    
+
     @property
     @abc.abstractmethod
     def is_fitted(self) -> bool:

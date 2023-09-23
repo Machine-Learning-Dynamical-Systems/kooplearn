@@ -1,2 +1,8 @@
-from kooplearn.datasets.deterministic import Lorenz63, DuffingOscillator
-from kooplearn.datasets.stochastic import LinearModel, LogisticMap, MockData, MullerBrownPotential, LangevinTripleWell1D
+from kooplearn.datasets.deterministic import DuffingOscillator, Lorenz63
+from kooplearn.datasets.stochastic import (
+    LangevinTripleWell1D,
+    LinearModel,
+    LogisticMap,
+    MockData,
+    MullerBrownPotential,
+)

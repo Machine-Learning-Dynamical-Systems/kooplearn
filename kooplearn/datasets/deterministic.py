@@ -1,7 +1,8 @@
 import numpy as np
-
 import scipy.integrate
+
 from kooplearn.datasets.misc import DataGenerator
+
 
 class DuffingOscillator(DataGenerator):
     """
@@ -36,8 +37,10 @@ class DuffingOscillator(DataGenerator):
         trajectory = duffing.sample(initial_conditions, T=100)
 
     """
-    
-    def __init__(self, alpha=0.5, beta=0.0625, gamma=0.1, delta=2.5, omega=2.0, dt=0.01):
+
+    def __init__(
+        self, alpha=0.5, beta=0.0625, gamma=0.1, delta=2.5, omega=2.0, dt=0.01
+    ):
         """
         Initializes a DuffingOscillator object.
 
@@ -67,7 +70,15 @@ class DuffingOscillator(DataGenerator):
         Returns:
             np.ndarray: An array representing the derivatives of the state [velocity, acceleration].
         """
-        dx = np.array([x[1], -self.delta * x[1] - self.alpha * x[0] - self.beta * x[0] ** 3 + self.gamma * np.cos(self.omega * t)])
+        dx = np.array(
+            [
+                x[1],
+                -self.delta * x[1]
+                - self.alpha * x[0]
+                - self.beta * x[0] ** 3
+                + self.gamma * np.cos(self.omega * t),
+            ]
+        )
         return dx
 
     def sample(self, X0: np.ndarray, T: int = 1):
@@ -85,8 +96,11 @@ class DuffingOscillator(DataGenerator):
         sim_time = self.dt * (T + 1)
         t_eval = np.linspace(0, sim_time, T + 1, endpoint=True)
         t_span = (0, t_eval[-1])
-        sol = scipy.integrate.solve_ivp(self.D, t_span, X0, t_eval=t_eval, method='RK45')
+        sol = scipy.integrate.solve_ivp(
+            self.D, t_span, X0, t_eval=t_eval, method="RK45"
+        )
         return sol.y.T
+
 
 class Lorenz63(DataGenerator):
     """
@@ -118,7 +132,7 @@ class Lorenz63(DataGenerator):
 
     """
 
-    def __init__(self, sigma=10, mu=28, beta = 8/3, dt=0.01):
+    def __init__(self, sigma=10, mu=28, beta=8 / 3, dt=0.01):
         """
         Initializes a Lorenz63 object.
 
@@ -132,7 +146,9 @@ class Lorenz63(DataGenerator):
         self.mu = mu
         self.beta = beta
         self.dt = dt
-        self.M_lin = np.array([[-self.sigma, self.sigma, 0], [self.mu, 0, 0], [0, 0, -self.beta]])
+        self.M_lin = np.array(
+            [[-self.sigma, self.sigma, 0], [self.mu, 0, 0], [0, 0, -self.beta]]
+        )
 
     def sample(self, X0: np.ndarray, T: int = 1):
         """
@@ -149,7 +165,9 @@ class Lorenz63(DataGenerator):
         sim_time = self.dt * (T + 1)
         t_eval = np.linspace(0, sim_time, T + 1, endpoint=True)
         t_span = (0, t_eval[-1])
-        sol = scipy.integrate.solve_ivp(self.D, t_span, X0, t_eval=t_eval, method='RK45')
+        sol = scipy.integrate.solve_ivp(
+            self.D, t_span, X0, t_eval=t_eval, method="RK45"
+        )
         return sol.y.T
 
     def D(self, t, x):
@@ -167,4 +185,3 @@ class Lorenz63(DataGenerator):
         dx[1] -= x[2] * x[0]
         dx[2] += x[0] * x[1]
         return dx
-
