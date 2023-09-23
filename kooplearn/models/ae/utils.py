@@ -1,5 +1,6 @@
 import torch
 from typing import Optional, Union
+from kooplearn._src.utils import ShapeError
 
 #A bit of code copy paste but it's ok for now
 def _encode(contexts_batch: torch.Tensor, encoder: torch.nn.Module):
@@ -30,6 +31,8 @@ def _evolve(encoded_contexts_batch: torch.Tensor, lookback_len: int, forward_ope
     # Caution: this method is designed only for internal calling.
     context_len = encoded_contexts_batch.shape[1]
     X_init = encoded_contexts_batch[:, lookback_len - 1, ...] #Initial condition
+    if X_init.ndim != 2:
+        raise ShapeError(f"The encoder network must return a 1D vector for each snapshot, while a shape {X_init.shape[1:]} tensor was received.")
     evolved_contexts_batch = torch.zeros_like(encoded_contexts_batch)
 
     #Apply Koopman operator

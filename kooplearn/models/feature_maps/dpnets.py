@@ -194,7 +194,7 @@ class DPModule(lightning.LightningModule):
             metric_deformation_loss *= self.hparams.metric_deformation_loss_coefficient
             metrics['train/metric_deformation_loss'] = metric_deformation_loss.item()
             svd_loss += metric_deformation_loss
-        
+        metrics['train/total_loss'] = svd_loss.item()
         self.log_dict(metrics, on_step=True, prog_bar=True, logger=True)
         return svd_loss
     
