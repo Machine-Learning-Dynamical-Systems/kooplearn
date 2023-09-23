@@ -2,6 +2,7 @@ import logging
 import os
 import pickle
 import weakref
+from copy import deepcopy
 from pathlib import Path
 from typing import Callable, Optional, Union
 
@@ -40,7 +41,6 @@ class ConsistentAE(BaseModel):
         backward_steps: int = 1,
         seed: Optional[int] = None,
     ):
-
         lightning.seed_everything(seed)
         self.lightning_trainer = trainer
         self.lightning_module = ConsistentAEModule(
@@ -130,7 +130,6 @@ class ConsistentAE(BaseModel):
         observables: Optional[Union[Callable, np.ndarray]] = None,
     ):
         data = self._np_to_torch(data)  # [n_samples, context_len == 1, *trail_dims]
-        n_samples = data.shape[0]
 
         check_is_fitted(self, ["_state_trail_dims"])
         assert tuple(data.shape[2:]) == self._state_trail_dims
@@ -138,7 +137,7 @@ class ConsistentAE(BaseModel):
         with torch.no_grad():
             encoded_data = _encode(
                 data, self.lightning_module.encoder
-            )  # [n_samples, context_len == 1, encoded_dim]
+            )  # [n_samples, context_len == 2, encoded_dim]
             evolution_operator = self.lightning_module.evolution_operator
             exp_evolution_operator = torch.matrix_power(evolution_operator, t)
             init_data = encoded_data[
@@ -147,15 +146,10 @@ class ConsistentAE(BaseModel):
             evolved_encoding = torch.mm(
                 exp_evolution_operator, init_data.T
             ).T  # [n_samples, encoded_dim]
-            evolved_encoding = evolved_encoding.view(
-                n_samples, self.lookback_len, -1
-            )  # [n_samples, context_len == 1, encoded_dim]
             evolved_data = _decode(
-                evolved_encoding, self.lightning_module.decoder
-            )  # [n_samples, context_len == 1, *trail_dims]
-            evolved_data = (
-                evolved_data.detach().cpu().numpy()[:, self.lookback_len - 1, ...]
-            )
+                evolved_encoding.unsqueeze(1), self.lightning_module.decoder
+            )  # [n_samples, 1 (snapshot), *trail_dims]
+            evolved_data = evolved_data.detach().cpu().numpy()[:, 0, ...]
         if observables is None:
             return evolved_data
         elif callable(observables):
@@ -219,7 +213,9 @@ class ConsistentAE(BaseModel):
             restored_obj = pickle.load(f)
         assert isinstance(restored_obj, cls)
         restored_obj.lightning_trainer = trainer
-        restored_obj.lightning_module = ConsistentAEModule.load_from_checkpoint(str(ckpt))
+        restored_obj.lightning_module = ConsistentAEModule.load_from_checkpoint(
+            str(ckpt)
+        )
         return restored_obj
 
     @property
@@ -250,7 +246,6 @@ class ConsistentAEModule(lightning.LightningModule):
         decoder_kwargs: dict = {},
         kooplearn_model_weakref: weakref.ReferenceType = None,
     ):
-
         super().__init__()
         self.save_hyperparameters(ignore=["kooplearn_model_weakref", "optimizer_fn"])
         self.encoder = encoder(**encoder_kwargs)
@@ -261,14 +256,19 @@ class ConsistentAEModule(lightning.LightningModule):
         self.bwd_evolution_operator = self._bwd_lin.weight
 
         self._optimizer = optimizer_fn
-        if ("lr" in optimizer_kwargs) or (
-            "learning_rate" in optimizer_kwargs
-        ):  # For Lightning's LearningRateFinder
-            self.lr = optimizer_kwargs.get("lr", optimizer_kwargs.get("learning_rate"))
+        _tmp_opt_kwargs = deepcopy(optimizer_kwargs)
+        if "lr" in _tmp_opt_kwargs:  # For Lightning's LearningRateFinder
+            self.lr = _tmp_opt_kwargs.pop("lr")
+            self.opt_kwargs = _tmp_opt_kwargs
+        else:
+            raise ValueError(
+                "You must specify a learning rate 'lr' key in the optimizer_kwargs."
+            )
         self._kooplearn_model_weakref = kooplearn_model_weakref
 
     def configure_optimizers(self):
-        return self._optimizer(self.parameters(), **self.hparams.optimizer_kwargs)
+        kw = self.opt_kwargs | {"lr": self.lr}
+        return self._optimizer(self.parameters(), **kw)
 
     def training_step(self, train_batch, batch_idx):
         lookback_len = self._kooplearn_model_weakref().lookback_len
@@ -277,7 +277,7 @@ class ConsistentAEModule(lightning.LightningModule):
         K = self.evolution_operator
         bwd_K = self.bwd_evolution_operator
 
-        evolved_batch = _evolve(encoded_batch, lookback_len, K)
+        evolved_batch = _evolve(encoded_batch, lookback_len, K, backward_operator=bwd_K)
         decoded_batch = _decode(evolved_batch, self.decoder)
 
         MSE = torch.nn.MSELoss()
@@ -298,6 +298,9 @@ class ConsistentAEModule(lightning.LightningModule):
             encoded_batch[:, lookback_len:, ...], evolved_batch[:, lookback_len:, ...]
         )
         # Consistency loss
+        cnst_loss = consistency_loss(
+            self.evolution_operator, self.bwd_evolution_operator
+        )
 
         alpha_rec = self.hparams.loss_weights.get("rec", 1.0)
         alpha_pred = self.hparams.loss_weights.get("pred", 1.0)
@@ -310,14 +313,14 @@ class ConsistentAEModule(lightning.LightningModule):
             + alpha_pred * pred_loss
             + alpha_bwd_pred * bwd_pred_loss
             + alpha_lin * lin_loss
-            + alpha_consistency * consistency_loss
+            + alpha_consistency * cnst_loss
         )
         metrics = {
             "train/reconstruction_loss": rec_loss.item(),
             "train/prediction_loss": pred_loss.item(),
             "train/backward_prediction_loss": bwd_pred_loss.item(),
             "train/linear_loss": lin_loss.item(),
-            "train/consistency_loss": consistency_loss.item(),
+            "train/consistency_loss": cnst_loss.item(),
             "train/full_loss": loss.item(),
         }
         self.log_dict(metrics, on_step=True, prog_bar=True, logger=True)

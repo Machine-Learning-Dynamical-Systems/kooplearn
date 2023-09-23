@@ -2,6 +2,7 @@ import logging
 import os
 import pickle
 import weakref
+from copy import deepcopy
 from pathlib import Path
 from typing import Optional
 
@@ -34,7 +35,6 @@ class DPNet(TrainableFeatureMap):
         center_covariances: bool = True,
         seed: Optional[int] = None,
     ):
-
         if seed is not None:
             lightning.seed_everything(seed)
 
@@ -176,16 +176,19 @@ class DPModule(lightning.LightningModule):
         center_covariances: bool = True,
         kooplearn_feature_map_weakref=None,
     ):
-
         super().__init__()
 
         self.save_hyperparameters(
             ignore=["encoder", "optimizer_fn", "kooplearn_feature_map_weakref"]
         )
-        if ("lr" in optimizer_kwargs) or (
-            "learning_rate" in optimizer_kwargs
-        ):  # For Lightning's LearningRateFinder
-            self.lr = optimizer_kwargs.get("lr", optimizer_kwargs.get("learning_rate"))
+        _tmp_opt_kwargs = deepcopy(optimizer_kwargs)
+        if "lr" in _tmp_opt_kwargs:  # For Lightning's LearningRateFinder
+            self.lr = _tmp_opt_kwargs.pop("lr")
+            self.opt_kwargs = _tmp_opt_kwargs
+        else:
+            raise ValueError(
+                "You must specify a learning rate 'lr' key in the optimizer_kwargs."
+            )
         self.encoder = encoder(**encoder_kwargs)
         if encoder_timelagged is not None:
             self.encoder_timelagged = encoder_timelagged(**encoder_timelagged_kwargs)
@@ -195,7 +198,8 @@ class DPModule(lightning.LightningModule):
         self._kooplearn_feature_map_weakref = kooplearn_feature_map_weakref
 
     def configure_optimizers(self):
-        return self._optimizer(self.parameters(), **self.hparams.optimizer_kwargs)
+        kw = self.opt_kwargs | {"lr": self.lr}
+        return self._optimizer(self.parameters(), **kw)
 
     def training_step(self, train_batch, batch_idx):
         X, Y = train_batch[:, :-1, ...], train_batch[:, 1:, ...]

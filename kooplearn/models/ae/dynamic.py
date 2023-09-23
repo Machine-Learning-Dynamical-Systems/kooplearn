@@ -2,6 +2,7 @@ import logging
 import os
 import pickle
 import weakref
+from copy import deepcopy
 from pathlib import Path
 from typing import Callable, Optional, Union
 
@@ -34,7 +35,6 @@ class DynamicAE(BaseModel):
         use_lstsq_for_evolution: bool = False,  # If true, implements "Deep Dynamical Modeling and Control of Unsteady Fluid Flows" by Morton et al. (2018)
         seed: Optional[int] = None,
     ):
-
         lightning.seed_everything(seed)
         self.lightning_trainer = trainer
         self.lightning_module = DynamicAEModule(
@@ -146,15 +146,10 @@ class DynamicAE(BaseModel):
             evolved_encoding = torch.mm(
                 exp_evolution_operator, init_data.T
             ).T  # [n_samples, encoded_dim]
-            evolved_encoding = evolved_encoding.view(
-                n_samples, self.lookback_len, -1
-            )  # [n_samples, context_len == 1, encoded_dim]
             evolved_data = _decode(
-                evolved_encoding, self.lightning_module.decoder
-            )  # [n_samples, context_len == 1, *trail_dims]
-            evolved_data = (
-                evolved_data.detach().cpu().numpy()[:, self.lookback_len - 1, ...]
-            )
+                evolved_encoding.unsqueeze(1), self.lightning_module.decoder
+            )  # [n_samples, 1 (snapshot), *trail_dims]
+            evolved_data = evolved_data.detach().cpu().numpy()[:, 0, ...]
         if observables is None:
             return evolved_data
         elif callable(observables):
@@ -249,7 +244,6 @@ class DynamicAEModule(lightning.LightningModule):
         use_lstsq_for_evolution: bool = False,
         kooplearn_model_weakref: weakref.ReferenceType = None,
     ):
-
         super().__init__()
         self.save_hyperparameters(ignore=["kooplearn_model_weakref", "optimizer_fn"])
         self.encoder = encoder(**encoder_kwargs)
@@ -258,10 +252,14 @@ class DynamicAEModule(lightning.LightningModule):
             self._lin = torch.nn.Linear(latent_dim, latent_dim, bias=False)
             self.evolution_operator = self._lin.weight
         self._optimizer = optimizer_fn
-        if ("lr" in optimizer_kwargs) or (
-            "learning_rate" in optimizer_kwargs
-        ):  # For Lightning's LearningRateFinder
-            self.lr = optimizer_kwargs.get("lr", optimizer_kwargs.get("learning_rate"))
+        _tmp_opt_kwargs = deepcopy(optimizer_kwargs)
+        if "lr" in _tmp_opt_kwargs:  # For Lightning's LearningRateFinder
+            self.lr = _tmp_opt_kwargs.pop("lr")
+            self.opt_kwargs = _tmp_opt_kwargs
+        else:
+            raise ValueError(
+                "You must specify a learning rate 'lr' key in the optimizer_kwargs."
+            )
         self._kooplearn_model_weakref = kooplearn_model_weakref
 
     def _lstsq_evolution(self, batch: torch.Tensor):
@@ -270,7 +268,8 @@ class DynamicAEModule(lightning.LightningModule):
         return (torch.linalg.lstsq(X, Y).solution).T
 
     def configure_optimizers(self):
-        return self._optimizer(self.parameters(), **self.hparams.optimizer_kwargs)
+        kw = self.opt_kwargs | {"lr": self.lr}
+        return self._optimizer(self.parameters(), **kw)
 
     def training_step(self, train_batch, batch_idx):
         lookback_len = self._kooplearn_model_weakref().lookback_len

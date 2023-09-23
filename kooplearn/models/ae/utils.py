@@ -46,7 +46,7 @@ def _evolve(
     encoded_contexts_batch: torch.Tensor,
     lookback_len: int,
     forward_operator: Union[torch.nn.Parameter, torch.Tensor],
-    backward_operator: Optional[: Union[torch.nn.Parameter, torch.Tensor]] = None,
+    backward_operator: Optional[Union[torch.nn.Parameter, torch.Tensor]] = None,
 ):
     # Caution: this method is designed only for internal calling.
     context_len = encoded_contexts_batch.shape[1]
@@ -83,8 +83,21 @@ def _evolve(
 
 def consistency_loss(
     forward_operator: Union[torch.nn.Parameter, torch.Tensor],
-    backward_operator: Optional[: Union[torch.nn.Parameter, torch.Tensor]],
+    backward_operator: Union[torch.nn.Parameter, torch.Tensor],
 ):
     assert (
         forward_operator.shape == backward_operator.shape
     ), "The forward and backward operators must have the same shape."
+    terms = []
+    dim = forward_operator.shape[0]
+    for k in range(1, dim + 1):
+        fb = torch.mm(forward_operator[:k, :], backward_operator[:, :k]) - torch.eye(
+            k, device=forward_operator.device
+        )
+        bf = torch.mm(backward_operator[:k, :], forward_operator[:, :k]) - torch.eye(
+            k, device=forward_operator.device
+        )
+        terms.append(
+            torch.linalg.matrix_norm(fb) ** 2 + torch.linalg.matrix_norm(bf) ** 2
+        )
+    return 0.5 * torch.mean(torch.stack(terms))
