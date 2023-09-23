@@ -11,7 +11,7 @@ from scipy.linalg import eig
 from kooplearn._src.check_deps import check_torch_deps
 from kooplearn._src.utils import ShapeError, check_contexts_shape, check_is_fitted
 from kooplearn.abc import BaseModel
-from kooplearn.models.ae.utils import _decode, _encode, _evolve
+from kooplearn.models.ae.utils import _decode, _encode, _evolve, consistency_loss
 
 logger = logging.getLogger("kooplearn")
 check_torch_deps()
@@ -43,7 +43,7 @@ class ConsistentAE(BaseModel):
 
         lightning.seed_everything(seed)
         self.lightning_trainer = trainer
-        self.lightning_module = DynamicAEModule(
+        self.lightning_module = ConsistentAEModule(
             encoder,
             decoder,
             latent_dim,
@@ -219,7 +219,7 @@ class ConsistentAE(BaseModel):
             restored_obj = pickle.load(f)
         assert isinstance(restored_obj, cls)
         restored_obj.lightning_trainer = trainer
-        restored_obj.lightning_module = DynamicAEModule.load_from_checkpoint(str(ckpt))
+        restored_obj.lightning_module = ConsistentAEModule.load_from_checkpoint(str(ckpt))
         return restored_obj
 
     @property

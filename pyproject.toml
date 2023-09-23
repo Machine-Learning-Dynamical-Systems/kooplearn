@@ -47,7 +47,9 @@ dev = [
   "kooplearn[torch]",
   "kooplearn[visualizer]",
   "kooplearn[docs]",
-  "pytest"
+  "pytest",
+  "black",
+  "isort",
 ]
 
 [project.urls]  # Optional
