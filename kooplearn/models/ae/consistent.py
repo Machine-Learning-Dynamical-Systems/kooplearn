@@ -120,9 +120,6 @@ class ConsistentAE(BaseModel):
         model_device = self.lightning_module.device
         return torch.from_numpy(data.copy()).float().to(model_device)
 
-    def _torch_to_np(self, data: torch.Tensor):
-        pass
-
     def predict(
         self,
         data: np.ndarray,
@@ -137,7 +134,7 @@ class ConsistentAE(BaseModel):
         with torch.no_grad():
             encoded_data = _encode(
                 data, self.lightning_module.encoder
-            )  # [n_samples, context_len == 2, encoded_dim]
+            )  # [n_samples, lookback_len, encoded_dim]
             evolution_operator = self.lightning_module.evolution_operator
             exp_evolution_operator = torch.matrix_power(evolution_operator, t)
             init_data = encoded_data[
@@ -149,7 +146,8 @@ class ConsistentAE(BaseModel):
             evolved_data = _decode(
                 evolved_encoding.unsqueeze(1), self.lightning_module.decoder
             )  # [n_samples, 1 (snapshot), *trail_dims]
-            evolved_data = evolved_data.detach().cpu().numpy()[:, 0, ...]
+            evolved_data = evolved_data.squeeze(1)
+            evolved_data = evolved_data.detach().cpu().numpy()
         if observables is None:
             return evolved_data
         elif callable(observables):
@@ -294,9 +292,7 @@ class ConsistentAEModule(lightning.LightningModule):
             decoded_batch[:, lookback_len - 1 :, ...],
         )
         # Linear loss
-        lin_loss = MSE(
-            encoded_batch[:, lookback_len:, ...], evolved_batch[:, lookback_len:, ...]
-        )
+        lin_loss = MSE(encoded_batch, evolved_batch)
         # Consistency loss
         cnst_loss = consistency_loss(
             self.evolution_operator, self.bwd_evolution_operator

@@ -114,9 +114,6 @@ class DynamicAE(BaseModel):
         model_device = self.lightning_module.device
         return torch.from_numpy(data.copy()).float().to(model_device)
 
-    def _torch_to_np(self, data: torch.Tensor):
-        pass
-
     def predict(
         self,
         data: np.ndarray,
@@ -124,7 +121,6 @@ class DynamicAE(BaseModel):
         observables: Optional[Union[Callable, np.ndarray]] = None,
     ):
         data = self._np_to_torch(data)  # [n_samples, context_len == 1, *trail_dims]
-        n_samples = data.shape[0]
 
         check_is_fitted(self, ["_state_trail_dims"])
         assert tuple(data.shape[2:]) == self._state_trail_dims
@@ -149,7 +145,8 @@ class DynamicAE(BaseModel):
             evolved_data = _decode(
                 evolved_encoding.unsqueeze(1), self.lightning_module.decoder
             )  # [n_samples, 1 (snapshot), *trail_dims]
-            evolved_data = evolved_data.detach().cpu().numpy()[:, 0, ...]
+            evolved_data = evolved_data.squeeze(1)
+            evolved_data = evolved_data.detach().cpu().numpy()
         if observables is None:
             return evolved_data
         elif callable(observables):
@@ -284,7 +281,8 @@ class DynamicAEModule(lightning.LightningModule):
         MSE = torch.nn.MSELoss()
         # Reconstruction + prediction loss
         rec_loss = MSE(
-            train_batch[:, :lookback_len, ...], decoded_batch[:, :lookback_len, ...]
+            train_batch[:, lookback_len - 1, ...],
+            decoded_batch[:, lookback_len - 1, ...],
         )
         pred_loss = MSE(
             train_batch[:, lookback_len:, ...], decoded_batch[:, lookback_len:, ...]
@@ -300,10 +298,7 @@ class DynamicAEModule(lightning.LightningModule):
         }
         if not self.hparams.use_lstsq_for_evolution:
             # Linear loss
-            lin_loss = MSE(
-                encoded_batch[:, lookback_len:, ...],
-                evolved_batch[:, lookback_len:, ...],
-            )
+            lin_loss = MSE(encoded_batch, evolved_batch)
             metrics["train/linear_loss"] = lin_loss.item()
             alpha_lin = self.hparams.loss_weights.get("lin", 1.0)
             loss += alpha_lin * lin_loss

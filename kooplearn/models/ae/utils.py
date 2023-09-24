@@ -57,26 +57,19 @@ def _evolve(
         )
     evolved_contexts_batch = torch.zeros_like(encoded_contexts_batch)
 
-    # Apply Koopman operator
-    K_forward = forward_operator
-    if backward_operator is not None:
-        K_backward = backward_operator
-    else:
-        K_backward = None
-
     for exp in range(context_len):  # Not efficient but working
         exp = exp - lookback_len + 1
         if exp < 0:
-            if K_backward is None:
-                # Use torch.linalg.solve
-                K_exp = torch.matrix_power(K_forward, -exp)
-                Z = torch.linalg.solve(K_exp, X_init.T).T
+            if backward_operator is None:
+                raise ValueError(
+                    "The backward operator must be provided if the evolution is backward."
+                )
             else:
-                K_exp = torch.matrix_power(K_backward, -exp)
-                Z = torch.mm(K_exp, X_init.T).T
+                pwd_operator = torch.matrix_power(backward_operator, -exp)
+                Z = torch.mm(pwd_operator, X_init.T).T
         else:
-            K_exp = torch.matrix_power(K_forward, exp)
-            Z = torch.mm(K_exp, X_init.T).T
+            pwd_operator = torch.matrix_power(forward_operator, exp)
+            Z = torch.mm(pwd_operator, X_init.T).T
         evolved_contexts_batch[:, exp, ...] = Z
     return evolved_contexts_batch  # [batch_size, context_len, latent_dim]
 
