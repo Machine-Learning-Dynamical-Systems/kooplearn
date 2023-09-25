@@ -6,7 +6,7 @@ import pytest
 from scipy.stats import special_ortho_group
 from sklearn.gaussian_process.kernels import RBF, DotProduct, Matern
 
-from kooplearn._src.context_window_utils import traj_to_contexts
+from kooplearn.data import traj_to_contexts
 from kooplearn.datasets.stochastic import LinearModel
 from kooplearn.models import KernelDMD
 
@@ -39,7 +39,6 @@ def make_linear_system():
 def test_KernelDMD_fit_predict_eig_modes_save_load(
     kernel, reduced_rank, rank, solver, tikhonov_reg, observables, lookback_len
 ):
-
     dataset = make_linear_system()
     _Z = dataset.sample(np.zeros(DIM), NUM_SAMPLES)
     data = traj_to_contexts(_Z, lookback_len + 1)

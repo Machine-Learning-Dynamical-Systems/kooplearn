@@ -5,8 +5,8 @@ import numpy as np
 import pytest
 from scipy.stats import special_ortho_group
 
-from kooplearn._src.context_window_utils import traj_to_contexts
 from kooplearn.abc import FeatureMap
+from kooplearn.data import traj_to_contexts
 from kooplearn.datasets.stochastic import LinearModel
 from kooplearn.models.edmd import ExtendedDMD
 from kooplearn.models.feature_maps import IdentityFeatureMap
@@ -49,7 +49,6 @@ class PolyFeatureMap(FeatureMap):
 def test_ExtendedDMD_fit_predict_eig_modes_save_load(
     feature_map, reduced_rank, rank, tikhonov_reg, svd_solver, observables, lookback_len
 ):
-
     dataset = make_linear_system()
     _Z = dataset.sample(np.zeros(DIM), NUM_SAMPLES)
     data = traj_to_contexts(_Z, lookback_len + 1)
