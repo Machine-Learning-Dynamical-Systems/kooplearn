@@ -126,10 +126,10 @@ class ConsistentAE(BaseModel):
         t: int = 1,
         observables: Optional[Union[Callable, np.ndarray]] = None,
     ):
-        data = self._np_to_torch(data)  # [n_samples, context_len == 1, *trail_dims]
+        torch_data = self._np_to_torch(data)  # [n_samples, lookback_len, *trail_dims]
 
         check_is_fitted(self, ["_state_trail_dims"])
-        assert tuple(data.shape[2:]) == self._state_trail_dims
+        assert tuple(torch_data.shape[2:]) == self._state_trail_dims
 
         with torch.no_grad():
             encoded_data = _encode(
