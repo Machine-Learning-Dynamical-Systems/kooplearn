@@ -62,7 +62,12 @@ class ConsistentAE(BaseModel):
         )
         self.seed = seed
         self._is_fitted = False
-        self._bwd_steps = backward_steps
+        if backward_steps < 0:
+            raise ValueError(
+                f"backward_steps must be >= 0, got {backward_steps} instead."
+            )
+        else:
+            self._bwd_steps = backward_steps
         # Todo: Add warning on lookback_len for this model
 
     def fit(
@@ -96,20 +101,22 @@ class ConsistentAE(BaseModel):
             train_dataloaders is not None or val_dataloaders is not None
         ) and datamodule is not None:
             raise ValueError(
-                "You cannot pass `train_dataloader` or `val_dataloaders` to `VAMPNet.fit(datamodule=...)`"
+                "You cannot pass `train_dataloader` or `val_dataloaders` to `fit(datamodule=...)`"
             )
         # Get the shape of the first batch to determine the lookback_len
         if train_dataloaders is None:
             assert isinstance(datamodule, lightning.LightningDataModule)
             for batch in datamodule.train_dataloader():
-                self.lightning_module.dry_run(batch)
-                self._state_trail_dims = tuple(batch.shape[2:])
+                with torch.no_grad():
+                    self.lightning_module.dry_run(batch)
+                    self._state_trail_dims = tuple(batch.shape[2:])
                 break
         else:
             assert isinstance(train_dataloaders, torch.utils.data.DataLoader)
             for batch in train_dataloaders:
-                self.lightning_module.dry_run(batch)
-                self._state_trail_dims = tuple(batch.shape[2:])
+                with torch.no_grad():
+                    self.lightning_module.dry_run(batch)
+                    self._state_trail_dims = tuple(batch.shape[2:])
                 break
 
         self.lightning_trainer.fit(
@@ -270,6 +277,7 @@ class ConsistentAEModule(lightning.LightningModule):
 
     def training_step(self, train_batch, batch_idx):
         lookback_len = self._kooplearn_model_weakref().lookback_len
+        present_snapshot_idx = lookback_len - 1
         encoded_batch = encode_contexts(train_batch, self.encoder)
 
         K = self.evolution_operator
@@ -290,8 +298,8 @@ class ConsistentAEModule(lightning.LightningModule):
             train_batch[:, lookback_len:, ...], decoded_batch[:, lookback_len:, ...]
         )
         bwd_pred_loss = MSE(
-            train_batch[:, lookback_len - 1 :, ...],
-            decoded_batch[:, lookback_len - 1 :, ...],
+            train_batch[:, : (lookback_len - 1), ...],
+            decoded_batch[:, : (lookback_len - 1), ...],
         )
         # Linear loss
         lin_loss = MSE(encoded_batch, evolved_batch)
@@ -318,7 +326,7 @@ class ConsistentAEModule(lightning.LightningModule):
             "train/prediction_loss": pred_loss.item(),
             "train/backward_prediction_loss": bwd_pred_loss.item(),
             "train/linear_loss": lin_loss.item(),
-            "train/consistency_loss": cnst_loss.item(),
+            # "train/consistency_loss": cnst_loss.item(),
             "train/full_loss": loss.item(),
         }
         self.log_dict(metrics, on_step=True, prog_bar=True, logger=True)

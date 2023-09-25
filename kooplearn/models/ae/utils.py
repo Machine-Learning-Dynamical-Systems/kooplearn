@@ -8,38 +8,31 @@ from kooplearn._src.utils import ShapeError
 # A bit of code copy paste but it's ok for now
 def encode_contexts(contexts_batch: torch.Tensor, encoder: torch.nn.Module):
     # Caution: this method is designed only for internal calling.
-    batch_size = contexts_batch.shape[0]
     context_len = contexts_batch.shape[1]
-    trail_dims = contexts_batch.shape[2:]
-
-    X = contexts_batch.reshape(
-        batch_size * context_len, *trail_dims
-    )  # Encode each snapshot of the context window in parallel
-    Z = encoder(X)
-    latent_dim = Z.shape[1:]
+    Z = []
+    for i in range(context_len):  # Inefficient but working
+        X = contexts_batch[:, i, ...]
+        Z.append(encoder(X))
+    Z = torch.stack(Z, dim=1)
+    latent_dim = Z.shape[2:]
     assert (
         len(latent_dim) == 1
     ), "The encoder output must be a 1-dimensional tensor (i.e. a vector)."
-    return Z.reshape(
-        batch_size, context_len, *latent_dim
-    )  # [batch_size, context_len, latent_dim]
+    return Z
 
 
 def decode_contexts(encoded_contexts_batch: torch.Tensor, decoder: torch.nn.Module):
     # Caution: this method is designed only for internal calling.
-    batch_size = encoded_contexts_batch.shape[0]
     context_len = encoded_contexts_batch.shape[1]
-    latent_dim = encoded_contexts_batch.shape[2:]
     assert (
-        len(latent_dim) == 1
+        len(encoded_contexts_batch.shape[2:]) == 1
     ), "The decoder input must be a 1-dimensional tensor (i.e. a vector)."
-
-    X = encoded_contexts_batch.reshape(batch_size * context_len, *latent_dim)
-    Z = decoder(X)
-    trail_dims = Z.shape[1:]
-    return Z.reshape(
-        batch_size, context_len, *trail_dims
-    )  # [batch_size, context_len, **trail_dims]
+    Z = []
+    for i in range(context_len):  # Inefficient but working
+        X = encoded_contexts_batch[:, i, ...]
+        Z.append(decoder(X))
+    Z = torch.stack(Z, dim=1)
+    return Z
 
 
 def evolve_contexts(
@@ -57,8 +50,8 @@ def evolve_contexts(
         )
     evolved_contexts_batch = torch.zeros_like(encoded_contexts_batch)
 
-    for exp in range(context_len):  # Not efficient but working
-        exp = exp - lookback_len + 1
+    for ctx_idx in range(context_len):  # Not efficient but working
+        exp = ctx_idx - lookback_len + 1
         if exp < 0:
             if backward_operator is None:
                 raise ValueError(
@@ -70,7 +63,7 @@ def evolve_contexts(
         else:
             pwd_operator = torch.matrix_power(forward_operator, exp)
             Z = torch.mm(pwd_operator, X_init.T).T
-        evolved_contexts_batch[:, exp, ...] = Z
+        evolved_contexts_batch[:, ctx_idx, ...] = Z
     return evolved_contexts_batch  # [batch_size, context_len, latent_dim]
 
 

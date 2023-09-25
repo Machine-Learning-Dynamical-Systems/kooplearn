@@ -95,14 +95,16 @@ class DynamicAE(BaseModel):
         if train_dataloaders is None:
             assert isinstance(datamodule, lightning.LightningDataModule)
             for batch in datamodule.train_dataloader():
-                self.lightning_module.dry_run(batch)
-                self._state_trail_dims = tuple(batch.shape[2:])
+                with torch.no_grad():
+                    self.lightning_module.dry_run(batch)
+                    self._state_trail_dims = tuple(batch.shape[2:])
                 break
         else:
             assert isinstance(train_dataloaders, torch.utils.data.DataLoader)
             for batch in train_dataloaders:
-                self.lightning_module.dry_run(batch)
-                self._state_trail_dims = tuple(batch.shape[2:])
+                with torch.no_grad():
+                    self.lightning_module.dry_run(batch)
+                    self._state_trail_dims = tuple(batch.shape[2:])
                 break
 
         self.lightning_trainer.fit(
