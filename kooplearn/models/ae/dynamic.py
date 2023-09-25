@@ -12,7 +12,12 @@ from scipy.linalg import eig
 from kooplearn._src.check_deps import check_torch_deps
 from kooplearn._src.utils import ShapeError, check_contexts_shape, check_is_fitted
 from kooplearn.abc import BaseModel
-from kooplearn.models.ae.utils import _decode, _encode, _evolve
+from kooplearn.models.ae.utils import (
+    decode_contexts,
+    encode_contexts,
+    evolve_batch,
+    evolve_contexts,
+)
 
 logger = logging.getLogger("kooplearn")
 check_torch_deps()
@@ -123,32 +128,18 @@ class DynamicAE(BaseModel):
         torch_data = self._np_to_torch(
             data
         )  # [n_samples, context_len == 1, *trail_dims]
-
         check_is_fitted(self, ["_state_trail_dims"])
-        assert tuple(torch_data
-                     .shape[2:]) == self._state_trail_dims
+        assert tuple(torch_data.shape[2:]) == self._state_trail_dims
 
         with torch.no_grad():
-            encoded_data = _encode(
-                data, self.lightning_module.encoder
-            )  # [n_samples, context_len == 1, encoded_dim]
-            if self.lightning_module.hparams.use_lstsq_for_evolution:
-                evolution_operator = self.lightning_module._lstsq_evolution(
-                    encoded_data
-                )
-            else:
-                evolution_operator = self.lightning_module.evolution_operator
-            exp_evolution_operator = torch.matrix_power(evolution_operator, t)
-            init_data = encoded_data[
-                :, self.lookback_len - 1, ...
-            ]  # [n_samples, encoded_dim]
-            evolved_encoding = torch.mm(
-                exp_evolution_operator, init_data.T
-            ).T  # [n_samples, encoded_dim]
-            evolved_data = _decode(
-                evolved_encoding.unsqueeze(1), self.lightning_module.decoder
-            )  # [n_samples, 1 (snapshot), *trail_dims]
-            evolved_data = evolved_data.squeeze(1)
+            init_data = torch_data[:, self.lookback_len - 1, ...]
+            evolved_data = evolve_batch(
+                init_data,
+                t,
+                self.lightning_module.encoder,
+                self.lightning_module.decoder,
+                self.lightning_module.evolution_operator,
+            )
             evolved_data = evolved_data.detach().cpu().numpy()
         if observables is None:
             return evolved_data
@@ -273,13 +264,13 @@ class DynamicAEModule(lightning.LightningModule):
 
     def training_step(self, train_batch, batch_idx):
         lookback_len = self._kooplearn_model_weakref().lookback_len
-        encoded_batch = _encode(train_batch, self.encoder)
+        encoded_batch = encode_contexts(train_batch, self.encoder)
         if self.hparams.use_lstsq_for_evolution:
             K = self._lstsq_evolution(encoded_batch)
         else:
             K = self.evolution_operator
-        evolved_batch = _evolve(encoded_batch, lookback_len, K)
-        decoded_batch = _decode(evolved_batch, self.decoder)
+        evolved_batch = evolve_contexts(encoded_batch, lookback_len, K)
+        decoded_batch = decode_contexts(evolved_batch, self.decoder)
 
         MSE = torch.nn.MSELoss()
         # Reconstruction + prediction loss
@@ -314,15 +305,17 @@ class DynamicAEModule(lightning.LightningModule):
         lookback_len = self._kooplearn_model_weakref().lookback_len
         check_contexts_shape(batch, lookback_len)
         # Caution: this method is designed only for internal calling.
-        Z = _encode(batch, self.encoder)
+        Z = encode_contexts(batch, self.encoder)
         if self.hparams.use_lstsq_for_evolution:
             X = Z[:, 0, ...]
             Y = Z[:, 1, ...]
             evolution_operator = (torch.linalg.lstsq(X, Y).solution).T
         else:
             evolution_operator = self.evolution_operator
-        Z_evolved = _evolve(Z, lookback_len, evolution_operator)
-        X_evol = _decode(Z_evolved, self.decoder)  # Should fail if the shape is wrong
+        Z_evolved = evolve_contexts(Z, lookback_len, evolution_operator)
+        X_evol = decode_contexts(
+            Z_evolved, self.decoder
+        )  # Should fail if the shape is wrong
         assert Z.shape == Z_evolved.shape
 
         if batch.shape != X_evol.shape:

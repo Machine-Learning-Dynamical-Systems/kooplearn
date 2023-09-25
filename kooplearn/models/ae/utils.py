@@ -6,13 +6,13 @@ from kooplearn._src.utils import ShapeError
 
 
 # A bit of code copy paste but it's ok for now
-def _encode(contexts_batch: torch.Tensor, encoder: torch.nn.Module):
+def encode_contexts(contexts_batch: torch.Tensor, encoder: torch.nn.Module):
     # Caution: this method is designed only for internal calling.
     batch_size = contexts_batch.shape[0]
     context_len = contexts_batch.shape[1]
     trail_dims = contexts_batch.shape[2:]
 
-    X = contexts_batch.view(
+    X = contexts_batch.reshape(
         batch_size * context_len, *trail_dims
     )  # Encode each snapshot of the context window in parallel
     Z = encoder(X)
@@ -20,12 +20,12 @@ def _encode(contexts_batch: torch.Tensor, encoder: torch.nn.Module):
     assert (
         len(latent_dim) == 1
     ), "The encoder output must be a 1-dimensional tensor (i.e. a vector)."
-    return Z.view(
+    return Z.reshape(
         batch_size, context_len, *latent_dim
     )  # [batch_size, context_len, latent_dim]
 
 
-def _decode(encoded_contexts_batch: torch.Tensor, decoder: torch.nn.Module):
+def decode_contexts(encoded_contexts_batch: torch.Tensor, decoder: torch.nn.Module):
     # Caution: this method is designed only for internal calling.
     batch_size = encoded_contexts_batch.shape[0]
     context_len = encoded_contexts_batch.shape[1]
@@ -34,15 +34,15 @@ def _decode(encoded_contexts_batch: torch.Tensor, decoder: torch.nn.Module):
         len(latent_dim) == 1
     ), "The decoder input must be a 1-dimensional tensor (i.e. a vector)."
 
-    X = encoded_contexts_batch.view(batch_size * context_len, *latent_dim)
+    X = encoded_contexts_batch.reshape(batch_size * context_len, *latent_dim)
     Z = decoder(X)
     trail_dims = Z.shape[1:]
-    return Z.view(
+    return Z.reshape(
         batch_size, context_len, *trail_dims
     )  # [batch_size, context_len, **trail_dims]
 
 
-def _evolve(
+def evolve_contexts(
     encoded_contexts_batch: torch.Tensor,
     lookback_len: int,
     forward_operator: Union[torch.nn.Parameter, torch.Tensor],
@@ -62,7 +62,7 @@ def _evolve(
         if exp < 0:
             if backward_operator is None:
                 raise ValueError(
-                    "The backward operator must be provided if the evolution is backward."
+                    "No backward operator provided, but lookback length greater than 1."
                 )
             else:
                 pwd_operator = torch.matrix_power(backward_operator, -exp)
@@ -72,6 +72,24 @@ def _evolve(
             Z = torch.mm(pwd_operator, X_init.T).T
         evolved_contexts_batch[:, exp, ...] = Z
     return evolved_contexts_batch  # [batch_size, context_len, latent_dim]
+
+
+def evolve_batch(
+    batch: torch.Tensor,
+    t: int,
+    encoder: torch.nn.Module,
+    decoder: torch.nn.Module,
+    forward_operator: Union[torch.nn.Parameter, torch.Tensor],
+):
+    Z = encoder(batch)
+    assert (
+        len(Z.shape[1:]) == 1
+    ), "The encoder output must be a 1-dimensional tensor (i.e. a vector)."
+    evolution_operator = torch.matrix_power(forward_operator, t)
+    Z_evolved = torch.mm(evolution_operator, Z.T).T
+    batch_evolved = decoder(Z_evolved)
+    assert batch.shape == batch_evolved.shape
+    return batch_evolved
 
 
 def consistency_loss(
