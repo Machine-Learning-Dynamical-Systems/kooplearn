@@ -277,7 +277,6 @@ class ConsistentAEModule(lightning.LightningModule):
 
     def training_step(self, train_batch, batch_idx):
         lookback_len = self._kooplearn_model_weakref().lookback_len
-        present_snapshot_idx = lookback_len - 1
         encoded_batch = encode_contexts(train_batch, self.encoder)
 
         K = self.evolution_operator
@@ -294,6 +293,7 @@ class ConsistentAEModule(lightning.LightningModule):
             train_batch[:, lookback_len - 1, ...],
             decoded_batch[:, lookback_len - 1, ...],
         )
+
         pred_loss = MSE(
             train_batch[:, lookback_len:, ...], decoded_batch[:, lookback_len:, ...]
         )
