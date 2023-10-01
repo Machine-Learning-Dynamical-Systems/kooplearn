@@ -1,4 +1,7 @@
 # Roadmap
+#### Oct 1, 2023:
+
+
 #### Sep 19, 2023:
 Do **not** perform shape inference, on tensors of with `ndim` smaller than the minimum required. I should rather return a (standard) Error.
 
@@ -19,10 +22,10 @@ A list of models to implement:
  (2017)](https://arxiv.org/abs/1712.09707)
     - Not adding the sup-norm term for the moment. Ask the authors clarifications about it. 
     - Need to implement the `modes` and eigenfunction evaluation. (Done for this will be done for every AE model)
-    - In the `kooplearn` data paradigm describe how the basic functions of `kooplearn.abc.BaseModel` should work in practice. At the moment the scheme is that `predict: [batch_size, context_len, *features] -> [batch_size, *features]`.
-- [ ] [Deep Dynamical Modeling and Control of
-Unsteady Fluid Flows](https://arxiv.org/pdf/1805.07472.pdf)
-- [ ] [Forecasting Sequential Data using Consistent Koopman Autoencoders
+    - In the `kooplearn` data paradigm describe how the basic functions of `kooplearn.abc.BaseModel` should work in practice. At the moment the scheme is that `predict: [batch_size, context_len, *features] -> [batch_size, *features]`.  - _TO BE TESTED AND DOCUMENTED_
+- [x] [Deep Dynamical Modeling and Control of
+Unsteady Fluid Flows](https://arxiv.org/pdf/1805.07472.pdf) - _TO BE TESTED AND DOCUMENTED_
+- [x] [Forecasting Sequential Data using Consistent Koopman Autoencoders - _TO BE TESTED AND DOCUMENTED_
  (2020)](https://arxiv.org/abs/2003.02236)
 - [ ] [Learning Koopman Invariant Subspaces for Dynamic Mode Decomposition
 (2017)](https://arxiv.org/abs/1710.04340)
@@ -33,7 +36,7 @@ Unsteady Fluid Flows](https://arxiv.org/pdf/1805.07472.pdf)
 - [ ] [Extended dynamic mode decomposition with dictionary learning: a data-driven adaptive spectral decomposition of the Koopman operator (2017)](https://arxiv.org/abs/1707.00225)
 - [x] [VAMPnets for deep learning of molecular kinetics](https://www.nature.com/articles/s41467-017-02388-1)
   - Missing the $p \neq 2$ case to implement in `kooplearn.nn.functional`
-  - Missing docstrings
+  - ~~Missing docstrings~~
 ***
 #### Sep 11, 2023:
 Implemented most of the functionality and docs for the context window data paradigm. Still missing `DPNets` & other auto-encoder based methods.
