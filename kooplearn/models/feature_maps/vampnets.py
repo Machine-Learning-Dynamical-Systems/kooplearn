@@ -17,15 +17,32 @@ logger = logging.getLogger("kooplearn")
 
 
 class VAMPNet(TrainableFeatureMap):
+    """Variational Approach for learning Markov Processes.
+
+    Implements the VAMPNets :footcite:p:`Mardt2018` feature map, which maximizes the VAMP score of :footcite:t:`Wu2019`. Can be used in conjunction to :class:`kooplearn.models.DeepEDMD` to learn a Koopman/Transfer operator from data. See also its official implementation in `deeptime <https://deeptime-ml.github.io/latest/api/generated/deeptime.decomposition.deep.VAMPNet.html#deeptime.decomposition.deep.VAMPNet>`_. The VAMPNet feature map is trained using the :class:`lightning.LightningModule` API, and can be trained using the :class:`lightning.Trainer` API. See the `PyTorch Lightning documentation <https://pytorch-lightning.readthedocs.io/en/latest/>`_ for more information.
+
+    Args:
+        encoder (torch.nn.Module): Encoder network. Should be a subclass of :class:`torch.nn.Module`.
+        optimizer_fn (torch.optim.Optimizer): Any optimizer from :class:`torch.optim.Optimizer`.
+        optimizer_kwargs (dict): Dictionary of keyword arguments passed to the optimizer.
+        trainer (lightning.Trainer): An initialized `Lightning Trainer <https://lightning.ai/docs/pytorch/stable/common/trainer.html>`_ object used to train the VAMPNet feature map.
+        encoder_kwargs (dict, optional): Dictionary of keyword arguments passed to the encoder network upon initialization. Defaults to {}.
+        encoder_timelagged (Optional[torch.nn.Module], optional): Encoder network for the time-lagged data. Defaults to None. If None, the encoder network is used for time-lagged data as well.
+        encoder_timelagged_kwargs (dict, optional): Dictionary of keyword arguments passed to `encoder_timelagged` upon initialization. Defaults to {}.
+        schatten_norm (int, optional): Computes the VAMP-p score, corresponding to the Schatten- :math:`p` norm of the singular values of the estimated Koopman/Transfer operator. Defaults to 2.
+        center_covariances (bool, optional): Wheter to compute the VAMP score with centered covariances. Defaults to True.
+        seed (Optional[int], optional): Random number generator seed. Defaults to None.
+    """
+
     def __init__(
         self,
-        lobe: torch.nn.Module,  # As in the official implementation, see https://deeptime-ml.github.io/latest/api/generated/deeptime.decomposition.deep.VAMPNet.html#deeptime.decomposition.deep.VAMPNet
+        encoder: torch.nn.Module,
         optimizer_fn: torch.optim.Optimizer,
         optimizer_kwargs: dict,
         trainer: lightning.Trainer,
-        lobe_kwargs: dict = {},
-        lobe_timelagged: Optional[torch.nn.Module] = None,
-        lobe_timelagged_kwargs: dict = {},
+        encoder_kwargs: dict = {},
+        encoder_timelagged: Optional[torch.nn.Module] = None,
+        encoder_timelagged_kwargs: dict = {},
         schatten_norm: int = 2,
         center_covariances: bool = True,
         seed: Optional[int] = None,
@@ -35,12 +52,12 @@ class VAMPNet(TrainableFeatureMap):
 
         self.lightning_trainer = trainer
         self.lightning_module = VAMPModule(
-            lobe,
+            encoder,
             optimizer_fn,
             optimizer_kwargs,
-            lobe_kwargs=lobe_kwargs,
-            lobe_timelagged=lobe_timelagged,
-            lobe_timelagged_kwargs=lobe_timelagged_kwargs,
+            encoder_kwargs=encoder_kwargs,
+            encoder_timelagged=encoder_timelagged,
+            encoder_timelagged_kwargs=encoder_timelagged_kwargs,
             schatten_norm=schatten_norm,
             center_covariances=center_covariances,
             kooplearn_feature_map_weakref=weakref.ref(self),
@@ -149,7 +166,9 @@ class VAMPNet(TrainableFeatureMap):
         X = torch.from_numpy(X.copy(order="C")).float()
         self.lightning_module.eval()
         with torch.no_grad():
-            embedded_X = self.lightning_module.lobe(X.to(self.lightning_module.device))
+            embedded_X = self.lightning_module.encoder(
+                X.to(self.lightning_module.device)
+            )
             embedded_X = embedded_X.detach().cpu().numpy()
         return embedded_X
 
@@ -157,19 +176,19 @@ class VAMPNet(TrainableFeatureMap):
 class VAMPModule(lightning.LightningModule):
     def __init__(
         self,
-        lobe: torch.nn.Module,  # As in the official implementation, see https://deeptime-ml.github.io/latest/api/generated/deeptime.decomposition.deep.VAMPNet.html#deeptime.decomposition.deep.VAMPNet
+        encoder: torch.nn.Module,  # As in the official implementation, see https://deeptime-ml.github.io/latest/api/generated/deeptime.decomposition.deep.VAMPNet.html#deeptime.decomposition.deep.VAMPNet
         optimizer_fn: torch.optim.Optimizer,
         optimizer_kwargs: dict,
-        lobe_kwargs: dict = {},
-        lobe_timelagged: Optional[torch.nn.Module] = None,
-        lobe_timelagged_kwargs: dict = {},
+        encoder_kwargs: dict = {},
+        encoder_timelagged: Optional[torch.nn.Module] = None,
+        encoder_timelagged_kwargs: dict = {},
         schatten_norm: int = 2,
         center_covariances: bool = True,
         kooplearn_feature_map_weakref=None,
     ):
         super().__init__()
         self.save_hyperparameters(
-            ignore=["lobe", "optimizer_fn", "kooplearn_feature_map_weakref"]
+            ignore=["encoder", "optimizer_fn", "kooplearn_feature_map_weakref"]
         )
 
         _tmp_opt_kwargs = deepcopy(optimizer_kwargs)
@@ -186,16 +205,16 @@ class VAMPModule(lightning.LightningModule):
         ):  # For Lightning's LearningRateFinder
             self.lr = optimizer_kwargs.get("lr", optimizer_kwargs.get("learning_rate"))
 
-        self.lobe = lobe(**lobe_kwargs)
-        if lobe_timelagged is not None:
-            self.lobe_timelagged = lobe_timelagged(**lobe_timelagged_kwargs)
+        self.encoder = encoder(**encoder_kwargs)
+        if encoder_timelagged is not None:
+            self.encoder_timelagged = encoder_timelagged(**encoder_timelagged_kwargs)
         else:
-            self.lobe_timelagged = self.lobe
+            self.encoder_timelagged = self.encoder
         self._optimizer = optimizer_fn
         self._kooplearn_feature_map_weakref = kooplearn_feature_map_weakref
 
     def configure_optimizers(self):
-        kw = self.opt_kwargs | {'lr': self.lr}
+        kw = self.opt_kwargs | {"lr": self.lr}
         return self._optimizer(self.parameters(), **kw)
 
     def training_step(self, train_batch, batch_idx):
@@ -232,9 +251,9 @@ class VAMPModule(lightning.LightningModule):
         trail_dims = X.shape[2:]
         X = X.view(lookback_len * batch_size, *trail_dims)
         if time_lagged:
-            encoded_X = self.lobe_timelagged(X)
+            encoded_X = self.encoder_timelagged(X)
         else:
-            encoded_X = self.lobe(X)
+            encoded_X = self.encoder(X)
         trail_dims = encoded_X.shape[1:]
         encoded_X = encoded_X.view(batch_size, lookback_len, *trail_dims)
         return encoded_X.view(batch_size, -1)

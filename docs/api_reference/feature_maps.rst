@@ -13,6 +13,9 @@ Implemented Feature Maps:
 .. autoclass:: DPNet
     :members:
 
+.. autoclass:: VAMPNet
+    :members:
+
 .. autoclass:: IdentityFeatureMap
 
 .. autoclass:: ConcatenateFeatureMaps

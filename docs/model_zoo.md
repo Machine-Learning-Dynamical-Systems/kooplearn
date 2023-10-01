@@ -1,4 +1,5 @@
-# Model Zoo
+(model_zoo)=
+# Model Zoo 
 
 | Model | Kooplearn Implementation | Notes |
 | --- | :---: | --- |
