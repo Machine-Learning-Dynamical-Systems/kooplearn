@@ -37,7 +37,7 @@ class DPNetsLightningModule(LightningModule):
             loss_coefficient: float,
             metric_reg_type: str,
             optimizer_fn: Type[torch.optim.Optimizer], optimizer_kwargs: dict,
-            scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler], scheduler_kwargs: dict,
+            scheduler_fn: Type[torch.optim.lr_scheduler._LRScheduler], scheduler_kwargs: dict,
             scheduler_config: dict,
     ):
         super().__init__()

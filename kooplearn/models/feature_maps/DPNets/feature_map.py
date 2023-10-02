@@ -55,7 +55,7 @@ class DPNet(TrainableFeatureMap):
             metric_reg_type: str = 'fro',
             lookback_len: int = 1, #Not used for the moment, will be used for CK-regulraization
             weight_sharing: bool = False,
-            scheduler_fn: Type[torch.optim.lr_scheduler.LRScheduler] = None, scheduler_kwargs: dict = {},
+            scheduler_fn: Type[torch.optim.lr_scheduler._LRScheduler] = None, scheduler_kwargs: dict = {},
             scheduler_config: dict = {},
             callbacks_fns: list[Type[L.Callback]] = None, callbacks_kwargs: list[dict] = None,
             logger_fn: Type[Logger] = None, logger_kwargs: dict = {},
