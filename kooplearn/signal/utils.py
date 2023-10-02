@@ -1,10 +1,11 @@
+from kooplearn.abc import BaseModel
 import numpy as np
 import pandas
 
-def compute_mode_info(operator, observable=lambda x:x, X=None, deltat=1, xcoord=None, ycoord=None):
+def compute_mode_info(operator:BaseModel, observable=lambda x:x, X=None, deltat=1, xcoord=None, ycoord=None):
     eigs = operator.eig()
     if X is None:
-        X = operator.X_fit[-1].reshape(1, -1)
+        X = operator.data_fit[-1, :operator.lookback_len].reshape(1, operator.lookback_len, -1)
     modes = operator.modes(X, observables=observable)
     n_eigs = eigs.shape[0]
     if modes.ndim == 1:
