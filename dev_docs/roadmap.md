@@ -1,5 +1,11 @@
 # Roadmap
 #### Oct 1, 2023:
+Add github actions to build the documentation at every release. Plan for a rollout of `kooplearn 1.0.0` on PyPi. Start with github tagging.
+
+Rationalize examples. 
+- PEMS-Bay dataset
+- 
+
 
 
 #### Sep 19, 2023:

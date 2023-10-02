@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kooplearn"  
-version = "0.2.0.dev2"  
+version = "1.0.0.dev0"  
 description = "A package to learn Koopman operators" 
 readme = "README.md"
 requires-python = ">=3.9"
@@ -12,7 +12,6 @@ requires-python = ">=3.9"
 authors = [
   {name = "Pietro Novelli", email = "pietronvll@gmail.com" },
   {name = "Grégoire Pacreau"},
-  {name = "Bruno Belucci", email = "bruno.belucci-teixeira@dauphine.eu"},
 ]
 dependencies = [
   "numpy>=1.20.0", #Sliding window view
