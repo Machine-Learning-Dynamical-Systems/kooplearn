@@ -1,49 +1,49 @@
 from kooplearn.models.kernel import KernelDMD
+from kooplearn._src.operator_regression.utils import contexts_to_markov_train_states
 from kooplearn._src.utils import check_is_fitted
+from kooplearn.quantile_regression.utils import compute_quantile_robust
 import numpy as np
-from sklearn.isotonic import IsotonicRegression
 
-class quantileDMD(KernelDMD):
+class QuantileDMD(KernelDMD):
     # Add-On to the LowRankRegressor inherited classes
 
-    def quantile_regression(self, X, fun = lambda x : np.mean(x, axis=1), alpha=0.01, t=1, isotonic=True, rescaling=True):
-        check_is_fitted(self, ['U', 'V', 'K_X', 'K_Y', 'K_YX', 'X_fit', 'Y_fit'])
+    def quantile_regression(self, X, fun = lambda x : np.mean(x, axis=-1), alpha=0.01, t=1, isotonic=True, rescaling=True):
+        check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y', 'kernel_YX', 'data_fit'])
 
-        T = self.X_fit_.shape[0]
-        k0T = self.kernel(X.reshape(1, -1), self.X_fit_)/T
+        # recovering original training data
+        X_fit, Y_fit = contexts_to_markov_train_states(self.data_fit, lookback_len=self._lookback_len)
+
+        # recovering elements to rebuild the koopman operator
+        T = self.data_fit.shape[0]
+        k0T = self.kernel(X, X_fit)/T
         U = self.U
         V = self.V
-        M = self.K_YX / T
-        WT = U @ np.linalg.matrix_power(V.T @ M @ U, t-1) @ V.T
+        M = self.kernel_YX / T
+        WT = U @ np.linalg.matrix_power(V.T @ M @ U, t-1) @ V.T # koopman operator iterated on indicator function
 
-        _fXfit = fun(self.X_fit)
-        candidates = np.argsort(_fXfit)
+        # computing and ordering realisations of f on the training set
+        _fYfit = np.apply_along_axis(fun, -1, Y_fit[:,-1])
+        candidates = np.argsort(_fYfit)
 
-        cdf = np.array([np.sum((k0T @ WT)[:, candidates[:i]]) for i in range(T)])
-        if isotonic:
-            cdf = IsotonicRegression(y_min=0, y_max=cdf.max()).fit_transform(range(T), cdf)
-        if rescaling:
-            cdf = (cdf - cdf.min())/cdf.max()
-        if alpha=='all':
-            return _fXfit[candidates], cdf
-        for i, level in enumerate(cdf):
-            if level >= alpha:
-                assert i != 0, 'Not enough data to estimate quantile'
-                return _fXfit[candidates[i-1]]
-        return _fXfit[candidates[-1]]
+        # estimating the cdf of the function f on X_t
+        cdf = np.array([np.sum((k0T @ WT)[:, candidates[:i]], axis=-1) for i in range(T)]).T
+
+        return compute_quantile_robust(_fYfit[candidates], cdf, alpha=alpha, isotonic=isotonic, rescaling=rescaling)
         
 
     def expected_shortfall(self, X, fun = lambda x : np.mean(x, axis=1), alpha=0.01, t=1, isotonic=True, rescaling=True):
-        check_is_fitted(self, ['U', 'V', 'K_X', 'K_Y', 'K_YX', 'X_fit', 'Y_fit'])
+        check_is_fitted(self, ['U', 'V', 'kernel_X', 'kernel_Y', 'kernel_XY', 'data_fit'])
+        
+        X_fit, Y_fit = contexts_to_markov_train_states(self.data_fit, lookback_len=self._lookback_len)
 
-        T = self.X_fit_.shape[0]
-        k0T = self.kernel(X.reshape(1, -1), self.X_fit)/T
+        T = X_fit.shape[0]
+        k0T = self.kernel(X.reshape(1, -1), X_fit)/T
         U = self.U
         V = self.V
         M = self.K_YX / T
         WT = U @ np.linalg.matrix_power(V.T @ M @ U, t-1) @ V.T
 
-        _fXfit = fun(self.X_fit)
+        _fXfit = fun(X_fit)
         candidates = np.argsort(_fXfit)
 
         cdf = np.array([np.sum((k0T @ WT)[:, candidates[:i]]) for i in range(T)])
@@ -65,7 +65,7 @@ class quantileDMD(KernelDMD):
         w portfolio weights
         """
         T = self.Y_fit_.shape[0]
-        k0T = self.kernel(X.reshape(1, -1), self.X_fit)/T
+        k0T = self.kernel(X.reshape(1, -1), X_fit)/T
         U = self.U
         V = self.V
         M = self.K_YX / T

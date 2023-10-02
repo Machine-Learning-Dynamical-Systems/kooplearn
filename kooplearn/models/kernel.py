@@ -40,7 +40,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         data_fit : Training data: array of context windows of shape ``(n_samples, context_len, *features_shape)``.
         kernel_X : Kernel matrix evaluated at the initial states, that is ``self.data_fit[:, :self.lookback_len, ...]`. Shape ``(n_samples, n_samples)``
         kernel_Y : Kernel matrix evaluated at the evolved states, that is ``self.data_fit[:, 1:self.lookback_len + 1, ...]``. Shape ``(n_samples, n_samples)``
-        kernel_XY : Cross-kernel matrix between initial and evolved states. Shape ``(n_samples, n_samples)``.
+        kernel_YX : Cross-kernel matrix between initial and evolved states. Shape ``(n_samples, n_samples)``.
         U : Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :footcite:t:`Kostic2022`).
         V : Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :footcite:t:`Kostic2022`).
 
