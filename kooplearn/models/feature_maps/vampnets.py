@@ -11,7 +11,7 @@ import numpy as np
 import torch
 
 from kooplearn.abc import TrainableFeatureMap
-from kooplearn.nn.functional import VAMP_score
+from kooplearn.nn.functional import vamp_score
 
 logger = logging.getLogger("kooplearn")
 
@@ -230,11 +230,11 @@ class VAMPModule(lightning.LightningModule):
         cov_X = torch.mm(encoded_X.T, encoded_X)
         cov_Y = torch.mm(encoded_Y.T, encoded_Y)
         cov_XY = torch.mm(encoded_X.T, encoded_Y)
-        loss = -1 * VAMP_score(
+        loss = -1 * vamp_score(
             cov_X, cov_Y, cov_XY, schatten_norm=self.hparams.schatten_norm
         )
         self.log(
-            "train/VAMP_score",
+            "train/vamp_score",
             -1.0 * loss.item(),
             on_step=True,
             prog_bar=True,

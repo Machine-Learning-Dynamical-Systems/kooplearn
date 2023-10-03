@@ -12,9 +12,9 @@ import torch
 
 from kooplearn.abc import TrainableFeatureMap
 from kooplearn.nn.functional import (
-    VAMP_score,
     log_fro_metric_deformation_loss,
     relaxed_projection_score,
+    vamp_score,
 )
 
 logger = logging.getLogger("kooplearn")
@@ -239,7 +239,7 @@ class DPModule(lightning.LightningModule):
             svd_loss = -1 * relaxed_projection_score(cov_X, cov_Y, cov_XY)
             metrics["train/relaxed_projection_score"] = -1.0 * svd_loss.item()
         else:
-            svd_loss = -1 * VAMP_score(cov_X, cov_Y, cov_XY, schatten_norm=2)
+            svd_loss = -1 * vamp_score(cov_X, cov_Y, cov_XY, schatten_norm=2)
             metrics["train/projection_score"] = -1.0 * svd_loss.item()
         if self.hparams.metric_deformation_loss_coefficient > 0.0:
             metric_deformation_loss = 0.5 * (

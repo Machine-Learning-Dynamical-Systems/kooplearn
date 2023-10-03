@@ -13,7 +13,7 @@ Data
 Score & Loss functions
 ----------------------
 
-.. autofunction:: kooplearn.nn.functional.VAMP_score
+.. autofunction:: kooplearn.nn.functional.vamp_score
 
 .. autofunction:: kooplearn.nn.functional.relaxed_projection_score
 

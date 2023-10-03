@@ -14,7 +14,7 @@ def sqrtmh(A):
     return (Q * L.sqrt().unsqueeze(-2)) @ Q.mH
 
 
-def VAMP_score(cov_X, cov_Y, cov_XY, schatten_norm: int = 2):
+def vamp_score(cov_X, cov_Y, cov_XY, schatten_norm: int = 2):
     """Variational Approach for learning Markov Processes (VAMP) score by :footcite:t:`Wu2019`.
 
     Args:
