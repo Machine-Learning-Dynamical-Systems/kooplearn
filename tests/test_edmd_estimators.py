@@ -44,7 +44,7 @@ class PolyFeatureMap(FeatureMap):
 @pytest.mark.parametrize("rank", [TRUE_RANK, TRUE_RANK - 2, TRUE_RANK + 10])
 @pytest.mark.parametrize("tikhonov_reg", [None, 0.0, 1e-10, 1e-5])
 @pytest.mark.parametrize("svd_solver", ["full", "arnoldi", "wrong"])
-@pytest.mark.parametrize("observables", [None, lambda x: x[:, 0], "array"])
+@pytest.mark.parametrize("observables", [None, lambda x: x[:, 0]])
 @pytest.mark.parametrize("lookback_len", [1, 2, 3])
 def test_ExtendedDMD_fit_predict_eig_modes_save_load(
     feature_map, reduced_rank, rank, tikhonov_reg, svd_solver, observables, lookback_len
@@ -78,14 +78,6 @@ def test_ExtendedDMD_fit_predict_eig_modes_save_load(
             assert X_pred.shape == (data.shape[0],) + data.shape[2:]
             modes = model.modes(test_data, observables=observables)
             assert modes.shape == (rank,) + (data.shape[0],) + data.shape[2:]
-        elif isinstance(observables, str):
-            assert observables == "array"
-            observables = np.random.rand(data.shape[0], 1, 2, 3)
-            X_pred = model.predict(test_data, observables=observables)
-            assert X_pred.shape == observables.shape
-            modes = model.modes(test_data, observables=observables)
-            _target_shape = (rank,) + observables.shape
-            assert modes.shape == _target_shape
         else:
             Y = data[:, -1, ...]
             _dummy_vec = observables(Y)

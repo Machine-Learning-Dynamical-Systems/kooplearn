@@ -4,8 +4,7 @@ Add github actions to build the documentation at every release. Plan for a rollo
 
 Rationalize examples. 
 - PEMS-Bay dataset
-- 
-
+- Reproduce one representative example per method, taking it from the paper in which the method was introduced.
 
 
 #### Sep 19, 2023:

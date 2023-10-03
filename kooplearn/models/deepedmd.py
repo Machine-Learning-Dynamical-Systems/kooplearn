@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import logging
 import os
+import pickle
 from pathlib import Path
 from typing import Optional
 
-from kooplearn._src.utils import NotFittedError
+from kooplearn._src.utils import NotFittedError, create_base_dir
 from kooplearn.abc import TrainableFeatureMap
 from kooplearn.models import ExtendedDMD
 
@@ -72,9 +73,14 @@ class DeepEDMD(ExtendedDMD):
         return self._is_fitted
 
     def save(self, path: os.PathLike):
-        raise NotImplementedError
+        create_base_dir(path)
+        with open(path, "+wb") as outfile:
+            pickle.dump(self, outfile)
 
     @classmethod
     def load(cls, path: os.PathLike):
         path = Path(path)
-        raise NotImplementedError
+        with open(path, "+rb") as infile:
+            restored_obj = pickle.load(infile)
+            assert type(restored_obj) == cls
+            return restored_obj

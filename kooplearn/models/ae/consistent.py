@@ -137,7 +137,7 @@ class ConsistentAE(BaseModel):
         self,
         data: np.ndarray,
         t: int = 1,
-        observables: Optional[Union[Callable, np.ndarray]] = None,
+        observables: Optional[Callable] = None,
     ):
         torch_data = self._np_to_torch(
             data
@@ -160,14 +160,12 @@ class ConsistentAE(BaseModel):
         elif callable(observables):
             return observables(evolved_data)
         else:
-            raise NotImplementedError(
-                "Only callable observables or None are supported at the moment."
-            )
+            raise ValueError("Observables must be either None, or callable.")
 
     def modes(
         self,
         data: np.ndarray,
-        observables: Optional[Union[Callable, np.ndarray]] = None,
+        observables: Optional[Callable] = None,
     ):
         raise NotImplementedError()
 

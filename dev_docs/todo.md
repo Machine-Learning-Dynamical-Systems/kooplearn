@@ -6,13 +6,17 @@
 ### DPNets
 - [x] Modify the `training_step` to get data from a context window.
 - [ ] Add Chapman-Kolmogorov Regularization
-- [ ] Perform shape checks at the beginning of every epoch (`batch_idx == 0`).
-- [ ] Add shape checks: outputs should be 2D, and context windows should be two-dimensional.
+- [x] Perform shape checks at the beginning of every epoch (`batch_idx == 0`).
+- [x] Add shape checks: outputs should be 2D, and context windows should be two-dimensional. _Non-2D inputs are handled as  in_ `ExtendedDMD`
 - [ ] Add a test in `tests`
 
 ### VAMPNets
-- [ ] Add shape checks: outputs should be 2D, and context windows should be two-dimensional.
+- [x] Add shape checks: outputs should be 2D, and context windows should be two-dimensional. _Non-2D inputs are handled as  in_ `ExtendedDMD`
 - [ ] Add a test in `tests`
+
+### AutoEncoders
+- [ ] Finish the `modes` and `eig` methods.
+- [ ] Add  a test in `tests`
 
 ### NystromKDMD
 - [ ] Fix the low level algorithms for numerical stability & test
@@ -37,7 +41,7 @@
 - [x] Take a decision on the name of the variables: current proposal is `data/contexts`, `lookback_len`.
 - [x] Take a decision on the defaults of `lookback_len`. Either `lookback_len = 1` or `lookback_len = None`, that is taking in the context window _except the last snapshot_ as lookback. In practical scenarios I argue that the second option is better.
 - [x] The lookback length should be defined a the model initialization, and not upon fitting.
-- [ ] The handling of custom observables is awkward, and inconsistent with the handling of state prediction/mode decomposition. Fix it.
+- [ ] The handling of custom observables is awkward, and inconsistent with the handling of state prediction/mode decomposition. Fix it. 
 
 ###### Module `kooplearn.abc`
 - [x] Edit the Abstract Base Class definition for `kooplearn.abc.BaseModel` on `fit`, `predict`, `eig`, `modes`.

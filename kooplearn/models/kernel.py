@@ -223,7 +223,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         self,
         data: np.ndarray,
         t: int = 1,
-        observables: Optional[Union[Callable, np.ndarray]] = None,
+        observables: Optional[Callable] = None,
     ) -> np.ndarray:
         """
         Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial conditions ``X = data[:, self.lookback_len:, ...]`` being the lookback slice of ``data``.
@@ -237,7 +237,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         Args:
             data (numpy.ndarray): Initial conditions to predict. Array of context windows with shape ``(n_init_conditions, self.lookback_len, *self.data_fit.shape[2:])`` (see the note above).
             t (int): Number of steps in the future to predict (returns the last one).
-            observables (callable, numpy.ndarray or None): Callable, array of context windows of shape ``(self.data_fit.shape[0], *obs_features_shape)`` or ``None``. If array, it must be the desired observable evaluated on the *lookforward slice* of the training data. If ``None`` returns the predictions for the state.
+            observables (callable or None): Callable or ``None``. If callable should map batches of states of shape ``(batch, *self.data_fit.shape[2:])`` to batches of observables ``(batch, *obs_features_shape)``.
 
         Returns:
            The predicted (expected) state/observable at time :math:`t`, shape ``(n_init_conditions, *obs_features_shape)``.
@@ -323,7 +323,7 @@ class KernelDMD(BaseModel, RegressorMixin):
     def modes(
         self,
         data: np.ndarray,
-        observables: Optional[Union[Callable, np.ndarray]] = None,
+        observables: Optional[Callable] = None,
     ) -> np.ndarray:
         """
         Computes the mode decomposition of arbitrary observables of the Koopman/Transfer operator at the states defined by ``data``.
@@ -332,7 +332,7 @@ class KernelDMD(BaseModel, RegressorMixin):
 
         Args:
             data (numpy.ndarray): Initial conditions to compute the modes on. See :func:`predict` for additional details.
-            observables (callable, numpy.ndarray or None): Callable, array of context windows of shape ``(n_samples, *obs_features_shape)`` or ``None``. If array, it must be the desired observable evaluated on the *lookforward slice* of the training data. If ``None`` returns the predictions for the state.
+            observables (callable or None): Callable or ``None``. If callable should map batches of states of shape ``(batch, *self.data_fit.shape[2:])`` to batches of observables ``(batch, *obs_features_shape)``.
 
         Returns:
             Modes of the system at the states defined by ``data``. Array of shape ``(self.rank, n_states, ...)``.

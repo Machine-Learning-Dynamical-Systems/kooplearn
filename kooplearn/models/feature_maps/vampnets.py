@@ -245,7 +245,7 @@ class VAMPModule(lightning.LightningModule):
         return loss
 
     def forward(self, X: torch.Tensor, time_lagged: bool = False) -> torch.Tensor:
-        # Caution: this method is designed only for internal calling by the VAMPNet feature map.
+        # Caution: this method is designed only for internal calling by the VAMPNet feature map. When the input is not 2D, the implementation follows the same behaviour of ExtendedDMD.
         lookback_len = X.shape[1]
         batch_size = X.shape[0]
         trail_dims = X.shape[2:]

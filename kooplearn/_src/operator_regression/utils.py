@@ -16,15 +16,8 @@ def parse_observables(observables, data, data_fit, lookback_len):
         _obs = Y_fit
     elif callable(observables):
         _obs = observables(Y_fit)
-    elif isinstance(observables, np.ndarray):
-        assert (
-            observables.shape[0] == Y_fit.shape[0]
-        ), f"Observables have {observables.shape[0]} samples while the number of training data is {Y_fit.shape[0]}."
-        _obs = observables
     else:
-        raise ValueError(
-            "Observables must be either None, a callable or a Numpy array of the observable evaluated at the training data points."
-        )
+        raise ValueError("Observables must be either None, or callable.")
 
     # Reshape the observables to 2D arrays
     if _obs.ndim == 1:
