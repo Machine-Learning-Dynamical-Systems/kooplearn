@@ -1,12 +1,21 @@
 # Roadmap
+#### Oct 3, 2023:
+Macro implementations left to do:
+- Nystrom Kernel methods (add a `NystromKernelDMD` model)
+- Test Randomized solvers.
+- Implement `modes` and `eig` for AutoEncoders
+- Implement dictionary learning schemes listed in the note of Sep 12 - 18
+- Saving and loading for every model: implementation & test
+- Documentation write up
+- Example datasets (in or out of the library?!)
+***
 #### Oct 1, 2023:
 Add github actions to build the documentation at every release. Plan for a rollout of `kooplearn 1.0.0` on PyPi. Start with github tagging.
 
 Rationalize examples. 
 - PEMS-Bay dataset
 - Reproduce one representative example per method, taking it from the paper in which the method was introduced.
-
-
+***
 #### Sep 19, 2023:
 Do **not** perform shape inference, on tensors of with `ndim` smaller than the minimum required. I should rather return a (standard) Error.
 

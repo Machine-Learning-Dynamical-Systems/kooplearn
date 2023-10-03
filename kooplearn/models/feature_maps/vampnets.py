@@ -17,30 +17,28 @@ logger = logging.getLogger("kooplearn")
 
 
 class VAMPNet(TrainableFeatureMap):
-    """Variational Approach for learning Markov Processes.
-
-    Implements the VAMPNets :footcite:p:`Mardt2018` feature map, which maximizes the VAMP score of :footcite:t:`Wu2019`. Can be used in conjunction to :class:`kooplearn.models.DeepEDMD` to learn a Koopman/Transfer operator from data. See also its official implementation in `deeptime <https://deeptime-ml.github.io/latest/api/generated/deeptime.decomposition.deep.VAMPNet.html#deeptime.decomposition.deep.VAMPNet>`_. The VAMPNet feature map is trained using the :class:`lightning.LightningModule` API, and can be trained using the :class:`lightning.Trainer` API. See the `PyTorch Lightning documentation <https://pytorch-lightning.readthedocs.io/en/latest/>`_ for more information.
+    """Implements the VAMPNets :footcite:p:`Mardt2018` feature map, which maximizes the VAMP score of :footcite:t:`Wu2019`. Can be used in conjunction to :class:`kooplearn.models.DeepEDMD` to learn a Koopman/Transfer operator from data. See also its official implementation in `deeptime <https://deeptime-ml.github.io/latest/api/generated/deeptime.decomposition.deep.VAMPNet.html#deeptime.decomposition.deep.VAMPNet>`_. The VAMPNet feature map is trained using the :class:`lightning.LightningModule` API, and can be trained using the :class:`lightning.Trainer` API. See the `PyTorch Lightning documentation <https://pytorch-lightning.readthedocs.io/en/latest/>`_ for more information.
 
     Args:
-        encoder (torch.nn.Module): Encoder network. Should be a subclass of :class:`torch.nn.Module`.
+        encoder (torch.nn.Module): Encoder network. Should be a subclass of :class:`torch.nn.Module`. Will be initialized as ``encoder(**encoder_kwargs)``.
         optimizer_fn (torch.optim.Optimizer): Any optimizer from :class:`torch.optim.Optimizer`.
-        optimizer_kwargs (dict): Dictionary of keyword arguments passed to the optimizer.
         trainer (lightning.Trainer): An initialized `Lightning Trainer <https://lightning.ai/docs/pytorch/stable/common/trainer.html>`_ object used to train the VAMPNet feature map.
-        encoder_kwargs (dict, optional): Dictionary of keyword arguments passed to the encoder network upon initialization. Defaults to {}.
-        encoder_timelagged (Optional[torch.nn.Module], optional): Encoder network for the time-lagged data. Defaults to None. If None, the encoder network is used for time-lagged data as well.
-        encoder_timelagged_kwargs (dict, optional): Dictionary of keyword arguments passed to `encoder_timelagged` upon initialization. Defaults to {}.
+        encoder_kwargs (dict, optional): Dictionary of keyword arguments passed to the encoder network upon initialization. Defaults to ``{}``.
+        optimizer_kwargs (dict): Dictionary of keyword arguments passed to the optimizer at initialization. Defaults to ``{}``.
+        encoder_timelagged (Optional[torch.nn.Module], optional): Encoder network for the time-lagged data. Defaults to None. If None, the encoder network is used for time-lagged data as well. If not None, it will be initialized as ``encoder_timelagged(**encoder_timelagged_kwargs)``.
+        encoder_timelagged_kwargs (dict, optional): Dictionary of keyword arguments passed to `encoder_timelagged` upon initialization. Defaults to ``{}``.
         schatten_norm (int, optional): Computes the VAMP-p score, corresponding to the Schatten- :math:`p` norm of the singular values of the estimated Koopman/Transfer operator. Defaults to 2.
         center_covariances (bool, optional): Wheter to compute the VAMP score with centered covariances. Defaults to True.
-        seed (Optional[int], optional): Random number generator seed. Defaults to None.
+        seed (int, optional): Seed of the internal random number generator. Defaults to None.
     """
 
     def __init__(
         self,
         encoder: torch.nn.Module,
         optimizer_fn: torch.optim.Optimizer,
-        optimizer_kwargs: dict,
         trainer: lightning.Trainer,
         encoder_kwargs: dict = {},
+        optimizer_kwargs: dict = {},
         encoder_timelagged: Optional[torch.nn.Module] = None,
         encoder_timelagged_kwargs: dict = {},
         schatten_norm: int = 2,

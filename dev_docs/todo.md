@@ -41,7 +41,7 @@
 - [x] Take a decision on the name of the variables: current proposal is `data/contexts`, `lookback_len`.
 - [x] Take a decision on the defaults of `lookback_len`. Either `lookback_len = 1` or `lookback_len = None`, that is taking in the context window _except the last snapshot_ as lookback. In practical scenarios I argue that the second option is better.
 - [x] The lookback length should be defined a the model initialization, and not upon fitting.
-- [ ] The handling of custom observables is awkward, and inconsistent with the handling of state prediction/mode decomposition. Fix it. 
+- [x] The handling of custom observables is awkward, and inconsistent with the handling of state prediction/mode decomposition. Fix it. _Done: now only callable or_ `None` are accepted.
 
 ###### Module `kooplearn.abc`
 - [x] Edit the Abstract Base Class definition for `kooplearn.abc.BaseModel` on `fit`, `predict`, `eig`, `modes`.

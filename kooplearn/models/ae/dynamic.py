@@ -26,17 +26,33 @@ import torch  # noqa: E402
 
 
 class DynamicAE(BaseModel):
+    """Dynamic AutoEncoder introduced by :footcite:t:`Lusch2018`. This class also implement the variant introduced by :footcite:t:`Morton2018` in which the linear evolution of the embedded state is given by a least square model.
+
+    Args:
+        encoder (torch.nn.Module): Encoder network. Will be initialized as ``encoder(**encoder_kwargs)``.
+        decoder (torch.nn.Module): Decoder network. Will be initialized as ``decoder(**decoder_kwargs)``.
+        latent_dim (int): Latent dimension. In must match the dimension of the outputs of ``encoder``, as well the dimensions of the inputs of ``decoder``.
+        optimizer_fn (torch.optim.Optimizer): Any optimizer from :class:`torch.optim.Optimizer`.
+        trainer (lightning.Trainer): An initialized `Lightning Trainer <https://lightning.ai/docs/pytorch/stable/common/trainer.html>`_ object used to train the Consistent AutoEncoder.
+        loss_weights (dict, optional): Weights of the different loss terms. Should be a dictionary containing either some of all the keys ``rec`` (reconstruction loss), ``pred`` (prediction loss) and ``lin`` (linear evolution loss). Defaults to ``{ "rec": 1.0, "pred": 1.0, "lin": 1.0}`` .
+        encoder_kwargs (dict, optional): Dictionary of keyword arguments passed to the encoder network upon initialization. Defaults to ``{}``.
+        decoder_kwargs (dict, optional): Dictionary of keyword arguments passed to the decoder network upon initialization. Defaults to ``{}``.
+        optimizer_kwargs (dict, optional): Dictionary of keyword arguments passed to the optimizer at initialization. Defaults to ``{}``.
+        use_lstsq_for_evolution (bool, optional): Number of steps of backward dynamics to perform. If ``backward_steps == 0``, this model reduces to :class:`kooplearn.models.DynamicAE`. Defaults to False.
+        seed (Optional[int], optional): Seed of the internal random number generator. Defaults to None.
+    """
+
     def __init__(
         self,
         encoder: torch.nn.Module,
         decoder: torch.nn.Module,
         latent_dim: int,
         optimizer_fn: torch.optim.Optimizer,
-        optimizer_kwargs: dict,
         trainer: lightning.Trainer,
         loss_weights: dict = {"rec": 1.0, "pred": 1.0, "lin": 1.0},
         encoder_kwargs: dict = {},
         decoder_kwargs: dict = {},
+        optimizer_kwargs: dict = {},
         use_lstsq_for_evolution: bool = False,  # If true, implements "Deep Dynamical Modeling and Control of Unsteady Fluid Flows" by Morton et al. (2018)
         seed: Optional[int] = None,
     ):
@@ -127,6 +143,23 @@ class DynamicAE(BaseModel):
         t: int = 1,
         observables: Optional[Callable] = None,
     ):
+        """
+        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial conditions ``X = data[:, self.lookback_len:, ...]`` being the lookback slice of ``data``.
+
+        .. attention::
+
+            ``data.shape[1]`` must match the lookback length ``self.lookback_len``. Otherwise, an error is raised.
+
+        If ``observables`` are not ``None``, returns the analogue quantity for the observable instead.
+
+        Args:
+            data (numpy.ndarray): Initial conditions to predict. Array of context windows with shape ``(n_init_conditions, self.lookback_len, *self.data_fit.shape[2:])`` (see the note above).
+            t (int): Number of steps in the future to predict (returns the last one).
+            observables (callable or None): Callable or ``None``. If callable should map batches of states of shape ``(batch, *self.data_fit.shape[2:])`` to batches of observables ``(batch, *obs_features_shape)``.
+
+        Returns:
+           The predicted (expected) state/observable at time :math:`t`, shape ``(n_init_conditions, *obs_features_shape)``.
+        """
         torch_data = self._np_to_torch(
             data
         )  # [n_samples, context_len == 1, *trail_dims]

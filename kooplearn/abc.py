@@ -108,7 +108,7 @@ class FeatureMap(abc.ABC):
 
     .. caution::
 
-        As described in :ref:`kooplearn's data paradigm <kooplearn_data_paradigm>`, the inputs passed to the methods of :class:`BaseModel` will be in the form of batches of context windows. :class:`FeatureMap`, instances are a notable departure from this paradigm, and we expect a feature map to be called on batches of data points, not context windows. The context windows should be parsed internally by :class:`BaseModel` and passed to the feature map as batches of appropriate data points.
+        As described in :ref:`kooplearn's data paradigm <kooplearn_data_paradigm>`, the inputs passed to the methods of :class:`BaseModel` will be in the form of batches of context windows. :class:`FeatureMap`, instances are a notable departure from this paradigm, and we expect a feature map to be called on batches of data points, not context windows. The context windows are parsed internally by :class:`BaseModel` and passed to the feature map as batches of appropriate data points.
 
         This behaviour is designed to facilitate the reuse of feature maps across different models, and possibly even outside of kooplearn.
     """
@@ -132,7 +132,7 @@ class TrainableFeatureMap(FeatureMap):
     @property
     @abc.abstractmethod
     def lookback_len(self) -> int:
-        """Length of the lookback window associated to the contexts. Upon fitting, the dimension of the lookforward window will be inferred from the context window length and this attribute.
+        """Length of the lookback window associated to the contexts. Upon fitting, the dimension of the lookforward window will be inferred from the context window length.
 
         Returns:
             Length of the lookback window associated to the contexts.

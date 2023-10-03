@@ -10,6 +10,11 @@ from torch.utils.data import Dataset  # noqa: E402
 
 
 class ContextsDataset(Dataset):
+    """A torch ``Dataset`` of context windows. See also :ref:`kooplearn's data paradigm <kooplearn_data_paradigm>`.
+
+    Args:
+        contexts (torch.Tensor): A tensor of context windows.
+    """
     def __init__(self, contexts: torch.Tensor):
         if not isinstance(contexts, torch.Tensor):
             logger.warning(

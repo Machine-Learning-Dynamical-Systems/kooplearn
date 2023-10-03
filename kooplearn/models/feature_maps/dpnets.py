@@ -21,18 +21,34 @@ logger = logging.getLogger("kooplearn")
 
 
 class DPNet(TrainableFeatureMap):
+    """Implements the DPNets :footcite:p:`Kostic2023DPNets` feature map, which learn an invariant representation of time-homogeneous stochastic dynamical systems. Can be used in conjunction to :class:`kooplearn.models.DeepEDMD` to learn a Koopman/Transfer operator from data. The DPNet feature map is trained using the :class:`lightning.LightningModule` API, and can be trained using the :class:`lightning.Trainer` API. See the `PyTorch Lightning documentation <https://pytorch-lightning.readthedocs.io/en/latest/>`_ for more information.
+
+    Args:
+        encoder (torch.nn.Module): Encoder network. Should be a subclass of :class:`torch.nn.Module`. Will be initialized as ``encoder(**encoder_kwargs)``.
+        optimizer_fn (torch.optim.Optimizer): Any optimizer from :class:`torch.optim.Optimizer`.
+        trainer (lightning.Trainer): An initialized `Lightning Trainer <https://lightning.ai/docs/pytorch/stable/common/trainer.html>`_ object used to train the DPNet feature map.
+        use_relaxed_loss (bool, optional): Whether to use the relaxed projection score introduced in :footcite:t:`Kostic2023DPNets`. Might be slower to convergence, but is much more stable in ill-conditioned problems.  Defaults to False.
+        metric_deformation_loss_coefficient (float, optional): Coefficient of the metric deformation loss. Defaults to 1.0.
+        encoder_kwargs (dict, optional): Dictionary of keyword arguments passed to the encoder network upon initialization. Defaults to ``{}``.
+        optimizer_kwargs (dict): Dictionary of keyword arguments passed to the optimizer at initialization. Defaults to ``{}``.
+        encoder_timelagged (Optional[torch.nn.Module], optional): Encoder network for the time-lagged data. Defaults to None. If None, the encoder network is used for time-lagged data as well. If not None, it will be initialized as ``encoder_timelagged(**encoder_timelagged_kwargs)``.
+        encoder_timelagged_kwargs (dict, optional): Dictionary of keyword arguments passed to `encoder_timelagged` upon initialization. Defaults to ``{}``.
+        center_covariances (bool, optional): Wheter to compute the VAMP score with centered covariances. Defaults to False.
+        seed (int, optional): Seed of the internal random number generator. Defaults to None.
+    """
+
     def __init__(
         self,
         encoder: torch.nn.Module,
         optimizer_fn: torch.optim.Optimizer,
-        optimizer_kwargs: dict,
         trainer: lightning.Trainer,
         use_relaxed_loss: bool = False,
         metric_deformation_loss_coefficient: float = 1.0,  # That is, the parameter γ in the paper.
         encoder_kwargs: dict = {},
+        optimizer_kwargs: dict = {},
         encoder_timelagged: Optional[torch.nn.Module] = None,
         encoder_timelagged_kwargs: dict = {},
-        center_covariances: bool = True,
+        center_covariances: bool = False,
         seed: Optional[int] = None,
     ):
         if seed is not None:
