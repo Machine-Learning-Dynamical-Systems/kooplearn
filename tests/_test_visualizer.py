@@ -1,10 +1,10 @@
 from sklearn.gaussian_process.kernels import DotProduct
 
 from kooplearn._src.dashboard.visualizer import Visualizer
-from kooplearn.datasets import MockData
+from kooplearn.datasets import Mock
 from kooplearn.models.kernel import KernelReducedRank
 
-dataset = MockData(num_features=5, rng_seed=0)
+dataset = Mock(num_features=5, rng_seed=0)
 _Z = dataset.sample(None, 10)
 X, Y = _Z[:-1], _Z[1:]
 

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from kooplearn._src.operator_regression import dual, primal
-from kooplearn.datasets import MockData
+from kooplearn.datasets import Mock
 
 
 def _primal_right_normalization(right_vectors: np.ndarray):
@@ -33,7 +33,7 @@ def test_primal_eig_decomposition(tikhonov_reg, svd_solver):
     num_test_pts = 200
     rank = 5
 
-    dataset = MockData(num_features=num_features, rng_seed=42)
+    dataset = Mock(num_features=num_features, rng_seed=42)
     _Z = dataset.sample(None, num_test_pts)
     X, Y = _Z[:-1], _Z[1:]
 
@@ -75,7 +75,7 @@ def test_dual_eig_decomposition(tikhonov_reg, svd_solver):
     num_test_pts = 200
     rank = 5
 
-    dataset = MockData(num_features=num_features, rng_seed=42)
+    dataset = Mock(num_features=num_features, rng_seed=42)
     _Z = dataset.sample(None, num_test_pts)
     X, Y = _Z[:-1], _Z[1:]
 

@@ -2,11 +2,11 @@ import argparse
 import pickle
 
 import numpy as np
-from dash import Dash, Input, Output, State, callback, dcc, html
+from dash import Dash, Input, Output, callback, dcc, html
 from sklearn.gaussian_process.kernels import DotProduct
 
 from kooplearn._src.dashboard.visualizer import Visualizer
-from kooplearn.datasets import MockData
+from kooplearn.datasets import Mock
 from kooplearn.models.kernel import KernelReducedRank
 
 #### WORK IN PROGRESS, FOR NOW USE THE visualizer.utils.py METHODS ####
@@ -22,7 +22,7 @@ parser.add_argument(  # location of the koopman estimator
 args = parser.parse_args()
 if args.koopman == "":
     # tutorial mode
-    dataset = MockData(num_features=10, rng_seed=0)
+    dataset = Mock(num_features=10, rng_seed=0)
     _Z = dataset.sample(None, 100)
     X, Y = _Z[:-1], _Z[1:]
 

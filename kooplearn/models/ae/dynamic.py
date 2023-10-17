@@ -1,15 +1,13 @@
 import logging
-import os
-import pickle
 import weakref
 from copy import deepcopy
-from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
 
 import numpy as np
 from scipy.linalg import eig
 
 from kooplearn._src.check_deps import check_torch_deps
+from kooplearn._src.serialization import pickle_load, pickle_save
 from kooplearn._src.utils import ShapeError, check_contexts_shape, check_is_fitted
 from kooplearn.abc import BaseModel
 from kooplearn.models.ae.utils import (
@@ -216,34 +214,25 @@ class DynamicAE(BaseModel):
                 "Left / right eigenfunction evaluations are not implemented yet."
             )
 
-    # TODO: Test
-    def save(self, path: os.PathLike):
-        path = Path(path)
-        path.mkdir(parents=True, exist_ok=True)
+    def save(self, filename):
+        """Serialize the model to a file.
 
-        # Save the trainer
-        torch.save(self.lightning_trainer, path / "lightning_trainer.bin")
-        # Save the lightning checkpoint
-        ckpt = path / "lightning.ckpt"
-        self.lightning_trainer.save_checkpoint(str(ckpt))
-        del self.lightning_module
-        del self.lightning_trainer
-        model = path / "kooplearn_model.pkl"
-        with open(model, "wb") as f:
-            pickle.dump(self, f)
+        Args:
+            filename (path-like or file-like): Save the model to file.
+        """
+        pickle_save(self, filename)
 
-    # TODO: Test
     @classmethod
-    def load(cls, path: os.PathLike):
-        path = Path(path)
-        trainer = torch.load(path / "lightning_trainer.bin")
-        ckpt = path / "lightning.ckpt"
-        with open(path / "kooplearn_model.pkl", "rb") as f:
-            restored_obj = pickle.load(f)
-        assert isinstance(restored_obj, cls)
-        restored_obj.lightning_trainer = trainer
-        restored_obj.lightning_module = DynamicAEModule.load_from_checkpoint(str(ckpt))
-        return restored_obj
+    def load(cls, filename):
+        """Load a serialized model from a file.
+
+        Args:
+            filename (path-like or file-like): Load the model from file.
+
+        Returns:
+            DynamicAE: The loaded model.
+        """
+        return pickle_load(cls, filename)
 
     @property
     def is_fitted(self) -> bool:

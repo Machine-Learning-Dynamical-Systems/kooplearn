@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import logging
-import os
-import pickle
-from pathlib import Path
 from typing import Optional
 
-from kooplearn._src.utils import NotFittedError, create_base_dir
+from kooplearn._src.serialization import pickle_load, pickle_save
+from kooplearn._src.utils import NotFittedError
 from kooplearn.abc import TrainableFeatureMap
 from kooplearn.models import ExtendedDMD
 
@@ -72,15 +70,22 @@ class DeepEDMD(ExtendedDMD):
     def is_fitted(self) -> bool:
         return self._is_fitted
 
-    def save(self, path: os.PathLike):
-        create_base_dir(path)
-        with open(path, "+wb") as outfile:
-            pickle.dump(self, outfile)
+    def save(self, filename):
+        """Serialize the model to a file.
+
+        Args:
+            filename (path-like or file-like): Save the model to file.
+        """
+        pickle_save(self, filename)
 
     @classmethod
-    def load(cls, path: os.PathLike):
-        path = Path(path)
-        with open(path, "+rb") as infile:
-            restored_obj = pickle.load(infile)
-            assert type(restored_obj) == cls
-            return restored_obj
+    def load(cls, filename):
+        """Load a serialized model from a file.
+
+        Args:
+            filename (path-like or file-like): Load the model from file.
+
+        Returns:
+            DeepEDMD: The loaded model.
+        """
+        return pickle_load(cls, filename)

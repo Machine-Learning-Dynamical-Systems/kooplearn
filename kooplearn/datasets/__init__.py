@@ -3,6 +3,6 @@ from kooplearn.datasets.stochastic import (
     LangevinTripleWell1D,
     LinearModel,
     LogisticMap,
-    MockData,
+    Mock,
     MullerBrownPotential,
 )

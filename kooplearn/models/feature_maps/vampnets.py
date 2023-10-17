@@ -1,15 +1,13 @@
 import logging
-import os
-import pickle
 import weakref
 from copy import deepcopy
-from pathlib import Path
 from typing import Optional
 
 import lightning
 import numpy as np
 import torch
 
+from kooplearn._src.serialization import pickle_load, pickle_save
 from kooplearn.abc import TrainableFeatureMap
 from kooplearn.nn.functional import vamp_score
 
@@ -72,33 +70,25 @@ class VAMPNet(TrainableFeatureMap):
     def lookback_len(self):
         return self._lookback_len
 
-    # TODO: Test
-    def save(self, path: os.PathLike):
-        path = Path(path)
-        path.mkdir(parents=True, exist_ok=True)
-        # Save the trainer
-        torch.save(self.lightning_trainer, path / "lightning_trainer.bin")
-        # Save the lightning checkpoint
-        ckpt = path / "lightning.ckpt"
-        self.lightning_trainer.save_checkpoint(str(ckpt))
-        del self.lightning_module
-        del self.lightning_trainer
-        model = path / "kooplearn_model.pkl"
-        with open(model, "wb") as f:
-            pickle.dump(self, f)
+    def save(self, filename):
+        """Serialize the model to a file.
 
-    # TODO: Test
+        Args:
+            filename (path-like or file-like): Save the model to file.
+        """
+        pickle_save(self, filename)
+
     @classmethod
-    def load(cls, path: os.PathLike):
-        path = Path(path)
-        trainer = torch.load(path / "lightning_trainer.bin")
-        ckpt = path / "lightning.ckpt"
-        with open(path / "kooplearn_model.pkl", "rb") as f:
-            restored_obj = pickle.load(f)
-        assert isinstance(restored_obj, cls)
-        restored_obj.lightning_trainer = trainer
-        restored_obj.lightning_module = VAMPModule.load_from_checkpoint(str(ckpt))
-        return restored_obj
+    def load(cls, filename):
+        """Load a serialized model from a file.
+
+        Args:
+            filename (path-like or file-like): Load the model from file.
+
+        Returns:
+            VAMPNet: The loaded model.
+        """
+        return pickle_load(cls, filename)
 
     def fit(
         self,
