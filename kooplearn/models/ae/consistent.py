@@ -206,18 +206,76 @@ class ConsistentAE(BaseModel):
         if hasattr(self, "_eig_cache"):
             w, vl, vr = self._eig_cache
         else:
-            K = self.lightning_module.evolution_operator
-            K_np = K.detach().cpu().numpy()
-            w, vl, vr = eig(K_np, left=True, right=True)
-            self._eig_cache = w, vl, vr
+            if self.lightning_module.hparams.use_lstsq_for_evolution:
+                raise NotImplementedError(
+                    f"Eigenvalues and eigenvectors are not implemented when {self.lightning_module.hparams.use_lstsq_for_evolution} == True."
+                )
+            else:
+                K = self.lightning_module.evolution_operator
+                K_np = K.detach().cpu().numpy()
+                w, vl, vr = eig(K_np, left=True, right=True)
+                self._eig_cache = w, vl, vr
 
         if eval_left_on is None and eval_right_on is None:
             # (eigenvalues,)
             return w
-        else:
-            raise NotImplementedError(
-                "Left / right eigenfunction evaluations are not implemented yet."
-            )
+        elif eval_left_on is None and eval_right_on is not None:
+            # (eigenvalues, right eigenfunctions)
+            eval_right_on = self._np_to_torch(
+                eval_right_on
+            )  # [n_samples, context_len == 1, *trail_dims]
+            eval_right_on = eval_right_on[
+                :, self.lookback_len - 1, ...
+            ]  # [n_samples, *trail_dims]
+            with torch.no_grad():
+                phi_Xin = self.lightning_module.encoder(eval_right_on)
+                r_fns = (
+                    phi_Xin @ vl
+                )  # Not a typo: I need the left eigenvectors of K to get the right eigenfunctions of the Koopman operator
+            return w, r_fns.detach().cpu().numpy()
+        elif eval_left_on is not None and eval_right_on is None:
+            # (eigenvalues, left eigenfunctions)
+            eval_left_on = self._np_to_torch(
+                eval_left_on
+            )  # [n_samples, context_len == 1, *trail_dims]
+            eval_left_on = eval_left_on[
+                :, self.lookback_len - 1, ...
+            ]  # [n_samples, *trail_dims]
+            with torch.no_grad():
+                phi_Xin = self.lightning_module.encoder(eval_left_on)
+                l_fns = (
+                    phi_Xin @ vr
+                )  # Not a typo: I need the right eigenvectors of K to get the left eigenfunctions of the Koopman operator
+            return w, l_fns.detach().cpu().numpy()
+        elif eval_left_on is not None and eval_right_on is not None:
+            # (eigenvalues, left eigenfunctions, right eigenfunctions)
+
+            eval_right_on = self._np_to_torch(
+                eval_right_on
+            )  # [n_samples, context_len == 1, *trail_dims]
+            eval_right_on = eval_right_on[
+                :, self.lookback_len - 1, ...
+            ]  # [n_samples, *trail_dims]
+
+            eval_left_on = self._np_to_torch(
+                eval_left_on
+            )  # [n_samples, context_len == 1, *trail_dims]
+            eval_left_on = eval_left_on[
+                :, self.lookback_len - 1, ...
+            ]  # [n_samples, *trail_dims]
+
+            with torch.no_grad():
+                phi_Xin_r = self.lightning_module.encoder(eval_right_on)
+                r_fns = (
+                    phi_Xin_r @ vl
+                )  # Not a typo: I need the left eigenvectors of K to get the right eigenfunctions of the Koopman operator
+
+                phi_Xin_l = self.lightning_module.encoder(eval_left_on)
+                l_fns = (
+                    phi_Xin_l @ vr
+                )  # Not a typo: I need the right eigenvectors of K to get the left eigenfunctions of the Koopman operator
+
+            return w, l_fns.detach().cpu().numpy(), r_fns.detach().cpu().numpy()
 
     def save(self, filename):
         """Serialize the model to a file.

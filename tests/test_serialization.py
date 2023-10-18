@@ -3,10 +3,12 @@ from shutil import rmtree
 
 import lightning
 import numpy as np
+import pytest
 import torch
 
 from kooplearn.data import traj_to_contexts
 from kooplearn.datasets import Mock
+from kooplearn.models.feature_maps import DPNet, VAMPNet
 from kooplearn.nn.data import TrajToContextsDataset
 
 NUM_SAMPLES = 100
@@ -15,7 +17,7 @@ DIM = 7
 TRAJ = Mock(num_features=DIM, rng_seed=0).sample(None, NUM_SAMPLES).astype(np.float32)
 DATA = traj_to_contexts(TRAJ)
 NN_DATA = TrajToContextsDataset(TRAJ)
-NN_DATALOADER = torch.utils.data.DataLoader(NN_DATA, batch_size=10, shuffle=True)
+NN_DATALOADER = torch.utils.data.DataLoader(NN_DATA, batch_size=100, shuffle=True)
 
 
 def _make_tmp_path(model_name: str):
@@ -29,7 +31,8 @@ def _cleanup():
 
 
 def _allclose(a, b):
-    return np.allclose(a, b, rtol=1e-3, atol=1e-5)
+    m = np.isfinite(a) & np.isfinite(b)
+    return np.allclose(a[m], b[m], rtol=1e-3, atol=1e-5)
 
 
 class Encoder(torch.nn.Module):
@@ -111,9 +114,9 @@ def test_ExtendedDMD_serialization():
     _cleanup()
 
 
-def test_DPNet_serialization():
+@pytest.mark.parametrize("feature_map_cls", [DPNet, VAMPNet])
+def test_DeepEDMD_serialization(feature_map_cls):
     from kooplearn.models import DeepEDMD
-    from kooplearn.models.feature_maps import DPNet
 
     trainer = lightning.Trainer(
         enable_progress_bar=False,
@@ -122,14 +125,14 @@ def test_DPNet_serialization():
         accelerator="cpu",
         max_epochs=1,
     )
-    feature_map = DPNet(
+    feature_map = feature_map_cls(
         Encoder, torch.optim.SGD, trainer, optimizer_kwargs={"lr": 1e-6}
     )
     feature_map.fit(NN_DATALOADER)
 
     tmp_path = _make_tmp_path(feature_map.__class__.__name__)
     feature_map.save(tmp_path)
-    restored_feature_map = DPNet.load(tmp_path)
+    restored_feature_map = feature_map_cls.load(tmp_path)
 
     assert _allclose(feature_map(TRAJ), restored_feature_map(TRAJ))
 

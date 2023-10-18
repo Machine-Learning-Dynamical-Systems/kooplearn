@@ -76,6 +76,8 @@ class VAMPNet(TrainableFeatureMap):
         Args:
             filename (path-like or file-like): Save the model to file.
         """
+        # Delete (un-picklable) weakref self.lightning_module._kooplearn_feature_map_weakref
+        self.lightning_module._kooplearn_feature_map_weakref = None
         pickle_save(self, filename)
 
     @classmethod
@@ -86,9 +88,14 @@ class VAMPNet(TrainableFeatureMap):
             filename (path-like or file-like): Load the model from file.
 
         Returns:
-            VAMPNet: The loaded model.
+            DPNet: The loaded model.
         """
-        return pickle_load(cls, filename)
+        restored_obj = pickle_load(cls, filename)
+        # Restore the weakref
+        restored_obj.lightning_module._kooplearn_feature_map_weakref = weakref.ref(
+            restored_obj
+        )
+        return restored_obj
 
     def fit(
         self,
