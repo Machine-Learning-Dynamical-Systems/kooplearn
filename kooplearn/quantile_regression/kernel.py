@@ -2,6 +2,7 @@ from kooplearn.models.kernel import KernelDMD
 from kooplearn._src.operator_regression.utils import contexts_to_markov_train_states
 from kooplearn._src.utils import check_is_fitted
 from kooplearn.quantile_regression.utils import compute_quantile_robust
+from sklearn.isotonic import IsotonicRegression
 import numpy as np
 
 class QuantileDMD(KernelDMD):
@@ -59,7 +60,7 @@ class QuantileDMD(KernelDMD):
         values_at_risk = _fXfit[candidates[:q_index]]
         return -np.sum(values_at_risk * (k0T @ WT)[:, candidates[:q_index]])/alpha
 
-    def compute_vol(self, X, w, t=1, stable=True):
+    def compute_vol(self, X, fun = lambda x : x.mean(axis=-1), t=1, stable=True):
         """
         X returns at time 0
         w portfolio weights

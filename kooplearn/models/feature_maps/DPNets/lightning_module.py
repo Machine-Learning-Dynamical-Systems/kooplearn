@@ -56,8 +56,13 @@ class DPNetsLightningModule(LightningModule):
         # If weight_sharing is True, the input and output encoders are the same (with shared weights).
         if not self.weight_sharing:
             self.encoder_evolved = encoder(**encoder_kwargs)
+        ## modify to allow the evolved encoder to be linear system
+        #elif linear_decoder:
+        #    self.encoder_evolved = Linear(**params)
         else:
             self.encoder_evolved = self.encoder_init
+
+
         
         self.metric_reg = metric_reg
         self.use_relaxed_loss = use_relaxed_loss

@@ -92,7 +92,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         X = X.reshape(X.shape[0], -1)
         if Y is not None:
             Y = Y.reshape(Y.shape[0], -1)
-        return self._kernel(X,Y)    
+        return self._kernel(X,Y)
 
     def fit(self, data: np.ndarray, verbose: bool = True) -> KernelDMD:
         """

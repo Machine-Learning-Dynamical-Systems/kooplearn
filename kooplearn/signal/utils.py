@@ -3,16 +3,18 @@ import numpy as np
 import pandas
 
 def compute_mode_info(operator:BaseModel, observable=lambda x:x, X=None, deltat=1, xcoord=None, ycoord=None):
+    # computes mode information based on the last context window?
+
     eigs = operator.eig()
     if X is None:
         X = operator.data_fit[-1, :operator.lookback_len].reshape(1, operator.lookback_len, -1)
+
     modes = operator.modes(X, observables=observable)
     n_eigs = eigs.shape[0]
     if modes.ndim == 1:
         n_features=1
     else:
         n_features = modes.shape[1]
-        print(n_features)
 
     # initialiasing the dataframe containing the information for every cell of every mode
     infos = pandas.DataFrame()
@@ -38,7 +40,7 @@ def compute_mode_info(operator:BaseModel, observable=lambda x:x, X=None, deltat=
     # mode specific information. This information is unique per mode and per variable
     infos['mode'] = modes.flatten()  # Actual value of the mode
     if n_features == 1:
-        Z = modes*eigs
+        Z = eigs*modes.flatten()
     else:
         Z = modes * np.outer(eigs, np.ones(n_features))  # Multiplying by the eigenvalue to recover the signal
     Z = Z.flatten()  # Row-wise flattening of the modes matrix

@@ -5,7 +5,7 @@ from kooplearn._src.utils import check_is_fitted
 from kooplearn.quantile_regression.utils import compute_quantile_robust
 import numpy as np
 
-class FinEDMD(ExtendedDMD):
+class QuantilePrimal():
     def quantile_regression(self, X, fun = lambda x : np.mean(x, axis=1), alpha=0.01, t=1, isotonic=True, rescaling=True):
         check_is_fitted(self, ['U', 'cov_XY', 'cov_X', 'cov_Y', 'data_fit', 'lookback_len'])
 
@@ -36,10 +36,6 @@ class FinEDMD(ExtendedDMD):
     def expected_shortfall(self, X, fun = lambda x : np.mean(x, axis=1), alpha=0.01, t=1, isotonic=True, rescaling=True):
         pass
     def compute_vol(self, X, w, t=1, stable=True):
-        return self.predict(X, t, )
-
-class DeepQuantileEDMD(DeepDMD):
-    def quantile_regression(self, X, fun = lambda x : np.mean(x, axis=1), alpha=0.01, t=1, isotonic=True, rescaling=True):
         check_is_fitted(self, ['U', 'cov_XY', 'cov_X', 'cov_Y', 'data_fit', 'lookback_len'])
 
         X_fit, Y_fit = contexts_to_markov_train_states(self.data_fit, lookback_len=self._lookback_len)
@@ -62,11 +58,16 @@ class DeepQuantileEDMD(DeepDMD):
         M = np.linalg.matrix_power(U_C_XY_U, t - 1)
         pred = np.linalg.multi_dot([phi_Xin_dot_U, M, U_dot_phi_X])
 
-        # estimating the cdf of the function f on X_t
-        cdf = np.array([np.sum(pred[:, candidates[:i]], axis=-1) for i in range(num_train)]).T
-        return compute_quantile_robust(_fYfit[candidates], cdf, alpha=alpha, isotonic=isotonic, rescaling=rescaling)
+        if stable:
+            fa = (self.Y_fit @ w - pred @ self.Y_fit @ w)**2
+            return pred @ fa
 
-    def expected_shortfall(self, X, fun = lambda x : np.mean(x, axis=1), alpha=0.01, t=1, isotonic=True, rescaling=True):
-        pass
-    def compute_vol(self, X, w, t=1, stable=True):
-        return self.predict(X, t, )
+        left = pred*np.eye(T)
+        right = pred.T @ pred
+        return w @ self.Y_fit.T @ (left - right) @ self.Y_fit @ w    
+
+class QuantileEDMD(ExtendedDMD, QuantilePrimal):
+    pass
+ 
+class DeepQuantileEDMD(DeepEDMD, QuantilePrimal):
+    pass
