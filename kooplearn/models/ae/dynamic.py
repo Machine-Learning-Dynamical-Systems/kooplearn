@@ -273,6 +273,7 @@ class DynamicAE(BaseModel):
         Args:
             filename (path-like or file-like): Save the model to file.
         """
+        self.lightning_module._kooplearn_model_weakref = None
         pickle_save(self, filename)
 
     @classmethod
@@ -285,7 +286,12 @@ class DynamicAE(BaseModel):
         Returns:
             DynamicAE: The loaded model.
         """
-        return pickle_load(cls, filename)
+        restored_obj = pickle_load(cls, filename)
+        # Restore the weakref
+        restored_obj.lightning_module._kooplearn_model_weakref = weakref.ref(
+            restored_obj
+        )
+        return restored_obj
 
     @property
     def is_fitted(self) -> bool:

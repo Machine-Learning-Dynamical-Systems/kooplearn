@@ -8,6 +8,7 @@ import torch
 
 from kooplearn.data import traj_to_contexts
 from kooplearn.datasets import Mock
+from kooplearn.models import ConsistentAE, DynamicAE
 from kooplearn.models.feature_maps import DPNet, VAMPNet
 from kooplearn.nn.data import TrajToContextsDataset
 
@@ -42,6 +43,15 @@ class Encoder(torch.nn.Module):
 
     def forward(self, x):
         return self.encoder(x)
+
+
+class Decoder(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.decoder = torch.nn.Linear(32, DIM)
+
+    def forward(self, x):
+        return self.decoder(x)
 
 
 def test_KernelDMD_serialization():
@@ -126,7 +136,7 @@ def test_DeepEDMD_serialization(feature_map_cls):
         max_epochs=1,
     )
     feature_map = feature_map_cls(
-        Encoder, torch.optim.SGD, trainer, optimizer_kwargs={"lr": 1e-6}
+        Encoder, torch.optim.SGD, trainer, optimizer_kwargs={"lr": 1e-6}, seed=0
     )
     feature_map.fit(NN_DATALOADER)
 
@@ -150,6 +160,52 @@ def test_DeepEDMD_serialization(feature_map_cls):
     assert _allclose(
         model.modes(DATA[:, : model.lookback_len, ...]),
         restored_model.modes(DATA[:, : model.lookback_len, ...]),
+    )
+
+    e1, l1, r1 = model.eig(
+        eval_left_on=DATA[:, : model.lookback_len, ...],
+        eval_right_on=DATA[:, : model.lookback_len, ...],
+    )
+    e2, l2, r2 = restored_model.eig(
+        eval_left_on=DATA[:, : model.lookback_len, ...],
+        eval_right_on=DATA[:, : model.lookback_len, ...],
+    )
+
+    assert _allclose(e1, e2)
+    assert _allclose(l1, l2)
+    assert _allclose(r1, r2)
+
+    _cleanup()
+
+
+@pytest.mark.parametrize("model_cls", [DynamicAE, ConsistentAE])
+def test_AE_serialization(model_cls):
+    trainer = lightning.Trainer(
+        enable_progress_bar=False,
+        enable_checkpointing=False,
+        enable_model_summary=False,
+        accelerator="cpu",
+        max_epochs=1,
+    )
+    model = model_cls(
+        Encoder,
+        Decoder,
+        32,
+        torch.optim.SGD,
+        trainer,
+        optimizer_kwargs={"lr": 1e-6},
+        seed=0,
+    )
+    model.fit(NN_DATALOADER)
+
+    tmp_path = _make_tmp_path(model.__class__.__name__)
+    model.save(tmp_path)
+    restored_model = model_cls.load(tmp_path)
+
+    # Check that predict, eig and modes return the same values
+    assert _allclose(
+        model.predict(DATA[:, : model.lookback_len, ...]),
+        restored_model.predict(DATA[:, : model.lookback_len, ...]),
     )
 
     e1, l1, r1 = model.eig(

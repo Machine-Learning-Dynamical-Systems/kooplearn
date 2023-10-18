@@ -206,15 +206,10 @@ class ConsistentAE(BaseModel):
         if hasattr(self, "_eig_cache"):
             w, vl, vr = self._eig_cache
         else:
-            if self.lightning_module.hparams.use_lstsq_for_evolution:
-                raise NotImplementedError(
-                    f"Eigenvalues and eigenvectors are not implemented when {self.lightning_module.hparams.use_lstsq_for_evolution} == True."
-                )
-            else:
-                K = self.lightning_module.evolution_operator
-                K_np = K.detach().cpu().numpy()
-                w, vl, vr = eig(K_np, left=True, right=True)
-                self._eig_cache = w, vl, vr
+            K = self.lightning_module.evolution_operator
+            K_np = K.detach().cpu().numpy()
+            w, vl, vr = eig(K_np, left=True, right=True)
+            self._eig_cache = w, vl, vr
 
         if eval_left_on is None and eval_right_on is None:
             # (eigenvalues,)
@@ -283,6 +278,8 @@ class ConsistentAE(BaseModel):
         Args:
             filename (path-like or file-like): Save the model to file.
         """
+        # Delete (un-picklable) weakref self.lightning_module._kooplearn_feature_map_weakref
+        self.lightning_module._kooplearn_model_weakref = None
         pickle_save(self, filename)
 
     @classmethod
@@ -295,7 +292,12 @@ class ConsistentAE(BaseModel):
         Returns:
             ConsistentAE: The loaded model.
         """
-        return pickle_load(cls, filename)
+        restored_obj = pickle_load(cls, filename)
+        # Restore the weakref
+        restored_obj.lightning_module._kooplearn_model_weakref = weakref.ref(
+            restored_obj
+        )
+        return restored_obj
 
     @property
     def is_fitted(self) -> bool:

@@ -88,7 +88,7 @@ class VAMPNet(TrainableFeatureMap):
             filename (path-like or file-like): Load the model from file.
 
         Returns:
-            DPNet: The loaded model.
+            VAMPNet: The loaded model.
         """
         restored_obj = pickle_load(cls, filename)
         # Restore the weakref
