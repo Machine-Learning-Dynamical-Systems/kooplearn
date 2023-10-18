@@ -1,15 +1,13 @@
 import logging
-import os
-import pickle
 import weakref
 from copy import deepcopy
-from pathlib import Path
 from typing import Callable, Optional
 
 import numpy as np
 from scipy.linalg import eig
 
 from kooplearn._src.check_deps import check_torch_deps
+from kooplearn._src.serialization import pickle_load, pickle_save
 from kooplearn._src.utils import ShapeError, check_contexts_shape, check_is_fitted
 from kooplearn.abc import BaseModel
 from kooplearn.models.ae.utils import (
@@ -216,39 +214,88 @@ class ConsistentAE(BaseModel):
         if eval_left_on is None and eval_right_on is None:
             # (eigenvalues,)
             return w
-        else:
-            raise NotImplementedError(
-                "Left / right eigenfunction evaluations are not implemented yet."
-            )
+        elif eval_left_on is None and eval_right_on is not None:
+            # (eigenvalues, right eigenfunctions)
+            eval_right_on = self._np_to_torch(
+                eval_right_on
+            )  # [n_samples, context_len == 1, *trail_dims]
+            eval_right_on = eval_right_on[
+                :, self.lookback_len - 1, ...
+            ]  # [n_samples, *trail_dims]
+            with torch.no_grad():
+                phi_Xin = self.lightning_module.encoder(eval_right_on)
+                r_fns = (
+                    phi_Xin @ vl
+                )  # Not a typo: I need the left eigenvectors of K to get the right eigenfunctions of the Koopman operator
+            return w, r_fns.detach().cpu().numpy()
+        elif eval_left_on is not None and eval_right_on is None:
+            # (eigenvalues, left eigenfunctions)
+            eval_left_on = self._np_to_torch(
+                eval_left_on
+            )  # [n_samples, context_len == 1, *trail_dims]
+            eval_left_on = eval_left_on[
+                :, self.lookback_len - 1, ...
+            ]  # [n_samples, *trail_dims]
+            with torch.no_grad():
+                phi_Xin = self.lightning_module.encoder(eval_left_on)
+                l_fns = (
+                    phi_Xin @ vr
+                )  # Not a typo: I need the right eigenvectors of K to get the left eigenfunctions of the Koopman operator
+            return w, l_fns.detach().cpu().numpy()
+        elif eval_left_on is not None and eval_right_on is not None:
+            # (eigenvalues, left eigenfunctions, right eigenfunctions)
 
-    # TODO: Test
-    def save(self, path: os.PathLike):
-        path = Path(path)
-        path.mkdir(parents=True, exist_ok=True)
+            eval_right_on = self._np_to_torch(
+                eval_right_on
+            )  # [n_samples, context_len == 1, *trail_dims]
+            eval_right_on = eval_right_on[
+                :, self.lookback_len - 1, ...
+            ]  # [n_samples, *trail_dims]
 
-        # Save the trainer
-        torch.save(self.lightning_trainer, path / "lightning_trainer.bin")
-        # Save the lightning checkpoint
-        ckpt = path / "lightning.ckpt"
-        self.lightning_trainer.save_checkpoint(str(ckpt))
-        del self.lightning_module
-        del self.lightning_trainer
-        model = path / "kooplearn_model.pkl"
-        with open(model, "wb") as f:
-            pickle.dump(self, f)
+            eval_left_on = self._np_to_torch(
+                eval_left_on
+            )  # [n_samples, context_len == 1, *trail_dims]
+            eval_left_on = eval_left_on[
+                :, self.lookback_len - 1, ...
+            ]  # [n_samples, *trail_dims]
 
-    # TODO: Test
+            with torch.no_grad():
+                phi_Xin_r = self.lightning_module.encoder(eval_right_on)
+                r_fns = (
+                    phi_Xin_r @ vl
+                )  # Not a typo: I need the left eigenvectors of K to get the right eigenfunctions of the Koopman operator
+
+                phi_Xin_l = self.lightning_module.encoder(eval_left_on)
+                l_fns = (
+                    phi_Xin_l @ vr
+                )  # Not a typo: I need the right eigenvectors of K to get the left eigenfunctions of the Koopman operator
+
+            return w, l_fns.detach().cpu().numpy(), r_fns.detach().cpu().numpy()
+
+    def save(self, filename):
+        """Serialize the model to a file.
+
+        Args:
+            filename (path-like or file-like): Save the model to file.
+        """
+        # Delete (un-picklable) weakref self.lightning_module._kooplearn_feature_map_weakref
+        self.lightning_module._kooplearn_model_weakref = None
+        pickle_save(self, filename)
+
     @classmethod
-    def load(cls, path: os.PathLike):
-        path = Path(path)
-        trainer = torch.load(path / "lightning_trainer.bin")
-        ckpt = path / "lightning.ckpt"
-        with open(path / "kooplearn_model.pkl", "rb") as f:
-            restored_obj = pickle.load(f)
-        assert isinstance(restored_obj, cls)
-        restored_obj.lightning_trainer = trainer
-        restored_obj.lightning_module = ConsistentAEModule.load_from_checkpoint(
-            str(ckpt)
+    def load(cls, filename):
+        """Load a serialized model from a file.
+
+        Args:
+            filename (path-like or file-like): Load the model from file.
+
+        Returns:
+            ConsistentAE: The loaded model.
+        """
+        restored_obj = pickle_load(cls, filename)
+        # Restore the weakref
+        restored_obj.lightning_module._kooplearn_model_weakref = weakref.ref(
+            restored_obj
         )
         return restored_obj
 

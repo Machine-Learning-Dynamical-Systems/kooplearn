@@ -1,4 +1,14 @@
 # Roadmap
+#### Oct 17, 2023:
+Added branch `in_out` in which I will work on serialization of each model, and more generally on every input-output utility which might be needed.
+
+- The easiest storage option is just using `pickle`. `sklearn` as well as `lightning` models should be serializable by default.
+- With [PEP 574](https://peps.python.org/pep-0574/), `pickle` introduced a 'protocol 5' to efficiently serialize large objects as Numpy Array.
+- Implement a test for each serialization. 
+- I should be able to save and load models and feature maps, as specified in `kooplearn.abc`.
+- Add the possibility to pass both a path-like or a file-like object. The file-like object can be then used with `fsspec`.
+
+
 #### Oct 3, 2023:
 Macro implementations left to do:
 - Nystrom Kernel methods (add a `NystromKernelDMD` model)

@@ -1,7 +1,5 @@
 import logging
 import math
-import os
-from pathlib import Path
 from typing import NamedTuple
 
 import numpy as np
@@ -9,6 +7,7 @@ from numpy.typing import ArrayLike
 from scipy.spatial.distance import pdist
 
 logger = logging.getLogger("kooplearn")
+
 
 # Exceptions
 class NotFittedError(Exception):
@@ -26,13 +25,6 @@ def check_is_fitted(obj: object, attr_list: list[str]):
             raise NotFittedError(
                 f"Attribute \"{attr}\" not found. {obj.__class__.__name__} is not fitted. Please call the 'fit' method first."
             )
-
-
-def create_base_dir(path: os.PathLike):
-    path = Path(path)
-    base_path = path.parent
-    if not base_path.exists():
-        base_path.mkdir(parents=True)
 
 
 def check_contexts_shape(

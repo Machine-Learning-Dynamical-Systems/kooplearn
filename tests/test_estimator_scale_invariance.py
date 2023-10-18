@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from kooplearn._src.operator_regression import dual, primal
-from kooplearn.datasets import MockData
+from kooplearn.datasets import Mock
 
 
 @pytest.mark.parametrize("scale_factor", [0.5, 2])
@@ -15,7 +15,7 @@ def test_reduced_rank_tikhonov_primal_scale_invariance(
     num_test_pts = 100
     rank = 5
 
-    dataset = MockData(num_features=num_features, rng_seed=42)
+    dataset = Mock(num_features=num_features, rng_seed=42)
     _Z = dataset.sample(None, num_test_pts)
     X, Y = _Z[:-1], _Z[1:]
 
@@ -50,7 +50,7 @@ def test_reduced_rank_tikhonov_dual_scale_invariance(
     num_test_pts = 100
     rank = 5
 
-    dataset = MockData(num_features=num_features, rng_seed=42)
+    dataset = Mock(num_features=num_features, rng_seed=42)
     _Z = dataset.sample(None, num_test_pts)
     X, Y = _Z[:-1], _Z[1:]
 
