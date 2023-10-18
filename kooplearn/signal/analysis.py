@@ -1,5 +1,6 @@
 from kooplearn.signal.utils import compute_mode_info
 from kooplearn.abc import BaseModel
+from kooplearn.data import traj_to_contexts
 import numpy as np
 from tqdm import tqdm 
 from copy import deepcopy
@@ -12,8 +13,9 @@ def setup_timeseries(Z, lookback=1, forward=1):
         X[i] = Zi
     return X
 
-def spectrogram(X, modelClass:BaseModel, deltat, steps, T):
+def spectrogram(X, modelClass:BaseModel, deltat, steps, T, observable=lambda x:x):
     """
+    X one dimensional time series
     model
     deltat = 500 # number of samples for each training
     steps = 10   # step size of the moving window
@@ -22,18 +24,22 @@ def spectrogram(X, modelClass:BaseModel, deltat, steps, T):
     """
 
     N = X.shape[0]
-    freqs = np.zeros(((N-deltat-T)//steps, 50))
-    amplitudes = np.zeros(((N-deltat-T)//steps, 50))
-    phases = np.zeros(((N-deltat-T)//steps, 50))
-    modulus = np.zeros(((N-deltat-T)//steps, 50))
+    r = modelClass.rank
+    features = observable(X).shape[-1]
+    freqs = np.zeros(((N-deltat-T)//steps, r*features))
+    amplitudes = np.zeros(((N-deltat-T)//steps, r*features))
+    phases = np.zeros(((N-deltat-T)//steps, r*features))
+    modulus = np.zeros(((N-deltat-T)//steps, r*features))
+
+    if len(X.shape) < 3:
+        X = traj_to_contexts(X, T+1)
 
     for i in tqdm(range((N-deltat-T)//steps)):
-        X = setup_timeseries(X[i*steps:(i+1)*steps+deltat+T], T)
 
         model = deepcopy(modelClass)
-        model.fit(X)
+        model.fit(X[i*steps:(i+1)*steps+deltat], verbose=False)
 
-        infos = compute_mode_info(model,observable=lambda x:x[:,0].reshape(-1,1), deltat=0.001, xcoord=None)
+        infos = compute_mode_info(model,observable, deltat=0.001, xcoord=None)
         freqs[i] = infos['frequency']
         amplitudes[i] = infos['amplitude']
         modulus[i] = infos['modulus']
