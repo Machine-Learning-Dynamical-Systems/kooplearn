@@ -85,6 +85,15 @@ class CosineDistribution:
 
 
 class LogisticMap(DiscreteTimeDynamics):
+    """Noisy Logistic map
+
+    Args:
+        r (float): parameter of the logistic map. Defaults to 4.0.
+        N (int): Exponent of the trigonometric noise as defined in :footcite:t:`Kostic2022` (Appendix). Should be an _even_ integer or None (no noise). Defaults to None.
+        rng_seed (int): Internal number generator seed. Defaults to None.
+
+    """
+
     def __init__(
         self, r: float = 4.0, N: Optional[int] = None, rng_seed: Optional[int] = None
     ):

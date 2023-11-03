@@ -17,10 +17,10 @@ Score & Loss functions
 
 .. autofunction:: kooplearn.nn.functional.relaxed_projection_score
 
-.. autofunction:: log_fro_metric_deformation_loss  
+.. autofunction:: kooplearn.nn.functional.log_fro_metric_deformation_loss  
 
 
 Linear algebra & miscellanea
 ----------------------------
 
-.. autofunction:: sqrtmh
+.. autofunction:: kooplearn.nn.functional.sqrtmh
