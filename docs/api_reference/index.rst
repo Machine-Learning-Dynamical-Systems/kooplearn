@@ -7,4 +7,5 @@ API Reference
     abc
     models
     feature_maps
+    data
     nn_functional

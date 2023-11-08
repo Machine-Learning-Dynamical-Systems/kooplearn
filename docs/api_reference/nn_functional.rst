@@ -3,13 +3,6 @@ Neural Network Utilities
 
 .. currentmodule:: kooplearn.nn
 
-Data
-----
-.. autoclass:: kooplearn.nn.data.ContextsDataset
-
-.. autoclass:: kooplearn.nn.data.TrajToContextsDataset
-
-
 Score & Loss functions
 ----------------------
 

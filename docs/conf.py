@@ -12,8 +12,8 @@ import sys
 sys.path.insert(0, os.path.abspath(".."))  # Importing kooplearn for autodoc
 
 project = "kooplearn"
-copyright = "2023, Pietro Novelli, Grégoire Pacreau, Bruno Belucci, Vladimir Kostic"
-author = "Pietro Novelli, Grégoire Pacreau, Bruno Belucci, Vladimir Kostic"
+copyright = "2023, Pietro Novelli"
+author = "Pietro Novelli"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

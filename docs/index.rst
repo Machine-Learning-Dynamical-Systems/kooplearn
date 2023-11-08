@@ -79,18 +79,6 @@ Installation
    pip install --upgrade git+https://github.com/CSML-IIT-UCL/kooplearn.git
 
 
-Basic usage
-^^^^^^^^^^^^
-TODO: add basic usage example 
-
-----
-
-Dashboard
-^^^^^^^^^^^^
-TODO: add dashboard example with .gif animation
-
-----
-
 Learn more
 ^^^^^^^^^^
 
@@ -133,7 +121,6 @@ Learn more
    getting_started
    examples/index
    model_zoo
-   datasets
    guides/index
    api_reference/index
 
