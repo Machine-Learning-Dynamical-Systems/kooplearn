@@ -10,4 +10,4 @@ sphinx-design
 jupytext==1.13.8
 sphinxcontrib-bibtex
 docutils == 0.16
-kooplearn [torch] == 0.2.0.dev2
+kooplearn [torch] == 1.0.0.dev1
