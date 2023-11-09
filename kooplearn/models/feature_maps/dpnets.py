@@ -199,9 +199,11 @@ class DPModule(lightning.LightningModule):
             self.lr = _tmp_opt_kwargs.pop("lr")
             self.opt_kwargs = _tmp_opt_kwargs
         else:
-            raise ValueError(
-                "You must specify a learning rate 'lr' key in the optimizer_kwargs."
+            self.lr = 1e-3
+            logger.warning(
+                "No learning rate specified. Using default value of 1e-3. You can specify the learning rate by passing it to the optimizer_kwargs argument."
             )
+
         self.encoder = encoder(**encoder_kwargs)
         if encoder_timelagged is not None:
             self.encoder_timelagged = encoder_timelagged(**encoder_timelagged_kwargs)
