@@ -53,9 +53,6 @@ dev = [
 [project.urls]  # Optional
 "Homepage" = "https://github.com/CSML-IIT-UCL/kooplearn"
 
-[project.scripts] 
-kooplearn-dashboard = "kooplearn.dashboard.app:main"
-
 [tool.isort]
 # make it compatible with black
 profile = "black"
