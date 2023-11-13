@@ -5,9 +5,10 @@ import numpy as np
 from dash import Dash, Input, Output, callback, dcc, html
 from sklearn.gaussian_process.kernels import DotProduct
 
-from kooplearn._src.dashboard.visualizer import Visualizer
+from kooplearn.dashboard.visualizer import Visualizer
 from kooplearn.datasets import Mock
-from kooplearn.models.kernel import KernelReducedRank
+from kooplearn.models.kernel import KernelDMD
+from kooplearn.data import traj_to_contexts
 
 #### WORK IN PROGRESS, FOR NOW USE THE visualizer.utils.py METHODS ####
 # Script for an interactive Dash html page using the visualisation methods of utils.py
@@ -24,10 +25,10 @@ if args.koopman == "":
     # tutorial mode
     dataset = Mock(num_features=10, rng_seed=0)
     _Z = dataset.sample(None, 100)
-    X, Y = _Z[:-1], _Z[1:]
+    X = traj_to_contexts(_Z, 2)
 
-    operator = KernelReducedRank(DotProduct(), rank=10)
-    operator.fit(X, Y)
+    operator = KernelDMD(DotProduct(), rank=10)
+    operator.fit(X)
 else:
     with open(args.koopman, "rb") as file:
         operator = pickle.load(file)
