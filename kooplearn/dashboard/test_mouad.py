@@ -1,9 +1,13 @@
 import argparse
 import pickle
+import time
 
 import numpy as np
 from dash import Dash, Input, Output, callback, dcc, html
 from dash.dependencies import ALL
+import dash_bootstrap_components as dbc
+import plotly.express as px
+
 from sklearn.gaussian_process.kernels import *
 from kooplearn.models.feature_maps import *
 from featuremap_example import feature_map
@@ -16,62 +20,51 @@ from kooplearn.data import traj_to_contexts
 from scipy.stats import ortho_group
 import numpy as np
 
+# stylesheet with the .dbc class to style  dcc, DataTable and AG Grid components with a Bootstrap theme
+dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates/dbc.min.css"
 
-app = Dash(__name__)
+app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME, dbc_css])
 
-app.layout = html.Div(
-    [
-        html.Div(
-            [dcc.Graph(id="eig-plot")],
-            style={"width": "30%", "display": "inline-block"},
-            # style={"padding": "20px", "boxShadow": "0 0 10px #ccc"},
-        ),
-        html.Div(
-            [dcc.Graph(id="freq-plot")],
-            style={"width": "49%", "display": "inline-block"},
-        ),
-        html.Div(
-            [
-                dcc.RangeSlider(
-                    min=-0.1,
-                    max= 1, #int(viz.infos["frequency"].max()) + 1,
-                    marks= {"0": "0", "1": "1"}, #frequency_dict,
-                    id="freq_range_slider",
-                ),
-                dcc.Input(id="Tmax", type="number", placeholder="input T max"),
-                dcc.Slider(min=0, max=1, step=1, id="T"),
-            ],
-            style={"width": "60%"},
-        ),
-            html.Div(
+header = html.H4(
+    "kooplearn: Learn Koopman and transfer operators of Dynamical Systems", className="bg-primary text-white p-2 mb-2 text-center"
+)
+
+# Define your controls using Dash Bootstrap Components
+models = dbc.Card([html.Div(
             [
                 html.H4("Models"),
+                dbc.Label("Select a model"),
                 dcc.Dropdown(
                     id="model-dropdown",
                     options=[
                         {"label": "KernelDMD", "value": "KernelDMD"},
                         {"label": "DeepEDMD", "value": "DeepEDMD"},
-                        {"label": "ExtendedDMD", "value": "ExtendedDMD"},
                         {"label": "DMD", "value": "DMD"},
+                        {"label": "ExtendedDMD", "value": "ExtendedDMD"},                        
                     ],
                     value="KernelDMD",  # Default model selection
-                ),
-                html.H4("Rank"),
-                dcc.Input(id="rank-input", type="number", min=1, step=1, placeholder="rank"),  # Assuming rank starts at 1 and increments by 1
+                    clearable=False
+                ),],
+                className="p-3",),
+                html.Div([
+                dbc.Label("Rank: ", style={"display": "inline-block", "margin-right": "8px"}),
+                dcc.Input(id="rank-input", type="number", min=1, step=1, placeholder="rank"),], className="p-3",),  # Assuming rank starts at 1 and increments by 1
+                
+                html.Div([
+                dbc.Label("Tikhonov Regularization: ", style={"display": "inline-block", "margin-right": "8px"}),
+                dcc.Input(id="tikhonov_reg-input", type="number", placeholder="tikhonov_reg"),], className="p-3",),
 
-                html.H4("Tikhonov Regularization"),
-                dcc.Input(id="tikhonov_reg-input", type="number", placeholder="tikhonov_reg"),
+                html.Div([
+                dbc.Label("context_window_len: ", style={"display": "inline-block", "margin-right": "8px"}),
+                dcc.Input(id="context_window_len-input", type="number", min=2, step=1, value=2, placeholder="context_window_len"),], className="p-3",),
 
-                html.H4("context_window_len"),
-                dcc.Input(id="context_window_len-input", type="number", min=2, step=1, value=2, placeholder="context_window_len"),
-            ],
-            style={"margin": "10px"}
-        ),
-        html.Div(id='model-params-div'),  # This Div will be populated with inputs dynamically
+                html.Div(id='model-params-div'),
+        ])
 
-        html.Div(
+datasets = dbc.Card([html.Div(
             [
                 html.H4("Datasets"),
+                dbc.Label("Select a dataset"),
                 dcc.Dropdown(
                     id="dataset-dropdown",
                     options=[
@@ -80,37 +73,114 @@ app.layout = html.Div(
                         {"label": "LogisticMap", "value": "LogisticMap"},
                         {"label": "LangevinTripleWell1D", "value": "LangevinTripleWell1D"},
                         {"label": "DuffingOscillator", "value": "DuffingOscillator"},
-                        {"label": "Lorenz63", "value": "Lorenz63"}
+                        {"label": "Lorenz63", "value": "Lorenz63"},
                     ],
                     value="LinearModel",
-                    )
-                    ]
-                    ),
-        html.Div(id='dataset-params-div'),  # This Div will be populated with inputs dynamically
-        html.Div(
-            [
-                html.H4("T parameter of the sample function"),
+                    clearable=False
+                ),
+                html.Div(id='dataset-params-div'),  # This Div will be populated with inputs dynamically
+        
+                dbc.Label("T parameter of the sample function: ", style={"display": "inline-block", "margin-right": "8px"}),
                 dcc.Input(id="T_sample-input", type="number", min=1, step=1, value=100, placeholder="T"),
             ],
-            style={"margin": "10px"}
-        ),
+            className="p-3",
+        )])
 
+slider1 = html.Div(
+            [
+                dbc.Label("Frequency"),
+                dcc.RangeSlider(
+                    min=-0.1,
+                    max= 1, #int(viz.infos["frequency"].max()) + 1,
+                    marks= {"0": "0", "1": "1"}, #frequency_dict,
+                    id="freq_range_slider",
+                    tooltip={"placement": "bottom", "always_visible": True},
+                    className="p-0",
+                ),
+            ],
+            className="p-3",
+)
 
-        html.Div(
+slider2 = html.Div(
+            [
+                # dbc.Label("T"),
+                dcc.Input(id="Tmax", type="number", placeholder="input T max"),
+                dcc.Slider(min=0, 
+                           max=1, 
+                           step=1, 
+                           id="T",
+                           tooltip={"placement": "bottom", "always_visible": True},
+                           className="p-0",
+                    ),
+            ],
+            className="p-3",
+)
+
+modes = dbc.Card([html.Div(
             [
                 # dcc.Dropdown(available_modes, "All", id="modes_select"),
                 html.H4("Modes"),
+                dbc.Label("Select a mode"),
                 dcc.Dropdown(
                     id="modes_select",
                     options=[{"label": str(i), "value": str(i)} for i in range(10)],  # Placeholder values
                     value="All",  # Placeholder value
+                    clearable=False
                 ),
                 dcc.Graph(id="modes-plot"),
                 # html.H1("Prediction"),
                 # dcc.Graph(id='pred-plot', figure=viz.plot_preds())
-            ]
-        ),
-    ], style={"backgroundColor": "#f8f9fa"}
+            ],
+            className="p-3",
+        )], body=True,)
+
+controls = dbc.Card(
+    [slider1, slider2],
+    body=True,
+)
+
+graph1 = dbc.Card([
+    html.Div(
+            [html.H4("Eigenvalues plot"),
+                dcc.Graph(id="eig-plot"),
+                ],
+                )], body=True,)                
+            # style={"width": "30%", "display": "inline-block"},
+            # style={"padding": "20px", "boxShadow": "0 0 10px #ccc"},
+
+graph2 = dbc.Card([
+    html.Div(
+            [
+                html.H4("Frequency plot"),
+                dcc.Graph(id="freq-plot"),
+                ],
+                # style={"width": "49%", "display": "inline-block"},
+                ),
+                ], body=True,
+                )
+
+# graphs = dbc.Card([graphs1])
+
+app.layout = dbc.Container(
+    [
+        header,
+        # html.Div(html.Img(src="https://kooplearn.readthedocs.io/en/latest/_static/logo.svg", height="120px"), 
+        #         #  className="d-flex justify-content-center"
+        #          ),
+        dbc.Row([
+            dbc.Col([
+                html.Img(src="https://kooplearn.readthedocs.io/en/latest/_static/logo.svg", height="120px"),
+                controls,
+            ],  width=4),
+            dbc.Col([graph1], width=3),
+            # dbc.Col([modes], width=7)
+            dbc.Col([graph2], width=5),
+        ]),
+        dbc.Row([dbc.Col([models, datasets], width=4),
+                 dbc.Col([modes], width=8)]),
+    ], 
+    fluid=True,
+    className="bg-light",
 )
 
 
@@ -155,9 +225,9 @@ def create_dataset_params(dataset_name):
     children = []
     for param in params:
         children.append(html.Div([
-            html.H4(param['label']),
+            dbc.Label(f"{param['label']}: ", style={"display": "inline-block", "margin-right": "8px"},),
             dcc.Input(id=param['id'], type="number", value=param['value'], step=param['step'], placeholder=param['label']),
-        ], style={"margin": "10px"}))
+        ], className="p-2"))
 
     return children
 
@@ -171,7 +241,8 @@ model_params = {
             {'label': 'SVD Solver', 'id': {'type': 'model-param', 'index': 'svd_solver'}, 'type': 'dropdown', 'options': ['full', 'arnoldi', 'randomized'], 'default': 'full'},
             {'label': 'Iterated Power', 'id': {'type': 'model-param', 'index': 'iterated_power'}, 'type': 'number', 'default': 1},
             {'label': 'N Oversamples', 'id': {'type': 'model-param', 'index': 'n_oversamples'}, 'type': 'number', 'default': 5},
-            {'label': 'Kernel', 'id': {'type': 'model-param', 'index': 'kernel'}, 'type': 'dropdown', 'options': ['DotProduct'], 'default': 'DotProduct'}, #'options': ['DotProduct', 'Exponentiation', 'PairwiseKernel', 'Sum', 'Product']
+            {'label': 'Kernel', 'id': {'type': 'model-param', 'index': 'kernel'}, 'type': 'dropdown', 'options': ['DotProduct', 'RBF', 'Matern', '0.5*DotProduct + 0.5*RBF'], 'default': 'DotProduct'}, #'options': ['DotProduct', 'Exponentiation', 'PairwiseKernel', 'Sum', 'Product']
+            {'label': 'Length Scale', 'id': {'type': 'model-param', 'index': 'length_scale'}, 'type': 'number', 'default': 1.0},
             {'label': 'Optimal Sketching', 'id': {'type': 'model-param', 'index': 'optimal_sketching'}, 'type': 'checklist', 'default': False},
             {'label': 'RNG Seed', 'id': {'type': 'model-param', 'index': 'rng_seed'}, 'type': 'number', 'default': None}
         ],
@@ -207,19 +278,19 @@ def create_model_params(model_name):
     for param in params:
         if param['type'] == 'number':
             children.append(html.Div([
-                html.H4(param['label']),
+                dbc.Label(f"{param['label']}: ", style={"display": "inline-block", "margin-right": "8px"}),
                 dcc.Input(id=param['id'], type="number", value=param['default'], placeholder=param['label']),
-            ], style={"margin": "10px"}))
+            ], className="p-2"))
         elif param['type'] == 'dropdown':
             children.append(html.Div([
-                html.H4(param['label']),
-                dcc.Dropdown(id=param['id'], options=[{'label': val, 'value': val} for val in param['options']], value=param['default']),
-            ], style={"margin": "10px"}))
+                dbc.Label(f"{param['label']}: ", style={"display": "inline-block", "margin-right": "8px"}),
+                dcc.Dropdown(id=param['id'], options=[{'label': val, 'value': val} for val in param['options']], value=param['default'], clearable=False),
+            ], className="p-2"))
         elif param['type'] == 'checklist':
             children.append(html.Div([
-                html.H4(param['label']),
-                dcc.Checklist(id=param['id'], options=['True', 'False'], value=[str(param['default'])], inline=True, ),
-            ], style={"margin": "10px"}))
+                dbc.Label(f"{param['label']}: ", style={"display": "inline-block", "margin-right": "8px"}),
+                dcc.RadioItems(id=param['id'], options=['True', 'False'], value=str(param['default']), inline=True),
+            ], className="p-2"))
 
     return children
 
@@ -285,7 +356,8 @@ def update_modes_plots(value, Tmax, T, mode_selection, rank, tikhonov_reg, model
         A = H @ (eigs * np.eye(10)) @ H.T
         noise=0.1
         rng_seed=42
-        if len(dynamic_params)==2:
+        time.sleep(0.05)
+        if dynamic_params!=[]:
             noise = dynamic_params[0]
             rng_seed = dynamic_params[1]
         dataset = LinearModel(A = A, noise=noise, rng_seed=rng_seed)  # Replace with the actual class and parameters
@@ -296,7 +368,8 @@ def update_modes_plots(value, Tmax, T, mode_selection, rank, tikhonov_reg, model
         r_param=4.0
         N_param=None
         rng_seed=None
-        if len(dynamic_params)==3:
+        time.sleep(0.05)
+        if dynamic_params!=[]:
             r_param = dynamic_params[0]
             N_param = dynamic_params[1]
             rng_seed = dynamic_params[2]
@@ -309,7 +382,8 @@ def update_modes_plots(value, Tmax, T, mode_selection, rank, tikhonov_reg, model
         kt=1.0
         dt=1e-4
         rng_seed=None
-        if len(dynamic_params)==4:
+        time.sleep(0.05)
+        if dynamic_params!=[]:
             gamma = dynamic_params[0]
             kt = dynamic_params[1]
             dt = dynamic_params[2]
@@ -325,7 +399,8 @@ def update_modes_plots(value, Tmax, T, mode_selection, rank, tikhonov_reg, model
         delta=2.5
         omega=2.0
         dt=0.01
-        if len(dynamic_params)==6:
+        time.sleep(0.05)
+        if dynamic_params!=[]:
             alpha = dynamic_params[0]
             beta = dynamic_params[1]
             gamma = dynamic_params[2]
@@ -341,7 +416,8 @@ def update_modes_plots(value, Tmax, T, mode_selection, rank, tikhonov_reg, model
         mu=28
         beta=8 / 3
         dt=0.01
-        if len(dynamic_params)==4:
+        time.sleep(0.05)
+        if dynamic_params!=[]:
             sigma = dynamic_params[0]
             mu = dynamic_params[1]
             beta = dynamic_params[2]
@@ -356,17 +432,16 @@ def update_modes_plots(value, Tmax, T, mode_selection, rank, tikhonov_reg, model
 
     #Problem: les fonctions kernel ont besoin de parametres (par exemple: somme de x et y)
     if selected_model == "KernelDMD":
-        # Create a mapping for kernels
-        kernel_mapping = {
-            'DotProduct': DotProduct(),
-            # 'Exponentiation': Exponentiation(),
-            # 'PairwiseKernel': PairwiseKernel(),
-            # 'Sum': Sum(),
-            # 'Product': Product()
-        }
         # Assuming the order of parameters in create_model_params function
         operator_kwargs = {'kernel': DotProduct()}
-        if len(model_dynamic_params)==7:
+        time.sleep(0.05)
+        if dynamic_params!=[]:
+            kernel_mapping = {
+            'DotProduct': DotProduct(),
+            'RBF': RBF(length_scale=model_dynamic_params[5]), 
+            'Matern': Matern(length_scale=model_dynamic_params[5]), 
+            '0.5*DotProduct + 0.5*RBF': 0.5*DotProduct() + 0.5*RBF(length_scale=model_dynamic_params[5])
+        }
             operator_kwargs = {
                 'kernel': kernel_mapping.get(model_dynamic_params[4], DotProduct()), #DotProduct(),
                 'reduced_rank': model_dynamic_params[0],
@@ -375,9 +450,10 @@ def update_modes_plots(value, Tmax, T, mode_selection, rank, tikhonov_reg, model
                 'svd_solver': model_dynamic_params[1],
                 'iterated_power': model_dynamic_params[2],
                 'n_oversamples': model_dynamic_params[3],
-                'optimal_sketching': model_dynamic_params[5],
-                'rng_seed': model_dynamic_params[6] if model_dynamic_params[6] != '' else None  # Handle empty string for None
+                'optimal_sketching': model_dynamic_params[6],
+                'rng_seed': model_dynamic_params[7] if model_dynamic_params[7] != '' else None  # Handle empty string for None
             }
+            print(operator_kwargs)
         if rank is not None:
             operator_kwargs["rank"] = rank
         if tikhonov_reg is not None:
@@ -387,7 +463,8 @@ def update_modes_plots(value, Tmax, T, mode_selection, rank, tikhonov_reg, model
     #Problem: the feature_map is generated using a predefined dataset (LinearModel), do we need to fit the model on the same dataset?
     elif selected_model == "DeepEDMD":
         operator_kwargs = {'feature_map': feature_map()}
-        if len(model_dynamic_params)==6:
+        time.sleep(0.05)
+        if dynamic_params!=[]:
             operator_kwargs = {
                 'feature_map': feature_map(max_epochs=model_dynamic_params[0]),
                 'reduced_rank': model_dynamic_params[1],
@@ -408,7 +485,8 @@ def update_modes_plots(value, Tmax, T, mode_selection, rank, tikhonov_reg, model
             'IdentityFeatureMap': IdentityFeatureMap(),
         }
         operator_kwargs = {}
-        if len(model_dynamic_params)==6:
+        time.sleep(0.05)
+        if dynamic_params!=[]:
             operator_kwargs = {
                 'feature_map': FeatureMap_mapping.get(model_dynamic_params[4], IdentityFeatureMap()), #IdentityFeatureMap(),
                 'reduced_rank': model_dynamic_params[0],
@@ -425,7 +503,8 @@ def update_modes_plots(value, Tmax, T, mode_selection, rank, tikhonov_reg, model
 
     elif selected_model == "DMD":
         operator_kwargs = {}
-        if len(model_dynamic_params)==5:
+        time.sleep(0.05)
+        if dynamic_params!=[]:
             operator_kwargs = {
                 'reduced_rank': model_dynamic_params[0],
                 'svd_solver': model_dynamic_params[1],
