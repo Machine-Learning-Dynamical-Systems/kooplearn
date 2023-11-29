@@ -24,7 +24,7 @@ def create_plot_eigs(infos, min_freq=None, max_freq=None):
                     (np.abs(infos.frequency) <= max_freq)
                     & (np.abs(infos.frequency) >= min_freq)
                 ).astype("int"),
-                colorscale=[[0, "rgba(255,127,80, 0.01)"], [1, "rgba(255,127,80, 1)"]],
+                # colorscale=[[0, "rgba(255,127,80, 0.01)"], [1, "rgba(255,127,80, 1)"]],
             ),
         )
     )
@@ -46,7 +46,7 @@ def create_plot_eigs(infos, min_freq=None, max_freq=None):
         width=400,
         height=400,
         # title='Eigenvalues',
-        template=PLOTLY_THEME,
+        # template=PLOTLY_THEME,
     )
     return fig
 
@@ -70,7 +70,7 @@ def create_frequency_plot(infos, min_freq=None, max_freq=None):
                     (np.abs(relevant_infos.frequency) <= max_freq)
                     & (np.abs(relevant_infos.frequency) >= min_freq)
                 ).astype("int"),
-                colorscale=[[0, "rgba(255,127,80, 0.01)"], [1, "rgba(255,127,80, 1)"]],
+                # colorscale=[[0, "rgba(255,127,80, 0.01)"], [1, "rgba(255,127,80, 1)"]],
             ),
         )
     )
@@ -80,9 +80,9 @@ def create_frequency_plot(infos, min_freq=None, max_freq=None):
         # title='Frequency spectrum',
         margin={"l": 10, "b": 10, "t": 40, "r": 20},
         autosize=False,
-        width=600,
+        width=550,
         height=400,
-        template=PLOTLY_THEME,
+        # template=PLOTLY_THEME,
     )
     max_range = np.max(infos["frequency"])
     fig.update_xaxes(
@@ -112,7 +112,8 @@ def create_plot_modes(infos, index=None, min_freq=None, max_freq=None):
         opacity = is_selected + (1 - is_selected) * 0.2
         fig = px.scatter(x=mode["x"], y=mode["mode"].to_numpy().real, opacity=opacity)
         fig.update_layout(
-            xaxis_title="Variables", yaxis_title="Value of mode", template=PLOTLY_THEME
+            xaxis_title="Variables", yaxis_title="Value of mode", 
+            # template=PLOTLY_THEME
         )
         return fig
 
@@ -137,8 +138,8 @@ def create_plot_modes(infos, index=None, min_freq=None, max_freq=None):
     fig.update_layout(
         title="Mode decomposition",
         # width=1100,
-        height=1100,
-        template=PLOTLY_THEME,
+        height=700,
+        # template=PLOTLY_THEME,
     )
     return fig
 
@@ -169,9 +170,9 @@ def create_2d_plot_modes(infos, index, min_freq, max_freq):
     fig.update_layout(
         xaxis_title="x",
         yaxis_title="y",
-        width=1100,
-        height=1100,
-        template=PLOTLY_THEME,
+        # width=1100,
+        height=700,
+        # template=PLOTLY_THEME,
     )
     return fig
 
@@ -194,9 +195,9 @@ def create_combined_plot_modes(infos, T, min_freq, max_freq):
     fig.update_layout(
         xaxis_title="Variables",
         yaxis_title="Value",
-        # width=1100,
-        height=1100,
-        template=PLOTLY_THEME,
+        # width=500,
+        height=500,
+        # template=PLOTLY_THEME,
     )
     return fig
 
@@ -217,9 +218,9 @@ def create_combined_2d_plot_modes(infos, T, min_freq, max_freq):
     fig.update_layout(
         xaxis_title="Variables",
         yaxis_title="Value",
-        # width=1100,
-        height=1100,
-        template=PLOTLY_THEME,
+        # width=700,
+        height=500,
+        # template=PLOTLY_THEME,
     )
     return fig
 
@@ -240,7 +241,7 @@ def create_plot_pred(infos, preds):
     fig.update_layout(
         xaxis_title="Variables",
         yaxis_title="Predicted value",
-        template=PLOTLY_THEME,
+        # template=PLOTLY_THEME,
     )
     return fig
 
