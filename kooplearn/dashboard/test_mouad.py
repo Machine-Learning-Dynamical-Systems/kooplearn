@@ -54,7 +54,7 @@ models = dbc.Tab([html.Div(
                 className="p-3",),
                 html.Div([
                 dbc.Label("Rank: ", style={"display": "inline-block", "margin-right": "8px"}),
-                dcc.Input(id="rank-input", type="number", min=1, step=1, placeholder="rank"),], className="p-3",),  # Assuming rank starts at 1 and increments by 1
+                dcc.Input(id="rank-input", type="number", min=1, step=1, placeholder="rank", value=1),], className="p-3"),  # Assuming rank starts at 1 and increments by 1
                 
                 html.Div([
                 dbc.Label("Tikhonov Regularization: ", style={"display": "inline-block", "margin-right": "8px"}),
@@ -177,7 +177,7 @@ dataset_plot = dbc.Tab([html.Div(
 
 tab_plots = dbc.Tab(dbc.Row([graph1, graph2]), label="Plots")
 
-tabs_graphs = dbc.Card(dbc.Tabs([tab_plots, modes, dataset_plot]), body=True)
+tabs_graphs = dbc.Card(dbc.Tabs([dataset_plot, tab_plots, modes]), body=True)
 
 # graphs = dbc.Card([graphs1])
 
@@ -210,8 +210,12 @@ app.layout = dbc.Container(
 # Dictionary of dataset parameters
 dataset_params = {
     'LinearModel': [
-        {'label': 'Noise', 'id': {'type': 'dynamic-param', 'index': 'noise'}, 'value': 0.1, 'step': 0.01},
-        {'label': 'RNG Seed', 'id': {'type': 'dynamic-param', 'index': 'rng_seed'}, 'value': 42, 'step': 1},
+        {'label': 'Noise', 'id': {'type': 'dynamic-param', 'index': 'noise'}, 'value': 1., 'step': 0.01},
+        {'label': 'RNG Seed', 'id': {'type': 'dynamic-param', 'index': 'rng_seed'}, 'value': None, 'step': 1},
+        {'label': 'Number features', 'id': {'type': 'dynamic-param', 'index': 'num_features'}, 'value': 10, 'step': 1},
+        {'label': 'Rang de la matrice', 'id': {'type': 'dynamic-param', 'index': 'r'}, 'value': 5, 'step': 1},
+        {'label': 'Lambda', 'id': {'type': 'dynamic-param', 'index': 'l'}, 'value': 1., 'step': 0.1}
+    
     ],
     'LogisticMap': [
         {'label': 'r', 'id': {'type': 'dynamic-param', 'index': 'r'}, 'value': 4.0, 'step': 0.1},
@@ -390,16 +394,9 @@ def update_click_count_and_show_progress(n_clicks, click_count):
     ],
 
 )
-def update_modes_plots(click_count, value, Tmax, T, mode_selection, rank, tikhonov_reg, model_dynamic_params,
+def main(click_count, value, Tmax, T, mode_selection, rank, tikhonov_reg, model_dynamic_params,
                        context_window_len, dynamic_params, T_sample, 
                        selected_dataset="LinearModel", selected_model="KernelDMD"):
-        
-    # print(T_sample)
-    # Update your dataset based on the selected value
-    # if selected_dataset == "Mock":
-    #     dataset = Mock(num_features=10, rng_seed=0)
-    #     _Z = dataset.sample(None, T_sample)
-    #     X = traj_to_contexts(_Z, context_window_len=context_window_len)
 
     if click_count == "0":
         # Prevent update before the app loads (no button click yet)
@@ -407,18 +404,36 @@ def update_modes_plots(click_count, value, Tmax, T, mode_selection, rank, tikhon
 
     print(dynamic_params)
     if selected_dataset == "LinearModel":
-        np.random.seed(10)
-        H = ortho_group.rvs(10)
-        eigs = np.exp(-np.arange(10))
-        A = H @ (eigs * np.eye(10)) @ H.T
-        noise=0.1
-        rng_seed=42
-        # time.sleep(0.05)
+        # np.random.seed(10)
+        # H = ortho_group.rvs(10)
+        # eigs = np.exp(-np.arange(10))
+        # A = H @ (eigs * np.eye(10)) @ H.T
+        noise=1.
+        rng_seed=None
+
+        num_features=10
+        r=5
+        l=1
+
         if dynamic_params!=[]:
             noise = dynamic_params[0]
             rng_seed = dynamic_params[1]
+
+            num_features = dynamic_params[2]
+            r = dynamic_params[3]
+            l = dynamic_params[4]
+        
+        if rng_seed is not None:
+            np.random.seed(rng_seed)
+
+        f = lambda x, r : 1. if x<r else 0.
+        H = ortho_group.rvs(num_features) 
+        eigs = np.array([l*f(i, r) for i in range(num_features)]) 
+        A = H @ (eigs * np.eye(num_features)) @ H.T 
+
         dataset = LinearModel(A = A, noise=noise, rng_seed=rng_seed)  # Replace with the actual class and parameters
-        _Z = dataset.sample(np.zeros(10), T_sample)
+        # dataset.generate(X0 = np.zeros(A.shape[0]), T=100, rng_seed)
+        _Z = dataset.sample(X0 = np.zeros(A.shape[0]), T = T_sample)
         #PLOT(_Z)
         X = traj_to_contexts(_Z, context_window_len=context_window_len)
 
@@ -486,8 +501,8 @@ def update_modes_plots(click_count, value, Tmax, T, mode_selection, rank, tikhon
 
     fig_dataset = px.line(_Z, labels={"index":"time"})
 
-    print(X.shape)
-    print(X.shape[-1])
+    # print(X.shape)
+    # print(X.shape[-1])
     #selected model
     print(model_dynamic_params)
 
@@ -515,8 +530,8 @@ def update_modes_plots(click_count, value, Tmax, T, mode_selection, rank, tikhon
                 'rng_seed': model_dynamic_params[5] if model_dynamic_params[5] != '' else None  # Handle empty string for None
             }
             print(operator_kwargs)
-        if rank is not None:
-            operator_kwargs["rank"] = rank
+        # if rank is not None:
+        operator_kwargs["rank"] = rank
         if tikhonov_reg is not None:
             operator_kwargs["tikhonov_reg"] = tikhonov_reg                        
         operator = KernelDMD(**operator_kwargs)
@@ -534,8 +549,8 @@ def update_modes_plots(click_count, value, Tmax, T, mode_selection, rank, tikhon
                 # 'n_oversamples': model_dynamic_params[4],
                 'rng_seed': model_dynamic_params[4] if model_dynamic_params[4] != '' else None  # Handle empty string for None
             }
-        if rank is not None:
-            operator_kwargs["rank"] = rank
+        # if rank is not None:
+        operator_kwargs["rank"] = rank
         if tikhonov_reg is not None:
             operator_kwargs["tikhonov_reg"] = tikhonov_reg    
         operator = DeepEDMD(**operator_kwargs)
@@ -556,8 +571,8 @@ def update_modes_plots(click_count, value, Tmax, T, mode_selection, rank, tikhon
                 # 'n_oversamples': model_dynamic_params[3],
                 'rng_seed': model_dynamic_params[4] if model_dynamic_params[4] != '' else None  # Handle empty string for None
             }
-        if rank is not None:
-            operator_kwargs["rank"] = rank
+        # if rank is not None:
+        operator_kwargs["rank"] = rank
         if tikhonov_reg is not None:
             operator_kwargs["tikhonov_reg"] = tikhonov_reg    
         operator = ExtendedDMD(**operator_kwargs)
@@ -573,8 +588,8 @@ def update_modes_plots(click_count, value, Tmax, T, mode_selection, rank, tikhon
                 # 'n_oversamples': model_dynamic_params[3],
                 'rng_seed': model_dynamic_params[3] if model_dynamic_params[3] != '' else None  # Handle empty string for None
             }
-        if rank is not None:
-            operator_kwargs["rank"] = rank
+        # if rank is not None:
+        operator_kwargs["rank"] = rank
         if tikhonov_reg is not None:
             operator_kwargs["tikhonov_reg"] = tikhonov_reg
         operator = DMD(**operator_kwargs)
@@ -607,8 +622,6 @@ def update_modes_plots(click_count, value, Tmax, T, mode_selection, rank, tikhon
 
     if T is None:
         T = 1
-
-    # print(mode_selection)
 
     if mode_selection == "All":
         fig_modes = viz.plot_modes(index=None, min_freq=min_freq, max_freq=max_freq)
