@@ -1,8 +1,7 @@
-from kooplearn.dashboard.utils import compute_mode_info
+from kooplearn.signal.utils import compute_mode_info
 from kooplearn.abc import BaseModel
 import numpy as np
 from tqdm import tqdm 
-from utils import get_XY, compute_mode_info
 
 identity = lambda x : x 
 
@@ -21,11 +20,15 @@ def compute_coherence_metric(model, observable_1=identity, observable_2=identity
     if max_freq is None:
         max_freq = infos_1['frequency'].max()
 
-    eigs = infos_1['eig_num'].unique()
-    freqs = infos_1['frequency'].unique()
-    band = (freqs <= max_freq & freqs >= min_freq)
+    eigs_freqs = infos_1[['eig_num', 'frequency']].drop_duplicates()
+
+    eigs = eigs_freqs['eig_num']
+    freqs = eigs_freqs['frequency']
+    band = (freqs <= max_freq) & (freqs >= min_freq)
     freqs = freqs[band]
     eigs = eigs[band]  
+
+    # TODO: normalise series?
 
     # creating the coherence tensor
     coherence_tensor=np.zeros((eigs.shape[0], n_features_1, n_features_2))
@@ -49,7 +52,7 @@ def compute_coherence_metric(model, observable_1=identity, observable_2=identity
     if aggregation is None: return coherence_tensor
     return aggregation(coherence_tensor)
 
-def compute_phase_delay(model, observable_1=identity, observable_2=identity, min_freq=None):
+def compute_phase_delay(model, observable_1=identity, observable_2=identity, min_freq=None, max_freq=None, aggregation=None):
     
     # compute mode 1 and frequencies
     infos_1 = compute_mode_info(model, observable=observable_1)
@@ -65,9 +68,11 @@ def compute_phase_delay(model, observable_1=identity, observable_2=identity, min
     if max_freq is None:
         max_freq = infos_1['frequency'].max()
 
-    eigs = infos_1['eig_num'].unique()
-    freqs = infos_1['frequency'].unique()
-    band = (freqs <= max_freq & freqs >= min_freq)
+    eigs_freqs = infos_1[['eig_num', 'frequency']].drop_duplicates()
+
+    eigs = eigs_freqs['eig_num']
+    freqs = eigs_freqs['frequency']
+    band = (freqs <= max_freq) & (freqs >= min_freq)
     freqs = freqs[band]
     eigs = eigs[band]  
 
