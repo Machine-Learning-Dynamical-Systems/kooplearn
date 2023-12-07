@@ -13,36 +13,37 @@ def setup_timeseries(Z, lookback=1, forward=1):
         X[i] = Zi
     return X
 
-def spectrogram(X, modelClass:BaseModel, deltat, steps, T, observable=lambda x:x):
+def spectrogram(X, modelClass:BaseModel, window_size,steps, T, observable=lambda x:x, deltat=1.):
     """
     X one dimensional time series
     model
-    deltat = 500 # number of samples for each training
+    window_size = 500 # number of samples for each training
     steps = 10   # step size of the moving window
     T=200         # number of time steps at each state
 
     """
 
-    N = X.shape[0]
-    r = modelClass.rank
-    features = observable(X).shape[-1]
-    freqs = np.zeros(((N-deltat-T)//steps, r*features))
-    amplitudes = np.zeros(((N-deltat-T)//steps, r*features))
-    phases = np.zeros(((N-deltat-T)//steps, r*features))
-    modulus = np.zeros(((N-deltat-T)//steps, r*features))
-
     if len(X.shape) < 3:
         X = traj_to_contexts(X, T+1)
 
-    for i in tqdm(range((N-deltat-T)//steps)):
+    N = X.shape[0]
+    r = modelClass.rank
+    features = observable(X).shape[-1]
+    freqs = np.zeros(((N-window_size-T)//steps, r*features))
+    amplitudes = np.zeros(((N-window_size-T)//steps, r*features))
+    phases = np.zeros(((N-window_size-T)//steps, r*features))
+    modulus = np.zeros(((N-window_size-T)//steps, r*features))
+
+    for i in tqdm(range((N-window_size-T)//steps)):
 
         model = deepcopy(modelClass)
-        model.fit(X[i*steps:(i+1)*steps+deltat], verbose=False)
+        model.fit(X[i*steps:(i+1)*steps+window_size], verbose=False)
 
-        infos = compute_mode_info(model,observable, deltat=0.001, xcoord=None)
+        infos = compute_mode_info(model,observable, deltat=deltat, xcoord=None)
         freqs[i] = infos['frequency']
         amplitudes[i] = infos['amplitude']
         modulus[i] = infos['modulus']
         phases[i] = infos['phase']
         del model
+
     return freqs, phases, amplitudes, modulus
