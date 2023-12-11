@@ -36,14 +36,18 @@ class ContextsDataset(Dataset):
 
 
 def traj_to_contexts_dataset(
-    trajectory: torch.Tensor, context_window_len: int = 2, time_lag: int = 1
+    trajectory: torch.Tensor,
+    context_window_len: int = 2,
+    time_lag: int = 1,
+    stride: int = 1,
 ):
     """Convert a single trajectory to a Torch Dataset of context windows. This function is also aliased in :mod:`kooplearn.data` as :func:`kooplearn.data.traj_to_contexts_dataset`.
 
     Args:
         trajectory (torch.tensor): A trajectory of shape ``(n_frames, *features_shape)``.
         context_window_len (int, optional): Length of the context window. Defaults to 2.
-        time_lag (int, optional): Time lag, i.e. stride, between successive context windows. Defaults to 1.
+        time_lag (int, optional): Time lag between frames within a context window. Defaults to 1.
+        stride (int, optional): Stride between successive context windows. Defaults to 1.
 
     Returns:
         An instance of :class:`kooplearn.nn.data.ContextsDataset`.
@@ -71,13 +75,17 @@ def traj_to_contexts_dataset(
         )
 
     contexts = trajectory.unfold(0, _context_window_len, 1)
-    contexts = torch.movedim(contexts, -1, 1)[:, ::time_lag, ...]
+    contexts = torch.movedim(contexts, -1, 1)[::stride, ::time_lag, ...]
     return ContextsDataset(contexts)
 
 
 class TrajToContextsDataset(ContextsDataset):
     def __init__(
-        self, trajectory: torch.Tensor, context_window_len: int = 2, time_lag: int = 1
+        self,
+        trajectory: torch.Tensor,
+        context_window_len: int = 2,
+        time_lag: int = 1,
+        stride: int = 1,
     ):
         if context_window_len < 2:
             raise ValueError(
@@ -105,4 +113,6 @@ class TrajToContextsDataset(ContextsDataset):
         self.context_len = context_window_len
         self.time_lag = time_lag
         self.contexts = trajectory.unfold(0, _context_window_len, 1)
-        self.contexts = torch.movedim(self.contexts, -1, 1)[:, :: self.time_lag, ...]
+        self.contexts = torch.movedim(self.contexts, -1, 1)[
+            ::stride, :: self.time_lag, ...
+        ]

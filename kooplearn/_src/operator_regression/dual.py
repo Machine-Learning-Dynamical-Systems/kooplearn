@@ -219,6 +219,8 @@ def fit_principal_component_regression(
     tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter, can be zero
     rank: Optional[int] = None,  # Rank of the estimator
     svd_solver: str = "arnoldi",  # Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
+    _return_singular_values: bool = False
+    # Whether to return the singular values of the projector. (Development purposes)
 ) -> tuple[np.ndarray, np.ndarray]:
     dim = K_X.shape[0]
 
@@ -234,7 +236,10 @@ def fit_principal_component_regression(
         raise ValueError(f"Unknown svd_solver {svd_solver}")
     vectors, values, rsqrt_values = _rank_reveal(values, vectors, rank)
     vectors = np.sqrt(dim) * vectors @ np.diag(rsqrt_values)
-    return vectors, vectors
+    if _return_singular_values:
+        return vectors, vectors, values
+    else:
+        return vectors, vectors
 
 
 def fit_nystrom_tikhonov(

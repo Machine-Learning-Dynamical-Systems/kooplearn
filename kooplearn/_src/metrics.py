@@ -14,3 +14,7 @@ def directed_hausdorff_distance(pred: np.ndarray, reference: np.ndarray):
             distances[pred_idx, reference_idx] = np.abs(pred_pt - reference_pt)
     hausdorff_dist = np.max(np.min(distances, axis=1))
     return hausdorff_dist
+
+
+def spectral_bias():
+    pass

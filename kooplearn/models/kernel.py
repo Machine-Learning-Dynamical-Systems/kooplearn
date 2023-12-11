@@ -132,7 +132,7 @@ class KernelDMD(BaseModel, RegressorMixin):
                         "tikhonov_reg must be specified when solver is randomized."
                     )
                 else:
-                    U, V = dual.fit_rand_reduced_rank_regression(
+                    U, V, _svals = dual.fit_rand_reduced_rank_regression(
                         self.kernel_X,
                         self.kernel_Y,
                         self.tikhonov_reg,
@@ -141,31 +141,39 @@ class KernelDMD(BaseModel, RegressorMixin):
                         self.optimal_sketching,
                         self.iterated_power,
                         rng_seed=self.rng_seed,
+                        _return_singular_values=True,
                     )
             else:
-                U, V = dual.fit_reduced_rank_regression(
+                U, V, _svals = dual.fit_reduced_rank_regression(
                     self.kernel_X,
                     self.kernel_Y,
                     self.tikhonov_reg,
                     self.rank,
                     self.svd_solver,
+                    _return_singular_values=True,
                 )
         else:
             if self.svd_solver == "randomized":
-                U, V = dual.fit_rand_principal_component_regression(
+                U, V, _svals = dual.fit_rand_principal_component_regression(
                     self.kernel_X,
                     self.tikhonov_reg,
                     self.rank,
                     self.n_oversamples,
                     self.iterated_power,
                     rng_seed=self.rng_seed,
+                    _return_singular_values=True,
                 )
             else:
-                U, V = dual.fit_principal_component_regression(
-                    self.kernel_X, self.tikhonov_reg, self.rank, self.svd_solver
+                U, V, _svals = dual.fit_principal_component_regression(
+                    self.kernel_X,
+                    self.tikhonov_reg,
+                    self.rank,
+                    self.svd_solver,
+                    _return_singular_values=True,
                 )
         self.U = U
         self.V = V
+        self._fitsvals = _svals
 
         # Final Checks
         check_is_fitted(
@@ -210,6 +218,71 @@ class KernelDMD(BaseModel, RegressorMixin):
         return dual.estimator_risk(
             kernel_Yv, self.kernel_Y, kernel_XXv, kernel_YYv, self.U, self.V
         )
+
+    def spectral_bias(self, data: Optional[np.ndarray] = None) -> float:
+        """Spectral bias of the estimator on the validation ``data``, as defined in :footcite:p:`Kostic2023SpectralRates`.
+
+        Args:
+            data (np.ndarray or None): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``. If ``None``, evaluates the spectral bias on the training data.
+
+        Returns:
+            Spectral bias of the estimator, see :footcite:p:`Kostic2023SpectralRates` for more details.
+        """
+        if data is not None:
+            check_contexts_shape(data, self.lookback_len)
+            data = np.asanyarray(data)
+            if data.shape[1] - 1 != self.lookback_len:
+                raise ShapeError(
+                    f"The  context length ({data.shape[1]}) of the validation data does not match the context length of the training data ({self.lookback_len + 1})."
+                )
+
+            X_val, Y_val = contexts_to_markov_train_states(data, self.lookback_len)
+            X_train, Y_train = contexts_to_markov_train_states(
+                self.data_fit, self.lookback_len
+            )
+            kernel_Xv = self.kernel(X_val)
+            kernel_XXv = self.kernel(X_train, X_val)
+            kernel_YYv = self.kernel(Y_train, Y_val)
+        else:
+            kernel_Xv = self.kernel_X
+            kernel_XXv = self.kernel_X
+            kernel_YYv = self.kernel_Y
+        ###
+
+        def metric_distortion(v, model: KernelDMD):
+            # Computes the metric distortion of the eigenfunction v, as defined in Kostic et al. 2023
+            norm = np.linalg.norm(kernel_Xv @ self.U @ v)
+            num = v.T @ self.U.T @ kernel_Xv @ self.U @ v
+            return np.sqrt(num) / norm
+
+        # Metric definition
+        def get_bias(model: KernelDMD, RRR=True):
+            # This is the bias estimate in Kostic et al.
+            if self.reduced_rank:
+                _, _, svals = fit_reduced_rank_regression(
+                    model.kernel_X,
+                    model.kernel_Y,
+                    model.tikhonov_reg,
+                    model.rank,
+                    model.svd_solver,
+                    _return_singular_values=True,
+                )
+            else:
+                _, _, svals = fit_principal_component_regression(
+                    model.kernel_X, model.tikhonov_reg, model.rank, model.svd_solver
+                )
+            svals = np.sort(svals)[::-1]
+            eigvals, eigvecs = np.linalg.eig(model.V.T @ model.U)
+
+            compute_etas = partial(metric_distortion, model=model)
+            etas = np.apply_along_axis(compute_etas, -1, eigvals)
+
+            if self.reduced_rank:
+                return (np.max(etas) * svals[model.rank]).real
+            else:
+                return (np.max(etas) * np.sqrt(svals[model.rank])).real
+
+    ###
 
     def predict(
         self,

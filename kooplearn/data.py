@@ -14,14 +14,18 @@ except:
 
 
 def traj_to_contexts(
-    trajectory: np.ndarray, context_window_len: int = 2, time_lag: int = 1
+    trajectory: np.ndarray,
+    context_window_len: int = 2,
+    time_lag: int = 1,
+    stride: int = 1,
 ):
     """Convert a single trajectory to a sequence of context windows.
 
     Args:
         trajectory (np.ndarray): A trajectory of shape ``(n_frames, *features_shape)``.
         context_window_len (int, optional): Length of the context window. Defaults to 2.
-        time_lag (int, optional): Time lag, i.e. stride, between successive context windows. Defaults to 1.
+        time_lag (int, optional): Time lag between frames within a context window. Defaults to 1.
+        stride (int, optional): Stride between successive context windows. Defaults to 1.
 
     Returns:
         np.ndarray: A sequence of context windows of shape ``(n_contexts, context_window_len, *features_shape)``.
@@ -47,5 +51,5 @@ def traj_to_contexts(
     _res = np.lib.stride_tricks.sliding_window_view(
         trajectory, _context_window_len, axis=0
     )
-    _res = np.moveaxis(_res, -1, 1)[:, ::time_lag, ...]
+    _res = np.moveaxis(_res, -1, 1)[::stride, ::time_lag, ...]
     return _res
