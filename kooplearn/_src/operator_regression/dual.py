@@ -3,8 +3,7 @@ from typing import Optional
 
 import numpy as np
 from scipy.linalg import LinAlgError, eig, eigh, lstsq, pinvh
-from scipy.sparse.linalg import eigs, eigsh, lsqr
-from scipy.sparse.linalg._eigen.arpack.arpack import IterInv
+from scipy.sparse.linalg import eigs, eigsh, lsqr, cho_factor, cho_solve, qr
 from sklearn.utils.extmath import randomized_svd
 
 from kooplearn._src.linalg import _rank_reveal, modified_QR, weighted_norm
@@ -176,7 +175,8 @@ def fit_rand_reduced_rank_regression(
     inv_dim = dim ** (-1.0)
     alpha = dim * tikhonov_reg
     tikhonov = np.identity(dim, dtype=K_X.dtype) * alpha
-    K_reg_inv = IterInv(K_X + tikhonov)
+    K_reg = K_X + tikhonov
+    c, low = cho_factor(K_reg)
     l = rank + n_oversamples
     rng = np.random.default_rng(rng_seed)
     if optimal_sketching:
@@ -187,7 +187,9 @@ def fit_rand_reduced_rank_regression(
 
     for _ in range(iterated_power):
         # Powered randomized rangefinder
-        Om = (inv_dim * K_Y) @ (Om - alpha * K_reg_inv @ Om)
+        Om = (inv_dim * K_Y) @ (Om - alpha * cho_solve((c, low), Om))
+        Om, _ = qr(Om, mode="economic")
+
     KOm = K_reg_inv @ Om
     KOmp = Om - alpha * KOm
 
