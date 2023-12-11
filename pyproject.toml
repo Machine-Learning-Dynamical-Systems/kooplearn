@@ -26,10 +26,10 @@ torch = [
   "pandas",
 ]
 
-visualizer = [
+dashboard = [
   "plotly",
   "dash",
-  "dash-mantine-components",
+  "dash-bootstrap-components",
   "dash-iconify",
   "pandas",
 ]
@@ -43,7 +43,7 @@ docs = [
 ]
 dev = [
   "kooplearn[torch]",
-  "kooplearn[visualizer]",
+  "kooplearn[dashboard]",
   "kooplearn[docs]",
   "pytest",
   "black",
@@ -52,6 +52,9 @@ dev = [
 
 [project.urls]  # Optional
 "Homepage" = "https://github.com/CSML-IIT-UCL/kooplearn"
+
+[project.scripts]
+kooplearn-dashboard = "kooplearn.dashboard.app.app:run_server"
 
 [tool.isort]
 # make it compatible with black

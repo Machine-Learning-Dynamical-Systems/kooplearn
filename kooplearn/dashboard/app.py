@@ -1,38 +1,58 @@
+import dash_bootstrap_components as dbc
 import numpy as np
+import plotly.express as px
 from dash import Dash, Input, Output, callback, dcc, html
 from dash.dependencies import ALL, State
 from dash.exceptions import PreventUpdate
-import dash_bootstrap_components as dbc
-import plotly.express as px
-
+from scipy.stats import ortho_group
 from sklearn.gaussian_process.kernels import *
-from kooplearn.models.feature_maps import *
-from featuremap_example import feature_map
 
+from kooplearn.dashboard.featuremap_example import feature_map
 from kooplearn.dashboard.visualizer import Visualizer
+from kooplearn.data import traj_to_contexts
 from kooplearn.datasets import *
 from kooplearn.models import *
-from kooplearn.data import traj_to_contexts
-
-from scipy.stats import ortho_group
-import numpy as np
+from kooplearn.models.feature_maps import *
 
 # stylesheet with the .dbc class to style  dcc, DataTable and AG Grid components with a Bootstrap theme
 dbc_css = "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates/dbc.min.css"
 
-app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME, dbc_css])
-
-header = html.H4(
-    "Dash web application for visualisation of a Koopman operator", className="bg-primary text-white p-2 mb-2 text-center"
+app = Dash(
+    __name__,
+    external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME, dbc_css],
 )
 
-progress_bar = dbc.Progress(id="progress-bar", striped=True, animated=True, style={"height": "20px", "visibility": "hidden"}, value=100)
+header = html.H4(
+    "Dash web application for visualisation of a Koopman operator",
+    className="bg-primary text-white p-2 mb-2 text-center",
+)
 
-update_button = html.Div([dbc.Button("Update Plots", id="update-button", className="mb-3", color="primary", n_clicks=1), progress_bar])
+progress_bar = dbc.Progress(
+    id="progress-bar",
+    striped=True,
+    animated=True,
+    style={"height": "20px", "visibility": "hidden"},
+    value=100,
+)
+
+update_button = html.Div(
+    [
+        dbc.Button(
+            "Update Plots",
+            id="update-button",
+            className="mb-3",
+            color="primary",
+            n_clicks=1,
+        ),
+        progress_bar,
+    ]
+)
 
 
 # Define your controls using Dash Bootstrap Components
-models = dbc.Tab([html.Div(
+models = dbc.Tab(
+    [
+        html.Div(
             [
                 dbc.Label("Select a model"),
                 dcc.Dropdown(
@@ -41,30 +61,67 @@ models = dbc.Tab([html.Div(
                         {"label": "KernelDMD", "value": "KernelDMD"},
                         {"label": "DeepEDMD", "value": "DeepEDMD"},
                         {"label": "DMD", "value": "DMD"},
-                        {"label": "ExtendedDMD", "value": "ExtendedDMD"},                        
+                        {"label": "ExtendedDMD", "value": "ExtendedDMD"},
                     ],
                     value="KernelDMD",  # Default model selection
-                    clearable=False
-                ),],
-                className="p-3",),
-                html.Div([
-                dbc.Label("Rank: ", style={"display": "inline-block", "margin-right": "8px"}),
-                dcc.Input(id="rank-input", type="number", min=1, step=1, placeholder="rank", value=1),], className="p-3"),  # Assuming rank starts at 1 and increments by 1
-                
-                html.Div([
-                dbc.Label("Tikhonov Regularization: ", style={"display": "inline-block", "margin-right": "8px"}),
-                dcc.Input(id="tikhonov_reg-input", type="number", placeholder="tikhonov_reg"),], className="p-3",),
+                    clearable=False,
+                ),
+            ],
+            className="p-3",
+        ),
+        html.Div(
+            [
+                dbc.Label(
+                    "Rank: ", style={"display": "inline-block", "margin-right": "8px"}
+                ),
+                dcc.Input(
+                    id="rank-input",
+                    type="number",
+                    min=1,
+                    step=1,
+                    placeholder="rank",
+                    value=1,
+                ),
+            ],
+            className="p-3",
+        ),  # Assuming rank starts at 1 and increments by 1
+        html.Div(
+            [
+                dbc.Label(
+                    "Tikhonov Regularization: ",
+                    style={"display": "inline-block", "margin-right": "8px"},
+                ),
+                dcc.Input(
+                    id="tikhonov_reg-input", type="number", placeholder="tikhonov_reg"
+                ),
+            ],
+            className="p-3",
+        ),
+        html.Div(
+            [
+                dbc.Label(
+                    "context_window_len: ",
+                    style={"display": "inline-block", "margin-right": "8px"},
+                ),
+                dcc.Input(
+                    id="context_window_len-input",
+                    type="number",
+                    min=2,
+                    step=1,
+                    value=2,
+                    placeholder="context_window_len",
+                ),
+            ],
+            className="p-3",
+        ),
+        html.Div(id="model-params-div"),
+    ],
+    label="Models",
+)
 
-                html.Div([
-                dbc.Label("context_window_len: ", style={"display": "inline-block", "margin-right": "8px"}),
-                dcc.Input(id="context_window_len-input", type="number", min=2, step=1, value=2, placeholder="context_window_len"),], className="p-3",),
-
-                html.Div(id='model-params-div'),
-        ],
-        label="Models"
-        )
-
-datasets = dbc.Tab([html.Div(
+datasets = dbc.Tab(
+    [
+        html.Div(
             [
                 dbc.Label("Select a dataset"),
                 dcc.Dropdown(
@@ -72,97 +129,146 @@ datasets = dbc.Tab([html.Div(
                     options=[
                         {"label": "LinearModel", "value": "LinearModel"},
                         {"label": "LogisticMap", "value": "LogisticMap"},
-                        {"label": "LangevinTripleWell1D", "value": "LangevinTripleWell1D"},
+                        {
+                            "label": "LangevinTripleWell1D",
+                            "value": "LangevinTripleWell1D",
+                        },
                         {"label": "DuffingOscillator", "value": "DuffingOscillator"},
                         {"label": "Lorenz63", "value": "Lorenz63"},
                     ],
                     value="LinearModel",
-                    clearable=False
+                    clearable=False,
                 ),
-                html.Div(id='dataset-params-div'),  # This Div will be populated with inputs dynamically
-        
-                dbc.Label("T parameter of the sample function: ", style={"display": "inline-block", "margin-right": "8px"}),
-                dcc.Input(id="T_sample-input", type="number", min=1, step=1, value=100, placeholder="T"),
+                html.Div(
+                    id="dataset-params-div"
+                ),  # This Div will be populated with inputs dynamically
+                dbc.Label(
+                    "T parameter of the sample function: ",
+                    style={"display": "inline-block", "margin-right": "8px"},
+                ),
+                dcc.Input(
+                    id="T_sample-input",
+                    type="number",
+                    min=1,
+                    step=1,
+                    value=100,
+                    placeholder="T",
+                ),
             ],
             className="p-3",
-        )],
-        label="Datasets"
         )
+    ],
+    label="Datasets",
+)
 
 slider1 = html.Div(
-            [
-                dbc.Label("Frequency"),
-                dcc.RangeSlider(
-                    min=-0.1,
-                    max= 1, #int(viz.infos["frequency"].max()) + 1,
-                    marks= {"0": "0", "1": "1"}, #frequency_dict,
-                    id="freq_range_slider",
-                    tooltip={"placement": "bottom", "always_visible": True},
-                    className="p-0",
-                ),
-            ],
-            className="p-3",
+    [
+        dbc.Label("Frequency"),
+        dcc.RangeSlider(
+            min=-0.1,
+            max=1,  # int(viz.infos["frequency"].max()) + 1,
+            marks={"0": "0", "1": "1"},  # frequency_dict,
+            id="freq_range_slider",
+            tooltip={"placement": "bottom", "always_visible": True},
+            className="p-0",
+        ),
+    ],
+    className="p-3",
 )
 
 slider2 = html.Div(
-            [
-                dcc.Input(id="Tmax", type="number", placeholder="input T max"),
-                dcc.Slider(min=0, 
-                           max=1, 
-                           step=1, 
-                           id="T",
-                           tooltip={"placement": "bottom", "always_visible": True},
-                           className="p-0",
-                    ),
-            ],
-            className="p-3",
+    [
+        dcc.Input(id="Tmax", type="number", placeholder="input T max"),
+        dcc.Slider(
+            min=0,
+            max=1,
+            step=1,
+            id="T",
+            tooltip={"placement": "bottom", "always_visible": True},
+            className="p-0",
+        ),
+    ],
+    className="p-3",
 )
 
-modes = dbc.Tab([html.Div(
+modes = dbc.Tab(
+    [
+        html.Div(
             [
                 html.H4("Modes"),
                 dbc.Label("Select a mode"),
                 dcc.Dropdown(
                     id="modes_select",
-                    options=[{"label": str(i), "value": str(i)} for i in range(10)],  # Placeholder values
+                    options=[
+                        {"label": str(i), "value": str(i)} for i in range(10)
+                    ],  # Placeholder values
                     value="All",  # Placeholder value
-                    clearable=False
+                    clearable=False,
                 ),
                 dcc.Graph(id="modes-plot"),
                 # html.H1("Prediction"),
                 # dcc.Graph(id='pred-plot', figure=viz.plot_preds())
             ],
             className="p-3",
-        )], label="Modes")
+        )
+    ],
+    label="Modes",
+)
 
-controls = dbc.Tab([html.Div(
-    [slider1, slider2],
-    className="p-3",
-)],label="Frequency and T")
+controls = dbc.Tab(
+    [
+        html.Div(
+            [slider1, slider2],
+            className="p-3",
+        )
+    ],
+    label="Frequency and T",
+)
 
 
-tabs_control = dbc.Card(dbc.Tabs([controls, models, datasets]), body=True,)
+tabs_control = dbc.Card(
+    dbc.Tabs([controls, models, datasets]),
+    body=True,
+)
 
-graph1 = dbc.Col([html.Div(
-            [html.H4("Eigenvalues plot"),
+graph1 = dbc.Col(
+    [
+        html.Div(
+            [
+                html.H4("Eigenvalues plot"),
                 dcc.Graph(id="eig-plot"),
-                ],
-                )], align="center", width=5)                
+            ],
+        )
+    ],
+    align="center",
+    width=5,
+)
 
 
-graph2 = dbc.Col([html.Div(
+graph2 = dbc.Col(
+    [
+        html.Div(
             [
                 html.H4("Frequency plot"),
                 dcc.Graph(id="freq-plot"),
-                ],
-                )], align="center", width=7)
+            ],
+        )
+    ],
+    align="center",
+    width=7,
+)
 
-dataset_plot = dbc.Tab([html.Div(
+dataset_plot = dbc.Tab(
+    [
+        html.Div(
             [
                 dcc.Graph(id="dataset-plot"),
             ],
             className="p-3",
-        )], label="Dataset Plot")
+        )
+    ],
+    label="Dataset Plot",
+)
 
 tab_plots = dbc.Tab(dbc.Row([graph1, graph2]), label="Plots")
 
@@ -172,18 +278,33 @@ tabs_graphs = dbc.Card(dbc.Tabs([dataset_plot, tab_plots, modes]), body=True)
 app.layout = dbc.Container(
     [
         header,
-        dbc.Row([
-            dbc.Col([
-                dbc.Row([
-                    dbc.Col([html.Img(src="https://kooplearn.readthedocs.io/en/latest/_static/logo.svg", height="120px")], align="center"),
-                    dbc.Col([update_button], align="center"),
-                    ]),
-                tabs_control
-            ],  width=4),
-            dbc.Col([tabs_graphs], width=8),
-        ]),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [
+                                        html.Img(
+                                            src="https://kooplearn.readthedocs.io/en/latest/_static/logo.svg",
+                                            height="120px",
+                                        )
+                                    ],
+                                    align="center",
+                                ),
+                                dbc.Col([update_button], align="center"),
+                            ]
+                        ),
+                        tabs_control,
+                    ],
+                    width=4,
+                ),
+                dbc.Col([tabs_graphs], width=8),
+            ]
+        ),
         html.Div(id="click-count", style={"display": "none"}, children="1"),
-    ], 
+    ],
     fluid=True,
     className="bg-light",
 )
@@ -191,140 +312,406 @@ app.layout = dbc.Container(
 
 # Dictionary of dataset parameters
 dataset_params = {
-    'LinearModel': [
-        {'label': 'Noise', 'id': {'type': 'dynamic-param', 'index': 'noise'}, 'value': 1., 'step': 0.01},
-        {'label': 'RNG Seed', 'id': {'type': 'dynamic-param', 'index': 'rng_seed'}, 'value': None, 'step': 1},
-        {'label': 'Number features', 'id': {'type': 'dynamic-param', 'index': 'num_features'}, 'value': 10, 'step': 1},
-        {'label': 'Rang de la matrice', 'id': {'type': 'dynamic-param', 'index': 'r'}, 'value': 5, 'step': 1},
-        {'label': 'Lambda', 'id': {'type': 'dynamic-param', 'index': 'l'}, 'value': 1., 'step': 0.1}
-    
+    "LinearModel": [
+        {
+            "label": "Noise",
+            "id": {"type": "dynamic-param", "index": "noise"},
+            "value": 1.0,
+            "step": 0.01,
+        },
+        {
+            "label": "RNG Seed",
+            "id": {"type": "dynamic-param", "index": "rng_seed"},
+            "value": None,
+            "step": 1,
+        },
+        {
+            "label": "Number features",
+            "id": {"type": "dynamic-param", "index": "num_features"},
+            "value": 10,
+            "step": 1,
+        },
+        {
+            "label": "Rang de la matrice",
+            "id": {"type": "dynamic-param", "index": "r"},
+            "value": 5,
+            "step": 1,
+        },
+        {
+            "label": "Lambda",
+            "id": {"type": "dynamic-param", "index": "l"},
+            "value": 1.0,
+            "step": 0.1,
+        },
     ],
-    'LogisticMap': [
-        {'label': 'r', 'id': {'type': 'dynamic-param', 'index': 'r'}, 'value': 4.0, 'step': 0.1},
-        {'label': 'N', 'id': {'type': 'dynamic-param', 'index': 'N'}, 'value': None, 'step': 1},
-        {'label': 'RNG Seed', 'id': {'type': 'dynamic-param', 'index': 'rng_seed'}, 'value': None, 'step': 1}
+    "LogisticMap": [
+        {
+            "label": "r",
+            "id": {"type": "dynamic-param", "index": "r"},
+            "value": 4.0,
+            "step": 0.1,
+        },
+        {
+            "label": "N",
+            "id": {"type": "dynamic-param", "index": "N"},
+            "value": None,
+            "step": 1,
+        },
+        {
+            "label": "RNG Seed",
+            "id": {"type": "dynamic-param", "index": "rng_seed"},
+            "value": None,
+            "step": 1,
+        },
     ],
-    'LangevinTripleWell1D': [
-        {'label': 'gamma', 'id': {'type': 'dynamic-param', 'index': 'gamma'}, 'value': 0.1, 'step': 0.01},
-        {'label': 'kt', 'id': {'type': 'dynamic-param', 'index': 'kt'}, 'value': 1.0, 'step': 0.1},
-        {'label': 'dt', 'id': {'type': 'dynamic-param', 'index': 'dt'}, 'value': 1e-4, 'step': 1e-5},
-        {'label': 'RNG Seed', 'id': {'type': 'dynamic-param', 'index': 'rng_seed'}, 'value': None, 'step': 1}
+    "LangevinTripleWell1D": [
+        {
+            "label": "gamma",
+            "id": {"type": "dynamic-param", "index": "gamma"},
+            "value": 0.1,
+            "step": 0.01,
+        },
+        {
+            "label": "kt",
+            "id": {"type": "dynamic-param", "index": "kt"},
+            "value": 1.0,
+            "step": 0.1,
+        },
+        {
+            "label": "dt",
+            "id": {"type": "dynamic-param", "index": "dt"},
+            "value": 1e-4,
+            "step": 1e-5,
+        },
+        {
+            "label": "RNG Seed",
+            "id": {"type": "dynamic-param", "index": "rng_seed"},
+            "value": None,
+            "step": 1,
+        },
     ],
-    'DuffingOscillator': [
-        {'label': 'alpha', 'id': {'type': 'dynamic-param', 'index': 'alpha'}, 'value': 0.5, 'step': 0.01},
-        {'label': 'beta', 'id': {'type': 'dynamic-param', 'index': 'beta'}, 'value': 0.0625, 'step': 0.0001},
-        {'label': 'gamma', 'id': {'type': 'dynamic-param', 'index': 'gamma'}, 'value': 0.1, 'step': 0.1},
-        {'label': 'delta', 'id': {'type': 'dynamic-param', 'index': 'delta'}, 'value': 2.5, 'step': 0.1},
-        {'label': 'omega', 'id': {'type': 'dynamic-param', 'index': 'omega'}, 'value': 2.0, 'step': 0.1},
-        {'label': 'dt', 'id': {'type': 'dynamic-param', 'index': 'dt'}, 'value': 0.01, 'step': 0.01}
+    "DuffingOscillator": [
+        {
+            "label": "alpha",
+            "id": {"type": "dynamic-param", "index": "alpha"},
+            "value": 0.5,
+            "step": 0.01,
+        },
+        {
+            "label": "beta",
+            "id": {"type": "dynamic-param", "index": "beta"},
+            "value": 0.0625,
+            "step": 0.0001,
+        },
+        {
+            "label": "gamma",
+            "id": {"type": "dynamic-param", "index": "gamma"},
+            "value": 0.1,
+            "step": 0.1,
+        },
+        {
+            "label": "delta",
+            "id": {"type": "dynamic-param", "index": "delta"},
+            "value": 2.5,
+            "step": 0.1,
+        },
+        {
+            "label": "omega",
+            "id": {"type": "dynamic-param", "index": "omega"},
+            "value": 2.0,
+            "step": 0.1,
+        },
+        {
+            "label": "dt",
+            "id": {"type": "dynamic-param", "index": "dt"},
+            "value": 0.01,
+            "step": 0.01,
+        },
     ],
-    'Lorenz63': [
-        {'label': 'sigma', 'id': {'type': 'dynamic-param', 'index': 'sigma'}, 'value': 10, 'step': 1},
-        {'label': 'mu', 'id': {'type': 'dynamic-param', 'index': 'mu'}, 'value': 28, 'step': 1},
-        {'label': 'beta', 'id': {'type': 'dynamic-param', 'index': 'beta'}, 'value': 8 / 3, 'step': 0.01},
-        {'label': 'dt', 'id': {'type': 'dynamic-param', 'index': 'dt'}, 'value': 0.01, 'step': 0.01}
-    ]
+    "Lorenz63": [
+        {
+            "label": "sigma",
+            "id": {"type": "dynamic-param", "index": "sigma"},
+            "value": 10,
+            "step": 1,
+        },
+        {
+            "label": "mu",
+            "id": {"type": "dynamic-param", "index": "mu"},
+            "value": 28,
+            "step": 1,
+        },
+        {
+            "label": "beta",
+            "id": {"type": "dynamic-param", "index": "beta"},
+            "value": 8 / 3,
+            "step": 0.01,
+        },
+        {
+            "label": "dt",
+            "id": {"type": "dynamic-param", "index": "dt"},
+            "value": 0.01,
+            "step": 0.01,
+        },
+    ],
 }
+
 
 def create_dataset_params(dataset_name):
     # Get parameters for the selected dataset
     params = dataset_params.get(dataset_name, [])
-    
+
     # Create input components for each parameter
     children = []
     for param in params:
-        children.append(html.Div([
-            dbc.Label(f"{param['label']}: ", style={"display": "inline-block", "margin-right": "8px"},),
-            dcc.Input(id=param['id'], type="number", value=param['value'], step=param['step'], placeholder=param['label']),
-        ], className="p-2"))
+        children.append(
+            html.Div(
+                [
+                    dbc.Label(
+                        f"{param['label']}: ",
+                        style={"display": "inline-block", "margin-right": "8px"},
+                    ),
+                    dcc.Input(
+                        id=param["id"],
+                        type="number",
+                        value=param["value"],
+                        step=param["step"],
+                        placeholder=param["label"],
+                    ),
+                ],
+                className="p-2",
+            )
+        )
 
     return children
 
 
-
 model_params = {
-        'KernelDMD': [
-            {'label': 'Reduced Rank', 'id': {'type': 'model-param', 'index': 'reduced_rank'}, 'type': 'checklist', 'default': True},
-            {'label': 'SVD Solver', 'id': {'type': 'model-param', 'index': 'svd_solver'}, 'type': 'dropdown', 'options': ['full', 'arnoldi', 'randomized'], 'default': 'full'},
-            {'label': 'Iterated Power', 'id': {'type': 'model-param', 'index': 'iterated_power'}, 'type': 'number', 'default': 1},
-            # {'label': 'N Oversamples', 'id': {'type': 'model-param', 'index': 'n_oversamples'}, 'type': 'number', 'default': 5},
-            {'label': 'Kernel', 'id': {'type': 'model-param', 'index': 'kernel'}, 'type': 'dropdown', 'options': ['DotProduct', 'RBF', 'Matern', '0.5*DotProduct + 0.5*RBF'], 'default': 'DotProduct'}, #'options': ['DotProduct', 'Exponentiation', 'PairwiseKernel', 'Sum', 'Product']
-            {'label': 'Length Scale', 'id': {'type': 'model-param', 'index': 'length_scale'}, 'type': 'number', 'default': 1.0},
-            # {'label': 'Optimal Sketching', 'id': {'type': 'model-param', 'index': 'optimal_sketching'}, 'type': 'checklist', 'default': False},
-            {'label': 'RNG Seed', 'id': {'type': 'model-param', 'index': 'rng_seed'}, 'type': 'number', 'default': None}
-        ],
-        'DeepEDMD': [
-            {'label': 'Maximum number of epochs', 'id': {'type': 'model-param', 'index': 'max_epochs'}, 'type': 'number', 'default': 10},
-            {'label': 'Reduced Rank', 'id': {'type': 'model-param', 'index': 'reduced_rank'}, 'type': 'checklist', 'default': True},
-            {'label': 'SVD Solver', 'id': {'type': 'model-param', 'index': 'svd_solver'}, 'type': 'dropdown', 'options': ['full', 'arnoldi', 'randomized'], 'default': 'full'},
-            {'label': 'Iterated Power', 'id': {'type': 'model-param', 'index': 'iterated_power'}, 'type': 'number', 'default': 1},
-            # {'label': 'N Oversamples', 'id': {'type': 'model-param', 'index': 'n_oversamples'}, 'type': 'number', 'default': 5},
-            {'label': 'RNG Seed', 'id': {'type': 'model-param', 'index': 'rng_seed'}, 'type': 'number', 'default': None}
-        ],
-        'ExtendedDMD': [
-            {'label': 'Reduced Rank', 'id': {'type': 'model-param', 'index': 'reduced_rank'}, 'type': 'checklist', 'default': True},
-            {'label': 'SVD Solver', 'id': {'type': 'model-param', 'index': 'svd_solver'}, 'type': 'dropdown', 'options': ['full', 'arnoldi', 'randomized'], 'default': 'full'},
-            {'label': 'Iterated Power', 'id': {'type': 'model-param', 'index': 'iterated_power'}, 'type': 'number', 'default': 1},
-            # {'label': 'N Oversamples', 'id': {'type': 'model-param', 'index': 'n_oversamples'}, 'type': 'number', 'default': 5},
-            {'label': 'FeatureMap', 'id': {'type': 'model-param', 'index': 'feature_map'}, 'type': 'dropdown', 'options': ['IdentityFeatureMap'], 'default': 'IdentityFeatureMap'},
-            {'label': 'RNG Seed', 'id': {'type': 'model-param', 'index': 'rng_seed'}, 'type': 'number', 'default': None}
-        ],
-        'DMD': [
-            {'label': 'Reduced Rank', 'id': {'type': 'model-param', 'index': 'reduced_rank'}, 'type': 'checklist', 'default': True},
-            {'label': 'SVD Solver', 'id': {'type': 'model-param', 'index': 'svd_solver'}, 'type': 'dropdown', 'options': ['full', 'arnoldi', 'randomized'], 'default': 'full'},
-            {'label': 'Iterated Power', 'id': {'type': 'model-param', 'index': 'iterated_power'}, 'type': 'number', 'default': 1},
-            # {'label': 'N Oversamples', 'id': {'type': 'model-param', 'index': 'n_oversamples'}, 'type': 'number', 'default': 5},
-            {'label': 'RNG Seed', 'id': {'type': 'model-param', 'index': 'rng_seed'}, 'type': 'number', 'default': None}
-        ],
-    }
+    "KernelDMD": [
+        {
+            "label": "Reduced Rank",
+            "id": {"type": "model-param", "index": "reduced_rank"},
+            "type": "checklist",
+            "default": True,
+        },
+        {
+            "label": "SVD Solver",
+            "id": {"type": "model-param", "index": "svd_solver"},
+            "type": "dropdown",
+            "options": ["full", "arnoldi", "randomized"],
+            "default": "full",
+        },
+        {
+            "label": "Iterated Power",
+            "id": {"type": "model-param", "index": "iterated_power"},
+            "type": "number",
+            "default": 1,
+        },
+        # {'label': 'N Oversamples', 'id': {'type': 'model-param', 'index': 'n_oversamples'}, 'type': 'number', 'default': 5},
+        {
+            "label": "Kernel",
+            "id": {"type": "model-param", "index": "kernel"},
+            "type": "dropdown",
+            "options": ["DotProduct", "RBF", "Matern", "0.5*DotProduct + 0.5*RBF"],
+            "default": "DotProduct",
+        },  #'options': ['DotProduct', 'Exponentiation', 'PairwiseKernel', 'Sum', 'Product']
+        {
+            "label": "Length Scale",
+            "id": {"type": "model-param", "index": "length_scale"},
+            "type": "number",
+            "default": 1.0,
+        },
+        # {'label': 'Optimal Sketching', 'id': {'type': 'model-param', 'index': 'optimal_sketching'}, 'type': 'checklist', 'default': False},
+        {
+            "label": "RNG Seed",
+            "id": {"type": "model-param", "index": "rng_seed"},
+            "type": "number",
+            "default": None,
+        },
+    ],
+    "DeepEDMD": [
+        {
+            "label": "Maximum number of epochs",
+            "id": {"type": "model-param", "index": "max_epochs"},
+            "type": "number",
+            "default": 10,
+        },
+        {
+            "label": "Reduced Rank",
+            "id": {"type": "model-param", "index": "reduced_rank"},
+            "type": "checklist",
+            "default": True,
+        },
+        {
+            "label": "SVD Solver",
+            "id": {"type": "model-param", "index": "svd_solver"},
+            "type": "dropdown",
+            "options": ["full", "arnoldi", "randomized"],
+            "default": "full",
+        },
+        {
+            "label": "Iterated Power",
+            "id": {"type": "model-param", "index": "iterated_power"},
+            "type": "number",
+            "default": 1,
+        },
+        # {'label': 'N Oversamples', 'id': {'type': 'model-param', 'index': 'n_oversamples'}, 'type': 'number', 'default': 5},
+        {
+            "label": "RNG Seed",
+            "id": {"type": "model-param", "index": "rng_seed"},
+            "type": "number",
+            "default": None,
+        },
+    ],
+    "ExtendedDMD": [
+        {
+            "label": "Reduced Rank",
+            "id": {"type": "model-param", "index": "reduced_rank"},
+            "type": "checklist",
+            "default": True,
+        },
+        {
+            "label": "SVD Solver",
+            "id": {"type": "model-param", "index": "svd_solver"},
+            "type": "dropdown",
+            "options": ["full", "arnoldi", "randomized"],
+            "default": "full",
+        },
+        {
+            "label": "Iterated Power",
+            "id": {"type": "model-param", "index": "iterated_power"},
+            "type": "number",
+            "default": 1,
+        },
+        # {'label': 'N Oversamples', 'id': {'type': 'model-param', 'index': 'n_oversamples'}, 'type': 'number', 'default': 5},
+        {
+            "label": "FeatureMap",
+            "id": {"type": "model-param", "index": "feature_map"},
+            "type": "dropdown",
+            "options": ["IdentityFeatureMap"],
+            "default": "IdentityFeatureMap",
+        },
+        {
+            "label": "RNG Seed",
+            "id": {"type": "model-param", "index": "rng_seed"},
+            "type": "number",
+            "default": None,
+        },
+    ],
+    "DMD": [
+        {
+            "label": "Reduced Rank",
+            "id": {"type": "model-param", "index": "reduced_rank"},
+            "type": "checklist",
+            "default": True,
+        },
+        {
+            "label": "SVD Solver",
+            "id": {"type": "model-param", "index": "svd_solver"},
+            "type": "dropdown",
+            "options": ["full", "arnoldi", "randomized"],
+            "default": "full",
+        },
+        {
+            "label": "Iterated Power",
+            "id": {"type": "model-param", "index": "iterated_power"},
+            "type": "number",
+            "default": 1,
+        },
+        # {'label': 'N Oversamples', 'id': {'type': 'model-param', 'index': 'n_oversamples'}, 'type': 'number', 'default': 5},
+        {
+            "label": "RNG Seed",
+            "id": {"type": "model-param", "index": "rng_seed"},
+            "type": "number",
+            "default": None,
+        },
+    ],
+}
+
 
 def create_model_params(model_name):
     params = model_params.get(model_name, [])
 
     children = []
     for param in params:
-        if param['type'] == 'number':
-            children.append(html.Div([
-                dbc.Label(f"{param['label']}: ", style={"display": "inline-block", "margin-right": "8px"}),
-                dcc.Input(id=param['id'], type="number", value=param['default'], placeholder=param['label']),
-            ], className="p-2"))
-        elif param['type'] == 'dropdown':
-            children.append(html.Div([
-                dbc.Label(f"{param['label']}: ", style={"display": "inline-block", "margin-right": "8px"}),
-                dcc.Dropdown(id=param['id'], options=[{'label': val, 'value': val} for val in param['options']], value=param['default'], clearable=False),
-            ], className="p-2"))
-        elif param['type'] == 'checklist':
-            children.append(html.Div([
-                dbc.Label(f"{param['label']}: ", style={"display": "inline-block", "margin-right": "8px"}),
-                dcc.RadioItems(id=param['id'], options=['True', 'False'], value=str(param['default']), inline=True),
-            ], className="p-2"))
+        if param["type"] == "number":
+            children.append(
+                html.Div(
+                    [
+                        dbc.Label(
+                            f"{param['label']}: ",
+                            style={"display": "inline-block", "margin-right": "8px"},
+                        ),
+                        dcc.Input(
+                            id=param["id"],
+                            type="number",
+                            value=param["default"],
+                            placeholder=param["label"],
+                        ),
+                    ],
+                    className="p-2",
+                )
+            )
+        elif param["type"] == "dropdown":
+            children.append(
+                html.Div(
+                    [
+                        dbc.Label(
+                            f"{param['label']}: ",
+                            style={"display": "inline-block", "margin-right": "8px"},
+                        ),
+                        dcc.Dropdown(
+                            id=param["id"],
+                            options=[
+                                {"label": val, "value": val} for val in param["options"]
+                            ],
+                            value=param["default"],
+                            clearable=False,
+                        ),
+                    ],
+                    className="p-2",
+                )
+            )
+        elif param["type"] == "checklist":
+            children.append(
+                html.Div(
+                    [
+                        dbc.Label(
+                            f"{param['label']}: ",
+                            style={"display": "inline-block", "margin-right": "8px"},
+                        ),
+                        dcc.RadioItems(
+                            id=param["id"],
+                            options=["True", "False"],
+                            value=str(param["default"]),
+                            inline=True,
+                        ),
+                    ],
+                    className="p-2",
+                )
+            )
 
     return children
 
 
-
-
 @app.callback(
-    Output('dataset-params-div', 'children'),
-    Input('dataset-dropdown', 'value')
+    Output("dataset-params-div", "children"), Input("dataset-dropdown", "value")
 )
 def update_dataset_params(selected_dataset):
     return create_dataset_params(selected_dataset)
 
 
-@app.callback(
-    Output('model-params-div', 'children'),
-    Input('model-dropdown', 'value')
-)
+@app.callback(Output("model-params-div", "children"), Input("model-dropdown", "value"))
 def update_model_params(selected_model):
     return create_model_params(selected_model)
+
 
 @app.callback(
     Output("click-count", "children"),
     Output("progress-bar", "style", allow_duplicate=True),
     Input("update-button", "n_clicks"),
     State("click-count", "children"),
-    prevent_initial_call=True
+    prevent_initial_call=True,
 )
 def update_click_count_and_show_progress(n_clicks, click_count):
     if n_clicks is None:
@@ -337,7 +724,6 @@ def update_click_count_and_show_progress(n_clicks, click_count):
     progress_style = {"height": "20px", "visibility": "visible"}
 
     return new_click_count, progress_style
-
 
 
 @callback(
@@ -354,10 +740,10 @@ def update_click_count_and_show_progress(n_clicks, click_count):
         Output("tikhonov_reg-input", "value"),
         Output("context_window_len-input", "value"),
         Output("progress-bar", "style"),
-    ],  
-
-    [Input("click-count", "children"),],
-
+    ],
+    [
+        Input("click-count", "children"),
+    ],
     [
         State("freq_range_slider", "value"),
         State("Tmax", "value"),
@@ -365,19 +751,29 @@ def update_click_count_and_show_progress(n_clicks, click_count):
         State("modes_select", "value"),
         State("rank-input", "value"),
         State("tikhonov_reg-input", "value"),
-        State({'type': 'model-param', 'index': ALL}, 'value'),
+        State({"type": "model-param", "index": ALL}, "value"),
         State("context_window_len-input", "value"),
-        State({'type': 'dynamic-param', 'index': ALL}, 'value'),
+        State({"type": "dynamic-param", "index": ALL}, "value"),
         State("T_sample-input", "value"),
         State("dataset-dropdown", "value"),
         State("model-dropdown", "value"),
     ],
-
 )
-def main(click_count, value, Tmax, T, mode_selection, rank, tikhonov_reg, model_dynamic_params,
-                       context_window_len, dynamic_params, T_sample, 
-                       selected_dataset="LinearModel", selected_model="KernelDMD"):
-
+def main(
+    click_count,
+    value,
+    Tmax,
+    T,
+    mode_selection,
+    rank,
+    tikhonov_reg,
+    model_dynamic_params,
+    context_window_len,
+    dynamic_params,
+    T_sample,
+    selected_dataset="LinearModel",
+    selected_model="KernelDMD",
+):
     if click_count == "0":
         # Prevent update before the app loads (no button click yet)
         raise PreventUpdate
@@ -388,162 +784,181 @@ def main(click_count, value, Tmax, T, mode_selection, rank, tikhonov_reg, model_
         # H = ortho_group.rvs(10)
         # eigs = np.exp(-np.arange(10))
         # A = H @ (eigs * np.eye(10)) @ H.T
-        noise=1.
-        rng_seed=None
+        noise = 1.0
+        rng_seed = None
 
-        num_features=10
-        r=5
-        l=1
+        num_features = 10
+        r = 5
+        l = 1
 
-        if dynamic_params!=[]:
+        if dynamic_params != []:
             noise = dynamic_params[0]
             rng_seed = dynamic_params[1]
 
             num_features = dynamic_params[2]
             r = dynamic_params[3]
             l = dynamic_params[4]
-        
+
         if rng_seed is not None:
             np.random.seed(rng_seed)
 
-        f = lambda x, r : 1. if x<r else 0.
-        H = ortho_group.rvs(num_features) 
-        eigs = np.array([l*f(i, r) for i in range(num_features)]) 
-        A = H @ (eigs * np.eye(num_features)) @ H.T 
+        f = lambda x, r: 1.0 if x < r else 0.0
+        H = ortho_group.rvs(num_features)
+        eigs = np.array([l * f(i, r) for i in range(num_features)])
+        A = H @ (eigs * np.eye(num_features)) @ H.T
 
-        dataset = LinearModel(A = A, noise=noise, rng_seed=rng_seed)
-        _Z = dataset.sample(X0 = np.zeros(A.shape[0]), T = T_sample)
+        dataset = LinearModel(A=A, noise=noise, rng_seed=rng_seed)
+        _Z = dataset.sample(X0=np.zeros(A.shape[0]), T=T_sample)
         X = traj_to_contexts(_Z, context_window_len=context_window_len)
 
     elif selected_dataset == "LogisticMap":
-        r_param=4.0
-        N_param=None
-        rng_seed=None
-        if dynamic_params!=[]:
+        r_param = 4.0
+        N_param = None
+        rng_seed = None
+        if dynamic_params != []:
             r_param = dynamic_params[0]
             N_param = dynamic_params[1]
             rng_seed = dynamic_params[2]
         dataset = LogisticMap(r=r_param, N=N_param, rng_seed=rng_seed)
         _Z = dataset.sample(0.2, T_sample)
-        X = traj_to_contexts(_Z,  context_window_len=context_window_len)
+        X = traj_to_contexts(_Z, context_window_len=context_window_len)
 
     elif selected_dataset == "LangevinTripleWell1D":
-        gamma=0.1
-        kt=1.0
-        dt=1e-4
-        rng_seed=None
-        if dynamic_params!=[]:
+        gamma = 0.1
+        kt = 1.0
+        dt = 1e-4
+        rng_seed = None
+        if dynamic_params != []:
             gamma = dynamic_params[0]
             kt = dynamic_params[1]
             dt = dynamic_params[2]
             rng_seed = dynamic_params[3]
         dataset = LangevinTripleWell1D(gamma=gamma, kt=kt, dt=dt, rng_seed=rng_seed)
-        _Z = dataset.sample(0., T_sample)
-        X = traj_to_contexts(_Z,  context_window_len=context_window_len)
+        _Z = dataset.sample(0.0, T_sample)
+        X = traj_to_contexts(_Z, context_window_len=context_window_len)
 
     elif selected_dataset == "DuffingOscillator":
-        alpha=0.5
-        beta=0.0625
-        gamma=0.1
-        delta=2.5
-        omega=2.0
-        dt=0.01
-        if dynamic_params!=[]:
+        alpha = 0.5
+        beta = 0.0625
+        gamma = 0.1
+        delta = 2.5
+        omega = 2.0
+        dt = 0.01
+        if dynamic_params != []:
             alpha = dynamic_params[0]
             beta = dynamic_params[1]
             gamma = dynamic_params[2]
             delta = dynamic_params[3]
             omega = dynamic_params[4]
             dt = dynamic_params[5]
-        dataset = DuffingOscillator(alpha=alpha, beta=beta, gamma=gamma, delta=delta, omega=omega, dt=dt)
-        _Z = dataset.sample(np.array([0.,0.]), T_sample)
-        X = traj_to_contexts(_Z,  context_window_len=context_window_len)
+        dataset = DuffingOscillator(
+            alpha=alpha, beta=beta, gamma=gamma, delta=delta, omega=omega, dt=dt
+        )
+        _Z = dataset.sample(np.array([0.0, 0.0]), T_sample)
+        X = traj_to_contexts(_Z, context_window_len=context_window_len)
 
     elif selected_dataset == "Lorenz63":
-        sigma=10
-        mu=28
-        beta=8 / 3
-        dt=0.01
-        if dynamic_params!=[]:
+        sigma = 10
+        mu = 28
+        beta = 8 / 3
+        dt = 0.01
+        if dynamic_params != []:
             sigma = dynamic_params[0]
             mu = dynamic_params[1]
             beta = dynamic_params[2]
             dt = dynamic_params[3]
         dataset = Lorenz63(sigma=sigma, mu=mu, beta=beta, dt=dt)
-        _Z = dataset.sample(np.array([0,0.1,0]), T_sample)    
-        X = traj_to_contexts(_Z,  context_window_len=context_window_len)
+        _Z = dataset.sample(np.array([0, 0.1, 0]), T_sample)
+        X = traj_to_contexts(_Z, context_window_len=context_window_len)
 
-    fig_dataset = px.line(_Z, labels={"index":"time"})
+    fig_dataset = px.line(_Z, labels={"index": "time"})
 
     print(model_dynamic_params)
 
     if selected_model == "KernelDMD":
-        operator_kwargs = {'kernel': DotProduct()}
-        if dynamic_params!=[]:
+        operator_kwargs = {"kernel": DotProduct()}
+        if dynamic_params != []:
             kernel_mapping = {
-            'DotProduct': DotProduct(),
-            'RBF': RBF(length_scale=model_dynamic_params[4]), 
-            'Matern': Matern(length_scale=model_dynamic_params[4]), 
-            '0.5*DotProduct + 0.5*RBF': 0.5*DotProduct() + 0.5*RBF(length_scale=model_dynamic_params[4])
-        }
+                "DotProduct": DotProduct(),
+                "RBF": RBF(length_scale=model_dynamic_params[4]),
+                "Matern": Matern(length_scale=model_dynamic_params[4]),
+                "0.5*DotProduct + 0.5*RBF": 0.5 * DotProduct()
+                + 0.5 * RBF(length_scale=model_dynamic_params[4]),
+            }
             operator_kwargs = {
-                'kernel': kernel_mapping.get(model_dynamic_params[3], DotProduct()),
-                'reduced_rank': model_dynamic_params[0],
-                'svd_solver': model_dynamic_params[1],
-                'iterated_power': model_dynamic_params[2],
+                "kernel": kernel_mapping.get(model_dynamic_params[3], DotProduct()),
+                "reduced_rank": model_dynamic_params[0],
+                "svd_solver": model_dynamic_params[1],
+                "iterated_power": model_dynamic_params[2],
                 # 'n_oversamples': model_dynamic_params[3],
                 # 'optimal_sketching': model_dynamic_params[5],
-                'rng_seed': model_dynamic_params[5] if model_dynamic_params[5] != '' else None  # Handle empty string for None
+                "rng_seed": model_dynamic_params[5]
+                if model_dynamic_params[5] != ""
+                else None,  # Handle empty string for None
             }
         operator_kwargs["rank"] = rank
         if tikhonov_reg is not None:
-            operator_kwargs["tikhonov_reg"] = tikhonov_reg                        
+            operator_kwargs["tikhonov_reg"] = tikhonov_reg
         operator = KernelDMD(**operator_kwargs)
 
     elif selected_model == "DeepEDMD":
-        operator_kwargs = {'feature_map': feature_map(data=X, context_window_len=context_window_len)}
-        if dynamic_params!=[]:
+        operator_kwargs = {
+            "feature_map": feature_map(data=X, context_window_len=context_window_len)
+        }
+        if dynamic_params != []:
             operator_kwargs = {
-                'feature_map': feature_map(data=X, context_window_len=context_window_len, max_epochs=model_dynamic_params[0]),
-                'reduced_rank': model_dynamic_params[1],
-                'svd_solver': model_dynamic_params[2],
-                'iterated_power': model_dynamic_params[3],
+                "feature_map": feature_map(
+                    data=X,
+                    context_window_len=context_window_len,
+                    max_epochs=model_dynamic_params[0],
+                ),
+                "reduced_rank": model_dynamic_params[1],
+                "svd_solver": model_dynamic_params[2],
+                "iterated_power": model_dynamic_params[3],
                 # 'n_oversamples': model_dynamic_params[4],
-                'rng_seed': model_dynamic_params[4] if model_dynamic_params[4] != '' else None  # Handle empty string for None
+                "rng_seed": model_dynamic_params[4]
+                if model_dynamic_params[4] != ""
+                else None,  # Handle empty string for None
             }
         operator_kwargs["rank"] = rank
         if tikhonov_reg is not None:
-            operator_kwargs["tikhonov_reg"] = tikhonov_reg    
+            operator_kwargs["tikhonov_reg"] = tikhonov_reg
         operator = DeepEDMD(**operator_kwargs)
 
     elif selected_model == "ExtendedDMD":
         FeatureMap_mapping = {
-            'IdentityFeatureMap': IdentityFeatureMap(),
+            "IdentityFeatureMap": IdentityFeatureMap(),
         }
         operator_kwargs = {}
-        if dynamic_params!=[]:
+        if dynamic_params != []:
             operator_kwargs = {
-                'feature_map': FeatureMap_mapping.get(model_dynamic_params[3], IdentityFeatureMap()),
-                'reduced_rank': model_dynamic_params[0],
-                'svd_solver': model_dynamic_params[1],
-                'iterated_power': model_dynamic_params[2],
+                "feature_map": FeatureMap_mapping.get(
+                    model_dynamic_params[3], IdentityFeatureMap()
+                ),
+                "reduced_rank": model_dynamic_params[0],
+                "svd_solver": model_dynamic_params[1],
+                "iterated_power": model_dynamic_params[2],
                 # 'n_oversamples': model_dynamic_params[3],
-                'rng_seed': model_dynamic_params[4] if model_dynamic_params[4] != '' else None  # Handle empty string for None
+                "rng_seed": model_dynamic_params[4]
+                if model_dynamic_params[4] != ""
+                else None,  # Handle empty string for None
             }
         operator_kwargs["rank"] = rank
         if tikhonov_reg is not None:
-            operator_kwargs["tikhonov_reg"] = tikhonov_reg    
+            operator_kwargs["tikhonov_reg"] = tikhonov_reg
         operator = ExtendedDMD(**operator_kwargs)
 
     elif selected_model == "DMD":
         operator_kwargs = {}
-        if dynamic_params!=[]:
+        if dynamic_params != []:
             operator_kwargs = {
-                'reduced_rank': model_dynamic_params[0],
-                'svd_solver': model_dynamic_params[1],
-                'iterated_power': model_dynamic_params[2],
+                "reduced_rank": model_dynamic_params[0],
+                "svd_solver": model_dynamic_params[1],
+                "iterated_power": model_dynamic_params[2],
                 # 'n_oversamples': model_dynamic_params[3],
-                'rng_seed': model_dynamic_params[3] if model_dynamic_params[3] != '' else None  # Handle empty string for None
+                "rng_seed": model_dynamic_params[3]
+                if model_dynamic_params[3] != ""
+                else None,  # Handle empty string for None
             }
         operator_kwargs["rank"] = rank
         if tikhonov_reg is not None:
@@ -572,7 +987,7 @@ def main(click_count, value, Tmax, T, mode_selection, rank, tikhonov_reg, model_
         max_freq = value[1]
 
     fig_eig = viz.plot_eigs(min_freq, max_freq)
-    fig_freqs = viz.plot_freqs(min_freq, max_freq)       
+    fig_freqs = viz.plot_freqs(min_freq, max_freq)
 
     if T is None:
         T = 1
@@ -589,9 +1004,20 @@ def main(click_count, value, Tmax, T, mode_selection, rank, tikhonov_reg, model_
 
     progress_style = {"height": "20px", "visibility": "hidden"}
 
-    return (fig_eig, fig_freqs, fig_modes, fig_dataset, Tmax, 
-            int(viz.infos["frequency"].max()) + 1, frequency_dict, 
-            modes_select_options, rank, tikhonov_reg, context_window_len, progress_style)
+    return (
+        fig_eig,
+        fig_freqs,
+        fig_modes,
+        fig_dataset,
+        Tmax,
+        int(viz.infos["frequency"].max()) + 1,
+        frequency_dict,
+        modes_select_options,
+        rank,
+        tikhonov_reg,
+        context_window_len,
+        progress_style,
+    )
 
 
 app.run_server(debug=True)
