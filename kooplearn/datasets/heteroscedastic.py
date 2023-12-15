@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Optional
 
 from kooplearn.datasets.misc import DataGenerator
 from kooplearn.datasets.stochastic import DiscreteTimeDynamics
@@ -15,7 +16,7 @@ class DiscreteBlackScholes(DiscreteTimeDynamics):
     Attributes:
        sample: samples the process over T iterations with starting point X0. 
     """
-    def __init__(self, A, sigma, dt, rng_seed=None):
+    def __init__(self, A:np.ndarray, sigma:np.ndarray, dt:float, rng_seed: Optional[int]=None):
         self.dim = A.shape[0]
         self.A = A
         self.dt = dt
@@ -38,7 +39,7 @@ class DiscreteOhrnstein(DiscreteTimeDynamics):
     Attributes:
        sample: samples the process over T iterations with starting point X0. 
     """
-    def __init__(self, mu, beta, sigma, dt, rng_seed=None):
+    def __init__(self, mu:np.ndarray, beta:np.ndarray, sigma:np.ndarray, dt:float, rng_seed:Optional[int]=None):
         self.dim = mu.shape[0]
         self.beta = beta
         self.mu = mu
@@ -81,7 +82,13 @@ class DiscreteHeston(DiscreteTimeDynamics):
     Attributes:
        sample: samples the process over T iterations with starting point X0. 
     """
-    def __init__(self, A, sigma1, mu, beta, sigma2, nu0, dt, rng_seed=None):
+    def __init__(self, A:np.ndarray, 
+                sigma1:np.ndarray,
+                mu:np.ndarray, beta:np.ndarray, 
+                sigma2:np.ndarray, 
+                nu0:np.ndarray, 
+                dt:float, 
+                rng_seed:Optional[int]=None):
 
         self.A = A
         self.dim = A.shape[0]
@@ -100,7 +107,7 @@ class DiscreteHeston(DiscreteTimeDynamics):
 
 class Garch(DataGenerator):
     # one dimensional one lag garch model
-    def __init__(self, alpha, beta, alpha0=0.0):
+    def __init__(self, alpha:float, beta:float, alpha0:float=0.0):
         self.alpha = alpha
         self.beta = beta
         self.alpha0 = alpha0
