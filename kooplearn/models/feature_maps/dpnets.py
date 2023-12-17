@@ -225,8 +225,8 @@ class DPModule(lightning.LightningModule):
             encoded_Y = encoded_Y - encoded_Y.mean(dim=0, keepdim=True)
 
         _norm = torch.rsqrt(torch.tensor(encoded_X.shape[0]))
-        encoded_X *= _norm
-        encoded_Y *= _norm
+        encoded_X = _norm * encoded_X
+        encoded_Y = _norm * encoded_Y
 
         cov_X = torch.mm(encoded_X.T, encoded_X)
         cov_Y = torch.mm(encoded_Y.T, encoded_Y)
