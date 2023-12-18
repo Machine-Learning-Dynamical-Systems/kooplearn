@@ -16,24 +16,11 @@ Please note that `kooplearn` is currently under active development, and while we
 - Perform modal decomposition for further analysis.
   
 ## Installation
-
-`kooplearn` can be locally installed in editable mode for easy development and experimentation. Follow the steps below to install `kooplearn` using pip:
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/CSML-IIT-UCL/kooplearn.git
-   ```
-2. Navigate to the library's directory:
-
-    ```bash
-    cd kooplearn
-    ```
-3. Install the library in editable mode using pip:
-
-    ```bash
-    pip install -e .
-    ```
+```bash
+pip install kooplearn
+# Or to install the latest version of kooplearn from git:
+pip install --upgrade git+https://github.com/CSML-IIT-UCL/kooplearn.git
+```
 ## Contributing
 
 We welcome contributions from the community! If you're interested in contributing to `kooplearn`, please follow these steps:

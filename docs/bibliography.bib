@@ -7,14 +7,16 @@
   pages={4017--4031},
   year={2022}
 }
-@misc{Kostic2023SpectralRates,
-      title={Sharp Spectral Rates for Koopman Operator Learning}, 
-      author={Vladimir Kostic and Karim Lounici and Pietro Novelli and Massimiliano Pontil},
-      year={2023},
-      eprint={2302.02004},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
+
+
+@inproceedings{Kostic2023SpectralRates,
+title={Sharp Spectral Rates for Koopman Operator Learning},
+author={Vladimir R Kostic and Karim Lounici and Pietro Novelli and massimiliano pontil},
+booktitle={Thirty-seventh Conference on Neural Information Processing Systems},
+year={2023},
+url={https://openreview.net/forum?id=Lt3jqxsbVO}
 }
+
 @misc{Kostic2023DPNets,
       title={Deep projection networks for learning time-homogeneous dynamical systems}, 
       author={Vladimir R. Kostic and Pietro Novelli and Riccardo Grazzi and Karim Lounici and Massimiliano Pontil},
@@ -23,7 +25,6 @@
       archivePrefix={arXiv},
       primaryClass={cs.LG}
 }
-
 @inproceedings{Azencot2020CAE,
   title={Forecasting sequential data using consistent Koopman autoencoders},
   author={Azencot, Omri and Erichson, N Benjamin and Lin, Vanessa and Mahoney, Michael},
@@ -45,4 +46,65 @@
   author = {Hassan Arbabi and Igor Mezi{\'{c}}},
   title = {Ergodic Theory,  Dynamic Mode Decomposition,  and Computation of Spectral Properties of the Koopman Operator},
   journal = {{SIAM} Journal on Applied Dynamical Systems}
+}
+
+@inproceedings{Meanti2023,
+title={Estimating Koopman operators with sketching to provably learn large scale dynamical systems},
+author={Giacomo Meanti and Antoine Chatalic and Vladimir R Kostic and Pietro Novelli and massimiliano pontil and Lorenzo Rosasco},
+booktitle={Thirty-seventh Conference on Neural Information Processing Systems},
+year={2023},
+url={https://openreview.net/forum?id=GItLpB1vhK}
+}
+
+@inproceedings{Morton2018,
+author = {Morton, Jeremy and Witherden, Freddie D. and Jameson, Antony and Kochenderfer, Mykel J.},
+title = {Deep Dynamical Modeling and Control of Unsteady Fluid Flows},
+year = {2018},
+publisher = {Curran Associates Inc.},
+address = {Red Hook, NY, USA},
+abstract = {The design of flow control systems remains a challenge due to the nonlinear nature of the equations that govern fluid flow. However, recent advances in computational fluid dynamics (CFD) have enabled the simulation of complex fluid flows with high accuracy, opening the possibility of using learning-based approaches to facilitate controller design. We present a method for learning the forced and unforced dynamics of airflow over a cylinder directly from CFD data. The proposed approach, grounded in Koopman theory, is shown to produce stable dynamical models that can predict the time evolution of the cylinder system over extended time horizons. Finally, by performing model predictive control with the learned dynamical models, we are able to find a straightforward, interpretable control law for suppressing vortex shedding in the wake of the cylinder.},
+booktitle = {Proceedings of the 32nd International Conference on Neural Information Processing Systems},
+pages = {9278–9288},
+numpages = {11},
+location = {Montr\'{e}al, Canada},
+series = {NIPS'18}
+}
+
+@article{Lusch2018,
+  doi = {10.1038/s41467-018-07210-0},
+  url = {https://doi.org/10.1038/s41467-018-07210-0},
+  year = {2018},
+  month = nov,
+  publisher = {Springer Science and Business Media {LLC}},
+  volume = {9},
+  number = {1},
+  author = {Bethany Lusch and J. Nathan Kutz and Steven L. Brunton},
+  title = {Deep learning for universal linear embeddings of nonlinear dynamics},
+  journal = {Nature Communications}
+}
+
+@article{Wu2019,
+  doi = {10.1007/s00332-019-09567-y},
+  url = {https://doi.org/10.1007/s00332-019-09567-y},
+  year = {2019},
+  month = aug,
+  publisher = {Springer Science and Business Media {LLC}},
+  volume = {30},
+  number = {1},
+  pages = {23--66},
+  author = {Hao Wu and Frank No{\'{e}}},
+  title = {Variational Approach for Learning Markov Processes from Time Series Data},
+  journal = {Journal of Nonlinear Science}
+}
+@article{Mardt2018,
+  doi = {10.1038/s41467-017-02388-1},
+  url = {https://doi.org/10.1038/s41467-017-02388-1},
+  year = {2018},
+  month = jan,
+  publisher = {Springer Science and Business Media {LLC}},
+  volume = {9},
+  number = {1},
+  author = {Andreas Mardt and Luca Pasquali and Hao Wu and Frank No{\'{e}}},
+  title = {{VAMPnets} for deep learning of molecular kinetics},
+  journal = {Nature Communications}
 }

@@ -3,7 +3,9 @@ API Reference
 
 .. toctree:: 
     :maxdepth: 1
-
+    
+    abc
     models
     feature_maps
-    abc
+    data
+    nn_functional

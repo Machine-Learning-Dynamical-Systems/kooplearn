@@ -29,31 +29,7 @@ Features
 
          .. div:: sd-font-normal
 
-            Kooplearn offers a diverse range of state of the art algorithms tailored for learning Koopman operators and transfer operators. These algorithms cover the most important kernel-based and neural network-based methods.
-
-   .. grid-item::
-      :columns: 12 12 12 6
-
-      .. card:: Forecasting
-         :class-card: sd-border-0
-         :shadow: none
-         :class-title: sd-fs-5
-
-         .. div:: sd-font-normal
-
-            Kooplearn implements forecasting capabilities out of the box. Harness the learned operators to predict the future behavior of any observable of the dynamical system.
-
-   .. grid-item::
-      :columns: 12 12 12 6
-
-      .. card:: Eigenvalue Decomposition
-         :class-card: sd-border-0
-         :shadow: none
-         :class-title: sd-fs-5
-
-         .. div:: sd-font-normal
-
-            Unlock deeper insights into your dynamical systems using spectral analysis. Kooplearn implements eigenvalue decomposition, and a dedicated visualization software, helping you uncover critical system modes and understand the fundamental dynamics driving your data.
+            Kooplearn offers a diverse range of state of the art algorithms tailored for learning Koopman and Transfer operators of deterministic and stochastic dynamical systems, respectively. Check out kooplearn's :ref:`model zoo <model_zoo>` for a complete list of available algorithms.
 
    .. grid-item::
       :columns: 12 12 12 6
@@ -65,7 +41,31 @@ Features
 
          .. div:: sd-font-normal
 
-            Kooplearn is designed with extensibility in mind. In :mod:`kooplearn.abc <kooplearn.abc>` we expose simple abstract base classes which allow you to quickly build kooplearn-compatible components.
+            Kooplearn is designed with extensibility in mind. In :mod:`kooplearn.abc <kooplearn.abc>` we expose simple abstract base classes which allow you to quickly build kooplearn-compatible components and models.
+
+   .. grid-item::
+      :columns: 12 12 12 6
+
+      .. card:: Spectral Decomposition
+         :class-card: sd-border-0
+         :shadow: none
+         :class-title: sd-fs-5
+
+         .. div:: sd-font-normal
+
+            Unlock deeper insights into your dynamical systems using spectral analysis. Every model in kooplearn implements an `eig` method returning the spectral decomposition of the learned operator. This can be used for a number of downstream tasks, such as modal decomposition, control, system identification, and more.
+
+   .. grid-item::
+      :columns: 12 12 12 6
+
+      .. card:: Neural operators
+         :class-card: sd-border-0
+         :shadow: none
+         :class-title: sd-fs-5
+
+         .. div:: sd-font-normal
+
+            Kooplearn implements many neural-network models to learn the Koopman/transfer operators. Kooplearn's Deep-Learning models are based upon `Pytorch Lightning <https://lightning.ai/>`_ for fast and easy training on CPU, GPU, and multi-GPU systems. Kooplearn's functionality, however, is not bound to Pytorch in any way. In ":ref:`extending kooplearn <extending_jax>`", for example, we show how to use `JAX+Flax <https://flax.readthedocs.io/en/latest/>`_ to implement a custom model.
 
 ----
 
@@ -78,18 +78,6 @@ Installation
    # Or to install the latest version of kooplearn from git:
    pip install --upgrade git+https://github.com/CSML-IIT-UCL/kooplearn.git
 
-
-Basic usage
-^^^^^^^^^^^^
-TODO: add basic usage example 
-
-----
-
-Dashboard
-^^^^^^^^^^^^
-TODO: add dashboard example with .gif animation
-
-----
 
 Learn more
 ^^^^^^^^^^
@@ -133,7 +121,6 @@ Learn more
    getting_started
    examples/index
    model_zoo
-   datasets
    guides/index
    api_reference/index
 

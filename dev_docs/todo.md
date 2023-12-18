@@ -4,9 +4,19 @@
 - [ ] Rewrite `kooplearn._src.operator_regression` in C++/Cython
 
 ### DPNets
-- [ ] Modify the `training_step` to get data from a context window.
+- [x] Modify the `training_step` to get data from a context window.
 - [ ] Add Chapman-Kolmogorov Regularization
-- [ ] Perform shape checks at the beginning of every epoch (`batch_idx == 0`).
+- [x] Perform shape checks at the beginning of every epoch (`batch_idx == 0`).
+- [x] Add shape checks: outputs should be 2D, and context windows should be two-dimensional. _Non-2D inputs are handled as  in_ `ExtendedDMD`
+- [ ] Add a test in `tests`
+
+### VAMPNets
+- [x] Add shape checks: outputs should be 2D, and context windows should be two-dimensional. _Non-2D inputs are handled as  in_ `ExtendedDMD`
+- [ ] Add a test in `tests`
+
+### AutoEncoders
+- [ ] Finish the `modes` and `eig` methods.
+- [ ] Add  a test in `tests`
 
 ### NystromKDMD
 - [ ] Fix the low level algorithms for numerical stability & test
@@ -15,7 +25,8 @@
 ### Input-Output utilities
 - [x] Add Numpy utilities to convert from a trajectory to a context window **view**. This avoids unnecessary memory usage. 
 - [ ] Write a function to add `nan` padding for inference data (in which we do not know the target, nor the lookforward.)
-- [ ] Adapt Bruno's `datamodule`.
+- [x] Adapt Bruno's `datamodule`.
+- [ ] Test saving and loading of every deep learning model
 
 ### Datasets
 - [ ] The return of `Dataset.generate` should be a trajectory (as it is now, but double check).
@@ -30,6 +41,7 @@
 - [x] Take a decision on the name of the variables: current proposal is `data/contexts`, `lookback_len`.
 - [x] Take a decision on the defaults of `lookback_len`. Either `lookback_len = 1` or `lookback_len = None`, that is taking in the context window _except the last snapshot_ as lookback. In practical scenarios I argue that the second option is better.
 - [x] The lookback length should be defined a the model initialization, and not upon fitting.
+- [x] The handling of custom observables is awkward, and inconsistent with the handling of state prediction/mode decomposition. Fix it. _Done: now only callable or_ `None` are accepted.
 
 ###### Module `kooplearn.abc`
 - [x] Edit the Abstract Base Class definition for `kooplearn.abc.BaseModel` on `fit`, `predict`, `eig`, `modes`.

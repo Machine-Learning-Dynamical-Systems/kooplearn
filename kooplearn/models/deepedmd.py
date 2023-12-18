@@ -1,12 +1,15 @@
 from __future__ import annotations
-import os
-from pathlib import Path
+
+import logging
 from typing import Optional
+
+from kooplearn._src.serialization import pickle_load, pickle_save
 from kooplearn._src.utils import NotFittedError
 from kooplearn.abc import TrainableFeatureMap
 from kooplearn.models import ExtendedDMD
-import logging
-logger = logging.getLogger('kooplearn')
+
+logger = logging.getLogger("kooplearn")
+
 
 class DeepEDMD(ExtendedDMD):
     """
@@ -19,7 +22,7 @@ class DeepEDMD(ExtendedDMD):
     .. caution::
 
         The feature map passed as a first argument should be already trained, that is ``feature_map.is_fitted == True``. If this is not the case, a ``NotFittedError`` is raised.
-    
+
     Args:
         feature_map (callable): *Trained* feature map used for the DeepEDMD algorithm. Should be a subclass of :class:`kooplearn.abc.TrainableFeatureMap`.
         reduced_rank (bool): If ``True`` initializes the reduced rank estimator introduced in :footcite:t:`Kostic2022`, if ``False`` initializes the classical principal component estimator.
@@ -31,17 +34,21 @@ class DeepEDMD(ExtendedDMD):
         rng_seed (int): Random Number Generator seed. Only used when ``svd_solver == 'randomized'``.  Defaults to ``None``, that is no explicit seed is setted.
     """
 
-    def __init__(self, 
-                feature_map: TrainableFeatureMap, 
-                reduced_rank: bool = True,
-                rank: Optional[int] = None, 
-                tikhonov_reg: Optional[float] = None,
-                svd_solver: str = 'full',
-                iterated_power: int = 1,
-                n_oversamples: int = 5,
-                rng_seed: Optional[int] = None):
-        #Check that the provided feature map is trainable
-        assert hasattr(feature_map, 'fit'), "The provided feature map is not trainable. Please provide a subclass of kooplearn.abc.TrainableFeatureMap."
+    def __init__(
+        self,
+        feature_map: TrainableFeatureMap,
+        reduced_rank: bool = True,
+        rank: Optional[int] = None,
+        tikhonov_reg: Optional[float] = None,
+        svd_solver: str = "full",
+        iterated_power: int = 1,
+        n_oversamples: int = 5,
+        rng_seed: Optional[int] = None,
+    ):
+        # Check that the provided feature map is trainable
+        assert hasattr(
+            feature_map, "fit"
+        ), "The provided feature map is not trainable. Please provide a subclass of kooplearn.abc.TrainableFeatureMap."
         if not feature_map.is_fitted:
             raise NotFittedError(
                 """
@@ -56,16 +63,29 @@ class DeepEDMD(ExtendedDMD):
             svd_solver=svd_solver,
             iterated_power=iterated_power,
             n_oversamples=n_oversamples,
-            rng_seed=rng_seed)
-    
+            rng_seed=rng_seed,
+        )
+
     @property
     def is_fitted(self) -> bool:
         return self._is_fitted
 
-    def save(self, path: os.PathLike):
-        raise NotImplementedError
-    
+    def save(self, filename):
+        """Serialize the model to a file.
+
+        Args:
+            filename (path-like or file-like): Save the model to file.
+        """
+        pickle_save(self, filename)
+
     @classmethod
-    def load(cls, path: os.PathLike):
-        path = Path(path)
-        raise NotImplementedError
+    def load(cls, filename):
+        """Load a serialized model from a file.
+
+        Args:
+            filename (path-like or file-like): Load the model from file.
+
+        Returns:
+            DeepEDMD: The loaded model.
+        """
+        return pickle_load(cls, filename)

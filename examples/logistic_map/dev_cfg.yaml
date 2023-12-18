@@ -1,0 +1,9 @@
+N: 20
+num_train: 50000
+num_val: 10000
+num_test: 10000
+batch_size: 2048
+layer_dims: [32, 64, 32]
+feature_dim: 8
+rng_seed: 0
+num_epochs: 200

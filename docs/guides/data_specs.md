@@ -21,7 +21,7 @@ Kooplearn **do not perform** shape inference, and will throw an error if tensors
 ### Data at fitting/inference
 Data pipelines in kooplearn are organized so that the look*back* slice of context windows can be accessed both at training and inference time. The look*forward* slice, on the other hand, can be accessed only at training time. {guilabel}`TODO - Add code snippet to show the data shapes at fitting and inference time`.
 
-In kooplearn we expose several utility function to manipulate data and generate context-windows-based datasets. In this respect, see {guilabel}`TODO - Add link to API reference when ready`.
+In kooplearn we expose several utility function to manipulate data and generate context-windows-based datasets. In this respect, see [the API reference](data_api).
 
 ```{footbibliography}
 ```

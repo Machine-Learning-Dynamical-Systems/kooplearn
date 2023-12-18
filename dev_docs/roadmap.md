@@ -1,4 +1,31 @@
 # Roadmap
+#### Oct 17, 2023:
+Added branch `in_out` in which I will work on serialization of each model, and more generally on every input-output utility which might be needed.
+
+- The easiest storage option is just using `pickle`. `sklearn` as well as `lightning` models should be serializable by default.
+- With [PEP 574](https://peps.python.org/pep-0574/), `pickle` introduced a 'protocol 5' to efficiently serialize large objects as Numpy Array.
+- Implement a test for each serialization. 
+- I should be able to save and load models and feature maps, as specified in `kooplearn.abc`.
+- Add the possibility to pass both a path-like or a file-like object. The file-like object can be then used with `fsspec`.
+
+
+#### Oct 3, 2023:
+Macro implementations left to do:
+- Nystrom Kernel methods (add a `NystromKernelDMD` model)
+- Test Randomized solvers.
+- Implement `modes` and `eig` for AutoEncoders
+- Implement dictionary learning schemes listed in the note of Sep 12 - 18
+- Saving and loading for every model: implementation & test
+- Documentation write up
+- Example datasets (in or out of the library?!)
+***
+#### Oct 1, 2023:
+Add github actions to build the documentation at every release. Plan for a rollout of `kooplearn 1.0.0` on PyPi. Start with github tagging.
+
+Rationalize examples. 
+- PEMS-Bay dataset
+- Reproduce one representative example per method, taking it from the paper in which the method was introduced.
+***
 #### Sep 19, 2023:
 Do **not** perform shape inference, on tensors of with `ndim` smaller than the minimum required. I should rather return a (standard) Error.
 
@@ -19,10 +46,10 @@ A list of models to implement:
  (2017)](https://arxiv.org/abs/1712.09707)
     - Not adding the sup-norm term for the moment. Ask the authors clarifications about it. 
     - Need to implement the `modes` and eigenfunction evaluation. (Done for this will be done for every AE model)
-    - In the `kooplearn` data paradigm describe how the basic functions of `kooplearn.abc.BaseModel` should work in practice. At the moment the scheme is that `predict: [batch_size, context_len, *features] -> [batch_size, *features]`.
-- [ ] [Deep Dynamical Modeling and Control of
-Unsteady Fluid Flows](https://arxiv.org/pdf/1805.07472.pdf)
-- [ ] [Forecasting Sequential Data using Consistent Koopman Autoencoders
+    - In the `kooplearn` data paradigm describe how the basic functions of `kooplearn.abc.BaseModel` should work in practice. At the moment the scheme is that `predict: [batch_size, context_len, *features] -> [batch_size, *features]`.  - _TO BE TESTED AND DOCUMENTED_
+- [x] [Deep Dynamical Modeling and Control of
+Unsteady Fluid Flows](https://arxiv.org/pdf/1805.07472.pdf) - _TO BE TESTED AND DOCUMENTED_
+- [x] [Forecasting Sequential Data using Consistent Koopman Autoencoders - _TO BE TESTED AND DOCUMENTED_
  (2020)](https://arxiv.org/abs/2003.02236)
 - [ ] [Learning Koopman Invariant Subspaces for Dynamic Mode Decomposition
 (2017)](https://arxiv.org/abs/1710.04340)
@@ -33,7 +60,7 @@ Unsteady Fluid Flows](https://arxiv.org/pdf/1805.07472.pdf)
 - [ ] [Extended dynamic mode decomposition with dictionary learning: a data-driven adaptive spectral decomposition of the Koopman operator (2017)](https://arxiv.org/abs/1707.00225)
 - [x] [VAMPnets for deep learning of molecular kinetics](https://www.nature.com/articles/s41467-017-02388-1)
   - Missing the $p \neq 2$ case to implement in `kooplearn.nn.functional`
-  - Missing docstrings
+  - ~~Missing docstrings~~
 ***
 #### Sep 11, 2023:
 Implemented most of the functionality and docs for the context window data paradigm. Still missing `DPNets` & other auto-encoder based methods.
