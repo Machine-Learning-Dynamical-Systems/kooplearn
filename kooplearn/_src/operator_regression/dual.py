@@ -2,8 +2,8 @@ import logging
 from typing import Optional
 
 import numpy as np
-from scipy.linalg import LinAlgError, eig, eigh, lstsq, pinvh
-from scipy.sparse.linalg import eigs, eigsh, lsqr, cho_factor, cho_solve, qr
+from scipy.linalg import LinAlgError, cho_factor, cho_solve, eig, eigh, lstsq, pinvh, qr
+from scipy.sparse.linalg import eigs, eigsh, lsqr
 from sklearn.utils.extmath import randomized_svd
 
 from kooplearn._src.linalg import _rank_reveal, modified_QR, weighted_norm
@@ -59,7 +59,7 @@ def fit_reduced_rank_regression(
         max_imag_part = np.max(U.imag)
         if max_imag_part >= 10.0 * U.shape[0] * np.finfo(U.dtype).eps:
             logger.warning(
-                f"The computed projector is not real. The Kernel matrix is severely ill-conditioned."
+                "The computed projector is not real. The Kernel matrix is severely ill-conditioned."
             )
         U = np.real(U)
         # Post-process U. Promote numerical stability via additional QR decoposition if necessary.
@@ -110,7 +110,7 @@ def _fit_reduced_rank_regression_noreg(
     max_imag_part = np.max(V.imag)
     if max_imag_part >= 10.0 * V.shape[0] * np.finfo(V.dtype).eps:
         logger.warning(
-            f"The computed projector is not real. The Kernel matrix is severely ill-conditioned."
+            "The computed projector is not real. The Kernel matrix is severely ill-conditioned."
         )
     V = np.real(V)
     V = V[:, topk(sigma_sq.real, rank).indices]
@@ -190,7 +190,7 @@ def fit_rand_reduced_rank_regression(
         Om = (inv_dim * K_Y) @ (Om - alpha * cho_solve((c, low), Om))
         Om, _ = qr(Om, mode="economic")
 
-    KOm = K_reg_inv @ Om
+    KOm = cho_solve((c, low), Om)
     KOmp = Om - alpha * KOm
 
     F_0 = Om.T @ KOmp
