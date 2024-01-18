@@ -1,5 +1,8 @@
 (kooplearn_data_paradigm)=
 # Kooplearn's data paradigm
+
+> _Author:_ Pietro Novelli — [@pie_novelli](https://twitter.com/pie_novelli)
+
 In this guide we describe kooplearn's data paradigm, which is based on context windows. 
 
 <p align = "center">

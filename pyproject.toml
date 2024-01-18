@@ -50,6 +50,11 @@ dev = [
   "isort",
 ]
 
+full = [
+  "kooplearn[torch]",
+  "kooplearn[visualizer]"
+]
+
 [project.urls]  # Optional
 "Homepage" = "https://github.com/CSML-IIT-UCL/kooplearn"
 

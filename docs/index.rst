@@ -72,10 +72,22 @@ Features
 Installation
 ^^^^^^^^^^^^
 
+To install the core version of ``kooplearn``, without optional dependencies, run
+
 .. code-block:: bash
 
    pip install kooplearn
-   # Or to install the latest version of kooplearn from git:
+
+To install the full version of ``kooplearn``, including Neural-Network models, and the dahsboard, run
+
+.. code-block:: bash
+
+   pip install "kooplearn[full]"
+
+To install the development version of ``kooplearn``, run
+
+.. code-block:: bash
+
    pip install --upgrade git+https://github.com/CSML-IIT-UCL/kooplearn.git
 
 
@@ -118,6 +130,7 @@ Learn more
 .. toctree::
    :maxdepth: 1
    
+   primer
    getting_started
    examples/index
    model_zoo
