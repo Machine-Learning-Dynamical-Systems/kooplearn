@@ -52,7 +52,8 @@ def fit_reduced_rank_regression(
         # Prefer svd_solver == 'randomized' in such a case.
         if svd_solver == "arnoldi":
             # Adding a small buffer to the Arnoldi-computed eigenvalues.
-            sigma_sq, U = eigs(K, rank + 3, regularize(K_X, tikhonov_reg))
+            _num_arnoldi_eigs = min(rank + 3, K.shape[0])
+            sigma_sq, U = eigs(K, k=_num_arnoldi_eigs, M=regularize(K_X, tikhonov_reg))
         else:  # 'full'
             sigma_sq, U = eig(K, regularize(K_X, tikhonov_reg))
 
@@ -103,7 +104,8 @@ def _fit_reduced_rank_regression_noreg(
     proj_X = U_X @ U_X.T
     L = proj_X @ K_Y
     if svd_solver != "full":
-        sigma_sq, V = eigs(L, rank + 3)
+        _num_arnoldi_eigs = min(rank + 3, L.shape[0])
+        sigma_sq, V = eigs(L, k=_num_arnoldi_eigs)
     else:
         sigma_sq, V = eig(L)
 
@@ -118,7 +120,7 @@ def _fit_reduced_rank_regression_noreg(
     _V_norm = np.linalg.norm(V, ord=2, axis=0) / np.sqrt(V.shape[0])
     rcond = 10.0 * K_X.shape[0] * np.finfo(K_X.dtype).eps
     _inv_V_norm = np.where(_V_norm < rcond, 0.0, _V_norm**-1)
-    V = V @ np.diag(_inv_V_norm)
+    V = V * _inv_V_norm
 
     # Solve the least squares problem to determine U
     if svd_solver != "full":
@@ -150,7 +152,7 @@ def fit_nystrom_reduced_rank_regression_tikhonov(
     # Low-rank projection
     W = W[:, topk(S, rank).indices]
     # Normalize the eigenvectors
-    W = W @ np.diag(weighted_norm(W, NKN) ** -1)
+    W = W * weighted_norm(W, NKN) ** -1
     V = _B @ W
     U = NKN @ W
     U = lstsq(G, U)[0]
@@ -203,7 +205,7 @@ def fit_rand_reduced_rank_regression(
         sigma_sq, Q = eig(pinvh(F_0) @ F_1)
 
     Q_norm = np.sum(Q.conj() * (F_0 @ Q), axis=0)
-    Q = Q @ np.diag(Q_norm**-0.5)
+    Q = Q * (Q_norm**-0.5)
     _idxs = topk(sigma_sq.real, rank).indices
     sigma_sq = sigma_sq.real
 
@@ -229,30 +231,50 @@ def fit_principal_component_regression(
     assert rank <= dim, f"Rank too high. The maximum value for this problem is {dim}"
     reg_K_X = regularize(K_X, tikhonov_reg)
     if svd_solver == "arnoldi":
-        values, vectors = eigsh(reg_K_X, k=rank + 3)
+        _num_arnoldi_eigs = min(rank + 3, reg_K_X.shape[0])
+        values, vectors = eigsh(reg_K_X, k=_num_arnoldi_eigs)
     elif svd_solver == "full":
         values, vectors = eigh(reg_K_X)
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
     vectors, values, rsqrt_values = _rank_reveal(values, vectors, rank)
-    vectors = np.sqrt(dim) * vectors @ np.diag(rsqrt_values)
+    vectors = np.sqrt(dim) * vectors * (rsqrt_values)
     return vectors, vectors
 
 
-def fit_nystrom_tikhonov(
-    N_X: np.ndarray,  # Kernel matrix of the input inducing points
-    N_Y: np.ndarray,  # Kernel matrix of the output inducing points
-    KN_X: np.ndarray,  # Kernel matrix between the input data and the input inducing points
-    KN_Y: np.ndarray,  # Kernel matrix between the output data and the output inducing points
+def fit_nystroem_tikhonov(
+    kernel_X: np.ndarray,  # Kernel matrix of the input inducing points
+    kernel_Y: np.ndarray,  # Kernel matrix of the output inducing points
+    kernel_Xnys: np.ndarray,  # Kernel matrix between the input data and the input inducing points
+    kernel_Ynys: np.ndarray,  # Kernel matrix between the output data and the output inducing points
     tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter (can be 0)
-    # rank: Optional[int] = None,  # Rank of the estimator
+    rank: Optional[int] = None,  # Rank of the estimator
+    svd_solver: str = "arnoldi",  # Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
 ) -> tuple[np.ndarray, np.ndarray]:
-    # TODO Not using the Rank parameter fix it.
-    num_training_pts = KN_X.shape[0]
-    NKy_KNx = KN_Y.T @ KN_X
-    G = KN_X.T @ KN_X + tikhonov_reg * num_training_pts * N_X
-    U = lstsq(G, NKy_KNx)[0]
-    V = lstsq(N_Y, U)[0]
+    dim = kernel_X.shape[0]
+    eps = kernel_X.shape[0] * np.finfo(kernel_X.dtype).eps
+    reg = max(eps, tikhonov_reg)
+    kernel_Xnys_sq = kernel_Xnys.T @ kernel_Xnys
+    if svd_solver == "full":
+        values, vectors = eigh(
+            kernel_Xnys_sq, regularize(kernel_X, reg)
+        )  # normalization leads to needing to invert evals
+    elif svd_solver == "arnoldi":
+        _num_arnoldi_eigs = min(rank + 3, kernel_X.shape[0])
+        values, vectors = eigsh(
+            kernel_Xnys_sq,
+            M=regularize(kernel_X, reg),
+            k=_num_arnoldi_eigs,
+            which="LM",
+        )
+    else:
+        raise ValueError(f"Unknown svd_solver {svd_solver}")
+    vectors, values, rsqrt_values = _rank_reveal(values, vectors, rank)
+
+    U = np.sqrt(dim) * vectors * (rsqrt_values)
+    V = np.linalg.multi_dot([kernel_Ynys.T, kernel_Xnys, vectors])
+    V = lstsq(regularize(kernel_Y, eps), V)[0]
+    V = np.sqrt(dim) * V * (rsqrt_values)
     return U, V
 
 
@@ -275,7 +297,7 @@ def fit_rand_principal_component_regression(
         random_state=rng_seed,
     )
     vectors, values, rsqrt_values = _rank_reveal(values, vectors, rank)
-    vectors = np.sqrt(dim) * vectors @ np.diag(rsqrt_values)
+    vectors = np.sqrt(dim) * vectors * (rsqrt_values)
     if _return_singular_values:
         return vectors, vectors, values
     else:
@@ -324,7 +346,7 @@ def estimator_eig(
     # Normalization in RKHS
     norm_r = weighted_norm(vr, W_X)
     r_normr = np.where(norm_r == 0.0, 0.0, norm_r**-1)
-    vr = vr @ np.diag(r_normr)
+    vr = vr * r_normr
 
     # Bi-orthogonality of left eigenfunctions
     norm_l = np.diag(np.linalg.multi_dot([vl.T, W_YX, vr]))

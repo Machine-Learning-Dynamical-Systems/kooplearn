@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 import numpy as np
 from sklearn.base import RegressorMixin
@@ -16,20 +16,18 @@ from kooplearn._src.utils import ShapeError, check_contexts_shape, check_is_fitt
 from kooplearn.abc import BaseModel
 
 
-class KernelDMD(BaseModel, RegressorMixin):
+class NystroemKernelLeastSquares(BaseModel, RegressorMixin):
     """
-    Kernel Dynamic Mode Decomposition (KernelDMD) Model.
-    Implements the KernelDMD estimators approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator following the approach described in :footcite:t:`Kostic2022`.
+    Nystroem-accelerated Kernel Least Squares (KernelDMD) Model.
+    Implements the KernelDMD estimators approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator following the approach described in :footcite:t:`Meanti2023`.
 
     Args:
         kernel (sklearn.gaussian_process.kernels.Kernel): sklearn Kernel object. Defaults to `DotProduct`.
         reduced_rank (bool): If ``True`` initializes the reduced rank estimator introduced in :footcite:t:`Kostic2022`, if ``False`` initializes the classical principal component estimator.
         rank (int): Rank of the estimator. Defaults to 5.
         tikhonov_reg (float): Tikhonov regularization coefficient. ``None`` is equivalent to ``tikhonov_reg = 0``, and internally calls specialized stable algorithms to deal with this specific case.
-        svd_solver (str): Solver used to perform the internal SVD calcuations. Currently supported: `full`, uses LAPACK solvers, `arnoldi`, uses ARPACK solvers, `randomized`, uses randomized SVD algorithms as described in :guilabel:`TODO - ADD REF`.
-        iterated_power (int): Number of power iterations when using a randomized algorithm (``svd_solver == 'randomized'``).
-        n_oversamples (int): Number of oversamples when using a randomized algorithm (``svd_solver == 'randomized'``).
-        optimal_sketching (bool): Sketching strategy for the randomized solver. If `True` performs optimal sketching (computaitonally expensive but more accurate).
+        svd_solver (str): Solver used to perform the internal SVD calcuations. Currently supported: `full`, uses LAPACK solvers, `arnoldi`, uses ARPACK solvers.
+        num_centers (int or float): Number of centers to select. If ``num_centers < 1``, selects ``int(num_centers * n_samples)`` centers. If ``num_centers >= 1``, selects ``int(num_centers)`` centers. Defaults to ``0.1``.
         rng_seed (int): Random Number Generator seed. Only used when ``svd_solver == 'randomized'``.  Defaults to ``None``, that is no explicit seed is setted.
 
     .. tip::
@@ -38,11 +36,12 @@ class KernelDMD(BaseModel, RegressorMixin):
 
     Attributes:
         data_fit : Training data: array of context windows of shape ``(n_samples, context_len, *features_shape)``.
-        kernel_X : Kernel matrix evaluated at the initial states, that is ``self.data_fit[:, :self.lookback_len, ...]`. Shape ``(n_samples, n_samples)``
-        kernel_Y : Kernel matrix evaluated at the evolved states, that is ``self.data_fit[:, 1:self.lookback_len + 1, ...]``. Shape ``(n_samples, n_samples)``
-        kernel_XY : Cross-kernel matrix between initial and evolved states. Shape ``(n_samples, n_samples)``.
-        U : Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :footcite:t:`Kostic2022`).
-        V : Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :footcite:t:`Kostic2022`).
+        nys_centers_idxs : Indices of the selected centers.
+        kernel_X : Kernel matrix evaluated at the subsampled initial states, that is ``self.data_fit[self.nys_centers_idxs, :self.lookback_len, ...]`. Shape ``(n_centers, n_centers)``
+        kernel_Y : Kernel matrix evaluated at the subsampled evolved states, that is ``self.data_fit[self.nys_centers_idxs, 1:self.lookback_len + 1, ...]``. Shape ``(n_centers, n_centers)``
+        kernel_XY : Cross-kernel matrix between initial and evolved states. Shape ``(n_centers, n_centers)``.
+        U : Projection matrix of shape (n_centers, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :footcite:t:`Meanti2023`).
+        V : Projection matrix of shape (n_centers, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :footcite:t:`Meanti2023`).
 
     """
 
@@ -52,21 +51,15 @@ class KernelDMD(BaseModel, RegressorMixin):
         reduced_rank: bool = True,
         rank: int = 5,
         tikhonov_reg: Optional[float] = None,
-        svd_solver: str = "full",
-        iterated_power: int = 1,
-        n_oversamples: int = 5,
-        optimal_sketching: bool = False,
+        svd_solver: str = "arnoldi",
+        num_centers: Union[float, int] = 0.1,
         rng_seed: Optional[int] = None,
     ):
         # Initial checks
-        if svd_solver not in ["full", "arnoldi", "randomized"]:
+        if svd_solver not in ["full", "arnoldi"]:
             raise ValueError(
-                "Invalid svd_solver. Allowed values are 'full', 'arnoldi' and 'randomized'."
+                "Invalid svd_solver. Allowed values are 'full' or 'arnoldi'."
             )
-        if svd_solver == "randomized" and iterated_power < 0:
-            raise ValueError("Invalid iterated_power. Must be non-negative.")
-        if svd_solver == "randomized" and n_oversamples < 0:
-            raise ValueError("Invalid n_oversamples. Must be non-negative.")
 
         self.rng_seed = rng_seed
         self._kernel = kernel
@@ -79,9 +72,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         else:
             self.tikhonov_reg = tikhonov_reg
         self.svd_solver = svd_solver
-        self.iterated_power = iterated_power
-        self.n_oversamples = n_oversamples
-        self.optimal_sketching = optimal_sketching
+        self.num_centers = num_centers
 
         self.reduced_rank = reduced_rank
         self._is_fitted = False
@@ -101,7 +92,7 @@ class KernelDMD(BaseModel, RegressorMixin):
             Y = Y.reshape(Y.shape[0], -1)
         return self._kernel(X, Y)
 
-    def fit(self, data: np.ndarray, verbose: bool = True) -> KernelDMD:
+    def fit(self, data: np.ndarray, verbose: bool = True) -> NystroemKernelLeastSquares:
         """
         Fits the KernelDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
@@ -124,46 +115,22 @@ class KernelDMD(BaseModel, RegressorMixin):
         Returns:
             The fitted estimator.
         """
-        self._pre_fit_checks(data)
+        kernel_Xnys, kernel_Ynys = self._pre_fit_checks(data)
         if self.reduced_rank:
-            if self.svd_solver == "randomized":
-                if self.tikhonov_reg == 0.0:
-                    raise ValueError(
-                        "tikhonov_reg must be specified when solver is randomized."
-                    )
-                else:
-                    U, V = dual.fit_rand_reduced_rank_regression(
-                        self.kernel_X,
-                        self.kernel_Y,
-                        self.tikhonov_reg,
-                        self.rank,
-                        self.n_oversamples,
-                        self.optimal_sketching,
-                        self.iterated_power,
-                        rng_seed=self.rng_seed,
-                    )
-            else:
-                U, V = dual.fit_reduced_rank_regression(
-                    self.kernel_X,
-                    self.kernel_Y,
-                    self.tikhonov_reg,
-                    self.rank,
-                    self.svd_solver,
-                )
+            raise NotImplementedError("Reduced Rank Regression not implemented yet.")
         else:
-            if self.svd_solver == "randomized":
-                U, V = dual.fit_rand_principal_component_regression(
-                    self.kernel_X,
-                    self.tikhonov_reg,
-                    self.rank,
-                    self.n_oversamples,
-                    self.iterated_power,
-                    rng_seed=self.rng_seed,
-                )
-            else:
-                U, V = dual.fit_principal_component_regression(
-                    self.kernel_X, self.tikhonov_reg, self.rank, self.svd_solver
-                )
+            U, V = dual.fit_principal_component_regression(
+                self.kernel_X, self.tikhonov_reg, self.rank, self.svd_solver
+            )
+            U, V = dual.fit_nystroem_tikhonov(
+                self.kernel_X,
+                self.kernel_Y,
+                kernel_Xnys,
+                kernel_Ynys,
+                self.tikhonov_reg,
+                self.rank,
+                self.svd_solver,
+            )
         self.U = U
         self.V = V
 
@@ -243,10 +210,10 @@ class KernelDMD(BaseModel, RegressorMixin):
             observables, data, self.data_fit, self.lookback_len
         )
 
-        K_Xin_X = self.kernel(X_inference, X_fit)
-        return dual.predict(t, self.U, self.V, self.kernel_YX, K_Xin_X, _obs).reshape(
-            expected_shape
-        )
+        K_Xin_X = self.kernel(X_inference, X_fit[self.nys_centers_idxs])
+        return dual.predict(
+            t, self.U, self.V, self.kernel_YX, K_Xin_X, _obs[self.nys_centers_idxs]
+        ).reshape(expected_shape)
 
     def eig(
         self,
@@ -277,6 +244,8 @@ class KernelDMD(BaseModel, RegressorMixin):
             self._eig_cache = (w, vl, vr)
 
         X_fit, Y_fit = contexts_to_markov_train_states(self.data_fit, self.lookback_len)
+
+        X_fit, Y_fit = X_fit[self.nys_centers_idxs], Y_fit[self.nys_centers_idxs]
         if eval_left_on is None and eval_right_on is None:
             # (eigenvalues,)
             return w
@@ -344,11 +313,11 @@ class KernelDMD(BaseModel, RegressorMixin):
                 self.U, self.V, self.kernel_X, self.kernel_YX
             )
 
-        K_Xin_X = self.kernel(X_inference, X_fit)
+        K_Xin_X = self.kernel(X_inference, X_fit[self.nys_centers_idxs])
         _gamma = dual.estimator_modes(K_Xin_X, rv, lv)
 
         expected_shape = (self.rank,) + expected_shape
-        return np.matmul(_gamma, _obs).reshape(
+        return np.matmul(_gamma, _obs[self.nys_centers_idxs]).reshape(
             expected_shape
         )  # [rank, num_initial_conditions, num_observables]
 
@@ -367,6 +336,13 @@ class KernelDMD(BaseModel, RegressorMixin):
         K_YX = self.kernel(Y, X)
         return K_X, K_Y, K_YX
 
+    def _init_nys_kernels(
+        self, X: np.ndarray, Y: np.ndarray, X_nys: np.ndarray, Y_nys: np.ndarray
+    ):
+        K_X = self.kernel(X, X_nys)
+        K_Y = self.kernel(Y, Y_nys)
+        return K_X, K_Y
+
     def _pre_fit_checks(self, data: np.ndarray) -> None:
         """Performs pre-fit checks on the training data.
 
@@ -381,12 +357,31 @@ class KernelDMD(BaseModel, RegressorMixin):
         # Save the lookback length as a private attribute of the model
         self._lookback_len = lookback_len
         X_fit, Y_fit = contexts_to_markov_train_states(data, self.lookback_len)
+        # Perform random center selection
+        self.nys_centers_idxs = self.center_selection(X_fit.shape[0])
+        X_nys = X_fit[self.nys_centers_idxs]
+        Y_nys = Y_fit[self.nys_centers_idxs]
 
-        self.kernel_X, self.kernel_Y, self.kernel_YX = self._init_kernels(X_fit, Y_fit)
+        self.kernel_X, self.kernel_Y, self.kernel_YX = self._init_kernels(X_nys, Y_nys)
+        kernel_Xnys, kernel_Ynys = self._init_nys_kernels(X_fit, Y_fit, X_nys, Y_nys)
         self.data_fit = data
 
         if hasattr(self, "_eig_cache"):
             del self._eig_cache
+
+        return (
+            kernel_Xnys,
+            kernel_Ynys,
+        )  # Don't need to store them, as they only serve the purpose of fitting.
+
+    def center_selection(self, num_pts: int):
+        if self.num_centers < 1:
+            num_centers = int(self.num_centers * num_pts)
+        else:
+            num_centers = int(self.num_centers)
+        rng = np.random.default_rng(self.rng_seed)
+        rand_indices = rng.choice(num_pts, num_centers, replace=False)
+        return rand_indices
 
     def save(self, filename):
         """Serialize the model to a file.

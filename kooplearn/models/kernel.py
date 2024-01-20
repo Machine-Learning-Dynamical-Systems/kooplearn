@@ -52,7 +52,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         reduced_rank: bool = True,
         rank: int = 5,
         tikhonov_reg: Optional[float] = None,
-        svd_solver: str = "full",
+        svd_solver: str = "arnoldi",
         iterated_power: int = 1,
         n_oversamples: int = 5,
         optimal_sketching: bool = False,
