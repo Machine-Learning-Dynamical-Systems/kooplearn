@@ -242,7 +242,7 @@ def fit_principal_component_regression(
     return vectors, vectors
 
 
-def fit_nystroem_tikhonov(
+def fit_nystroem_principal_component_regression(
     kernel_X: np.ndarray,  # Kernel matrix of the input inducing points
     kernel_Y: np.ndarray,  # Kernel matrix of the output inducing points
     kernel_Xnys: np.ndarray,  # Kernel matrix between the input data and the input inducing points

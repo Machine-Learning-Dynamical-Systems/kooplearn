@@ -121,10 +121,7 @@ class NystroemKernelLeastSquares(BaseModel, RegressorMixin):
         if self.reduced_rank:
             raise NotImplementedError("Reduced Rank Regression not implemented yet.")
         else:
-            U, V = dual.fit_principal_component_regression(
-                self.kernel_X, self.tikhonov_reg, self.rank, self.svd_solver
-            )
-            U, V = dual.fit_nystroem_tikhonov(
+            U, V = dual.fit_nystroem_principal_component_regression(
                 self.kernel_X,
                 self.kernel_Y,
                 kernel_Xnys,
