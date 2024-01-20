@@ -273,7 +273,7 @@ def fit_nystroem_tikhonov(
 
     U = np.sqrt(dim) * vectors * (rsqrt_values)
     V = np.linalg.multi_dot([kernel_Ynys.T, kernel_Xnys, vectors])
-    V = lstsq(regularize(kernel_Y, eps), V)[0]
+    V = lstsq(regularize(kernel_Y, reg), V)[0]
     V = np.sqrt(dim) * V * (rsqrt_values)
     return U, V
 
