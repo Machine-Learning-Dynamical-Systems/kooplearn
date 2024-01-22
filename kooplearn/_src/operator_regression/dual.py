@@ -135,30 +135,6 @@ def _fit_reduced_rank_regression_noreg(
         return U, V
 
 
-def fit_nystrom_reduced_rank_regression_tikhonov(
-    N_X: np.ndarray,  # Kernel matrix of the input inducing points
-    N_Y: np.ndarray,  # Kernel matrix of the output inducing points
-    KN_X: np.ndarray,  # Kernel matrix between the input data and the input inducing points
-    KN_Y: np.ndarray,  # Kernel matrix between the output data and the output inducing points
-    tikhonov_reg: float,  # Tikhonov regularization parameter
-    rank: int,  # Rank of the estimator
-) -> tuple[np.ndarray, np.ndarray]:
-    num_training_pts = KN_X.shape[0]
-    NKy_KNx = KN_Y.T @ KN_X
-    _B = lstsq(N_Y, NKy_KNx)[0]
-    NKN = NKy_KNx.T @ _B
-    G = KN_X.T @ KN_X + tikhonov_reg * num_training_pts * N_X
-    S, W = eigh(NKN, G)
-    # Low-rank projection
-    W = W[:, topk(S, rank).indices]
-    # Normalize the eigenvectors
-    W = W * weighted_norm(W, NKN) ** -1
-    V = _B @ W
-    U = NKN @ W
-    U = lstsq(G, U)[0]
-    return U, V
-
-
 def fit_rand_reduced_rank_regression(
     K_X: np.ndarray,  # Kernel matrix of the input data
     K_Y: np.ndarray,  # Kernel matrix of the output data
@@ -242,6 +218,56 @@ def fit_principal_component_regression(
     return vectors, vectors
 
 
+def fit_nystroem_reduced_rank_regression(
+    kernel_X: np.ndarray,  # Kernel matrix of the input inducing points
+    kernel_Y: np.ndarray,  # Kernel matrix of the output inducing points
+    kernel_Xnys: np.ndarray,  # Kernel matrix between the input data and the input inducing points
+    kernel_Ynys: np.ndarray,  # Kernel matrix between the output data and the output inducing points
+    tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter (can be 0)
+    rank: Optional[int] = None,  # Rank of the estimator
+    svd_solver: str = "arnoldi",  # Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
+    _return_singular_values: bool = False
+    # Whether to return the singular values of the projector. (Development purposes)
+) -> tuple[np.ndarray, np.ndarray]:
+    dim = kernel_X.shape[0]
+    eps = kernel_X.shape[0] * np.finfo(kernel_X.dtype).eps
+    reg = max(eps, tikhonov_reg)
+
+    # LHS of the generalized eigenvalue problem
+    kernel_YX_nys = kernel_Ynys.T @ kernel_Xnys
+    _tmp_YX = lstsq(regularize(kernel_Y, eps), kernel_YX_nys)[0]
+    kernel_XYX = kernel_YX_nys.T @ _tmp_YX
+    kernel_XYX = (kernel_XYX + kernel_XYX.T) * 0.5  # Symmetrize for numerical stability
+
+    # RHS of the generalized eigenvalue problem
+    kernel_Xnys_sq = kernel_Xnys.T @ kernel_Xnys + reg * dim * kernel_X
+
+    if svd_solver == "full":
+        values, vectors = eigh(
+            kernel_XYX, kernel_Xnys_sq
+        )  # normalization leads to needing to invert evals
+    elif svd_solver == "arnoldi":
+        _num_arnoldi_eigs = min(rank + 3, kernel_X.shape[0])
+        values, vectors = eigsh(
+            kernel_XYX,
+            M=kernel_Xnys_sq,
+            k=_num_arnoldi_eigs,
+            which="LM",
+        )
+    else:
+        raise ValueError(f"Unknown svd_solver {svd_solver}")
+    vectors, values, _ = _rank_reveal(values, vectors, rank)
+    vectors = vectors / weighted_norm(vectors, kernel_XYX)
+
+    U = lstsq(kernel_Xnys_sq, kernel_XYX)[0]
+    V = _tmp_YX @ vectors
+
+    if _return_singular_values:
+        return U.real, V.real, values
+    else:
+        return U.real, V.real
+
+
 def fit_nystroem_principal_component_regression(
     kernel_X: np.ndarray,  # Kernel matrix of the input inducing points
     kernel_Y: np.ndarray,  # Kernel matrix of the output inducing points
@@ -273,7 +299,7 @@ def fit_nystroem_principal_component_regression(
 
     U = np.sqrt(dim) * vectors * (rsqrt_values)
     V = np.linalg.multi_dot([kernel_Ynys.T, kernel_Xnys, vectors])
-    V = lstsq(regularize(kernel_Y, reg), V)[0]
+    V = lstsq(regularize(kernel_Y, eps), V)[0]
     V = np.sqrt(dim) * V * (rsqrt_values)
     return U, V
 

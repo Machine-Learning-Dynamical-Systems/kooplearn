@@ -19,7 +19,8 @@
 ## Models
 ### NystromKDMD
 - [ ] Fix the low level algorithms for numerical stability & test
-- [ ] Use `kooplearn.models.KernelDMD` as an example to implement the Nystrom version. Link to Falkon for a GPU implementation.
+- [ ] Use `kooplearn.models.KernelDMD` as an example to implement the Nystrom version. ~~Link to Falkon for a GPU implementation.~~
+- [ ] Check the role of Tikhnonv reg. in both PCR and RRR -- [Giacomo's implementation](https://github.com/Giodiro/NystromKoopman/tree/9463faf5dd6a7b7a5ccba31ebbd755fcfa91e20f/nyskoop/estimators) is not 100% consistent (PCR has no reg, while RRR has it) 
 
 ### ExtendedDMD
 - [x] Add `risk` method.
