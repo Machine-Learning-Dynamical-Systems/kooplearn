@@ -235,7 +235,8 @@ def fit_nystroem_reduced_rank_regression(
 
     # LHS of the generalized eigenvalue problem
     kernel_YX_nys = kernel_Ynys.T @ kernel_Xnys
-    _tmp_YX = lstsq(regularize(kernel_Y, eps), kernel_YX_nys)[0]
+
+    _tmp_YX = lstsq(kernel_Y, kernel_YX_nys)[0]
     kernel_XYX = kernel_YX_nys.T @ _tmp_YX
     kernel_XYX = (kernel_XYX + kernel_XYX.T) * 0.5  # Symmetrize for numerical stability
 
@@ -244,22 +245,37 @@ def fit_nystroem_reduced_rank_regression(
 
     if svd_solver == "full":
         values, vectors = eigh(
-            kernel_XYX, kernel_Xnys_sq
+            kernel_XYX, b=regularize(kernel_Xnys_sq, eps)
         )  # normalization leads to needing to invert evals
     elif svd_solver == "arnoldi":
         _num_arnoldi_eigs = min(rank + 3, kernel_X.shape[0])
         values, vectors = eigsh(
             kernel_XYX,
-            M=kernel_Xnys_sq,
+            M=regularize(kernel_Xnys_sq, eps),
             k=_num_arnoldi_eigs,
             which="LM",
         )
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
-    vectors, values, _ = _rank_reveal(values, vectors, rank)
-    vectors = vectors / weighted_norm(vectors, kernel_XYX)
 
-    U = lstsq(kernel_Xnys_sq, kernel_XYX)[0]
+    import pdb
+
+    pdb.set_trace()
+
+    vectors, _, columns_permutation = modified_QR(
+        vectors, M=kernel_XYX, column_pivoting=True
+    )
+    vectors = vectors[:, np.argsort(columns_permutation)]
+    if vectors.shape[1] < rank:
+        logger.warning(
+            f"The numerical rank of the projector is smaller than the selected rank ({rank}). {rank - vectors.shape[1]} "
+            f"degrees of freedom will be ignored."
+        )
+        _zeroes = np.zeros((vectors.shape[0], rank - vectors.shape[1]))
+        vectors = np.c_[vectors, _zeroes]
+        assert vectors.shape[1] == rank
+
+    U = lstsq(kernel_Xnys_sq, kernel_XYX)[0] @ vectors
     V = _tmp_YX @ vectors
 
     if _return_singular_values:
