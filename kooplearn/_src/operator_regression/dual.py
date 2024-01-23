@@ -3,7 +3,7 @@ from typing import Optional
 
 import numpy as np
 from scipy.linalg import LinAlgError, cho_factor, cho_solve, eig, eigh, lstsq, pinvh, qr
-from scipy.sparse.linalg import eigs, eigsh, lsqr
+from scipy.sparse.linalg import eigs, eigsh
 from sklearn.utils.extmath import randomized_svd
 
 from kooplearn._src.linalg import _rank_reveal, modified_QR, weighted_norm
@@ -27,113 +27,72 @@ def regularize(M: np.ndarray, reg: float, inplace=False):
 
 
 def fit_reduced_rank_regression(
-    K_X: np.ndarray,  # Kernel matrix of the input data
-    K_Y: np.ndarray,  # Kernel matrix of the output data
+    kernel_X: np.ndarray,  # Kernel matrix of the input data
+    kernel_Y: np.ndarray,  # Kernel matrix of the output data
     tikhonov_reg: float,  # Tikhonov regularization parameter, can be 0
     rank: int,  # Rank of the estimator
     svd_solver: str = "arnoldi",  # SVD solver to use. 'arnoldi' is faster but might be numerically unstable.
     _return_singular_values: bool = False
     # Whether to return the singular values of the projector. (Development purposes)
 ) -> tuple[np.ndarray, np.ndarray] or tuple[np.ndarray, np.ndarray, np.ndarray]:
-    if tikhonov_reg == 0.0:
-        return _fit_reduced_rank_regression_noreg(
-            K_X,
-            K_Y,
-            rank,
-            svd_solver=svd_solver,
-            _return_singular_values=_return_singular_values,
-        )
-    else:
-        dim = K_X.shape[0]
-        rsqrt_dim = dim ** (-0.5)
-        # Rescaled Kernel matrices
-        K_Xn = K_X * rsqrt_dim
-        K_Yn = K_Y * rsqrt_dim
+    n_pts = kernel_X.shape[0]
+    penalty = max(np.finfo(kernel_X.dtype).eps, tikhonov_reg)
+    A = np.multiply(kernel_Y, n_pts ** (-0.5)) @ np.multiply(kernel_X, n_pts ** (-0.5))
+    M = regularize(kernel_X, penalty)
+    # Find U via Generalized eigenvalue problem equivalent to the SVD. If K is ill-conditioned might be slow.
+    # Prefer svd_solver == 'randomized' in such a case.
+    if svd_solver == "arnoldi":
+        # Adding a small buffer to the Arnoldi-computed eigenvalues.
+        _num_arnoldi_eigs = min(rank + 3, A.shape[0])
+        sigma_sq, vecs = eigs(A, k=_num_arnoldi_eigs, M=M)
+    else:  # 'full'
+        sigma_sq, vecs = eig(A, M)
+    # Filtering procedure.
+    # First: Sort singular values by magnitude
+    _, sort_perm = topk(np.abs(sigma_sq), len(sigma_sq))
+    sigma_sq = sigma_sq[sort_perm]
+    vecs = vecs[:, sort_perm]
+    # Second: create a mask which is True when the real part of the eigenvalue is negative or the imaginary part is nonzero
+    is_invalid = np.logical_or(np.real(sigma_sq) < 0, np.imag(sigma_sq) != 0)
 
-        K = K_Yn @ K_Xn
-        # Find U via Generalized eigenvalue problem equivalent to the SVD. If K is ill-conditioned might be slow.
-        # Prefer svd_solver == 'randomized' in such a case.
-        if svd_solver == "arnoldi":
-            # Adding a small buffer to the Arnoldi-computed eigenvalues.
-            _num_arnoldi_eigs = min(rank + 3, K.shape[0])
-            sigma_sq, U = eigs(K, k=_num_arnoldi_eigs, M=regularize(K_X, tikhonov_reg))
-        else:  # 'full'
-            sigma_sq, U = eig(K, regularize(K_X, tikhonov_reg))
-
-        max_imag_part = np.max(U.imag)
-        if max_imag_part >= 10.0 * U.shape[0] * np.finfo(U.dtype).eps:
+    # Third, check if any is invalid take the first occurrence of a True value in the mask and filter everything after that
+    if np.any(is_invalid):
+        first_invalid = np.argmax(
+            is_invalid
+        )  # In the case of multiple occurrences of the maximum values, the indices corresponding to the first occurrence are returned.
+        svals_filtered = sigma_sq[: min(first_invalid, rank)]
+        vecs_filtered = vecs[:, : min(first_invalid, rank)]
+        if first_invalid < rank:
+            # Logging. Print the number of discarded eigenvalues, as well as the magnitude of the largest one.
             logger.warning(
-                "The computed projector is not real. The Kernel matrix is severely ill-conditioned."
+                f"Warning: Discarted {len(sigma_sq) - len(svals_filtered)} dimensions of the {rank} requested, consider decreasing the rank. The largest squared singular value discarted is: {np.max(np.abs(sigma_sq[first_invalid:])):.3e}."
             )
-        U = np.real(U)
-        # Post-process U. Promote numerical stability via additional QR decoposition if necessary.
-        U = U[:, topk(sigma_sq.real, rank).indices]
-
-        norm_inducing_op = (K_Xn @ K_Xn.T) + tikhonov_reg * K_X
-        U, _, columns_permutation = modified_QR(
-            U, M=norm_inducing_op, column_pivoting=True
-        )
-        U = U[:, np.argsort(columns_permutation)]
-        if U.shape[1] < rank:
-            logger.warning(
-                f"The numerical rank of the projector is smaller than the selected rank ({rank}). {rank - U.shape[1]} "
-                f"degrees of freedom will be ignored."
-            )
-            _zeroes = np.zeros((U.shape[0], rank - U.shape[1]))
-            U = np.c_[U, _zeroes]
-            assert U.shape[1] == rank
-        V = K_X @ np.asfortranarray(U)
-        if _return_singular_values:
-            return U, V, sigma_sq
-        else:
-            return U, V
-
-
-def _fit_reduced_rank_regression_noreg(
-    K_X: np.ndarray,  # Kernel matrix of the input data
-    K_Y: np.ndarray,  # Kernel matrix of the output data
-    rank: int,  # Rank of the estimator
-    svd_solver: str = "arnoldi",  # Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
-    _return_singular_values: bool = False
-    # Whether to return the singular values of the projector. (Development purposes)
-) -> tuple[np.ndarray, np.ndarray] or tuple[np.ndarray, np.ndarray, np.ndarray]:
-    # Solve the Hermitian eigenvalue problem to find V
-    logger.warning(
-        "The least-squares solution (tikhonov_reg == 0) of the reduced rank problem in the kernel setting is computationally very inefficient. Consider adding a small regularization parameter."
-    )
-
-    values_X, U_X = eigh(K_X)
-    U_X, _, _ = _rank_reveal(values_X, U_X, K_X.shape[0])
-    proj_X = U_X @ U_X.T
-    L = proj_X @ K_Y
-    if svd_solver != "full":
-        _num_arnoldi_eigs = min(rank + 3, L.shape[0])
-        sigma_sq, V = eigs(L, k=_num_arnoldi_eigs)
     else:
-        sigma_sq, V = eig(L)
-
-    max_imag_part = np.max(V.imag)
-    if max_imag_part >= 10.0 * V.shape[0] * np.finfo(V.dtype).eps:
+        svals_filtered = sigma_sq[:rank]
+        vecs_filtered = vecs[:, :rank]
+    # Fourth assert that the eigenvectors do not have any imaginary part
+    assert np.all(
+        np.imag(vecs_filtered) == 0
+    ), "The eigenvectors should be real. Decrease the rank or increase the regularization strength."
+    # Fifth: take the real part of the eigenvectors
+    vecs_filtered = np.real(vecs_filtered)
+    svals_filtered = np.real(svals_filtered)
+    # Sixth: compare the filtered eigenvalues with the regularization strength, and warn if there are any eigenvalues that are smaller than the regularization strength.
+    if not np.all(np.abs(svals_filtered) >= tikhonov_reg):
         logger.warning(
-            "The computed projector is not real. The Kernel matrix is severely ill-conditioned."
+            f"Warning: {(np.abs(svals_filtered) < tikhonov_reg).sum()} out of the {len(svals_filtered)} squared singular values are smaller than the regularization strength {tikhonov_reg:.2e}. Consider redudcing the regularization strength to avoid overfitting."
         )
-    V = np.real(V)
-    V = V[:, topk(sigma_sq.real, rank).indices]
-    # Normalize V
-    _V_norm = np.linalg.norm(V, ord=2, axis=0) / np.sqrt(V.shape[0])
-    rcond = 10.0 * K_X.shape[0] * np.finfo(K_X.dtype).eps
-    _inv_V_norm = np.where(_V_norm < rcond, 0.0, _V_norm**-1)
-    V = V * _inv_V_norm
-
-    # Solve the least squares problem to determine U
-    if svd_solver != "full":
-        U = np.zeros_like(V)
-        for i in range(U.shape[1]):
-            U[:, i] = lsqr(K_X, V[:, i])[0]  # Not optimal with this explicit loop
-    else:
-        U = lstsq(K_X, V)[0]
+    # Seventh: eigenvector normalization
+    kernel_X_vecs = np.dot(np.multiply(kernel_X, n_pts ** (-0.5)), vecs_filtered)
+    norm_sq = np.sum(
+        kernel_X_vecs**2
+        + tikhonov_reg * kernel_X_vecs * vecs_filtered * (n_pts**0.5),
+        axis=0,
+    ) ** (0.5)
+    U = vecs_filtered / norm_sq
+    V = kernel_X @ U
     if _return_singular_values:
-        return U, V, topk(sigma_sq.real, rank).values
+        return U, V, sigma_sq
     else:
         return U, V
 

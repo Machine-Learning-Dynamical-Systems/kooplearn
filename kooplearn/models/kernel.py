@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Callable, Optional
 
 import numpy as np
@@ -14,6 +15,8 @@ from kooplearn._src.operator_regression.utils import (
 from kooplearn._src.serialization import pickle_load, pickle_save
 from kooplearn._src.utils import ShapeError, check_contexts_shape, check_is_fitted
 from kooplearn.abc import BaseModel
+
+logger = logging.getLogger("kooplearn")
 
 
 class KernelDMD(BaseModel, RegressorMixin):
@@ -166,6 +169,10 @@ class KernelDMD(BaseModel, RegressorMixin):
                 )
         self.U = U
         self.V = V
+        if U.shape[1] != self.rank:
+            logger.warning(
+                f"The fitting algorithm automatically reduced the rank of the estimator to {U.shape[1]}. The rank attribute has been updated accordingly."
+            )
 
         # Final Checks
         check_is_fitted(
