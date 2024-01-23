@@ -84,12 +84,12 @@ def fit_reduced_rank_regression(
         )
     # Seventh: eigenvector normalization
     kernel_X_vecs = np.dot(np.multiply(kernel_X, n_pts ** (-0.5)), vecs_filtered)
-    norm_sq = np.sum(
+    vecs_norms = np.sum(
         kernel_X_vecs**2
         + tikhonov_reg * kernel_X_vecs * vecs_filtered * (n_pts**0.5),
         axis=0,
     ) ** (0.5)
-    U = vecs_filtered / norm_sq
+    U = vecs_filtered / vecs_norms
     V = kernel_X @ U
     if _return_singular_values:
         return U, V, sigma_sq

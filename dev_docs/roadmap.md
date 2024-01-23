@@ -1,4 +1,7 @@
 # Roadmap
+#### Jan 23, 2024:
+Working on RRR. Return by default the `svals_sq`, which are related to the spectral bias. Save it as as an attribute of the model. Extend the filtering mechanism to Rand-RRR and Nystroem-RRR. Add the possiblity to add a pre-computed cho_factor to the Rand-RRR for numerical efficiency. Use iterative methods otherwise.
+
 #### Oct 17, 2023:
 Added branch `in_out` in which I will work on serialization of each model, and more generally on every input-output utility which might be needed.
 
