@@ -12,7 +12,7 @@ from kooplearn._src.utils import fuzzy_parse_complex, topk
 logger = logging.getLogger("kooplearn")
 
 
-def regularize(M: np.ndarray, reg: float):
+def regularize(M: np.ndarray, reg: float, inplace=False):
     """Regularize a matrix by adding a multiple of the identity matrix to it.
     Args:
         M (np.ndarray): Matrix to regularize.
@@ -20,7 +20,10 @@ def regularize(M: np.ndarray, reg: float):
     Returns:
         np.ndarray: Regularized matrix.
     """
-    return M + reg * M.shape[0] * np.identity(M.shape[0], dtype=M.dtype)
+    if inplace:
+        return np.fill_diagonal(M, M.diagonal() + reg * M.shape[0])
+    else:
+        return M + (M.shape[0] * reg) * np.identity(M.shape[0], dtype=M.dtype)
 
 
 def fit_reduced_rank_regression(
@@ -257,10 +260,6 @@ def fit_nystroem_reduced_rank_regression(
         )
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
-
-    import pdb
-
-    pdb.set_trace()
 
     vectors, _, columns_permutation = modified_QR(
         vectors, M=kernel_XYX, column_pivoting=True
