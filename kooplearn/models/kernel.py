@@ -128,6 +128,11 @@ class KernelDMD(BaseModel, RegressorMixin):
             The fitted estimator.
         """
         self._pre_fit_checks(data)
+        if self.rank is None:
+            self.rank = self.kernel_X.shape[0]
+            logger.warning(
+                f"The model was initialized with rank = None, corresponding to the full-rank estimator. Fitting with rank = {self.rank}. The rank attribute has been updated accordingly."
+            )
         if self.reduced_rank:
             if self.svd_solver == "randomized":
                 if self.tikhonov_reg == 0.0:
@@ -135,7 +140,7 @@ class KernelDMD(BaseModel, RegressorMixin):
                         "tikhonov_reg must be specified when solver is randomized."
                     )
                 else:
-                    U, V = dual.fit_rand_reduced_rank_regression(
+                    U, V, spectral_bias = dual.fit_rand_reduced_rank_regression(
                         self.kernel_X,
                         self.kernel_Y,
                         self.tikhonov_reg,
@@ -146,7 +151,7 @@ class KernelDMD(BaseModel, RegressorMixin):
                         rng_seed=self.rng_seed,
                     )
             else:
-                U, V = dual.fit_reduced_rank_regression(
+                U, V, spectral_bias = dual.fit_reduced_rank_regression(
                     self.kernel_X,
                     self.kernel_Y,
                     self.tikhonov_reg,
@@ -155,7 +160,7 @@ class KernelDMD(BaseModel, RegressorMixin):
                 )
         else:
             if self.svd_solver == "randomized":
-                U, V = dual.fit_rand_principal_component_regression(
+                U, V, spectral_bias = dual.fit_rand_principal_component_regression(
                     self.kernel_X,
                     self.tikhonov_reg,
                     self.rank,
@@ -164,11 +169,12 @@ class KernelDMD(BaseModel, RegressorMixin):
                     rng_seed=self.rng_seed,
                 )
             else:
-                U, V = dual.fit_principal_component_regression(
+                U, V, spectral_bias = dual.fit_principal_component_regression(
                     self.kernel_X, self.tikhonov_reg, self.rank, self.svd_solver
                 )
         self.U = U
         self.V = V
+        self._spectral_bias = spectral_bias
         if U.shape[1] != self.rank:
             logger.warning(
                 f"The fitting algorithm automatically reduced the rank of the estimator to {U.shape[1]}. The rank attribute has been updated accordingly."

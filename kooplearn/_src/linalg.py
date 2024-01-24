@@ -205,11 +205,12 @@ def modified_QR(
         return Q[:, :effective_rank], R[:effective_rank]
 
 
-def _rank_reveal(
+def eigh_rank_reveal(
     values: np.ndarray,
     vectors: np.ndarray,
     rank: int,  # Desired rank
     rcond: Optional[float] = None,  # Threshold for the singular values
+    verbose: bool = True,
 ):
     if rcond is None:
         rcond = 10.0 * values.shape[0] * np.finfo(values.dtype).eps
@@ -221,20 +222,19 @@ def _rank_reveal(
     if all(_ftest):
         rsqrt_vals = (np.sqrt(values)) ** -1
     else:
+        first_invalid = np.argmax(
+            ~_ftest
+        )  # In the case of multiple occurrences of the maximum values, the indices corresponding to the first occurrence are returned.
+        _first_discarded_val = np.max(np.abs(values[first_invalid:]))
         values = values[_ftest]
         vectors = vectors[:, _ftest]
-        logger.warning(
-            f"The numerical rank of the result ({vectors.shape[1]}) is smaller than the desired rank ({rank}).\n {rank - vectors.shape[1]} degrees of freedom will be ignored."
-        )
+
+        if verbose:
+            logger.warning(
+                f"Warning: Discarted {rank - vectors.shape[1]} dimensions of the {rank} requested due to numerical instability. Consider decreasing the rank. The largest discarded value is: {_first_discarded_val:.3e}."
+            )
         # Compute stable sqrt
         rsqrt_vals = (np.sqrt(values)) ** -1
-        # Fill the missing values with zeroes
-        num_missing = rank - values.shape[0]
-        vectors = np.concatenate(
-            [vectors, np.zeros((vectors.shape[0], num_missing))], axis=1
-        )
-        values = np.concatenate([values, np.zeros(num_missing)])
-        rsqrt_vals = np.concatenate([rsqrt_vals, np.zeros(num_missing)])
 
     assert vectors.shape[1] == rank
     assert values.shape[0] == rank

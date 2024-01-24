@@ -1,4 +1,10 @@
 # Roadmap
+#### Jan 24, 2024:
+Testing the old and new versions of the algorithm. Some observations:
+- At low (approaching machine precision) regularization strengths, or when the rank is too high, the computed estimator is highly unstable. As expected.
+- The old function `_fit_reduced_rank_regression_noreg` seem to be extremely well conditioned. Might be worth to retain it. 
+- Even with the numerical stabilization in place, if the rank is too high, the estimated models might differ.
+
 #### Jan 23, 2024:
 Working on RRR. Return by default the `svals_sq`, which are related to the spectral bias. Save it as as an attribute of the model. Extend the filtering mechanism to Rand-RRR and Nystroem-RRR. Add the possiblity to add a pre-computed cho_factor to the Rand-RRR for numerical efficiency. Use iterative methods otherwise.
 
