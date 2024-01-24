@@ -235,10 +235,6 @@ def eigh_rank_reveal(
             )
         # Compute stable sqrt
         rsqrt_vals = (np.sqrt(values)) ** -1
-
-    assert vectors.shape[1] == rank
-    assert values.shape[0] == rank
-    assert rsqrt_vals.shape[0] == rank
     return vectors, values, rsqrt_vals
 
 
