@@ -128,11 +128,6 @@ class KernelDMD(BaseModel, RegressorMixin):
             The fitted estimator.
         """
         self._pre_fit_checks(data)
-        if self.rank is None:
-            self.rank = self.kernel_X.shape[0]
-            logger.warning(
-                f"The model was initialized with rank = None, corresponding to the full-rank estimator. Fitting with rank = {self.rank}. The rank attribute has been updated accordingly."
-            )
         if self.reduced_rank:
             if self.svd_solver == "randomized":
                 if self.tikhonov_reg == 0.0:
@@ -400,6 +395,15 @@ class KernelDMD(BaseModel, RegressorMixin):
 
         if hasattr(self, "_eig_cache"):
             del self._eig_cache
+        self._check_rank(self.kernel_X.shape[0])
+
+    def _check_rank(self, n_samples):
+        if not isinstance(self.rank, int) or self.rank < 1:
+            raise ValueError("rank must be a positive integer.")
+        if self.rank > n_samples:
+            raise ValueError(
+                f"rank must be less than the number of samples ({n_samples})."
+            )
 
     def save(self, filename):
         """Serialize the model to a file.

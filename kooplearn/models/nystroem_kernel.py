@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Callable, Optional, Union
 
 import numpy as np
@@ -15,6 +16,8 @@ from kooplearn._src.operator_regression.utils import (
 from kooplearn._src.serialization import pickle_load, pickle_save
 from kooplearn._src.utils import ShapeError, check_contexts_shape, check_is_fitted
 from kooplearn.abc import BaseModel
+
+logger = logging.getLogger("kooplearn")
 
 
 class NystroemKernelLeastSquares(BaseModel, RegressorMixin):
@@ -119,7 +122,7 @@ class NystroemKernelLeastSquares(BaseModel, RegressorMixin):
         """
         kernel_Xnys, kernel_Ynys = self._pre_fit_checks(data)
         if self.reduced_rank:
-            U, V = dual.fit_nystroem_reduced_rank_regression(
+            U, V, spectral_bias = dual.fit_nystroem_reduced_rank_regression(
                 self.kernel_X,
                 self.kernel_Y,
                 kernel_Xnys,
@@ -129,7 +132,7 @@ class NystroemKernelLeastSquares(BaseModel, RegressorMixin):
                 self.svd_solver,
             )
         else:
-            U, V = dual.fit_nystroem_principal_component_regression(
+            U, V, spectral_bias = dual.fit_nystroem_principal_component_regression(
                 self.kernel_X,
                 self.kernel_Y,
                 kernel_Xnys,
@@ -140,6 +143,11 @@ class NystroemKernelLeastSquares(BaseModel, RegressorMixin):
             )
         self.U = U
         self.V = V
+        self._spectral_bias = spectral_bias
+        if U.shape[1] != self.rank:
+            logger.warning(
+                f"The fitting algorithm automatically reduced the rank of the estimator to {U.shape[1]}. The rank attribute has been updated accordingly."
+            )
 
         # Final Checks
         check_is_fitted(
@@ -378,11 +386,19 @@ class NystroemKernelLeastSquares(BaseModel, RegressorMixin):
 
         if hasattr(self, "_eig_cache"):
             del self._eig_cache
-
+        self._check_rank(self.kernel_X.shape[0])
         return (
             kernel_Xnys,
             kernel_Ynys,
         )  # Don't need to store them, as they only serve the purpose of fitting.
+
+    def _check_rank(self, n_samples):
+        if not isinstance(self.rank, int) or self.rank < 1:
+            raise ValueError("rank must be a positive integer.")
+        if self.rank > n_samples:
+            raise ValueError(
+                f"rank must be less than the number of samples ({n_samples})."
+            )
 
     def center_selection(self, num_pts: int):
         if self.num_centers < 1:
