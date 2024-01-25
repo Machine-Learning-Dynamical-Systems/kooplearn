@@ -26,13 +26,6 @@ torch = [
   "pandas",
 ]
 
-visualizer = [
-  "plotly",
-  "dash",
-  "dash-mantine-components",
-  "dash-iconify",
-  "pandas",
-]
 docs = [
   "sphinx",
   "sphinx-book-theme",
@@ -43,7 +36,6 @@ docs = [
 ]
 dev = [
   "kooplearn[torch]",
-  "kooplearn[visualizer]",
   "kooplearn[docs]",
   "pytest",
   "black",
@@ -52,7 +44,6 @@ dev = [
 
 full = [
   "kooplearn[torch]",
-  "kooplearn[visualizer]"
 ]
 
 [project.urls]  # Optional
