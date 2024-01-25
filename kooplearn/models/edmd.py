@@ -159,7 +159,14 @@ class ExtendedDMD(BaseModel):
                 vectors = primal.fit_principal_component_regression(
                     self.cov_X, self.tikhonov_reg, self.rank, self.svd_solver
                 )
+
         self.U = vectors
+        assert self.U.shape[1] <= self.rank
+        if self.U.shape[1] < self.rank:
+            logger.warning(
+                f"Warning: The fitting algorithm discarded {self.rank - self.U.shape[1]} dimensions of the {self.rank} requested out of numerical instabilities.\nThe rank attribute has been updated to {self.U.shape[1]}.\nConsider decreasing the rank parameter."
+            )
+            self.rank = self.U.shape[1]
 
         # Final Checks
         check_is_fitted(
@@ -318,7 +325,6 @@ class ExtendedDMD(BaseModel):
         phi_Xin = self.feature_map(X_inference)
 
         _gamma = primal.estimator_modes(self.U, self.cov_XY, phi_X, phi_Xin)
-
         expected_shape = (self.rank,) + expected_shape
         return np.matmul(_gamma, _obs).reshape(
             expected_shape
@@ -396,7 +402,7 @@ class ExtendedDMD(BaseModel):
         self.data_fit = data
 
         if self.rank is None:
-            self.rank = min(self.cov_X.shape[0], self.data_fit.shape[0])
+            self.rank = self.cov_X.shape[0]
             logger.info(f"Rank of the estimator set to {self.rank}")
 
         if hasattr(self, "_eig_cache"):

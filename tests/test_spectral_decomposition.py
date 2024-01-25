@@ -83,7 +83,7 @@ def test_dual_eig_decomposition(tikhonov_reg, svd_solver):
     K_YX = Y @ (X.T)
 
     # Dual
-    U, V = dual.fit_principal_component_regression(
+    U, V, _ = dual.fit_principal_component_regression(
         K_X, tikhonov_reg, rank=rank, svd_solver=svd_solver
     )
     eig, lv, rv = dual.estimator_eig(U, V, K_X, K_YX)

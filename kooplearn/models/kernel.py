@@ -169,11 +169,8 @@ class KernelDMD(BaseModel, RegressorMixin):
                 )
         self.U = U
         self.V = V
-        self._spectral_bias = spectral_bias
-        if U.shape[1] != self.rank:
-            logger.warning(
-                f"The fitting algorithm automatically reduced the rank of the estimator to {U.shape[1]}. The rank attribute has been updated accordingly."
-            )
+        self.rank = U.shape[1]
+        self._spectral_biases = spectral_bias
 
         # Final Checks
         check_is_fitted(

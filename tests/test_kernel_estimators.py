@@ -68,7 +68,7 @@ def test_KernelDMD_fit_predict_eig_modes_save_load(
             X_pred = model.predict(test_data, observables=observables)
             assert X_pred.shape == (data.shape[0],) + data.shape[2:]
             modes = model.modes(test_data, observables=observables)
-            assert modes.shape == (rank,) + (data.shape[0],) + data.shape[2:]
+            assert modes.shape[1:] == (data.shape[0],) + data.shape[2:]
         else:
             Y = data[:, -1, ...]
             _dummy_vec = observables(Y)
@@ -77,11 +77,11 @@ def test_KernelDMD_fit_predict_eig_modes_save_load(
             X_pred = model.predict(test_data, observables=observables)
             assert X_pred.shape == _dummy_vec.shape
             modes = model.modes(test_data, observables=observables)
-            _target_shape = (rank,) + _dummy_vec.shape
-            assert modes.shape == _target_shape
+            _target_shape = _dummy_vec.shape
+            assert modes.shape[1:] == _target_shape
 
         vals, lv, rv = model.eig(eval_left_on=test_data, eval_right_on=test_data)
-        assert vals.shape[0] == rank
+        assert vals.shape[0] <= rank
         assert vals.ndim == 1
         tmp_path = Path(__file__).parent / f"tmp/model.bin"
         model.save(tmp_path)

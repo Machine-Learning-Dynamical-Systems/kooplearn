@@ -20,7 +20,7 @@ from kooplearn.abc import BaseModel
 logger = logging.getLogger("kooplearn")
 
 
-class NystroemKernelLeastSquares(BaseModel, RegressorMixin):
+class NystroemKernel(BaseModel, RegressorMixin):
     """
     Nystroem-accelerated Kernel Least Squares (KernelDMD) Model.
     Implements the KernelDMD estimators approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator following the approach described in :footcite:t:`Meanti2023`.
@@ -141,14 +141,11 @@ class NystroemKernelLeastSquares(BaseModel, RegressorMixin):
                 self.rank,
                 self.svd_solver,
             )
+
         self.U = U
         self.V = V
-        self._spectral_bias = spectral_bias
-        if U.shape[1] != self.rank:
-            logger.warning(
-                f"The fitting algorithm automatically reduced the rank of the estimator to {U.shape[1]}. The rank attribute has been updated accordingly."
-            )
-
+        self.rank = U.shape[1]
+        self._spectral_biases = spectral_bias
         # Final Checks
         check_is_fitted(
             self,
@@ -406,7 +403,7 @@ class NystroemKernelLeastSquares(BaseModel, RegressorMixin):
         else:
             num_centers = int(self.num_centers)
         rng = np.random.default_rng(self.rng_seed)
-        rand_indices = rng.choice(num_pts, num_centers, replace=False)
+        rand_indices = rng.choice(num_pts, num_centers)
         return rand_indices
 
     def save(self, filename):
