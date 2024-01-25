@@ -32,7 +32,7 @@ def _filter_reduced_rank_svals(svals_sq, vecs, rank):
     rcond = 10.0 * vecs.shape[0] * np.finfo(vecs.dtype).eps
     # Filtering procedure.
     # First: Sort singular values by magnitude
-    sort_perm = topk(svals_sq.real, len(svals_sq)).indices
+    sort_perm = topk(np.abs(svals_sq), len(svals_sq)).indices
     svals_sq = svals_sq[sort_perm]
     vecs = vecs[:, sort_perm]
 
@@ -91,7 +91,7 @@ def fit_reduced_rank_regression(
         # Prefer svd_solver == 'randomized' in such a case.
         if svd_solver == "arnoldi":
             # Adding a small buffer to the Arnoldi-computed eigenvalues.
-            _num_arnoldi_eigs = min(rank + 3, A.shape[0])
+            _num_arnoldi_eigs = min(rank + 5, A.shape[0])
             sigma_sq, vecs = eigs(A, k=_num_arnoldi_eigs, M=kernel_X)
         else:  # 'full'
             sigma_sq, vecs = eig(A, kernel_X, overwrite_a=True, overwrite_b=True)
@@ -168,7 +168,6 @@ def fit_nystroem_reduced_rank_regression(
 
     _tmp_YX = lstsq(kernel_Y, kernel_YX_nys)[0]
     kernel_XYX = kernel_YX_nys.T @ _tmp_YX
-    kernel_XYX = (kernel_XYX + kernel_XYX.T) * 0.5  # Symmetrize for numerical stability
 
     # RHS of the generalized eigenvalue problem
     kernel_Xnys_sq = kernel_Xnys.T @ kernel_Xnys + reg * dim * kernel_X
@@ -177,7 +176,8 @@ def fit_nystroem_reduced_rank_regression(
     if svd_solver == "full":
         values, vectors = eig(A)  # normalization leads to needing to invert evals
     elif svd_solver == "arnoldi":
-        _num_arnoldi_eigs = min(rank + 3, kernel_X.shape[0])
+        _oversampling = max(10, 2 * int(np.sqrt(rank)))
+        _num_arnoldi_eigs = min(rank + _oversampling, kernel_X.shape[0])
         values, vectors = eigs(A, k=_num_arnoldi_eigs)
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
@@ -186,12 +186,18 @@ def fit_nystroem_reduced_rank_regression(
     _threshold = 10.0 * np.finfo(vectors.dtype).eps * vectors.shape[0]
     relative_norm_sq = (
         (num_centers**-1)
-        * np.sum(vectors * (kernel_XYX @ vectors), axis=0)
+        * np.sum(vectors.conj() * (kernel_XYX @ vectors), axis=0).real
         / (np.linalg.norm(vectors, axis=0) ** 2)
     )
     is_in_kernel = np.abs(relative_norm_sq) < _threshold
-    values = values[~is_in_kernel]
-    vectors = vectors[:, ~is_in_kernel]
+    num_in_kernel = is_in_kernel.sum()
+    if num_in_kernel > 0:
+        # Logging. Print the number of discarded eigenvalues.
+        logger.warning(
+            f"Warning: Discarted {num_in_kernel} degenerate dimensions out the {len(is_in_kernel)} computed. A degenerate dimension is approximately in the kernel of the norm-inducing matrix."
+        )
+        values = values[~is_in_kernel]
+        vectors = vectors[:, ~is_in_kernel]
 
     values_filtered, vectors = _filter_reduced_rank_svals(values, vectors, rank)
     # Compare the filtered eigenvalues with the regularization strength, and warn if there are any eigenvalues that are smaller than the regularization strength.
@@ -200,10 +206,12 @@ def fit_nystroem_reduced_rank_regression(
             f"Warning: {(np.abs(values_filtered) < tikhonov_reg).sum()} out of the {len(values_filtered)} squared singular values are smaller than the regularization strength {tikhonov_reg:.2e}. Consider redudcing the regularization strength to avoid overfitting."
         )
     # Eigenvector normalization
-    normalization_csts = (np.sum(vectors * (kernel_XYX @ vectors), axis=0)) ** 0.5
-    vectors = (num_centers**0.5) * vectors / normalization_csts
+    normalization_csts = (
+        np.sum(vectors.conj() * (kernel_XYX @ vectors), axis=0).real
+    ) ** 0.5
+    vectors = ((dim * num_centers) ** 0.5) * vectors / normalization_csts
     U = A @ vectors
-    V = _tmp_YX @ vectors * (dim**0.5)
+    V = _tmp_YX @ vectors / (dim**0.5)
 
     svals = np.flip(np.sort(np.abs(values))) ** 0.5
     return U.real, V.real, svals
@@ -267,16 +275,22 @@ def fit_rand_reduced_rank_regression(
         / np.linalg.norm(vectors, axis=0) ** 2
     )
     is_in_kernel = np.abs(relative_norm_sq) < _threshold
-    values = values[~is_in_kernel]
-    vectors = vectors[:, ~is_in_kernel]
+    num_in_kernel = is_in_kernel.sum()
+    if num_in_kernel > 0:
+        # Logging. Print the number of discarded eigenvalues.
+        logger.warning(
+            f"Warning: Discarted {num_in_kernel} degenerate dimensions out the {len(is_in_kernel)} computed. A degenerate dimension is approximately in the kernel of the norm-inducing matrix."
+        )
+        values = values[~is_in_kernel]
+        vectors = vectors[:, ~is_in_kernel]
 
     _, vectors = _filter_reduced_rank_svals(values, vectors, rank)
 
     normalization_csts = (np.sum(vectors * (F_0 @ vectors), axis=0)) ** 0.5
     vectors = vectors / normalization_csts
 
-    U = (dim**0.5) * np.asfortranarray(kernel_X_sketch @ vectors)
-    V = (dim**0.5) * np.asfortranarray(_M @ vectors)
+    U = (dim**0.5) * kernel_X_sketch @ vectors
+    V = (dim**0.5) * _M @ vectors
 
     svals = np.flip(np.sort(np.abs(values))) ** 0.5
     return U.real, V.real, svals
@@ -292,7 +306,7 @@ def fit_principal_component_regression(
     dim = kernel_X.shape[0]
     add_diagonal(kernel_X, dim * tikhonov_reg)
     if svd_solver == "arnoldi":
-        _num_arnoldi_eigs = min(rank + 3, kernel_X.shape[0])
+        _num_arnoldi_eigs = min(rank + 5, kernel_X.shape[0])
         values, vectors = eigsh(kernel_X, k=_num_arnoldi_eigs)
     elif svd_solver == "full":
         values, vectors = eigh(kernel_X)
@@ -327,7 +341,8 @@ def fit_nystroem_principal_component_regression(
             kernel_Xnys_sq, kernel_X
         )  # normalization leads to needing to invert evals
     elif svd_solver == "arnoldi":
-        _num_arnoldi_eigs = min(rank + 3, kernel_X.shape[0])
+        _oversampling = max(10, 2 * int(np.sqrt(rank)))
+        _num_arnoldi_eigs = min(rank + _oversampling, kernel_X.shape[0])
         values, vectors = eigsh(
             kernel_Xnys_sq,
             M=kernel_X,
@@ -341,9 +356,7 @@ def fit_nystroem_principal_component_regression(
 
     U = np.sqrt(dim) * vectors * (rsqrt_values)
     V = np.linalg.multi_dot([kernel_Ynys.T, kernel_Xnys, vectors])
-    add_diagonal(kernel_Y, eps * dim)
     V = lstsq(kernel_Y, V)[0]
-    add_diagonal(kernel_Y, -eps * dim)
     V = np.sqrt(dim) * V * (rsqrt_values)
 
     kernel_X_eigvalsh = (np.flip(np.sort(np.abs(values))) / kernel_Xnys.shape[0]) ** 0.5
@@ -419,13 +432,13 @@ def estimator_eig(
     rcond = 10.0 * U.shape[0] * np.finfo(U.dtype).eps
     # Normalization in RKHS
     norm_r = weighted_norm(vr, W_X)
-    r_normr = np.where(norm_r < rcond, 0.0, norm_r**-1)
-    vr = vr * r_normr
+    norm_r = np.where(norm_r < rcond, np.inf, norm_r)
+    vr = vr / norm_r
 
     # Bi-orthogonality of left eigenfunctions
     norm_l = np.diag(np.linalg.multi_dot([vl.T, W_YX, vr]))
-    r_norm_l = np.where(np.abs(norm_l) < rcond, 0.0, norm_l**-1)
-    vl = vl * r_norm_l
+    norm_l = np.where(np.abs(norm_l) < rcond, np.inf, norm_l)
+    vl = vl / norm_l
     return values, V @ vl, U @ vr
 
 
