@@ -402,8 +402,8 @@ def predict(
     rsqrt_dim = dim ** (-0.5)
     K_dot_U = rsqrt_dim * K_Xin_X @ U
     V_dot_obs = rsqrt_dim * V.T @ obs_train_Y
-    V_K_XY_U = (dim**-1) * np.linalg.multi_dot([V.T, K_YX, U])
-    M = np.linalg.matrix_power(V_K_XY_U, num_steps - 1)
+    V_K_YX_U = (dim**-1) * np.linalg.multi_dot([V.T, K_YX, U])
+    M = np.linalg.matrix_power(V_K_YX_U, num_steps - 1)
     return np.linalg.multi_dot([K_dot_U, M, V_dot_obs])
 
 
