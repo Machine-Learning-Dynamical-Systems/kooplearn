@@ -2,9 +2,12 @@
   <img src="logo.svg" alt="SVG Image" style="width:50%;"/>
 </p>
 
-# `kooplearn`: Learn Koopman and transfer operators of Dynamical Systems
+# Learn Koopman and Transfer operators for Dynamical Systems and Stochastic Processes
 
-`kooplearn` is a Python library designed for learning Koopman operators or transfer operators associated with dynamical systems. It provides an array of algorithms for model training and analysis, enabling users to perform forecasting, spectral decomposition, and modal decomposition based on the learned operator.
+`kooplearn` is a Python library designed for learning Koopman or Transfer operators associated with dynamical systems. Given a _nonlinear_ dynamical system $x_{t + 1} = S(x_{t})$, the **Koopman operator** provides a _global linearization_ of the dynamics by mapping it to a suitable space of observables $\mathcal{F}$. An observable is any (scalar) function of the state. The Koopman operator $\mathsf{K}$ is defined as $$(\mathsf{K}f)(x_{t}) = f(x_{t + 1}) := f \circ S (x_t) \qquad f \in \mathcal{F}.$$
+Similarly, given a stochastic process $X:= \{ X_{s} \colon s \in \mathbb{N}\}$, its **Transfer operator* returns the expected value of any observable forward in time. The Transfer operator $\mathsf{T}$ is defined as $$(\mathsf{T}f)(x) := \mathbb{E}\left[f(X_{t + 1}) \mid X_{t} = x \right] \qquad f \in \mathcal{F}.$$
+
+`kooplearn` provides a suite of algorithms for model training and analysis, enabling users to perform forecasting, spectral decomposition, and modal decomposition based on the learned operator.
 
 Please note that `kooplearn` is currently under active development, and while we are continuously adding new features and improvements, some parts of the library might still be a work in progress.
 
@@ -16,10 +19,17 @@ Please note that `kooplearn` is currently under active development, and while we
 - Perform modal decomposition for further analysis.
   
 ## Installation
+To install the core version of `kooplearn`, without optional dependencies, run
 ```bash
-pip install kooplearn
-# Or to install the latest version of kooplearn from git:
-pip install --upgrade git+https://github.com/CSML-IIT-UCL/kooplearn.git
+   pip install kooplearn
+```
+To install the full version of `kooplearn`, including Neural-Network models, and the dahsboard, run
+```bash
+   pip install "kooplearn[full]"
+```
+To install the development version of `kooplearn`, run
+```bash
+   pip install --upgrade git+https://github.com/Machine-Learning-Dynamical-Systems/kooplearn.git
 ```
 ## Contributing
 
@@ -41,5 +51,5 @@ This project is licensed under the [MIT License](LICENSE).
 
 ---
 
-We hope you find `kooplearn` useful for your dynamical systems analysis. If you encounter any issues or have suggestions for improvements, please don't hesitate to [raise an issue](https://github.com/CSML-IIT-UCL/kooplearn/issues). Happy coding!
+We hope you find `kooplearn` useful for your dynamical systems analysis. If you encounter any issues or have suggestions for improvements, please don't hesitate to [raise an issue](https://github.com/Machine-Learning-Dynamical-Systems/kooplearn/issues). Happy coding!
 

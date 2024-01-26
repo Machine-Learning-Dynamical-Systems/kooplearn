@@ -25,7 +25,6 @@ torch = [
   "lightning",
   "pandas",
 ]
-
 docs = [
   "sphinx",
   "sphinx-book-theme",
@@ -41,13 +40,12 @@ dev = [
   "black",
   "isort",
 ]
-
 full = [
   "kooplearn[torch]",
 ]
 
 [project.urls]  # Optional
-"Homepage" = "https://github.com/CSML-IIT-UCL/kooplearn"
+"Homepage" = "https://github.com/Machine-Learning-Dynamical-Systems/kooplearn"
 
 [tool.isort]
 # make it compatible with black

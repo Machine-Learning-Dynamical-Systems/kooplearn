@@ -1,5 +1,5 @@
 Feature Maps
-=====================================
+============
 
 Introduction
 ------------
@@ -10,15 +10,18 @@ Feature maps can also be learned directly from data. To this end, Kooplearn expo
 
 .. currentmodule:: kooplearn.models.feature_maps
 
+Feature Maps
+------------
+
 Basic Feature Maps
--------------------------
+~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: IdentityFeatureMap
 
 .. autoclass:: ConcatenateFeatureMaps
 
 Deep-Learning Feature Maps
---------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 Kooplearn's deep learning components are implemented using `pytorch lightning <https://lightning.ai>`_ as it allows to easily set up complex machine learning pipelines in a modular way, and it comes with an extensive toolset out of the box. Broadly speaking, Kooplearn's implementation expect you to provide:
 
 1. One or more :code:`torch.nn.Module` objects defining the neural-network, along with the arguments passed at initialization.

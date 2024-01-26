@@ -58,14 +58,14 @@ Features
    .. grid-item::
       :columns: 12 12 12 6
 
-      .. card:: Neural operators
+      .. card:: Deep Learning models
          :class-card: sd-border-0
          :shadow: none
          :class-title: sd-fs-5
 
          .. div:: sd-font-normal
 
-            Kooplearn implements many neural-network models to learn the Koopman/transfer operators. Kooplearn's Deep-Learning models are based upon `Pytorch Lightning <https://lightning.ai/>`_ for fast and easy training on CPU, GPU, and multi-GPU systems. Kooplearn's functionality, however, is not bound to Pytorch in any way. In ":ref:`extending kooplearn <extending_jax>`", for example, we show how to use `JAX+Flax <https://flax.readthedocs.io/en/latest/>`_ to implement a custom model.
+            Kooplearn implements many neural-network models to learn the Koopman/transfer operators. Kooplearn's Deep-Learning models are based upon `Pytorch Lightning <https://lightning.ai/>`_ for fast and easy training on CPU, GPU, and multi-GPU systems. 
 
 ----
 
@@ -88,7 +88,7 @@ To install the development version of ``kooplearn``, run
 
 .. code-block:: bash
 
-   pip install --upgrade git+https://github.com/CSML-IIT-UCL/kooplearn.git
+   pip install --upgrade git+https://github.com/Machine-Learning-Dynamical-Systems/kooplearn.git
 
 
 Learn more
@@ -110,12 +110,13 @@ Learn more
          :class-card: sd-text-black sd-bg-light
          :link: guides/index.html
 
-   .. grid-item::
-      :columns: 6 6 6 4
+   ..
+      .. grid-item::
+         :columns: 6 6 6 4
 
-      .. card:: :material-regular:`science;2em` Examples
-         :class-card: sd-text-black sd-bg-light
-         :link: examples/index.html
+         .. card:: :material-regular:`science;2em` Examples
+            :class-card: sd-text-black sd-bg-light
+            :link: examples/index.html
 
 
    .. grid-item::
@@ -132,7 +133,8 @@ Learn more
    
    primer
    getting_started
-   examples/index
+   .. 
+      examples/index
    model_zoo
    guides/index
    api_reference/index
