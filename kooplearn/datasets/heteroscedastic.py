@@ -1,15 +1,9 @@
-from typing import Optional
-
 import numpy as np
 from typing import Optional
 
 from kooplearn.datasets.misc import DataGenerator
 from kooplearn.datasets.stochastic import DiscreteTimeDynamics
 
-<<<<<<< HEAD
-=======
-
->>>>>>> main
 class DiscreteBlackScholes(DiscreteTimeDynamics):
     """
     Discretised simulation of the Black Scholes model.
@@ -20,43 +14,17 @@ class DiscreteBlackScholes(DiscreteTimeDynamics):
         dt: size of the increments.
 
     Attributes:
-<<<<<<< HEAD
        sample: samples the process over T iterations with starting point X0. 
     """
     def __init__(self, A:np.ndarray, sigma:np.ndarray, dt:float, rng_seed: Optional[int]=None):
-=======
-       sample: samples the process over T iterations with starting point X0.
-    """
-
-    def __init__(
-        self,
-        A: np.ndarray,
-        sigma: np.ndarray,
-        dt: float,
-        rng_seed: Optional[int] = None,
-    ):
->>>>>>> main
         self.dim = A.shape[0]
         self.A = A
         self.dt = dt
         self.sigma = sigma
         self.rng = np.random.default_rng(rng_seed)
-<<<<<<< HEAD
     
     def _step(self, X:np.ndarray):
         return X + self.A @ X *self.dt + np.sqrt(self.dt) * X * self.rng.multivariate_normal(np.zeros(self.dim), self.sigma)
-=======
-
-    def _step(self, X: np.ndarray):
-        return (
-            X
-            + self.A @ X * self.dt
-            + np.sqrt(self.dt)
-            * X
-            * self.rng.multivariate_normal(np.zeros(self.dim), self.sigma)
-        )
-
->>>>>>> main
 
 class DiscreteOhrnstein(DiscreteTimeDynamics):
     """
@@ -69,23 +37,9 @@ class DiscreteOhrnstein(DiscreteTimeDynamics):
         dt: size of the increments.
 
     Attributes:
-<<<<<<< HEAD
        sample: samples the process over T iterations with starting point X0. 
     """
     def __init__(self, mu:np.ndarray, beta:np.ndarray, sigma:np.ndarray, dt:float, rng_seed:Optional[int]=None):
-=======
-       sample: samples the process over T iterations with starting point X0.
-    """
-
-    def __init__(
-        self,
-        mu: np.ndarray,
-        beta: np.ndarray,
-        sigma: np.ndarray,
-        dt: float,
-        rng_seed: Optional[int] = None,
-    ):
->>>>>>> main
         self.dim = mu.shape[0]
         self.beta = beta
         self.mu = mu
@@ -93,19 +47,8 @@ class DiscreteOhrnstein(DiscreteTimeDynamics):
         self.dt = dt
         self.rng = np.random.default_rng(rng_seed)
 
-<<<<<<< HEAD
     def _step(self, X:np.ndarray):
         return X + self.beta @ (self.mu - X) * self.dt + np.sqrt(self.dt) * self.rng.multivariate_normal(np.zeros(self.dim), self.sigma)
-=======
-    def _step(self, X: np.ndarray):
-        return (
-            X
-            + self.beta @ (self.mu - X) * self.dt
-            + np.sqrt(self.dt)
-            * self.rng.multivariate_normal(np.zeros(self.dim), self.sigma)
-        )
-
->>>>>>> main
 
 class DiscreteCIR(DiscreteOhrnstein):
     """
@@ -118,25 +61,10 @@ class DiscreteCIR(DiscreteOhrnstein):
         dt: size of the increments.
 
     Attributes:
-<<<<<<< HEAD
        sample: samples the process over T iterations with starting point X0. 
     """
     def _step(self, X:np.ndarray):
         return X + self.beta @ (self.mu - X)*self.dt + np.sqrt(self.dt)* np.sqrt(X) * self.rng.multivariate_normal(np.zeros(self.dim), self.sigma)
-=======
-       sample: samples the process over T iterations with starting point X0.
-    """
-
-    def _step(self, X: np.ndarray):
-        return (
-            X
-            + self.beta @ (self.mu - X) * self.dt
-            + np.sqrt(self.dt)
-            * np.sqrt(X)
-            * self.rng.multivariate_normal(np.zeros(self.dim), self.sigma)
-        )
-
->>>>>>> main
 
 # Heston like model (ohrnstein volatility)
 class DiscreteHeston(DiscreteTimeDynamics):
@@ -152,7 +80,6 @@ class DiscreteHeston(DiscreteTimeDynamics):
         dt: size of the increments.
 
     Attributes:
-<<<<<<< HEAD
        sample: samples the process over T iterations with starting point X0. 
     """
     def __init__(self, A:np.ndarray, 
@@ -163,22 +90,6 @@ class DiscreteHeston(DiscreteTimeDynamics):
                 dt:float, 
                 rng_seed:Optional[int]=None):
 
-=======
-       sample: samples the process over T iterations with starting point X0.
-    """
-
-    def __init__(
-        self,
-        A: np.ndarray,
-        sigma1: np.ndarray,
-        mu: np.ndarray,
-        beta: np.ndarray,
-        sigma2: np.ndarray,
-        nu0: np.ndarray,
-        dt: float,
-        rng_seed: Optional[int] = None,
-    ):
->>>>>>> main
         self.A = A
         self.dim = A.shape[0]
         self.beta = beta
@@ -188,37 +99,15 @@ class DiscreteHeston(DiscreteTimeDynamics):
         self.nu0 = nu0
         self.dt = dt
         self.rng = np.random.default_rng(rng_seed)
-<<<<<<< HEAD
     def _step(self, X:np.ndarray):
         next_X = X + self.dt*self.A@X + np.sqrt(self.dt)*np.sqrt(self.nu0) * X * self.rng.multivariate_normal(np.zeros(self.dim), self.sigma2)
         self.nu0 += self.dt*self.beta @ (self.mu - self.nu0) + np.sqrt(self.dt)* np.sqrt(self.nu0) * self.rng.multivariate_normal(np.zeros(self.dim), self.sigma1)
-=======
-
-    def _step(self, X: np.ndarray):
-        next_X = (
-            X
-            + self.dt * self.A @ X
-            + np.sqrt(self.dt)
-            * np.sqrt(self.nu0)
-            * X
-            * self.rng.multivariate_normal(np.zeros(self.dim), self.sigma2)
-        )
-        self.nu0 += self.dt * self.beta @ (self.mu - self.nu0) + np.sqrt(
-            self.dt
-        ) * np.sqrt(self.nu0) * self.rng.multivariate_normal(
-            np.zeros(self.dim), self.sigma1
-        )
->>>>>>> main
         return next_X
 
 
 class Garch(DataGenerator):
     # one dimensional one lag garch model
-<<<<<<< HEAD
     def __init__(self, alpha:float, beta:float, alpha0:float=0.0):
-=======
-    def __init__(self, alpha: float, beta: float, alpha0: float = 0.0):
->>>>>>> main
         self.alpha = alpha
         self.beta = beta
         self.alpha0 = alpha0
@@ -256,7 +145,5 @@ class DMgarch(DataGenerator):
             memory[t + 1] = np.linalg.cholesky(H) @ np.random.normal(
                 0, 1, size=X0.shape
             )
-
-        return memory
 
         return memory

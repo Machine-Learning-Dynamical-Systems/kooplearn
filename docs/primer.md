@@ -10,8 +10,4 @@ $$(\mathsf{K}f)(x_{t}) = f(x_{t + 1}) := f \circ S (x_t) \qquad f \in \mathcal{F
 
 Similarly, given a stochastic process $X:= \{ X_{s} \colon s \in \mathbb{N}\}$, its **Transfer operator** returns the expected value of any observable forward in time. The Transfer operator $\mathsf{T}$ is defined as
 
-<<<<<<< HEAD
 $$(\mathsf{T}f)(x) := \mathbb{E}\left[f(X_{t + 1}) \mid X_{t} = x \right] \qquad f \in \mathcal{F}.$$
-=======
-$$(\mathsf{T}f)(x) := \mathbb{E}\left[f(X_{t + 1}) \mid X_{t} = x \right] \qquad f \in \mathcal{F}.$$
->>>>>>> main
