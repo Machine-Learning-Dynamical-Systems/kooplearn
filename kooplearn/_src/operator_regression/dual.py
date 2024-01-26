@@ -318,6 +318,74 @@ def fit_principal_component_regression(
     return Q, Q, kernel_X_eigvalsh
 
 
+<<<<<<< HEAD
+def fit_nystroem_principal_component_regression(
+=======
+def fit_nystroem_reduced_rank_regression(
+>>>>>>> main
+    kernel_X: np.ndarray,  # Kernel matrix of the input inducing points
+    kernel_Y: np.ndarray,  # Kernel matrix of the output inducing points
+    kernel_Xnys: np.ndarray,  # Kernel matrix between the input data and the input inducing points
+    kernel_Ynys: np.ndarray,  # Kernel matrix between the output data and the output inducing points
+    tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter (can be 0)
+    rank: Optional[int] = None,  # Rank of the estimator
+    svd_solver: str = "arnoldi",  # Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
+<<<<<<< HEAD
+=======
+    _return_singular_values: bool = False
+    # Whether to return the singular values of the projector. (Development purposes)
+) -> tuple[np.ndarray, np.ndarray]:
+    dim = kernel_X.shape[0]
+    eps = kernel_X.shape[0] * np.finfo(kernel_X.dtype).eps
+    reg = max(eps, tikhonov_reg)
+
+    # LHS of the generalized eigenvalue problem
+    kernel_YX_nys = kernel_Ynys.T @ kernel_Xnys
+
+    _tmp_YX = lstsq(kernel_Y, kernel_YX_nys)[0]
+    kernel_XYX = kernel_YX_nys.T @ _tmp_YX
+    kernel_XYX = (kernel_XYX + kernel_XYX.T) * 0.5  # Symmetrize for numerical stability
+
+    # RHS of the generalized eigenvalue problem
+    kernel_Xnys_sq = kernel_Xnys.T @ kernel_Xnys + reg * dim * kernel_X
+
+    if svd_solver == "full":
+        values, vectors = eigh(
+            kernel_XYX, b=regularize(kernel_Xnys_sq, eps)
+        )  # normalization leads to needing to invert evals
+    elif svd_solver == "arnoldi":
+        _num_arnoldi_eigs = min(rank + 3, kernel_X.shape[0])
+        values, vectors = eigsh(
+            kernel_XYX,
+            M=regularize(kernel_Xnys_sq, eps),
+            k=_num_arnoldi_eigs,
+            which="LM",
+        )
+    else:
+        raise ValueError(f"Unknown svd_solver {svd_solver}")
+
+    vectors, _, columns_permutation = modified_QR(
+        vectors, M=kernel_XYX, column_pivoting=True
+    )
+    vectors = vectors[:, np.argsort(columns_permutation)]
+    if vectors.shape[1] < rank:
+        logger.warning(
+            f"The numerical rank of the projector is smaller than the selected rank ({rank}). {rank - vectors.shape[1]} "
+            f"degrees of freedom will be ignored."
+        )
+        _zeroes = np.zeros((vectors.shape[0], rank - vectors.shape[1]))
+        vectors = np.c_[vectors, _zeroes]
+        assert vectors.shape[1] == rank
+
+    U = lstsq(kernel_Xnys_sq, kernel_XYX)[0] @ vectors
+    V = _tmp_YX @ vectors
+
+    if _return_singular_values:
+        return U.real, V.real, values
+    else:
+        return U.real, V.real
+
+
 def fit_nystroem_principal_component_regression(
     kernel_X: np.ndarray,  # Kernel matrix of the input inducing points
     kernel_Y: np.ndarray,  # Kernel matrix of the output inducing points
@@ -326,6 +394,7 @@ def fit_nystroem_principal_component_regression(
     tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter (can be 0)
     rank: Optional[int] = None,  # Rank of the estimator
     svd_solver: str = "arnoldi",  # Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
+>>>>>>> main
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     dim = kernel_X.shape[0]
     eps = 1000 * np.finfo(kernel_X.dtype).eps
