@@ -45,11 +45,12 @@ html_theme = "sphinx_book_theme"
 html_logo = "../logo.svg"
 
 html_theme_options = {
-    "repository_url": "https://github.com/CSML-IIT-UCL/kooplearn",
+    "repository_url": "https://github.com/Machine-Learning-Dynamical-Systems/kooplearn",
     "use_repository_button": True,  # add a 'link to repository' button
     "use_issues_button": False,  # add an 'Open an Issue' button
     "path_to_docs": ("docs"),
     "show_navbar_depth": 1,
+    "show_toc_level": 3,
 }
 
 bibtex_bibfiles = ["bibliography.bib"]

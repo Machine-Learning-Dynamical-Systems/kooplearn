@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kooplearn"  
-version = "1.0.2"  
+version = "1.0.4"  
 description = "A package to learn Koopman operators" 
 readme = "README.md"
 requires-python = ">=3.9"
@@ -25,14 +25,6 @@ torch = [
   "lightning",
   "pandas",
 ]
-
-visualizer = [
-  "plotly",
-  "dash",
-  "dash-mantine-components",
-  "dash-iconify",
-  "pandas",
-]
 docs = [
   "sphinx",
   "sphinx-book-theme",
@@ -43,15 +35,17 @@ docs = [
 ]
 dev = [
   "kooplearn[torch]",
-  "kooplearn[visualizer]",
   "kooplearn[docs]",
   "pytest",
   "black",
   "isort",
 ]
+full = [
+  "kooplearn[torch]",
+]
 
 [project.urls]  # Optional
-"Homepage" = "https://github.com/CSML-IIT-UCL/kooplearn"
+"Homepage" = "https://github.com/Machine-Learning-Dynamical-Systems/kooplearn"
 
 [tool.isort]
 # make it compatible with black

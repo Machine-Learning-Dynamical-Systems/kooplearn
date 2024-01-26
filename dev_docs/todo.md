@@ -1,5 +1,38 @@
 > Do NOT delete completed tasks.
 
+## General
+- [ ] Do a complete pass on the documentation adding cross-links to class and attributes.
+- [ ] Rename Least Squares models from `*DMD` to `LeastSquares` and update docs accordingly
+
+## Documentation
+- [ ] Add a _Operators & Dynamical Systems_ documentation page replacing the blog post, for now.
+- [x] Add a Shared Bibliography file
+- [x] Document everything in `kooplearn.abc`.
+### Examples (tentative titles):
+> Add name of the author and link to its social media for each of the examples.
+- [ ] Large scale Kernel models with Nyström or Randomized techniques. (NoisyLogistic) - Giacomo
+- [ ] Ordered MNIST (All algorithms) - Pie
+- [ ] Sea temperature with Autoencoders (re-implementing Azencot's example) - Pie
+- [ ] ALA2 (VAMPNets, DPNets) - Pie
+- [ ] Regime switching - Grég
+
+## Models
+### NystromKDMD
+- [ ] Fix the low level algorithms for numerical stability & test
+- [ ] Use `kooplearn.models.KernelDMD` as an example to implement the Nystrom version. ~~Link to Falkon for a GPU implementation.~~
+- [ ] Check the role of Tikhnonv reg. in both PCR and RRR -- [Giacomo's implementation](https://github.com/Giodiro/NystromKoopman/tree/9463faf5dd6a7b7a5ccba31ebbd755fcfa91e20f/nyskoop/estimators) is not 100% consistent (PCR has no reg, while RRR has it) 
+
+### ExtendedDMD
+- [x] Add `risk` method.
+- [ ] Add power iteration QR normalization for the randomized RRR algorithms.
+- [x] Lift the constraint of having 2D observables in `modes` and `predict`
+- [x] Do as above for `KernelDMD`
+
+### ~~EncoderModel~~ DeepEDMD Model
+- [x] Rewrite it by subclassing `kooplearn.models.ExtendedDMD`
+- [ ] Implement the loading and saving utilities - pay attention to saving the feature map.
+- [x] Drop the requirements for the data to be of shape `[n_samples, n_features]`, and allow for a general `[n_samples, ...]`.
+
 ### Optimization
 - [ ] Rewrite `kooplearn._src.operator_regression` in C++/Cython
 
@@ -18,10 +51,6 @@
 - [ ] Finish the `modes` and `eig` methods.
 - [ ] Add  a test in `tests`
 
-### NystromKDMD
-- [ ] Fix the low level algorithms for numerical stability & test
-- [ ] Use `kooplearn.models.KernelDMD` as an example to implement the Nystrom version. Link to Falkon for a GPU implementation.
-
 ### Input-Output utilities
 - [x] Add Numpy utilities to convert from a trajectory to a context window **view**. This avoids unnecessary memory usage. 
 - [ ] Write a function to add `nan` padding for inference data (in which we do not know the target, nor the lookforward.)
@@ -30,11 +59,6 @@
 
 ### Datasets
 - [ ] The return of `Dataset.generate` should be a trajectory (as it is now, but double check).
-
-### ~~EncoderModel~~ DeepEDMD Model
-- [x] Rewrite it by subclassing `kooplearn.models.ExtendedDMD`
-- [ ] Implement the loading and saving utilities - pay attention to saving the feature map.
-- [x] Drop the requirements for the data to be of shape `[n_samples, n_features]`, and allow for a general `[n_samples, ...]`.
 
 ### Refactoring to the context-window data paradigm
 
@@ -64,18 +88,7 @@
 - [x] Update `test_edmd_estimators`, `test_kernel_estimators`.
 - [x] Add tests for the I/O utilities
 
-### Documentation
-- [x] Add a Shared Bibliography file
-- [x] Document everything in `kooplearn.abc`.
-- [ ] Do a complete pass on the documentation adding cross-links to class and attributes.
-
-### ExtendedDMD
-- [x] Add `risk` method.
-- [ ] Add power iteration QR normalization for the randomized RRR algorithms.
-- [x] Lift the constraint of having 2D observables in `modes` and `predict`
-- [x] Do as above for `KernelDMD`
-
-### DPNets
+### ~~DPNets~~ | LEGACY |
 - Implement different regularization functions:
   - [x] Frobenius.
   - [x] Von-Neumann divergence.

@@ -1,5 +1,6 @@
 from kooplearn.models.edmd import DMD, ExtendedDMD
 from kooplearn.models.kernel import KernelDMD
+from kooplearn.models.nystroem import NystroemKernel
 
 from kooplearn.models.deepedmd import DeepEDMD  # isort:skip
 

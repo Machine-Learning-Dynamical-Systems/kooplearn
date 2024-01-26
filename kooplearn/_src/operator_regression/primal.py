@@ -5,7 +5,7 @@ from scipy.linalg import eig, eigh, solve
 from scipy.sparse.linalg import eigsh
 from sklearn.utils.extmath import randomized_svd
 
-from kooplearn._src.linalg import _rank_reveal, spd_neg_pow, weighted_norm
+from kooplearn._src.linalg import eigh_rank_reveal, spd_neg_pow, weighted_norm
 from kooplearn._src.utils import fuzzy_parse_complex, topk
 
 
@@ -50,7 +50,7 @@ def _fit_reduced_rank_regression_noreg(
         values, vectors = eigsh(_crcov, rank + 3)
     else:
         values, vectors = eigh(_crcov)
-    vectors, _vals, _ = _rank_reveal(values, vectors, rank)
+    vectors, _vals, _ = eigh_rank_reveal(values, vectors, rank)
     return rsqrt_C_X @ vectors
 
 
@@ -94,8 +94,6 @@ def fit_principal_component_regression(
     svd_solver: str = "arnoldi",  # SVD solver to use. Arnoldi is faster for low ranks.
 ):
     dim = C_X.shape[0]
-    if rank is None:
-        rank = dim
     assert rank <= dim, f"Rank too high. The maximum value for this problem is {dim}"
     reg_input_covariance = C_X + tikhonov_reg * np.identity(dim, dtype=C_X.dtype)
     if svd_solver == "arnoldi":
@@ -105,7 +103,7 @@ def fit_principal_component_regression(
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
 
-    vectors, _, rsqrt_evals = _rank_reveal(values, vectors, rank)
+    vectors, _, rsqrt_evals = eigh_rank_reveal(values, vectors, rank)
     return vectors @ np.diag(rsqrt_evals)
 
 
@@ -119,8 +117,6 @@ def fit_rand_principal_component_regression(
     rng_seed: Optional[int] = None,  # Random seed
 ):
     dim = C_X.shape[0]
-    if rank is None:
-        rank = dim
     assert rank <= dim, f"Rank too high. The maximum value for this problem is {dim}"
     reg_input_covariance = C_X + tikhonov_reg * np.identity(dim, dtype=C_X.dtype)
 
@@ -132,7 +128,7 @@ def fit_rand_principal_component_regression(
         random_state=rng_seed,
     )
 
-    vectors, _, rsqrt_evals = _rank_reveal(values, vectors, rank, rcond)
+    vectors, _, rsqrt_evals = eigh_rank_reveal(values, vectors, rank, rcond)
     return vectors @ np.diag(rsqrt_evals)
 
 

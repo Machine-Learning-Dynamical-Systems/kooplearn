@@ -58,10 +58,10 @@ def test_reduced_rank_tikhonov_dual_scale_invariance(
     K_Y = Y @ (Y.T)
 
     # Dual
-    U, V = dual.fit_reduced_rank_regression(
+    U, V, _ = dual.fit_reduced_rank_regression(
         K_X, K_Y, tikhonov_reg, rank, svd_solver=svd_solver
     )
-    U_scaled, V_scaled = dual.fit_reduced_rank_regression(
+    U_scaled, V_scaled, _ = dual.fit_reduced_rank_regression(
         scale_factor * K_X,
         scale_factor * K_Y,
         tikhonov_reg * scale_factor,
