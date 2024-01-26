@@ -4,7 +4,6 @@ import logging
 from typing import Callable, Optional, Union
 
 import numpy as np
-from line_profiler import profile
 from sklearn.base import RegressorMixin
 from sklearn.gaussian_process.kernels import DotProduct, Kernel
 
@@ -96,8 +95,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
             Y = Y.reshape(Y.shape[0], -1)
         return self._kernel(X, Y)
 
-    @profile
-    def fit(self, data: np.ndarray, verbose: bool = True) -> NystroemKernelLeastSquares:
+    def fit(self, data: np.ndarray, verbose: bool = True) -> NystroemKernel:
         """
         Fits the KernelDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
@@ -227,7 +225,6 @@ class NystroemKernel(BaseModel, RegressorMixin):
             t, self.U, self.V, self.kernel_YX, K_Xin_X, _obs[self.nys_centers_idxs]
         ).reshape(expected_shape)
 
-    @profile
     def eig(
         self,
         eval_left_on: Optional[np.ndarray] = None,
@@ -343,14 +340,12 @@ class NystroemKernel(BaseModel, RegressorMixin):
         check_is_fitted(self, ["U", "V", "kernel_X", "kernel_Y"])
         return dual.svdvals(self.U, self.V, self.kernel_X, self.kernel_Y)
 
-    @profile
     def _init_kernels(self, X: np.ndarray, Y: np.ndarray):
         K_X = self.kernel(X)
         K_Y = self.kernel(Y)
         K_YX = self.kernel(Y, X)
         return K_X, K_Y, K_YX
 
-    @profile
     def _init_nys_kernels(
         self, X: np.ndarray, Y: np.ndarray, X_nys: np.ndarray, Y_nys: np.ndarray
     ):
