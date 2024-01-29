@@ -205,7 +205,7 @@ def fit_nystroem_reduced_rank_regression(
     has_small_norm = normalization_csts < 1000.0 * np.finfo(vectors.dtype).eps
     vectors = vectors[:, ~has_small_norm] / normalization_csts[~has_small_norm]
     # Ordering the results
-    sort_perm = topk(values, len(values)).indices
+    sort_perm = topk(values[~has_small_norm], np.sum(~has_small_norm)).indices
     vectors = vectors[:, sort_perm]
     U = A @ vectors
     V = _tmp_YX @ vectors
