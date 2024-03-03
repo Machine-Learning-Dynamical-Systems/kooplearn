@@ -327,7 +327,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
         _gamma = dual.estimator_modes(K_Xin_X, rv, lv)
 
         expected_shape = (self.rank,) + expected_shape
-        return np.matmul(_gamma, _obs[self.nys_centers_idxs]).reshape(
+        return np.tensordot(_gamma, _obs[self.nys_centers_idxs], axes=1).reshape(
             expected_shape
         )  # [rank, num_initial_conditions, num_observables]
 

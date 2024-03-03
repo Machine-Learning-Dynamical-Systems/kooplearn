@@ -326,7 +326,7 @@ class ExtendedDMD(BaseModel):
 
         _gamma = primal.estimator_modes(self.U, self.cov_XY, phi_X, phi_Xin)
         expected_shape = (self.rank,) + expected_shape
-        return np.matmul(_gamma, _obs).reshape(
+        return np.tensordot(_gamma, _obs, axes=1).reshape(
             expected_shape
         )  # [rank, num_initial_conditions, ...]
 
