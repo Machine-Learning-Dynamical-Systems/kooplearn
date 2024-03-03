@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 import numpy as np
 
@@ -9,8 +10,37 @@ try:
 
     check_torch_deps()
     from kooplearn.nn.data import ContextsDataset, traj_to_contexts_dataset
-except:
+except ImportError:
     pass
+
+
+class Contexts:
+    def __init__(
+        self, contexts_data: np.ndarray, lookback_window_length: Optional[int] = None
+    ):
+        self.data = contexts_data
+        # Shapes
+        _shape = self.data.shape
+        self._num_contexts = _shape[0]
+        self._context_window_length = _shape[1]
+        self._lookback_window_length = lookback_window_length
+        self._features_shape = _shape[1:]
+
+    @property
+    def lookback(self):
+        return self.data[:, : self._lookback_window_length]
+
+    @property
+    def lookforward(self):
+        if (self._lookback_window_length is None) or (
+            self._lookback_window_length == self._context_window_length
+        ):
+            return None
+        else:
+            return self.data[:, self._lookback_window_length :]
+
+    def __repr__(self):
+        return f"{self._num_contexts} Contexts of length {self._context_window_length} and with {self._features_shape} features."
 
 
 def traj_to_contexts(
