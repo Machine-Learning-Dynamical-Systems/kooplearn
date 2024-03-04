@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Optional
 
 import numpy as np
@@ -15,14 +16,13 @@ except ImportError:
 
 
 class Contexts:
-    def __init__(
-        self, contexts_data: np.ndarray, lookforward_window_length: Optional[int] = None
-    ):
+    def __init__(self, contexts_data: np.ndarray):
         self.data = contexts_data
         # Shapes
         _shape = self.data.shape
         self._num_contexts = _shape[0]
         self._context_window_length = _shape[1]
+
         self._lookforward_window_length = lookforward_window_length
         if self.has_lookforward:
             self._lookback_window_length = (
@@ -32,18 +32,16 @@ class Contexts:
             self._lookback_window_length = self._context_window_length
         self._features_shape = _shape[2:]
 
-    @property
-    def lookback(self):
+    def lookback(self, lookback_len: int):
         return self.evolve_lookback(0)
 
-    @property
-    def lookforward(self):
+    def lookforward(self, lookback_len: int):
         if self.has_lookforward:
             return self.data[:, self._lookback_window_length :]
         else:
             return None
 
-    def evolve_lookback(self, steps: int):
+    def evolve_lookback(self, steps: int, lookback_len: int):
         if self.has_lookforward:
             if (steps <= self._lookforward_window_length) and (steps >= 0):
                 return self.data[:, slice(steps, self._lookback_window_length + steps)]
@@ -59,8 +57,7 @@ class Contexts:
                     "Cannot evolve the lookback window when the Contexts have no lookforward."
                 )
 
-    @property
-    def has_lookforward(self):
+    def _has_lookforward(self, lookback_len: int):
         if (self._lookforward_window_length is None) or (
             self._lookforward_window_length == 0
         ):
@@ -68,14 +65,19 @@ class Contexts:
         else:
             return True
 
+    def save(self, path: os.Pathlike):
+        raise NotImplementedError
+
+    def load(self):
+        raise NotImplementedError
+
     def __repr__(self):
-        return f"Contexts <count={self._num_contexts},context_length={self._context_window_length},features={self._features_shape}, lookback={self._lookback_window_length}, lookforward={self._lookforward_window_length}>\n{self.data.__str__()}"
+        return f"Contexts <count={self._num_contexts},context_length={self._context_window_length},features={self._features_shape}>\n{self.data.__str__()}"
 
 
 def traj_to_contexts(
     trajectory: np.ndarray,
     context_window_len: int = 2,
-    lookforward_window_len: int = 1,
     time_lag: int = 1,
 ):
     """Convert a single trajectory to a sequence of context windows.
@@ -112,4 +114,4 @@ def traj_to_contexts(
     )
     _res = np.moveaxis(_res, -1, 1)[:, ::time_lag, ...]
 
-    return Contexts(_res, lookforward_window_length=lookforward_window_len)
+    return Contexts(_res)

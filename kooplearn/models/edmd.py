@@ -14,6 +14,7 @@ from kooplearn._src.operator_regression.utils import (
 from kooplearn._src.serialization import pickle_load, pickle_save
 from kooplearn._src.utils import ShapeError, check_contexts_shape, check_is_fitted
 from kooplearn.abc import BaseModel, FeatureMap
+from kooplearn.data import Contexts
 from kooplearn.models.feature_maps import IdentityFeatureMap
 
 logger = logging.getLogger("kooplearn")
@@ -100,7 +101,7 @@ class ExtendedDMD(BaseModel):
         feat_X = feat_X.reshape(_n_samples, self.lookback_len, *_trail_dims)
         return feat_X.reshape(_n_samples, -1)
 
-    def fit(self, data: np.ndarray, verbose: bool = True) -> ExtendedDMD:
+    def fit(self, data: Contexts, verbose: bool = True) -> ExtendedDMD:
         """
         Fits the ExtendedDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
@@ -382,7 +383,7 @@ class ExtendedDMD(BaseModel):
         cov_XY = cov(X, Y)
         return cov_X, cov_Y, cov_XY
 
-    def _pre_fit_checks(self, data: np.ndarray) -> None:
+    def _pre_fit_checks(self, data: Conte) -> None:
         """Performs pre-fit checks on the training data.
 
         Use :func:`check_contexts_shape` to check and sanitize the input data, initialize the covariance matrices and saves the training data.

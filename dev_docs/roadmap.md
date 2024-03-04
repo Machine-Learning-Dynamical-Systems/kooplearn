@@ -1,4 +1,22 @@
 # Roadmap
+#### Mar 4, 2024:
+Added a branch `better_contexts`, to implement a better management of the data flow. The main goal is to have a more intuitive way to call the functions `modes`, `predict`, and `eig` (for the evaluation of the eigenfunctions) in each model. Upon merging to main, this will result in the release of a new minor version. Without overhauling the current design, we will keep the following principles:
+1. `Contexts` only specify the context length, whereas the lookback window should be specified in each model.
+2. Lookback windows can be used for inference, lookforward windows only for train.
+3. Re-use the utilities in `kooplearn._src.operator_regression.utils` to do shape checks.
+4. Implement a `torch` version of contexts to collate them easily even in the case of GNNs.
+5. **Extra**: add a `reencode_every` keyword argument to `predict` as proposed in [Course Correcting Koopman Representations](https://arxiv.org/abs/2310.15386).
+
+**Open questions.**
+
+- The class should contain only 1 context or a batch of them? 
+
+**Status.**
+
+- Implemented an initial `Contexts` class. Add shape checks and remove the explicit definition of `lookback_length` as a property.
+- Update every model to use `Contexts`. I should do minimal surgery, editing as close as possible to the API boundaries. I am just adding an abstraction.
+
+
 #### Jan 24, 2024:
 Testing the old and new versions of the algorithm. Some observations:
 - At low (approaching machine precision) regularization strengths, or when the rank is too high, the computed estimator is highly unstable. As expected.
