@@ -1,4 +1,8 @@
 # Roadmap
+#### Mar 5, 2024:
+Features to add to `Contexts`:
+- A bijective map of indices from the original trajectory (possibly, trajectories) to the element of the context window length.
+
 #### Mar 4, 2024:
 Added a branch `better_contexts`, to implement a better management of the data flow. The main goal is to have a more intuitive way to call the functions `modes`, `predict`, and `eig` (for the evaluation of the eigenfunctions) in each model. Upon merging to main, this will result in the release of a new minor version. Without overhauling the current design, we will keep the following principles:
 1. `Contexts` only specify the context length, whereas the lookback window should be specified in each model.
