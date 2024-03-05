@@ -5,6 +5,7 @@ from typing import NamedTuple
 import numpy as np
 from numpy.typing import ArrayLike
 from scipy.spatial.distance import pdist
+from kooplearn.data import Contexts
 
 logger = logging.getLogger("kooplearn")
 
@@ -28,8 +29,11 @@ def check_is_fitted(obj: object, attr_list: list[str]):
 
 
 def check_contexts_shape(
-    data: ArrayLike, lookback_len: int, is_inference_data: bool = False
+    data: ArrayLike, lookback_len: int = None, is_inference_data: bool = False
 ):
+    if lookback_len is None:
+        lookback_len = data._lookback_len
+
     # Numpy/Torch/Jax compatible
     if not isinstance(lookback_len, int):
         raise ValueError(

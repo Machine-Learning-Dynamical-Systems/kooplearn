@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Optional
+from kooplearn._src.serialization import pickle_save, pickle_load
 
 import numpy as np
 
@@ -16,68 +16,75 @@ except ImportError:
 
 
 class Contexts:
-    def __init__(self, contexts_data: np.ndarray):
+    def __init__(self, contexts_data: np.ndarray, lookforward_window_len: int = 1):
         self.data = contexts_data
-        # Shapes
-        _shape = self.data.shape
-        self._num_contexts = _shape[0]
-        self._context_window_length = _shape[1]
+        self._lookforward_len = lookforward_window_len
 
-        self._lookforward_window_length = lookforward_window_length
-        if self.has_lookforward:
-            self._lookback_window_length = (
-                self._context_window_length - self._lookforward_window_length
+        # Shapes
+        self.shape = self.data.shape
+        self.ndim = len(self.shape)
+        self._num_contexts = self.shape[0]
+        self._context_len = self.shape[1]
+        self._features_shape = self.shape[2:]
+
+        if self._has_lookforward:
+            self._lookback_len = (
+                    self._context_len - self._lookforward_len
             )
         else:
-            self._lookback_window_length = self._context_window_length
-        self._features_shape = _shape[2:]
+            self._lookback_len = self._context_len
 
-    def lookback(self, lookback_len: int):
-        return self.evolve_lookback(0)
+    def lookback(self, steps: int = 0):
+        return self.evolve_lookback(steps)
 
-    def lookforward(self, lookback_len: int):
-        if self.has_lookforward:
-            return self.data[:, self._lookback_window_length :]
+    def lookforward(self):
+        if self._has_lookforward:
+            return Contexts(self.data[:, self._lookback_len:], 0)
         else:
             return None
 
-    def evolve_lookback(self, steps: int, lookback_len: int):
-        if self.has_lookforward:
-            if (steps <= self._lookforward_window_length) and (steps >= 0):
-                return self.data[:, slice(steps, self._lookback_window_length + steps)]
+    def evolve_lookback(self, steps: int):
+        if self._has_lookforward:
+            if (steps <= self._lookforward_len) and (steps >= 0):
+                return Contexts(self.data[:, slice(steps, self._lookback_len + steps)], 0)
             else:
                 raise ValueError(
-                    f"Out of bounds. Cannot evolve the lookback window of {steps} steps, with a lookforward window of length {self._lookforward_window_length}."
+                    f"Out of bounds. Cannot evolve the lookback window of {steps} steps, with a lookforward window of "
+                    f"length {self._lookforward_len}."
                 )
         else:
             if steps == 0:
-                return self.data[:, slice(steps, self._lookback_window_length + steps)]
+                return Contexts(self.data[:, slice(steps, self._lookback_len + steps)], 0)
             else:
                 raise ValueError(
                     "Cannot evolve the lookback window when the Contexts have no lookforward."
                 )
 
-    def _has_lookforward(self, lookback_len: int):
-        if (self._lookforward_window_length is None) or (
-            self._lookforward_window_length == 0
+    def _has_lookforward(self):
+        if (self._lookforward_len is None) or (
+                self._lookforward_len == 0
         ):
             return False
         else:
             return True
 
-    def save(self, path: os.Pathlike):
-        raise NotImplementedError
-
-    def load(self):
-        raise NotImplementedError
+    def save_context(self, path: os.PathLike):
+        pickle_save(self, path)
 
     def __repr__(self):
-        return f"Contexts <count={self._num_contexts},context_length={self._context_window_length},features={self._features_shape}>\n{self.data.__str__()}"
+        return (f"Contexts <count={self._num_contexts},context_length={self._context_len},"
+                f"features={self._features_shape}>\n{self.data.__str__()}")
 
+    def __getitem__(self, index):
+        if self.data[index].ndim == 2:
+            return Contexts(self.data[index].reshape(1,-1,1), self._lookforward_len)
+        else:
+            return Contexts(self.data[index], self._lookforward_len)
 
 def traj_to_contexts(
     trajectory: np.ndarray,
     context_window_len: int = 2,
+    lookforward_window_len: int = 1,
     time_lag: int = 1,
 ):
     """Convert a single trajectory to a sequence of context windows.
@@ -106,7 +113,8 @@ def traj_to_contexts(
     _context_window_len = 1 + (context_window_len - 1) * time_lag
     if _context_window_len > trajectory.shape[0]:
         raise ValueError(
-            f"Invalid combination of context_window_len={context_window_len} and time_lag={time_lag} for trajectory of length {trajectory.shape[0]}. Try reducing context_window_len or time_lag."
+            f"Invalid combination of context_window_len={context_window_len} and time_lag={time_lag} for trajectory of "
+            f"length {trajectory.shape[0]}. Try reducing context_window_len or time_lag."
         )
 
     _res = np.lib.stride_tricks.sliding_window_view(
@@ -114,4 +122,8 @@ def traj_to_contexts(
     )
     _res = np.moveaxis(_res, -1, 1)[:, ::time_lag, ...]
 
-    return Contexts(_res)
+    return Contexts(_res, lookforward_window_len)
+
+def load_contexts(path: os.PathLike):
+    cls = Contexts
+    return pickle_load(cls, path)

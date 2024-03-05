@@ -15,6 +15,7 @@ from kooplearn._src.operator_regression.utils import (
 from kooplearn._src.serialization import pickle_load, pickle_save
 from kooplearn._src.utils import ShapeError, check_contexts_shape, check_is_fitted
 from kooplearn.abc import BaseModel
+from kooplearn.data import Contexts
 
 logger = logging.getLogger("kooplearn")
 
@@ -95,7 +96,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
             Y = Y.reshape(Y.shape[0], -1)
         return self._kernel(X, Y)
 
-    def fit(self, data: np.ndarray, verbose: bool = True) -> NystroemKernel:
+    def fit(self, data: Contexts, verbose: bool = True) -> NystroemKernel:
         """
         Fits the KernelDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
@@ -166,16 +167,16 @@ class NystroemKernel(BaseModel, RegressorMixin):
             Risk of the estimator, see Equation 11 of :footcite:p:`Kostic2022` for more details.
         """
         if data is not None:
-            check_contexts_shape(data, self.lookback_len)
-            data = np.asanyarray(data)
+            check_contexts_shape(data)
+            # data = np.asanyarray(data)
             if data.shape[1] - 1 != self.lookback_len:
                 raise ShapeError(
                     f"The  context length ({data.shape[1]}) of the validation data does not match the context length of the training data ({self.lookback_len + 1})."
                 )
 
-            X_val, Y_val = contexts_to_markov_train_states(data, self.lookback_len)
+            X_val, Y_val = contexts_to_markov_train_states(data)
             X_train, Y_train = contexts_to_markov_train_states(
-                self.data_fit, self.lookback_len
+                self.data_fit
             )
             kernel_Yv = self.kernel(Y_val)
             kernel_XXv = self.kernel(X_train, X_val)
@@ -190,7 +191,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
 
     def predict(
         self,
-        data: np.ndarray,
+        data: Contexts,
         t: int = 1,
         observables: Optional[Callable] = None,
     ) -> np.ndarray:
@@ -217,7 +218,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
         )
 
         _obs, expected_shape, X_inference, X_fit = parse_observables(
-            observables, data, self.data_fit, self.lookback_len
+            observables, data.lookback(0), self.data_fit
         )
 
         K_Xin_X = self.kernel(X_inference, X_fit[self.nys_centers_idxs])
@@ -253,7 +254,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
             )
             self._eig_cache = (w, vl, vr)
 
-        X_fit, Y_fit = contexts_to_markov_train_states(self.data_fit, self.lookback_len)
+        X_fit, Y_fit = contexts_to_markov_train_states(self.data_fit)
 
         X_fit, Y_fit = X_fit[self.nys_centers_idxs], Y_fit[self.nys_centers_idxs]
         if eval_left_on is None and eval_right_on is None:
@@ -293,7 +294,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
 
     def modes(
         self,
-        data: np.ndarray,
+        data: Contexts,
         observables: Optional[Callable] = None,
     ) -> np.ndarray:
         """
@@ -313,7 +314,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
         )
 
         _obs, expected_shape, X_inference, X_fit = parse_observables(
-            observables, data, self.data_fit, self.lookback_len
+            observables, data.lookback(0), self.data_fit
         )
 
         if hasattr(self, "_eig_cache"):
@@ -353,20 +354,20 @@ class NystroemKernel(BaseModel, RegressorMixin):
         K_Y = self.kernel(Y, Y_nys)
         return K_X, K_Y
 
-    def _pre_fit_checks(self, data: np.ndarray) -> None:
+    def _pre_fit_checks(self, data: Contexts) -> None:
         """Performs pre-fit checks on the training data.
 
         Use :func:`check_contexts_shape` to check and sanitize the input data, initialize the kernel matrices and saves the training data.
 
         Args:
-            data (np.ndarray): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``.
+            data (Contexts): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``.
         """
-        lookback_len = data.shape[1] - 1
-        check_contexts_shape(data, lookback_len)
-        data = np.asanyarray(data)
+        # lookback_len = data.shape[1] - 1
+        check_contexts_shape(data)
+        # data = np.asanyarray(data)
         # Save the lookback length as a private attribute of the model
-        self._lookback_len = lookback_len
-        X_fit, Y_fit = contexts_to_markov_train_states(data, self.lookback_len)
+        self._lookback_len = data._lookback_len
+        X_fit, Y_fit = contexts_to_markov_train_states(data)
         # Perform random center selection
         self.nys_centers_idxs = self.center_selection(X_fit.shape[0])
         X_nys = X_fit[self.nys_centers_idxs]

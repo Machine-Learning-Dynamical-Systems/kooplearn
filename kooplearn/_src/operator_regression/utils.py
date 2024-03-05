@@ -1,16 +1,16 @@
 import numpy as np
 
 from kooplearn._src.utils import ShapeError, check_contexts_shape
+from kooplearn.data import Contexts
 
-
-def parse_observables(observables, data, data_fit, lookback_len):
+def parse_observables(observables, data, data_fit):
     # Shape checks:
-    check_contexts_shape(data, lookback_len, is_inference_data=True)
-    check_contexts_shape(data_fit, lookback_len)
-    data = np.asanyarray(data)
+    check_contexts_shape(data, is_inference_data=True)
+    check_contexts_shape(data_fit)
+    # data = np.asanyarray(data)
 
-    X_inference, _ = contexts_to_markov_predict_states(data, lookback_len)
-    X_fit, Y_fit = contexts_to_markov_predict_states(data_fit, lookback_len)
+    X_inference, _ = contexts_to_markov_predict_states(data)
+    X_fit, Y_fit = contexts_to_markov_predict_states(data_fit)
 
     if observables is None:
         _obs = Y_fit
@@ -32,8 +32,8 @@ def parse_observables(observables, data, data_fit, lookback_len):
 
 
 def contexts_to_markov_train_states(
-    contexts: np.ndarray,
-    lookback_len: int,
+    contexts: Contexts,
+    # lookback_len: int,
 ) -> np.ndarray:
     """TODO: Docstring for contexts_to_markov_IO_states.
 
@@ -48,19 +48,19 @@ def contexts_to_markov_train_states(
     Returns:
         tuple(np.ndarray, np.ndarray): TODO.
     """
-    if not (contexts.shape[1] == lookback_len + 1):
+    if not (contexts.shape[1] == contexts._lookback_len + 1):
         raise ShapeError(
-            f"This function act on context windows with lookforward dimension == 1, while context_len = {contexts.shape[1]} and lookback_len = {lookback_len}, that is lookforward_len = {contexts.shape[1] - lookback_len} != 1"
+            f"This function act on context windows with lookforward dimension == 1, while context_len = {contexts.shape[1]} and lookback_len = {contexts._lookback_len}, that is lookforward_len = {contexts.shape[1] - contexts._lookback_len} != 1"
         )
 
-    _init = contexts[:, :-1, ...]
-    _evolution = contexts[:, 1:, ...]
+    _init = contexts.lookback(0).data
+    _evolution = contexts.lookback(1).data
     return _init, _evolution
 
 
 def contexts_to_markov_predict_states(
-    contexts: np.ndarray,
-    lookback_len: int,
+    contexts: Contexts,
+    # lookback_len: int,
 ) -> np.ndarray:
     """TODO: Docstring for contexts_to_markov_IO_states.
 
@@ -76,14 +76,14 @@ def contexts_to_markov_predict_states(
         tuple(np.ndarray, np.ndarray): TODO.
     """
 
-    if lookback_len == contexts.shape[1]:
-        X = contexts
+    if contexts._lookback_len == contexts.shape[1]:
+        X = contexts.data
         Y = None
-    elif lookback_len + 1 == contexts.shape[1]:
-        X = contexts[:, :-1, ...]
-        Y = contexts[:, -1, ...]
+    elif contexts._lookback_len + 1 == contexts.shape[1]:
+        X = contexts.lookback(0).data
+        Y = contexts.lookforward().data
     else:
         raise ShapeError(
-            f"This function act on context windows with lookforward dimension == 0 or 1, while context_len = {contexts.shape[1]} and lookback_len = {lookback_len}, that is lookforward_len = {contexts.shape[1] - lookback_len} != 0 or 1"
+            f"This function act on context windows with lookforward dimension == 0 or 1, while context_len = {contexts.shape[1]} and lookback_len = {contexts._lookback_len}, that is lookforward_len = {contexts.shape[1] - contexts._lookback_len} != 0 or 1"
         )
     return X, Y
