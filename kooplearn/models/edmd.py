@@ -233,7 +233,7 @@ class ExtendedDMD(BaseModel):
             reencode_every (int): When ``t > 1``, periodically reencode the predictions as described in :footcite:t:`Fathi2023`. Only available when ``predict_observables = False``.
 
         Returns:
-           The predicted (expected) state/observable at time :math:`t`, shape ``(n_init_conditions, *obs_features_shape)``.
+           The predicted (expected) state/observable at time :math:`t`, these are arrays of shape matching ``data.lookforward(self.lookback_len)``.
         """
         check_is_fitted(
             self, ["U", "cov_XY", "cov_X", "cov_Y", "data_fit", "lookback_len"]
@@ -276,8 +276,8 @@ class ExtendedDMD(BaseModel):
 
     def eig(
         self,
-        eval_left_on: Optional[np.ndarray] = None,
-        eval_right_on: Optional[np.ndarray] = None,
+        eval_left_on: Optional[TensorContextDataset] = None,
+        eval_right_on: Optional[TensorContextDataset] = None,
     ) -> Union[
         np.ndarray,
         tuple[np.ndarray, np.ndarray],
@@ -287,8 +287,8 @@ class ExtendedDMD(BaseModel):
         Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right eigenfunctions.
 
         Args:
-            eval_left_on (numpy.ndarray or None): Array of context windows on which the left eigenfunctions are evaluated, shape ``(n_samples, lookback_len, *features)``.
-            eval_right_on (numpy.ndarray or None): Array of context windows on which the right eigenfunctions are evaluated, shape ``(n_samples, lookback_len, *features)``.
+            eval_left_on (TensorContextDataset or None): Dataset of context windows on which the left eigenfunctions are evaluated.
+            eval_right_on (TensorContextDataset or None): Dataset of context windows on which the right eigenfunctions are evaluated.
 
         Returns:
             Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. If ``eval_left_on`` or ``eval_right_on``  are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on``/``eval_right_on``: shape ``(n_samples, rank)``.
@@ -306,20 +306,16 @@ class ExtendedDMD(BaseModel):
             return w
         elif eval_left_on is None and eval_right_on is not None:
             # (eigenvalues, right eigenfunctions)
-            check_contexts_shape(eval_right_on, is_inference_data=True)
-            phi_Xin = self.feature_map(eval_right_on)
+            phi_Xin = self.feature_map(eval_right_on.lookback(self.lookback_len))
             return w, primal.evaluate_eigenfunction(phi_Xin, vr)
         elif eval_left_on is not None and eval_right_on is None:
             # (eigenvalues, left eigenfunctions)
-            check_contexts_shape(eval_left_on, is_inference_data=True)
-            phi_Xin = self.feature_map(eval_left_on)
+            phi_Xin = self.feature_map(eval_left_on.lookback(self.lookback_len))
             return w, primal.evaluate_eigenfunction(phi_Xin, vl)
         elif eval_left_on is not None and eval_right_on is not None:
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
-            check_contexts_shape(eval_right_on, is_inference_data=True)
-            check_contexts_shape(eval_left_on, is_inference_data=True)
-            phi_Xin_l = self.feature_map(eval_left_on)
-            phi_Xin_r = self.feature_map(eval_right_on)
+            phi_Xin_l = self.feature_map(eval_left_on.lookback(self.lookback_len))
+            phi_Xin_r = self.feature_map(eval_right_on.lookback(self.lookback_len))
 
             return (
                 w,
@@ -329,8 +325,8 @@ class ExtendedDMD(BaseModel):
 
     def modes(
         self,
-        data: np.ndarray,
-        observables: Optional[Callable] = None,
+        data: TensorContextDataset,
+        predict_observables: bool = True,
     ) -> np.ndarray:
         """
         Computes the mode decomposition of arbitrary observables of the Koopman/Transfer operator at the states defined by ``data``.
@@ -338,24 +334,34 @@ class ExtendedDMD(BaseModel):
         Informally, if :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`. See :footcite:t:`Kostic2022` for more details.
 
         Args:
-            data (numpy.ndarray): Initial conditions to compute the modes on. See :func:`predict` for additional details on the shape.
-            observables (callable or None): Callable or ``None``. If callable should map batches of states of shape ``(batch, *self.data_fit.shape[2:])`` to batches of observables ``(batch, *obs_features_shape)``.
+            data (TensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as the initial condition, see the note above.
+            predict_observables (bool): Return the prediction for the observables in ``data.observables``, if present. Default to ``True``.
         Returns:
             Modes of the system at the states defined by ``data``. Array of shape ``(self.rank, n_samples, ...)``.
         """
-        check_is_fitted(self, ["U", "data_fit", "cov_XY", "lookback_len", "data_fit"])
-        _obs, expected_shape, X_inference, X_fit = parse_observables(
+        observables = None
+        if predict_observables and hasattr(data, "observables"):
+            observables = data.observables
+        parsed_obs, expected_shapes, X_inference, X_fit = parse_observables(
             observables, data, self.data_fit
         )
 
-        phi_X = self.feature_map(X_fit)
         phi_Xin = self.feature_map(X_inference)
+        phi_X = self.feature_map(X_fit)
 
-        _gamma = primal.estimator_modes(self.U, self.cov_XY, phi_X, phi_Xin)
-        expected_shape = (self.rank,) + expected_shape
-        return np.tensordot(_gamma, _obs, axes=1).reshape(
-            expected_shape
-        )  # [rank, num_initial_conditions, ...]
+        results = {}
+        for obs_name, obs in parsed_obs.keys():
+            _gamma = primal.estimator_modes(self.U, self.cov_XY, phi_X, phi_Xin)
+            expected_shape = (self.rank,) + expected_shapes[obs_name]
+            res = np.tensordot(_gamma, obs, axes=1).reshape(
+                expected_shape
+            )  # [rank, num_initial_conditions, ...]
+            results[obs_name] = res
+
+        if len(results) == 1:
+            return results["__state__"]
+        else:
+            return results
 
     def svals(self) -> np.ndarray:
         """Singular values of the Koopman/Transfer operator.
