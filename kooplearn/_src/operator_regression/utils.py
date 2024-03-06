@@ -1,16 +1,17 @@
 import numpy as np
 
-from kooplearn._src.utils import ShapeError, check_contexts_shape
-from kooplearn.data import Contexts
+from kooplearn._src.utils import ShapeError
+from kooplearn.data import ContextWindow
 
-def parse_observables(observables, data, data_fit):
-    # Shape checks:
-    check_contexts_shape(data, is_inference_data=True)
-    check_contexts_shape(data_fit)
-    # data = np.asanyarray(data)
 
-    X_inference, _ = contexts_to_markov_predict_states(data)
-    X_fit, Y_fit = contexts_to_markov_predict_states(data_fit)
+def parse_observables(observables, data: ContextWindow, data_fit: ContextWindow):
+    if data.context_length != data_fit.context_length:
+        raise ShapeError(
+            f"The  context length ({data.context_length}) of the validation data does not match the context length of the training data ({data_fit.context_length})."
+        )
+    lookback_len = data.context_length - 1
+    X_inference = data.lookback(lookback_len)
+    X_fit, Y_fit = data.lookback(lookback_len), data.lookforward(lookback_len)
 
     if observables is None:
         _obs = Y_fit
@@ -31,8 +32,9 @@ def parse_observables(observables, data, data_fit):
     return _obs, expected_shape, X_inference, X_fit
 
 
+# !! Possibly to deprecate
 def contexts_to_markov_train_states(
-    contexts: Contexts,
+    contexts: ContextWindow,
     # lookback_len: int,
 ) -> np.ndarray:
     """TODO: Docstring for contexts_to_markov_IO_states.

@@ -12,11 +12,15 @@ from kooplearn._src.operator_regression.utils import (
     parse_observables,
 )
 from kooplearn._src.serialization import pickle_load, pickle_save
-from kooplearn._src.utils import ShapeError, check_contexts_shape, check_is_fitted
+from kooplearn._src.utils import (
+    NotFittedError,
+    ShapeError,
+    check_contexts_shape,
+    check_is_fitted,
+)
 from kooplearn.abc import BaseModel, FeatureMap
-from kooplearn.data import Contexts
+from kooplearn.data import ContextWindow
 from kooplearn.models.feature_maps import IdentityFeatureMap
-from kooplearn.data import Contexts
 
 logger = logging.getLogger("kooplearn")
 
@@ -83,7 +87,11 @@ class ExtendedDMD(BaseModel):
         self._lookback_len = -1
 
     @property
-    def lookback_len(self) -> bool:
+    def lookback_len(self) -> int:
+        if not self.is_fitted:
+            raise NotFittedError(
+                "The lookback_len attribute is defined upon fitting the model."
+            )
         return self._lookback_len
 
     @property
@@ -102,7 +110,7 @@ class ExtendedDMD(BaseModel):
         feat_X = feat_X.reshape(_n_samples, self.lookback_len, *_trail_dims)
         return feat_X.reshape(_n_samples, -1)
 
-    def fit(self, data: Contexts, verbose: bool = True) -> ExtendedDMD:
+    def fit(self, data: ContextWindow, verbose: bool = True) -> ExtendedDMD:
         """
         Fits the ExtendedDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
@@ -181,7 +189,7 @@ class ExtendedDMD(BaseModel):
             )
         return self
 
-    def risk(self, data: Optional[np.ndarray] = None) -> float:
+    def risk(self, data: Optional[ContextWindow] = None) -> float:
         """Risk of the estimator on the validation ``data``.
 
         Args:
@@ -191,14 +199,14 @@ class ExtendedDMD(BaseModel):
             Risk of the estimator, see Equation 11 of :footcite:p:`Kostic2022` for more details.
         """
         if data is not None:
-            check_contexts_shape(data)
-            # data = np.asanyarray(data)
-            if data.shape[1] - 1 != self.lookback_len:
+            if data.context_length != self.data_fit.context_length:
                 raise ShapeError(
-                    f"The  context length ({data.shape[1]}) of the validation data does not match the context length of the training data ({self.lookback_len + 1})."
+                    f"The  context length ({data.context_length}) of the validation data does not match the context length of the training data ({self.data_fit.context_length})."
                 )
-            X_fit, Y_fit = contexts_to_markov_train_states(data)
-            cov_Xv, cov_Yv, cov_XYv = self._init_covs(X_fit, Y_fit)
+            X, Y = data.lookback(self.lookback_len), data.lookback(
+                self.lookback_len, slide_by=1
+            )
+            cov_Xv, cov_Yv, cov_XYv = self._init_covs(X, Y)
         else:
             cov_Xv, cov_Yv, cov_XYv = self.cov_X, self.cov_Y, self.cov_XY
 
@@ -206,7 +214,7 @@ class ExtendedDMD(BaseModel):
 
     def predict(
         self,
-        data: np.ndarray,
+        data: ContextWindow,
         t: int = 1,
         observables: Optional[Callable] = None,
     ) -> np.ndarray:
@@ -273,26 +281,18 @@ class ExtendedDMD(BaseModel):
             return w
         elif eval_left_on is None and eval_right_on is not None:
             # (eigenvalues, right eigenfunctions)
-            check_contexts_shape(
-                eval_right_on, is_inference_data=True
-            )
+            check_contexts_shape(eval_right_on, is_inference_data=True)
             phi_Xin = self.feature_map(eval_right_on)
             return w, primal.evaluate_eigenfunction(phi_Xin, vr)
         elif eval_left_on is not None and eval_right_on is None:
             # (eigenvalues, left eigenfunctions)
-            check_contexts_shape(
-                eval_left_on, is_inference_data=True
-            )
+            check_contexts_shape(eval_left_on, is_inference_data=True)
             phi_Xin = self.feature_map(eval_left_on)
             return w, primal.evaluate_eigenfunction(phi_Xin, vl)
         elif eval_left_on is not None and eval_right_on is not None:
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
-            check_contexts_shape(
-                eval_right_on, is_inference_data=True
-            )
-            check_contexts_shape(
-                eval_left_on, is_inference_data=True
-            )
+            check_contexts_shape(eval_right_on, is_inference_data=True)
+            check_contexts_shape(eval_left_on, is_inference_data=True)
             phi_Xin_l = self.feature_map(eval_left_on)
             phi_Xin_r = self.feature_map(eval_right_on)
 
@@ -384,22 +384,20 @@ class ExtendedDMD(BaseModel):
         cov_XY = cov(X, Y)
         return cov_X, cov_Y, cov_XY
 
-    def _pre_fit_checks(self, data: np.ndarray) -> None:
+    def _pre_fit_checks(self, data: ContextWindow) -> None:
         """Performs pre-fit checks on the training data.
 
         Use :func:`check_contexts_shape` to check and sanitize the input data, initialize the covariance matrices and saves the training data.
 
         Args:
-            data (np.ndarray): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``.
+            data (ContextWindow): Batch of Context Windows.
         """
-        # lookback_len = data.shape[1] - 1
-        check_contexts_shape(data)
-        # data = np.asanyarray(data)
 
         # Save the lookback length
-        self._lookback_len = data._lookback_len
-        X_fit, Y_fit = contexts_to_markov_train_states(data)
-
+        self._lookback_len = data.context_length - 1
+        X_fit, Y_fit = data.lookback(self._lookback_len), data.lookback(
+            self._lookback_len, slide_by=1
+        )
         self.cov_X, self.cov_Y, self.cov_XY = self._init_covs(X_fit, Y_fit)
         self.data_fit = data
 
