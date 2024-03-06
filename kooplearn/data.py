@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import torch
 from numpy.typing import ArrayLike
 
 from kooplearn._src.serialization import pickle_load, pickle_save
