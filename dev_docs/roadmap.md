@@ -1,4 +1,24 @@
 # Roadmap
+#### Mar 6, 2024:
+Defining the new context API.
+
+**Base class**: `ContextWindow` should just be an Iterable, and implement
+1. Attributes:
+    - `context_length`
+2. Methods:
+    - `lookback(lookback_length: int, slide_by: int = 0)`
+    - `lookforward(lookback_length: int)` 
+    - `save`
+    - `load`
+    - `__repr__`
+3. It should be a subclass of `collections.abc.Sequence`
+
+**ContextWindowDataset**: A collection of context windows. Should be subclassed to be used both with `torch` or `numpy`. Should implement:
+- `__init__`
+- `__len__`
+- `__iter__`
+
+
 #### Mar 5, 2024:
 Features to add to `Contexts`:
 - A bijective map of indices from the original trajectory (possibly, trajectories) to the element of the context window length.

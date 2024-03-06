@@ -61,7 +61,7 @@ def contexts_to_markov_train_states(
 
 
 def contexts_to_markov_predict_states(
-    contexts: Contexts,
+    contexts,
     # lookback_len: int,
 ) -> np.ndarray:
     """TODO: Docstring for contexts_to_markov_IO_states.

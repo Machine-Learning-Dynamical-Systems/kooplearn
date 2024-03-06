@@ -14,8 +14,7 @@ from kooplearn._src.operator_regression.utils import (
 )
 from kooplearn._src.serialization import pickle_load, pickle_save
 from kooplearn._src.utils import ShapeError, check_contexts_shape, check_is_fitted
-from kooplearn.abc import BaseModel
-from kooplearn.data import Contexts
+from kooplearn.abc import BaseModel, ContextWindowDataset
 
 logger = logging.getLogger("kooplearn")
 
@@ -96,7 +95,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
             Y = Y.reshape(Y.shape[0], -1)
         return self._kernel(X, Y)
 
-    def fit(self, data: Contexts, verbose: bool = True) -> NystroemKernel:
+    def fit(self, data: ContextWindowDataset, verbose: bool = True) -> NystroemKernel:
         """
         Fits the KernelDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
@@ -175,9 +174,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
                 )
 
             X_val, Y_val = contexts_to_markov_train_states(data)
-            X_train, Y_train = contexts_to_markov_train_states(
-                self.data_fit
-            )
+            X_train, Y_train = contexts_to_markov_train_states(self.data_fit)
             kernel_Yv = self.kernel(Y_val)
             kernel_XXv = self.kernel(X_train, X_val)
             kernel_YYv = self.kernel(Y_train, Y_val)
@@ -191,7 +188,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
 
     def predict(
         self,
-        data: Contexts,
+        data: ContextWindowDataset,
         t: int = 1,
         observables: Optional[Callable] = None,
     ) -> np.ndarray:
@@ -294,7 +291,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
 
     def modes(
         self,
-        data: Contexts,
+        data: ContextWindowDataset,
         observables: Optional[Callable] = None,
     ) -> np.ndarray:
         """
@@ -354,13 +351,13 @@ class NystroemKernel(BaseModel, RegressorMixin):
         K_Y = self.kernel(Y, Y_nys)
         return K_X, K_Y
 
-    def _pre_fit_checks(self, data: Contexts) -> None:
+    def _pre_fit_checks(self, data: ContextWindowDataset) -> None:
         """Performs pre-fit checks on the training data.
 
         Use :func:`check_contexts_shape` to check and sanitize the input data, initialize the kernel matrices and saves the training data.
 
         Args:
-            data (Contexts): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``.
+            data (ContextWindowDataset): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``.
         """
         # lookback_len = data.shape[1] - 1
         check_contexts_shape(data)

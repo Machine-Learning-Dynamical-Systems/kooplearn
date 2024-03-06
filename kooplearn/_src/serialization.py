@@ -24,5 +24,5 @@ def pickle_load(base_cls, filename):
         # If it is a path-like object, we load the object from a file
         with open(filename, "+rb") as infile:
             restored_obj = pickle.load(infile)
-    assert type(restored_obj) == base_cls
+    assert isinstance(restored_obj, base_cls)
     return restored_obj
