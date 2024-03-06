@@ -1,10 +1,8 @@
-import os
+import sys
 
 import numpy as np
-import torch
 from numpy.typing import ArrayLike
 
-from kooplearn._src.serialization import pickle_load, pickle_save
 from kooplearn._src.utils import ShapeError
 from kooplearn.abc import ContextWindowDataset
 
@@ -13,6 +11,7 @@ try:
 
     check_torch_deps()
     from kooplearn.nn.data import ContextsDataset, traj_to_contexts_dataset
+    import torch
 except ImportError:
     pass
 
@@ -43,8 +42,6 @@ class TrajectoryContextDataset(TensorContextDataset):
         if time_lag < 1:
             raise ValueError(f"time_lag must be >= 1, got {time_lag}")
 
-        # It should be converted to Numpy
-        trajectory = np.asanyarray(trajectory)
         if trajectory.ndim < 1:
             raise ShapeError(
                 f"Invalid trajectory shape {trajectory.shape}. The trajectory should be at least 1D."
@@ -54,10 +51,21 @@ class TrajectoryContextDataset(TensorContextDataset):
         else:
             pass
 
-        self.data, self.idx_map = ...
+        if 'torch' in  sys.modules:
+            if torch.is_tensor(trajectory):
+                self.data, self.idx_map = self._build_contexts_torch(trajectory, context_length, time_lag)
+            else:
+                # It should be converted to Numpy
+                trajectory = np.asanyarray(trajectory)
+                self.data, self.idx_map = self._build_contexts_np(trajectory, context_length, time_lag)
+        else:
+            # It should be converted to Numpy
+            trajectory = np.asanyarray(trajectory)
+            self.data, self.idx_map = self._build_contexts_np(trajectory, context_length, time_lag)
+
         self.trajectory = trajectory
         self.time_lag = time_lag
-        # Shapes
+        super().__init__(self.data)
         assert context_length == self.context_length
 
     def _build_contexts_np(self, trajectory, context_length, time_lag):
@@ -84,7 +92,8 @@ class TrajectoryContextDataset(TensorContextDataset):
         window_shape = 1 + (context_length - 1) * time_lag
         if window_shape > trajectory.shape[0]:
             raise ValueError(
-                f"Invalid combination of context_length={context_length} and time_lag={time_lag} for trajectory of length {trajectory.shape[0]}. Try reducing context_length or time_lag."
+                f"Invalid combination of context_length={context_length} and time_lag={time_lag} for trajectory of "
+                f"length {trajectory.shape[0]}. Try reducing context_length or time_lag."
             )
 
         data = trajectory.unfold(0, window_shape, 1)

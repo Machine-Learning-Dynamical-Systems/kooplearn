@@ -1,7 +1,7 @@
 import numpy as np
 
 from kooplearn._src.utils import ShapeError
-from kooplearn.data import ContextWindow
+from kooplearn.abc import ContextWindow
 
 
 def parse_observables(data: ContextWindow, data_fit: ContextWindow, observables_dict):
