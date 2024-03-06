@@ -2,17 +2,14 @@ from __future__ import annotations
 
 import logging
 from math import floor
-from typing import Callable, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 from numpy.typing import ArrayLike
 
 from kooplearn._src.linalg import cov
 from kooplearn._src.operator_regression import primal
-from kooplearn._src.operator_regression.utils import (
-    contexts_to_markov_train_states,
-    parse_observables,
-)
+from kooplearn._src.operator_regression.utils import parse_observables
 from kooplearn._src.serialization import pickle_load, pickle_save
 from kooplearn._src.utils import (
     NotFittedError,
@@ -90,7 +87,7 @@ class ExtendedDMD(BaseModel):
 
     @property
     def lookback_len(self) -> int:
-        if not self.is_fitted:
+        if self._lookback_len < 0:
             raise NotFittedError(
                 "The lookback_len attribute is defined upon fitting the model."
             )
@@ -102,6 +99,10 @@ class ExtendedDMD(BaseModel):
 
     def feature_map(self, X: ArrayLike):
         X = np.asanyarray(X)
+        if X.shape[1] != self.lookback_len:
+            raise ShapeError(
+                f"The provided data have a context of ({X.shape[1]}), while it should match the lookback length of the model ({self.lookback_len=})"
+            )
         check_contexts_shape(X, self.lookback_len, is_inference_data=True)
         _trail_dims = X.shape[2:]
         _n_samples = X.shape[0]
@@ -113,7 +114,7 @@ class ExtendedDMD(BaseModel):
         feat_X = feat_X.reshape(_n_samples, self.lookback_len, *_trail_dims)
         return feat_X.reshape(_n_samples, -1)
 
-    def fit(self, data: TensorContextDataset, verbose: bool = True) -> ExtendedDMD:
+    def fit(self, data: TensorContextDataset) -> ExtendedDMD:
         """
         Fits the ExtendedDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
@@ -186,17 +187,16 @@ class ExtendedDMD(BaseModel):
             self, ["U", "cov_XY", "cov_X", "cov_Y", "data_fit", "lookback_len"]
         )
         self._is_fitted = True
-        if verbose:
-            print(
-                f"Fitted {self.__class__.__name__} model. Lookback length set to {self.lookback_len}"
-            )
+        logger.info(
+            f"Fitted {self.__class__.__name__} model. Lookback length set to {self.lookback_len}"
+        )
         return self
 
     def risk(self, data: Optional[TensorContextDataset] = None) -> float:
         """Risk of the estimator on the validation ``data``.
 
         Args:
-            data (np.ndarray or None): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``. If ``None``, evaluates the risk on the training data.
+            data (TensorContextDataset or None): Dataset of context windows with tensor entries. If ``None``, evaluates the risk on the training data.
 
         Returns:
             Risk of the estimator, see Equation 11 of :footcite:p:`Kostic2022` for more details.
@@ -233,7 +233,7 @@ class ExtendedDMD(BaseModel):
             reencode_every (int): When ``t > 1``, periodically reencode the predictions as described in :footcite:t:`Fathi2023`. Only available when ``predict_observables = False``.
 
         Returns:
-           The predicted (expected) state/observable at time :math:`t`, these are arrays of shape matching ``data.lookforward(self.lookback_len)``.
+           The predicted (expected) state/observable at time :math:`t`. The result is composed of arrays with shape matching ``data.lookforward(self.lookback_len)`` or the contents of ``data.observables``. If ``predict_observables = True`` and ``data.observables != None``, the returned ``dict``will contain the special key ``__state__`` containing the prediction for the state as well.
         """
         check_is_fitted(
             self, ["U", "cov_XY", "cov_X", "cov_Y", "data_fit", "lookback_len"]
@@ -260,10 +260,6 @@ class ExtendedDMD(BaseModel):
                     num_reencodings = floor(t / reencode_every)
                     for k in range(num_reencodings):
                         raise NotImplementedError
-                        # obs_pred = primal.predict(
-                        #     reencode_every, self.U, self.cov_XY, phi_Xin, phi_X, obs
-                        # )
-                        # obs_pred = obs_pred.reshape(expected_shapes[obs_name])
             else:
                 obs_pred = primal.predict(t, self.U, self.cov_XY, phi_Xin, phi_X, obs)
                 obs_pred = obs_pred.reshape(expected_shapes[obs_name])
@@ -326,7 +322,7 @@ class ExtendedDMD(BaseModel):
         self,
         data: TensorContextDataset,
         predict_observables: bool = True,
-    ) -> np.ndarray:
+    ):
         """
         Computes the mode decomposition of arbitrary observables of the Koopman/Transfer operator at the states defined by ``data``.
 
@@ -336,8 +332,10 @@ class ExtendedDMD(BaseModel):
             data (TensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as the initial condition, see the note above.
             predict_observables (bool): Return the prediction for the observables in ``data.observables``, if present. Default to ``True``.
         Returns:
-            Modes of the system at the states defined by ``data``. Array of shape ``(self.rank, n_samples, ...)``.
+            Modes of the system at the states defined by ``data``. The result is composed of arrays with shape matching ``data.lookforward(self.lookback_len)`` or the contents of ``data.observables``. If ``predict_observables = True`` and ``data.observables != None``, the returned ``dict``will contain the special key ``__state__`` containing the modes for the state as well.
         """
+        check_is_fitted(self, ["U", "cov_XY", "data_fit", "lookback_len"])
+
         observables = None
         if predict_observables and hasattr(data, "observables"):
             observables = data.observables
@@ -347,10 +345,10 @@ class ExtendedDMD(BaseModel):
 
         phi_Xin = self.feature_map(X_inference)
         phi_X = self.feature_map(X_fit)
+        _gamma = primal.estimator_modes(self.U, self.cov_XY, phi_X, phi_Xin)
 
         results = {}
         for obs_name, obs in parsed_obs.keys():
-            _gamma = primal.estimator_modes(self.U, self.cov_XY, phi_X, phi_Xin)
             expected_shape = (self.rank,) + expected_shapes[obs_name]
             res = np.tensordot(_gamma, obs, axes=1).reshape(
                 expected_shape
@@ -425,8 +423,8 @@ class ExtendedDMD(BaseModel):
 
         # Save the lookback length
         self._lookback_len = data.context_length - 1
-        X_fit, Y_fit = data.lookback(self._lookback_len), data.lookback(
-            self._lookback_len, slide_by=1
+        X_fit, Y_fit = data.lookback(self.lookback_len), data.lookback(
+            self.lookback_len, slide_by=1
         )
         self.cov_X, self.cov_Y, self.cov_XY = self._init_covs(X_fit, Y_fit)
         self.data_fit = data
