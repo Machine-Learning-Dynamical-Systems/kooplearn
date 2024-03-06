@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
+from numpy.typing import ArrayLike
 from sklearn.base import RegressorMixin
 from sklearn.gaussian_process.kernels import DotProduct, Kernel
 
@@ -13,8 +14,14 @@ from kooplearn._src.operator_regression.utils import (
     parse_observables,
 )
 from kooplearn._src.serialization import pickle_load, pickle_save
-from kooplearn._src.utils import ShapeError, check_contexts_shape, check_is_fitted
-from kooplearn.abc import BaseModel
+from kooplearn._src.utils import (
+    NotFittedError,
+    ShapeError,
+    check_contexts_shape,
+    check_is_fitted,
+)
+from kooplearn.abc import BaseModel, ContextWindowDataset
+from kooplearn.data import TensorContextDataset
 
 logger = logging.getLogger("kooplearn")
 
@@ -38,7 +45,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
         A powerful DMD variation proposed by :footcite:t:`Arbabi2017`, known as Hankel-DMD, evaluates the Koopman/Transfer estimators by stacking consecutive snapshots together in a Hankel matrix. When this model is fitted context windows of length > 2, the lookback window length is automatically set to ``context_len - 1``. Upon fitting, the whole lookback window is flattened and *concatenated* together before evaluating the kernel function, thus realizing an Hankel-KDMD estimator.
 
     Attributes:
-        data_fit : Training data: array of context windows of shape ``(n_samples, context_len, *features_shape)``.
+        data_fit : Training data, of type ``kooplearn.data.TensorContextDataset``.
         nys_centers_idxs : Indices of the selected centers.
         kernel_X : Kernel matrix evaluated at the subsampled initial states, that is ``self.data_fit[self.nys_centers_idxs, :self.lookback_len, ...]`. Shape ``(n_centers, n_centers)``
         kernel_Y : Kernel matrix evaluated at the subsampled evolved states, that is ``self.data_fit[self.nys_centers_idxs, 1:self.lookback_len + 1, ...]``. Shape ``(n_centers, n_centers)``
@@ -82,38 +89,43 @@ class NystroemKernel(BaseModel, RegressorMixin):
         self._lookback_len = -1
 
     @property
-    def lookback_len(self) -> bool:
+    def lookback_len(self) -> int:
+        if self._lookback_len < 0:
+            raise NotFittedError(
+                "The lookback_len attribute is defined upon fitting the model."
+            )
         return self._lookback_len
 
     @property
     def is_fitted(self) -> bool:
         return self._is_fitted
 
-    def kernel(self, X: np.ndarray, Y: Optional[np.ndarray] = None) -> np.ndarray:
+    def kernel(self, X: ArrayLike, Y: Optional[ArrayLike] = None) -> np.ndarray:
+        X = np.asanyarray(X)
         X = X.reshape(X.shape[0], -1)
         if Y is not None:
+            Y = np.asanyarray(Y)
             Y = Y.reshape(Y.shape[0], -1)
         return self._kernel(X, Y)
 
-    def fit(self, data: np.ndarray, verbose: bool = True) -> NystroemKernel:
+    def fit(self, data: TensorContextDataset) -> NystroemKernel:
         """
-        Fits the KernelDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
-        depending on the parameters of the model.
+        Fits the Nystroem KernelDMD model.
 
 
         .. attention::
 
-            If ``context_len = data.shape[1] > 2``, the attribute :attr:`lookback_len` will be automatically set to ``context_len - 1``. The data will be first flattened along the trailing dimensions before computing the kernel function. The pseudo-code of this operation is
+             The attribute :attr:`lookback_len` will be automatically set to ``data.context_length - 1``. The data will be first flattened along the trailing dimensions before computing the kernel function. The pseudo-code of this operation is
 
             .. code-block:: python
 
-                X = data[:, :self.lookback_len, ...] #Y = data[:, 1:self.lookback_len + 1, ...]
+                X = data.lookback(data.context_length - 1) #Y = data.lookback(data.context_length - 1, slide_by=1)
                 #Flatten the trailing dimensions
                 X = X.reshape(data.shape[0], -1)
                 self.kernel_X = self.kernel(X)
 
         Args:
-            data (np.ndarray): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``.
+            data (TensorContextDataset): Dataset of context windows with tensor entries.
 
         Returns:
             The fitted estimator.
@@ -150,32 +162,33 @@ class NystroemKernel(BaseModel, RegressorMixin):
             ["U", "V", "kernel_X", "kernel_Y", "kernel_YX", "data_fit", "lookback_len"],
         )
         self._is_fitted = True
-        if verbose:
-            print(
-                f"Fitted {self.__class__.__name__} model. Lookback length set to {self.lookback_len}"
-            )
+        logger.info(
+            f"Fitted {self.__class__.__name__} model. Lookback length set to {self.lookback_len}"
+        )
         return self
 
-    def risk(self, data: Optional[np.ndarray] = None) -> float:
+    def risk(self, data: Optional[TensorContextDataset] = None) -> float:
         """Risk of the estimator on the validation ``data``.
 
         Args:
-            data (np.ndarray or None): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``. If ``None``, evaluates the risk on the training data.
+            data (TensorContextDataset or None): Dataset of context windows with tensor entries. If ``None``, evaluates the risk on the training data.
 
         Returns:
             Risk of the estimator, see Equation 11 of :footcite:p:`Kostic2022` for more details.
         """
         if data is not None:
-            check_contexts_shape(data, self.lookback_len)
-            data = np.asanyarray(data)
-            if data.shape[1] - 1 != self.lookback_len:
+            if data.context_length != self.data_fit.context_length:
                 raise ShapeError(
-                    f"The  context length ({data.shape[1]}) of the validation data does not match the context length of the training data ({self.lookback_len + 1})."
+                    f"The  context length ({data.context_length}) of the validation data does not match the context length of the training data ({self.data_fit.context_length})."
                 )
-
-            X_val, Y_val = contexts_to_markov_train_states(data, self.lookback_len)
-            X_train, Y_train = contexts_to_markov_train_states(
-                self.data_fit, self.lookback_len
+            X_val, Y_val = data.lookback(self.lookback_len), data.lookback(
+                self.lookback_len, slide_by=1
+            )
+            X_train, Y_train = (
+                self.data_fit.lookback(self.lookback_len)[self.nys_centers_idxs],
+                self.data_fit.lookback(self.lookback_len, slide_by=1)[
+                    self.nys_centers_idxs
+                ],
             )
             kernel_Yv = self.kernel(Y_val)
             kernel_XXv = self.kernel(X_train, X_val)
@@ -190,55 +203,76 @@ class NystroemKernel(BaseModel, RegressorMixin):
 
     def predict(
         self,
-        data: np.ndarray,
+        data: TensorContextDataset,
         t: int = 1,
-        observables: Optional[Callable] = None,
+        predict_observables: bool = True,
+        reencode_every: int = 0,
     ) -> np.ndarray:
         """
-        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial conditions ``X = data[:, self.lookback_len:, ...]`` being the lookback slice of ``data``.
-
-        .. attention::
-
-            ``data.shape[1]`` must match the lookback length ``self.lookback_len``. Otherwise, an error is raised.
-
-        If ``observables`` are not ``None``, returns the analogue quantity for the observable instead.
+        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial conditions ``data.lookback(self.lookback_len)`` being the lookback slice of ``data``.
+        If ``data.observables`` is not ``None``, returns the analogue quantity for the observable instead.
 
         Args:
-            data (numpy.ndarray): Initial conditions to predict. Array of context windows with shape ``(n_init_conditions, self.lookback_len, *self.data_fit.shape[2:])`` (see the note above).
+            data (TensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as the initial condition, see the note above.
             t (int): Number of steps in the future to predict (returns the last one).
-            observables (callable or None): Callable or ``None``. If callable should map batches of states of shape ``(batch, *self.data_fit.shape[2:])`` to batches of observables ``(batch, *obs_features_shape)``.
+            predict_observables (bool): Return the prediction for the observables in ``data.observables``, if present. Default to ``True``.
+            reencode_every (int): When ``t > 1``, periodically reencode the predictions as described in :footcite:t:`Fathi2023`. Only available when ``predict_observables = False``.
 
         Returns:
-           The predicted (expected) state/observable at time :math:`t`, shape ``(n_init_conditions, *obs_features_shape)``.
+           The predicted (expected) state/observable at time :math:`t`. The result is composed of arrays with shape matching ``data.lookforward(self.lookback_len)`` or the contents of ``data.observables``. If ``predict_observables = True`` and ``data.observables != None``, the returned ``dict``will contain the special key ``__state__`` containing the prediction for the state as well.
         """
         check_is_fitted(
             self,
             ["U", "V", "kernel_X", "kernel_Y", "kernel_YX", "data_fit", "lookback_len"],
         )
+        observables = None
+        if predict_observables and hasattr(data, "observables"):
+            observables = data.observables
 
-        _obs, expected_shape, X_inference, X_fit = parse_observables(
-            observables, data, self.data_fit, self.lookback_len
+        parsed_obs, expected_shapes, X_inference, X_fit = parse_observables(
+            observables, data, self.data_fit
         )
 
-        K_Xin_X = self.kernel(X_inference, X_fit[self.nys_centers_idxs])
-        return dual.predict(
-            t, self.U, self.V, self.kernel_YX, K_Xin_X, _obs[self.nys_centers_idxs]
-        ).reshape(expected_shape)
+        K_Xin_X = self.kernel(X_inference, X_fit)
+
+        results = {}
+        for obs_name, obs in parsed_obs.keys():
+            if (reencode_every > 0) and (t > reencode_every):
+                if (predict_observables is True) and (observables is not None):
+                    raise ValueError(
+                        "rencode_every only works when forecasting states, not observables. Consider setting predict_observables to False."
+                    )
+                else:
+                    num_reencodings = floor(t / reencode_every)
+                    for k in range(num_reencodings):
+                        raise NotImplementedError
+            else:
+                obs_pred = dual.predict(t, self.U, self.V, self.kernel_YX, K_Xin_X, obs)
+                obs_pred = obs_pred.reshape(expected_shapes[obs_name])
+                results[obs_name] = obs_pred
+        if len(results) == 1:
+            return results["__state__"]
+        else:
+            return results
 
     def eig(
         self,
-        eval_left_on: Optional[np.ndarray] = None,
-        eval_right_on: Optional[np.ndarray] = None,
-    ):
+        eval_left_on: Optional[TensorContextDataset] = None,
+        eval_right_on: Optional[TensorContextDataset] = None,
+    ) -> Union[
+        np.ndarray,
+        tuple[np.ndarray, np.ndarray],
+        tuple[np.ndarray, np.ndarray, np.ndarray],
+    ]:
         """
         Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right eigenfunctions.
 
         Args:
-            eval_left_on (numpy.ndarray or None): Array of context windows on which the left eigenfunctions are evaluated, shape ``(n_samples, *self.data_fit.shape[1:])``.
-            eval_right_on (numpy.ndarray or None): Array of context windows on which the right eigenfunctions are evaluated, shape ``(n_samples, *self.data_fit.shape[1:])``.
+            eval_left_on (TensorContextDataset or None): Dataset of context windows on which the left eigenfunctions are evaluated.
+            eval_right_on (TensorContextDataset or None): Dataset of context windows on which the right eigenfunctions are evaluated.
 
         Returns:
-            (eigenvalues, left eigenfunctions, right eigenfunctions) - Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. If ``eval_left_on`` or ``eval_right_on``  are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on``/``eval_right_on``: shape ``(n_samples, rank)``.
+            Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. If ``eval_left_on`` or ``eval_right_on``  are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on``/``eval_right_on``: shape ``(n_samples, rank)``.
         """
 
         check_is_fitted(
@@ -253,38 +287,32 @@ class NystroemKernel(BaseModel, RegressorMixin):
             )
             self._eig_cache = (w, vl, vr)
 
-        X_fit, Y_fit = contexts_to_markov_train_states(self.data_fit, self.lookback_len)
-
-        X_fit, Y_fit = X_fit[self.nys_centers_idxs], Y_fit[self.nys_centers_idxs]
+        X_fit, Y_fit = self.data_fit.lookback(
+            self.lookback_len
+        ), self.data_fit.lookback(self.lookback_len, slide_by=1)
         if eval_left_on is None and eval_right_on is None:
             # (eigenvalues,)
             return w
         elif eval_left_on is None and eval_right_on is not None:
             # (eigenvalues, right eigenfunctions)
-            check_contexts_shape(
-                eval_right_on, self.lookback_len, is_inference_data=True
+            kernel_Xin_X_or_Y = self.kernel(
+                eval_right_on.lookback(self.lookback_len), X_fit
             )
-            kernel_Xin_X_or_Y = self.kernel(eval_right_on, X_fit)
             return w, dual.evaluate_eigenfunction(kernel_Xin_X_or_Y, vr)
         elif eval_left_on is not None and eval_right_on is None:
             # (eigenvalues, left eigenfunctions)
-            check_contexts_shape(
-                eval_left_on, self.lookback_len, is_inference_data=True
+            kernel_Xin_X_or_Y = self.kernel(
+                eval_left_on.lookback(self.lookback_len), Y_fit
             )
-            kernel_Xin_X_or_Y = self.kernel(eval_left_on, Y_fit)
             return w, dual.evaluate_eigenfunction(kernel_Xin_X_or_Y, vl)
         elif eval_left_on is not None and eval_right_on is not None:
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
-
-            check_contexts_shape(
-                eval_right_on, self.lookback_len, is_inference_data=True
+            kernel_Xin_X_or_Y_left = self.kernel(
+                eval_left_on.lookback(self.lookback_len), Y_fit
             )
-            check_contexts_shape(
-                eval_left_on, self.lookback_len, is_inference_data=True
+            kernel_Xin_X_or_Y_right = self.kernel(
+                eval_right_on.lookback(self.lookback_len), X_fit
             )
-
-            kernel_Xin_X_or_Y_left = self.kernel(eval_left_on, Y_fit)
-            kernel_Xin_X_or_Y_right = self.kernel(eval_right_on, X_fit)
             return (
                 w,
                 dual.evaluate_eigenfunction(kernel_Xin_X_or_Y_left, vl),
@@ -293,27 +321,30 @@ class NystroemKernel(BaseModel, RegressorMixin):
 
     def modes(
         self,
-        data: np.ndarray,
-        observables: Optional[Callable] = None,
-    ) -> np.ndarray:
+        data: TensorContextDataset,
+        predict_observables: bool = True,
+    ):
         """
         Computes the mode decomposition of arbitrary observables of the Koopman/Transfer operator at the states defined by ``data``.
 
         Informally, if :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`. See :footcite:t:`Kostic2022` for more details.
 
         Args:
-            data (numpy.ndarray): Initial conditions to compute the modes on. See :func:`predict` for additional details.
-            observables (callable or None): Callable or ``None``. If callable should map batches of states of shape ``(batch, *self.data_fit.shape[2:])`` to batches of observables ``(batch, *obs_features_shape)``.
+            data (TensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as the initial condition, see the note above.
+            predict_observables (bool): Return the prediction for the observables in ``data.observables``, if present. Default to ``True``
 
         Returns:
-            Modes of the system at the states defined by ``data``. Array of shape ``(self.rank, n_states, ...)``.
+            Modes of the system at the states defined by ``data``. The result is composed of arrays with shape matching ``data.lookforward(self.lookback_len)`` or the contents of ``data.observables``. If ``predict_observables = True`` and ``data.observables != None``, the returned ``dict``will contain the special key ``__state__`` containing the modes for the state as well.
         """
         check_is_fitted(
             self, ["U", "V", "kernel_X", "kernel_YX", "lookback_len", "data_fit"]
         )
 
-        _obs, expected_shape, X_inference, X_fit = parse_observables(
-            observables, data, self.data_fit, self.lookback_len
+        observables = None
+        if predict_observables and hasattr(data, "observables"):
+            observables = data.observables
+        parsed_obs, expected_shapes, X_inference, X_fit = parse_observables(
+            observables, data, self.data_fit
         )
 
         if hasattr(self, "_eig_cache"):
@@ -323,13 +354,21 @@ class NystroemKernel(BaseModel, RegressorMixin):
                 self.U, self.V, self.kernel_X, self.kernel_YX
             )
 
-        K_Xin_X = self.kernel(X_inference, X_fit[self.nys_centers_idxs])
+        K_Xin_X = self.kernel(X_inference, X_fit)
         _gamma = dual.estimator_modes(K_Xin_X, rv, lv)
 
-        expected_shape = (self.rank,) + expected_shape
-        return np.tensordot(_gamma, _obs[self.nys_centers_idxs], axes=1).reshape(
-            expected_shape
-        )  # [rank, num_initial_conditions, num_observables]
+        results = {}
+        for obs_name, obs in parsed_obs.keys():
+            expected_shape = (self.rank,) + expected_shapes[obs_name]
+            res = np.tensordot(_gamma, obs, axes=1).reshape(
+                expected_shape
+            )  # [rank, num_initial_conditions, ...]
+            results[obs_name] = res
+
+        if len(results) == 1:
+            return results["__state__"]
+        else:
+            return results
 
     def svals(self):
         """Singular values of the Koopman/Transfer operator.
@@ -353,20 +392,19 @@ class NystroemKernel(BaseModel, RegressorMixin):
         K_Y = self.kernel(Y, Y_nys)
         return K_X, K_Y
 
-    def _pre_fit_checks(self, data: np.ndarray) -> None:
+    def _pre_fit_checks(self, data: TensorContextDataset) -> None:
         """Performs pre-fit checks on the training data.
 
-        Use :func:`check_contexts_shape` to check and sanitize the input data, initialize the kernel matrices and saves the training data.
+        Initialize the kernel matrices and saves the training data.
 
         Args:
-            data (np.ndarray): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``.
+            data (TensorContextDataset): Dataset of context windows with tensor entries.
         """
-        lookback_len = data.shape[1] - 1
-        check_contexts_shape(data, lookback_len)
-        data = np.asanyarray(data)
-        # Save the lookback length as a private attribute of the model
-        self._lookback_len = lookback_len
-        X_fit, Y_fit = contexts_to_markov_train_states(data, self.lookback_len)
+        # Save the lookback length
+        self._lookback_len = data.context_length - 1
+        X_fit, Y_fit = data.lookback(self.lookback_len), data.lookback(
+            self.lookback_len, slide_by=1
+        )
         # Perform random center selection
         self.nys_centers_idxs = self.center_selection(X_fit.shape[0])
         X_nys = X_fit[self.nys_centers_idxs]
@@ -376,9 +414,10 @@ class NystroemKernel(BaseModel, RegressorMixin):
         kernel_Xnys, kernel_Ynys = self._init_nys_kernels(X_fit, Y_fit, X_nys, Y_nys)
         self.data_fit = data
 
+        self._check_rank(self.kernel_X.shape[0])
         if hasattr(self, "_eig_cache"):
             del self._eig_cache
-        self._check_rank(self.kernel_X.shape[0])
+
         return (
             kernel_Xnys,
             kernel_Ynys,
@@ -417,6 +456,6 @@ class NystroemKernel(BaseModel, RegressorMixin):
             filename (path-like or file-like): Load the model from file.
 
         Returns:
-            KernelDMD: The loaded model.
+            NystroemKernel: The loaded model.
         """
         return pickle_load(cls, filename)
