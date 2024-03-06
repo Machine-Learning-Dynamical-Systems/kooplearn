@@ -1,4 +1,5 @@
 # Roadmap
+
 #### Mar 6, 2024:
 Defining the new context API.
 
@@ -18,6 +19,11 @@ Defining the new context API.
 - `__len__`
 - `__iter__`
 
+(**LATER**) To do for tomorrow:
+1. Organize the `torch Dataset` classes for the new context windows.
+2. Update the AutoEncoder models to deal with it.
+3. Add `fsspec` to `pickle_load` and `pickle_save` to store artifacts on the cloud.
+4. Review the whole documentation and port the examples in the new formalism.
 
 #### Mar 5, 2024:
 Features to add to `Contexts`:
