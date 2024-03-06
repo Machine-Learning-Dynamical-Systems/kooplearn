@@ -11,12 +11,7 @@ from kooplearn._src.linalg import cov
 from kooplearn._src.operator_regression import primal
 from kooplearn._src.operator_regression.utils import parse_observables
 from kooplearn._src.serialization import pickle_load, pickle_save
-from kooplearn._src.utils import (
-    NotFittedError,
-    ShapeError,
-    check_contexts_shape,
-    check_is_fitted,
-)
+from kooplearn._src.utils import NotFittedError, ShapeError, check_is_fitted
 from kooplearn.abc import BaseModel, FeatureMap
 from kooplearn.data import TensorContextDataset
 from kooplearn.models.feature_maps import IdentityFeatureMap
@@ -103,7 +98,6 @@ class ExtendedDMD(BaseModel):
             raise ShapeError(
                 f"The provided data have a context of ({X.shape[1]}), while it should match the lookback length of the model ({self.lookback_len=})"
             )
-        check_contexts_shape(X, self.lookback_len, is_inference_data=True)
         _trail_dims = X.shape[2:]
         _n_samples = X.shape[0]
         new_shape = (_n_samples * self.lookback_len, *_trail_dims)

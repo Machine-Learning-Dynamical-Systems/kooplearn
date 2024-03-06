@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from math import floor
-from typing import Callable, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -10,17 +10,9 @@ from sklearn.base import RegressorMixin
 from sklearn.gaussian_process.kernels import DotProduct, Kernel
 
 from kooplearn._src.operator_regression import dual
-from kooplearn._src.operator_regression.utils import (
-    contexts_to_markov_train_states,
-    parse_observables,
-)
+from kooplearn._src.operator_regression.utils import parse_observables
 from kooplearn._src.serialization import pickle_load, pickle_save
-from kooplearn._src.utils import (
-    NotFittedError,
-    ShapeError,
-    check_contexts_shape,
-    check_is_fitted,
-)
+from kooplearn._src.utils import NotFittedError, ShapeError, check_is_fitted
 from kooplearn.abc import BaseModel
 from kooplearn.data import TensorContextDataset
 
@@ -315,7 +307,9 @@ class KernelDMD(BaseModel, RegressorMixin):
             )
             self._eig_cache = (w, vl, vr)
 
-        X_fit, Y_fit = contexts_to_markov_train_states(self.data_fit)
+        X_fit, Y_fit = self.data_fit.lookback(
+            self.lookback_len
+        ), self.data_fit.lookback(self.lookback_len, slide_by=1)
         if eval_left_on is None and eval_right_on is None:
             # (eigenvalues,)
             return w
