@@ -4,7 +4,7 @@ from kooplearn._src.utils import ShapeError
 from kooplearn.data import ContextWindow
 
 
-def parse_observables(observables, data: ContextWindow, data_fit: ContextWindow):
+def parse_observables(data: ContextWindow, data_fit: ContextWindow, observables_dict):
     if data.context_length != data_fit.context_length:
         raise ShapeError(
             f"The  context length ({data.context_length}) of the validation data does not match the context length of the training data ({data_fit.context_length})."
@@ -13,23 +13,43 @@ def parse_observables(observables, data: ContextWindow, data_fit: ContextWindow)
     X_inference = data.lookback(lookback_len)
     X_fit, Y_fit = data.lookback(lookback_len), data.lookforward(lookback_len)
 
-    if observables is None:
-        _obs = Y_fit
-    elif callable(observables):
-        _obs = observables(Y_fit)
-    else:
-        raise ValueError("Observables must be either None, or callable.")
+    if observables_dict is None:
+        observables_dict = {"__state__": Y_fit}
 
-    # Reshape the observables to 2D arrays
-    if _obs.ndim == 1:
-        _obs = _obs[:, None]
+    parsed_obs = {}
+    expected_shapes = {}
+    for obs_name, obs in observables_dict.keys():
+        if callable(obs):
+            obs = np.asanyarray(obs(observables_dict["__state__"]))
+        else:
+            try:
+                obs = np.asanyarray(obs)
+            except Exception as _:
+                raise ValueError("Observables must be either, or callable.")
 
-    # If the observables are multidimensional, flatten them and save the shape for the final reshape
-    _obs_trailing_dims = _obs.shape[1:]
-    expected_shape = (X_inference.shape[0],) + _obs_trailing_dims
-    if _obs.ndim > 2:
-        _obs = _obs.reshape(_obs.shape[0], -1)
-    return _obs, expected_shape, X_inference, X_fit
+        if obs.dtype.kind != "f":
+            raise TypeError(
+                f"Observables should have floating-point values, whereas {obs_name} if of dtype {obs.dtype}"
+            )
+        if obs.shape[0] != observables_dict["__state__"].shape[0]:
+            raise ShapeError(
+                f"The observable {obs_name} was evaluated for {obs.shape[0]}, while the fitting data have {observables_dict['__state__'].shape[0]} examples."
+            )
+        # Reshape the observables to 2D arrays
+        if obs.ndim == 1:
+            obs = obs[:, None]
+
+        # If the observables are multidimensional, flatten them and save the shape for the final reshape
+        trailing_dims = obs.shape[1:]
+        expected_shape = (X_inference.shape[0],) + trailing_dims
+        if obs.ndim > 2:
+            obs = obs.reshape(
+                obs.shape[0], -1
+            )  # Flatten out everything for proper broadcasting
+        parsed_obs[obs_name] = obs
+        expected_shapes[obs_name] = expected_shape
+
+    return parsed_obs, expected_shapes, X_inference, X_fit
 
 
 # !! Possibly to deprecate

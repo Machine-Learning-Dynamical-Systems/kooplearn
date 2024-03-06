@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+from math import floor
 from typing import Callable, Optional, Union
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from kooplearn._src.linalg import cov
 from kooplearn._src.operator_regression import primal
@@ -19,7 +21,7 @@ from kooplearn._src.utils import (
     check_is_fitted,
 )
 from kooplearn.abc import BaseModel, FeatureMap
-from kooplearn.data import ContextWindow
+from kooplearn.data import TensorContextDataset
 from kooplearn.models.feature_maps import IdentityFeatureMap
 
 logger = logging.getLogger("kooplearn")
@@ -42,12 +44,12 @@ class ExtendedDMD(BaseModel):
 
     .. tip::
 
-        A powerful DMD variation proposed by :footcite:t:`Arbabi2017`, known as Hankel-DMD, evaluates the Koopman/Transfer estimators by stacking consecutive snapshots together in a Hankel matrix. When this model is fitted context windows of length > 2, the lookback window length is automatically set to ``context_len - 1``. Upon fitting, the whole lookback window is passed through the feature map and the results are then flattened and *concatenated* together, realizing an Hankel-EDMD estimator.
+        A powerful DMD variation proposed by :footcite:t:`Arbabi2017`, known as Hankel-DMD, evaluates the Koopman/Transfer estimators by stacking consecutive snapshots together in a Hankel matrix. When this model is fitted on context windows of length > 2, the lookback window is automatically set to length ``context_len - 1``. Upon fitting, the whole lookback window is passed through the feature map and the results are then flattened and *concatenated* together, realizing an Hankel-EDMD estimator.
 
     Attributes:
-        data_fit : Training data: array of context windows of shape ``(n_samples, context_len, *features_shape)``.
-        cov_X : Covariance matrix of the feature map evaluated at the initial states, that is ``self.data_fit[:, :self.lookback_len, ...]``.
-        cov_Y : Covariance matrix of the feature map evaluated at the evolved states, , that is ``self.data_fit[:, 1:self.lookback_len + 1, ...]``.
+        data_fit : Training data, of type ``kooplearn.data.TensorContextDataset``.
+        cov_X : Covariance matrix of the feature map evaluated at the initial states, that is ``self.data_fit.lookback(self.lookback_len)``.
+        cov_Y : Covariance matrix of the feature map evaluated at the evolved states, , that is ``self.data_fit.lookback(self.lookback_len, slide_by = 1)``.
         cov_XY : Cross-covariance matrix between initial and evolved states.
         U : Projection matrix of shape (n_out_features, rank). The Koopman/Transfer operator is approximated as :math:`U U^T \mathrm{cov_{XY}}`.
     """
@@ -98,7 +100,8 @@ class ExtendedDMD(BaseModel):
     def is_fitted(self) -> bool:
         return self._is_fitted
 
-    def feature_map(self, X: np.ndarray):
+    def feature_map(self, X: ArrayLike):
+        X = np.asanyarray(X)
         check_contexts_shape(X, self.lookback_len, is_inference_data=True)
         _trail_dims = X.shape[2:]
         _n_samples = X.shape[0]
@@ -110,18 +113,18 @@ class ExtendedDMD(BaseModel):
         feat_X = feat_X.reshape(_n_samples, self.lookback_len, *_trail_dims)
         return feat_X.reshape(_n_samples, -1)
 
-    def fit(self, data: ContextWindow, verbose: bool = True) -> ExtendedDMD:
+    def fit(self, data: TensorContextDataset, verbose: bool = True) -> ExtendedDMD:
         """
         Fits the ExtendedDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
 
         .. attention::
 
-            If ``context_len = data.shape[1] > 2``, the attribute :attr:`lookback_len` will be automatically set to ``context_len - 1``. The feature map will be evaluated independently for each snapshot in the lookback window, and the results are concatenated together to form a single feature vector. The pseudo-code of this operation is
+            The attribute :attr:`lookback_len` will be automatically set to ``data.context_length - 1``. The feature map will be evaluated independently for each snapshot in the lookback window, and the results are concatenated together to form a single feature vector. The pseudo-code of this operation is
 
             .. code-block:: python
 
-                X = data[:, :self.lookback_len, ...]
+                X = data.lookback(data.context_length - 1)
                 n_samples = X.shape[0]
                 trailing_dims = X.shape[2:]
                 #Stack snapshots in the context window to evaluate the feature map
@@ -131,7 +134,7 @@ class ExtendedDMD(BaseModel):
                 feat_X = feat_X.reshape(n_samples, -1)
 
         Args:
-            data (np.ndarray): Batch of context windows of shape ``(n_samples, context_len, *features_shape)``.
+            data (TensorContextDataset): Dataset of context windows with tensor entries.
 
         Returns:
             The fitted estimator.
@@ -189,7 +192,7 @@ class ExtendedDMD(BaseModel):
             )
         return self
 
-    def risk(self, data: Optional[ContextWindow] = None) -> float:
+    def risk(self, data: Optional[TensorContextDataset] = None) -> float:
         """Risk of the estimator on the validation ``data``.
 
         Args:
@@ -214,23 +217,20 @@ class ExtendedDMD(BaseModel):
 
     def predict(
         self,
-        data: ContextWindow,
+        data: TensorContextDataset,
         t: int = 1,
-        observables: Optional[Callable] = None,
-    ) -> np.ndarray:
+        predict_observables: bool = True,
+        reencode_every: int = 0,
+    ):
         """
-        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial conditions ``X = data[:, self.lookback_len:, ...]`` being the lookback slice of ``data``.
-
-        .. attention::
-
-            ``data.shape[1]`` must match the lookback length ``self.lookback_len``. Otherwise, an error is raised.
-
-        If ``observables`` are not ``None``, returns the analogue quantity for the observable instead.
+        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial conditions ``data.lookback(self.lookback_len)`` being the lookback slice of ``data``.
+        If ``data.observables`` is not ``None``, returns the analogue quantity for the observable instead.
 
         Args:
-            data (numpy.ndarray): Initial conditions to predict. Array of context windows with shape ``(n_init_conditions, self.lookback_len, *self.data_fit.shape[2:])`` (see the note above).
+            data (TensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as the initial condition, see the note above.
             t (int): Number of steps in the future to predict (returns the last one).
-            observables (callable or None): Callable or ``None``. If callable should map batches of states of shape ``(batch, *self.data_fit.shape[2:])`` to batches of observables ``(batch, *obs_features_shape)``.
+            predict_observables (bool): Return the prediction for the observables in ``data.observables``, if present. Default to ``True``.
+            reencode_every (int): When ``t > 1``, periodically reencode the predictions as described in :footcite:t:`Fathi2023`. Only available when ``predict_observables = False``.
 
         Returns:
            The predicted (expected) state/observable at time :math:`t`, shape ``(n_init_conditions, *obs_features_shape)``.
@@ -238,16 +238,41 @@ class ExtendedDMD(BaseModel):
         check_is_fitted(
             self, ["U", "cov_XY", "cov_X", "cov_Y", "data_fit", "lookback_len"]
         )
-        _obs, expected_shape, X_inference, X_fit = parse_observables(
+
+        observables = None
+        if predict_observables and hasattr(data, "observables"):
+            observables = data.observables
+        parsed_obs, expected_shapes, X_inference, X_fit = parse_observables(
             observables, data, self.data_fit
         )
 
         phi_Xin = self.feature_map(X_inference)
         phi_X = self.feature_map(X_fit)
 
-        return (primal.predict(t, self.U, self.cov_XY, phi_Xin, phi_X, _obs)).reshape(
-            expected_shape
-        )
+        results = {}
+        for obs_name, obs in parsed_obs.keys():
+            if (reencode_every > 0) and (t > reencode_every):
+                if (predict_observables is True) and (observables is not None):
+                    raise ValueError(
+                        "rencode_every only works when forecasting states, not observables. Consider setting predict_observables to False."
+                    )
+                else:
+                    num_reencodings = floor(t / reencode_every)
+                    for k in range(num_reencodings):
+                        raise NotImplementedError
+                        # obs_pred = primal.predict(
+                        #     reencode_every, self.U, self.cov_XY, phi_Xin, phi_X, obs
+                        # )
+                        # obs_pred = obs_pred.reshape(expected_shapes[obs_name])
+
+            else:
+                obs_pred = primal.predict(t, self.U, self.cov_XY, phi_Xin, phi_X, obs)
+                obs_pred = obs_pred.reshape(expected_shapes[obs_name])
+                results[obs_name] = obs_pred
+        if len(results) == 1:
+            return results["__state__"]
+        else:
+            return results
 
     def eig(
         self,
@@ -362,7 +387,7 @@ class ExtendedDMD(BaseModel):
         return pickle_load(cls, filename)
 
     def _init_covs(
-        self, X: np.ndarray, Y: np.ndarray
+        self, X: ArrayLike, Y: ArrayLike
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Initializes the covariance matrices `cov_X`, `cov_Y`, and `cov_XY`.
@@ -384,13 +409,13 @@ class ExtendedDMD(BaseModel):
         cov_XY = cov(X, Y)
         return cov_X, cov_Y, cov_XY
 
-    def _pre_fit_checks(self, data: ContextWindow) -> None:
+    def _pre_fit_checks(self, data: TensorContextDataset) -> None:
         """Performs pre-fit checks on the training data.
 
-        Use :func:`check_contexts_shape` to check and sanitize the input data, initialize the covariance matrices and saves the training data.
+        Initialize the covariance matrices and saves the training data.
 
         Args:
-            data (ContextWindow): Batch of Context Windows.
+            data (TensorContextDataset): Dataset of context windows with tensor entries.
         """
 
         # Save the lookback length
