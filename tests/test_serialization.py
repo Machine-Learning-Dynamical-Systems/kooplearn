@@ -64,22 +64,22 @@ def test_KernelDMD_serialization():
 
     # Check that predict, eig and modes return the same values
     assert _allclose(
-        model.predict(DATA[:, : model.lookback_len, ...]),
-        restored_model.predict(DATA[:, : model.lookback_len, ...]),
+        model.predict(DATA),
+        restored_model.predict(DATA),
     )
 
     assert _allclose(
-        model.modes(DATA[:, : model.lookback_len, ...]),
-        restored_model.modes(DATA[:, : model.lookback_len, ...]),
+        model.modes(DATA),
+        restored_model.modes(DATA),
     )
 
     e1, l1, r1 = model.eig(
-        eval_left_on=DATA[:, : model.lookback_len, ...],
-        eval_right_on=DATA[:, : model.lookback_len, ...],
+        eval_left_on=DATA,
+        eval_right_on=DATA,
     )
     e2, l2, r2 = restored_model.eig(
-        eval_left_on=DATA[:, : model.lookback_len, ...],
-        eval_right_on=DATA[:, : model.lookback_len, ...],
+        eval_left_on=DATA,
+        eval_right_on=DATA,
     )
 
     assert _allclose(e1, e2)
@@ -99,22 +99,22 @@ def test_ExtendedDMD_serialization():
 
     # Check that predict, eig and modes return the same values
     assert _allclose(
-        model.predict(DATA[:, : model.lookback_len, ...]),
-        restored_model.predict(DATA[:, : model.lookback_len, ...]),
+        model.predict(DATA),
+        restored_model.predict(DATA),
     )
 
     assert _allclose(
-        model.modes(DATA[:, : model.lookback_len, ...]),
-        restored_model.modes(DATA[:, : model.lookback_len, ...]),
+        model.modes(DATA),
+        restored_model.modes(DATA),
     )
 
     e1, l1, r1 = model.eig(
-        eval_left_on=DATA[:, : model.lookback_len, ...],
-        eval_right_on=DATA[:, : model.lookback_len, ...],
+        eval_left_on=DATA,
+        eval_right_on=DATA,
     )
     e2, l2, r2 = restored_model.eig(
-        eval_left_on=DATA[:, : model.lookback_len, ...],
-        eval_right_on=DATA[:, : model.lookback_len, ...],
+        eval_left_on=DATA,
+        eval_right_on=DATA,
     )
 
     assert _allclose(e1, e2)
@@ -153,22 +153,22 @@ def test_DeepEDMD_serialization(feature_map_cls):
 
     # Check that predict, eig and modes return the same values
     assert _allclose(
-        model.predict(DATA[:, : model.lookback_len, ...]),
-        restored_model.predict(DATA[:, : model.lookback_len, ...]),
+        model.predict(DATA),
+        restored_model.predict(DATA),
     )
 
     assert _allclose(
-        model.modes(DATA[:, : model.lookback_len, ...]),
-        restored_model.modes(DATA[:, : model.lookback_len, ...]),
+        model.modes(DATA),
+        restored_model.modes(DATA),
     )
 
     e1, l1, r1 = model.eig(
-        eval_left_on=DATA[:, : model.lookback_len, ...],
-        eval_right_on=DATA[:, : model.lookback_len, ...],
+        eval_left_on=DATA,
+        eval_right_on=DATA,
     )
     e2, l2, r2 = restored_model.eig(
-        eval_left_on=DATA[:, : model.lookback_len, ...],
-        eval_right_on=DATA[:, : model.lookback_len, ...],
+        eval_left_on=DATA,
+        eval_right_on=DATA,
     )
 
     assert _allclose(e1, e2)
@@ -204,17 +204,17 @@ def test_AE_serialization(model_cls):
 
     # Check that predict, eig and modes return the same values
     assert _allclose(
-        model.predict(DATA[:, : model.lookback_len, ...]),
-        restored_model.predict(DATA[:, : model.lookback_len, ...]),
+        model.predict(DATA),
+        restored_model.predict(DATA),
     )
 
     e1, l1, r1 = model.eig(
-        eval_left_on=DATA[:, : model.lookback_len, ...],
-        eval_right_on=DATA[:, : model.lookback_len, ...],
+        eval_left_on=DATA,
+        eval_right_on=DATA,
     )
     e2, l2, r2 = restored_model.eig(
-        eval_left_on=DATA[:, : model.lookback_len, ...],
-        eval_right_on=DATA[:, : model.lookback_len, ...],
+        eval_left_on=DATA,
+        eval_right_on=DATA,
     )
 
     assert _allclose(e1, e2)

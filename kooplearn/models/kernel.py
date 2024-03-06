@@ -256,7 +256,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         K_Xin_X = self.kernel(X_inference, X_fit)
 
         results = {}
-        for obs_name, obs in parsed_obs.keys():
+        for obs_name, obs in parsed_obs.items():
             if (reencode_every > 0) and (t > reencode_every):
                 if (predict_observables is True) and (observables is not None):
                     raise ValueError(
@@ -378,7 +378,7 @@ class KernelDMD(BaseModel, RegressorMixin):
         _gamma = dual.estimator_modes(K_Xin_X, rv, lv)
 
         results = {}
-        for obs_name, obs in parsed_obs.keys():
+        for obs_name, obs in parsed_obs.items():
             expected_shape = (self.rank,) + expected_shapes[obs_name]
             res = np.tensordot(_gamma, obs, axes=1).reshape(
                 expected_shape

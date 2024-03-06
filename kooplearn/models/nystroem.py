@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from math import floor
 from typing import Optional, Union
 
 import numpy as np
@@ -9,18 +10,10 @@ from sklearn.base import RegressorMixin
 from sklearn.gaussian_process.kernels import DotProduct, Kernel
 
 from kooplearn._src.operator_regression import dual
-from kooplearn._src.operator_regression.utils import (
-    contexts_to_markov_train_states,
-    parse_observables,
-)
+from kooplearn._src.operator_regression.utils import parse_observables
 from kooplearn._src.serialization import pickle_load, pickle_save
-from kooplearn._src.utils import (
-    NotFittedError,
-    ShapeError,
-    check_contexts_shape,
-    check_is_fitted,
-)
-from kooplearn.abc import BaseModel, ContextWindowDataset
+from kooplearn._src.utils import NotFittedError, ShapeError, check_is_fitted
+from kooplearn.abc import BaseModel
 from kooplearn.data import TensorContextDataset
 
 logger = logging.getLogger("kooplearn")
@@ -236,7 +229,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
         K_Xin_X = self.kernel(X_inference, X_fit)
 
         results = {}
-        for obs_name, obs in parsed_obs.keys():
+        for obs_name, obs in parsed_obs.items():
             if (reencode_every > 0) and (t > reencode_every):
                 if (predict_observables is True) and (observables is not None):
                     raise ValueError(
@@ -358,7 +351,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
         _gamma = dual.estimator_modes(K_Xin_X, rv, lv)
 
         results = {}
-        for obs_name, obs in parsed_obs.keys():
+        for obs_name, obs in parsed_obs.items():
             expected_shape = (self.rank,) + expected_shapes[obs_name]
             res = np.tensordot(_gamma, obs, axes=1).reshape(
                 expected_shape

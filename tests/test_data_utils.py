@@ -19,7 +19,7 @@ def test_traj_to_contexts(context_window_len, time_lag, trj_len, n_feature_axes)
         n_feature_axes = 1
     _C = 1 + (context_window_len - 1) * time_lag
 
-    if context_window_len < 2:
+    if context_window_len < 1:
         with pytest.raises(ValueError):
             _ = traj_to_contexts(trj, context_window_len, time_lag)
         return

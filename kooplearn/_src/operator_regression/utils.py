@@ -4,7 +4,7 @@ from kooplearn._src.utils import ShapeError
 from kooplearn.abc import ContextWindow
 
 
-def parse_observables(data: ContextWindow, data_fit: ContextWindow, observables_dict):
+def parse_observables(observables_dict, data: ContextWindow, data_fit: ContextWindow):
     if data.context_length != data_fit.context_length:
         raise ShapeError(
             f"The  context length ({data.context_length}) of the validation data does not match the context length of the training data ({data_fit.context_length})."
@@ -16,18 +16,17 @@ def parse_observables(data: ContextWindow, data_fit: ContextWindow, observables_
     if observables_dict is None:
         observables_dict = {"__state__": Y_fit}
     else:
-        observables_dict["__state__":Y_fit]
+        observables_dict["__state__"] = Y_fit
 
     parsed_obs = {}
     expected_shapes = {}
-    for obs_name, obs in observables_dict.keys():
-        if callable(obs):
-            obs = np.asanyarray(obs(observables_dict["__state__"]))
-        else:
-            try:
-                obs = np.asanyarray(obs)
-            except Exception as _:
-                raise ValueError("Observables must be either, or callable.")
+    for obs_name, obs in observables_dict.items():
+        try:
+            obs = np.asanyarray(obs)
+        except Exception as e:
+            raise ValueError(
+                f"Observables must be convertible to a Numpy Array, while the following exception has been raised {e}"
+            )
 
         if obs.dtype.kind != "f":
             raise TypeError(
