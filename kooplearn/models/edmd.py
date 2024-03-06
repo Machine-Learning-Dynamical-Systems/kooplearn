@@ -264,7 +264,6 @@ class ExtendedDMD(BaseModel):
                         #     reencode_every, self.U, self.cov_XY, phi_Xin, phi_X, obs
                         # )
                         # obs_pred = obs_pred.reshape(expected_shapes[obs_name])
-
             else:
                 obs_pred = primal.predict(t, self.U, self.cov_XY, phi_Xin, phi_X, obs)
                 obs_pred = obs_pred.reshape(expected_shapes[obs_name])

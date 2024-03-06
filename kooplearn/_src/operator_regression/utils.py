@@ -15,6 +15,8 @@ def parse_observables(data: ContextWindow, data_fit: ContextWindow, observables_
 
     if observables_dict is None:
         observables_dict = {"__state__": Y_fit}
+    else:
+        observables_dict["__state__":Y_fit]
 
     parsed_obs = {}
     expected_shapes = {}
