@@ -21,6 +21,7 @@ logger = logging.getLogger("kooplearn")
 check_torch_deps()
 import lightning  # noqa: E402
 import torch  # noqa: E402
+from kooplearn.nn.data import TorchTensorContextDataset
 
 
 class DynamicAE(BaseModel):
@@ -137,7 +138,7 @@ class DynamicAE(BaseModel):
 
     def predict(
         self,
-        data: np.ndarray,
+        data: TorchTensorContextDataset,
         t: int = 1,
         observables: Optional[Callable] = None,
     ):
@@ -151,21 +152,19 @@ class DynamicAE(BaseModel):
         If ``observables`` are not ``None``, returns the analogue quantity for the observable instead.
 
         Args:
-            data (numpy.ndarray): Initial conditions to predict. Array of context windows with shape ``(n_init_conditions, self.lookback_len, *self.data_fit.shape[2:])`` (see the note above).
+            data (TorchTensorContextDataset): Initial conditions to predict. Array of context windows with shape ``(n_init_conditions, self.lookback_len, *self.data_fit.shape[2:])`` (see the note above).
             t (int): Number of steps in the future to predict (returns the last one).
             observables (callable or None): Callable or ``None``. If callable should map batches of states of shape ``(batch, *self.data_fit.shape[2:])`` to batches of observables ``(batch, *obs_features_shape)``.
 
         Returns:
            The predicted (expected) state/observable at time :math:`t`, shape ``(n_init_conditions, *obs_features_shape)``.
         """
-        torch_data = self._np_to_torch(
-            data
-        )  # [n_samples, context_len == 1, *trail_dims]
+        # data = self._np_to_torch(data)  # [n_samples, context_len == 1, *trail_dims]
         check_is_fitted(self, ["_state_trail_dims"])
-        assert tuple(torch_data.shape[2:]) == self._state_trail_dims
+        assert tuple(data.shape[2:]) == self._state_trail_dims
 
         with torch.no_grad():
-            init_data = torch_data[:, self.lookback_len - 1, ...]
+            init_data = data.data[:, self.lookback_len - 1, ...]
             evolved_data = evolve_batch(
                 init_data,
                 t,
@@ -183,7 +182,7 @@ class DynamicAE(BaseModel):
 
     def modes(
         self,
-        data: np.ndarray,
+        data: TorchTensorContextDataset,
         observables: Optional[Callable] = None,
     ):
         raise NotImplementedError()

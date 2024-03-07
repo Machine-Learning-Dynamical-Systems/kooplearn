@@ -18,6 +18,12 @@ class TensorContextDataset(ContextWindowDataset):
         self.ndim = self.data.ndim
         self._context_length = self.shape[1]
 
+    def __iter__(self):
+        return iter(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx]
+
     def slice(self, slice_obj):
         return self.data[:, slice_obj]
 
