@@ -200,8 +200,11 @@ class ContextWindowDataset(ContextWindow):
         context_lengths = []
         for ctx in dataset:
             if isinstance(ctx, Sequence):
+                if isinstance(ctx, ContextWindow):
+                    context_lengths.append(ctx.context_length)
+                else:
+                    context_lengths.append(len(ctx))
                 data.append(ctx)
-                context_lengths.append(len(ctx))
             else:
                 raise TypeError(
                     f"{self.__class__.__name__} should be initialized with an iterable of ContextWindow objects, while an object of {type(ctx)} was provided."

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from kooplearn.data import traj_to_contexts
-from kooplearn.nn.data import TrajToContextsDataset
+from kooplearn.nn.data import torch_traj_to_contexts
 
 
 @pytest.mark.parametrize("context_window_len", [-1, 0, 1, 2, 3, 4])
@@ -55,24 +55,24 @@ def test_torch_traj_to_contexts(context_window_len, time_lag, trj_len, n_feature
         n_feature_axes = 1
     _C = 1 + (context_window_len - 1) * time_lag
 
-    if context_window_len < 2:
+    if context_window_len < 1:
         with pytest.raises(ValueError):
-            _ = TrajToContextsDataset(trj, context_window_len, time_lag)
+            _ = torch_traj_to_contexts(trj, context_window_len, time_lag)
         return
 
     if time_lag < 1:
         with pytest.raises(ValueError):
-            _ = TrajToContextsDataset(trj, context_window_len, time_lag)
+            _ = torch_traj_to_contexts(trj, context_window_len, time_lag)
         return
 
     if _C > trj_len:
         with pytest.raises(ValueError):
-            _ = TrajToContextsDataset(trj, context_window_len, time_lag)
+            _ = torch_traj_to_contexts(trj, context_window_len, time_lag)
         return
 
     res = (
-        TrajToContextsDataset(trj, context_window_len, time_lag)
-        .contexts.detach()
+        torch_traj_to_contexts(trj, context_window_len, time_lag)
+        .data.detach()
         .cpu()
         .numpy()
     )

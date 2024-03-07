@@ -6,16 +6,6 @@ from numpy.typing import ArrayLike
 from kooplearn._src.utils import ShapeError
 from kooplearn.abc import ContextWindowDataset
 
-try:
-    from kooplearn._src.check_deps import check_torch_deps
-
-    check_torch_deps()
-    from kooplearn.nn.data import ContextsDataset, traj_to_contexts_dataset
-    import torch
-except ImportError:
-    pass
-
-
 class TensorContextDataset(ContextWindowDataset):
     def __init__(self, data: ArrayLike):
         if data.ndim < 3:
@@ -51,17 +41,9 @@ class TrajectoryContextDataset(TensorContextDataset):
         else:
             pass
 
-        if 'torch' in  sys.modules:
-            if torch.is_tensor(trajectory):
-                self.data, self.idx_map = self._build_contexts_torch(trajectory, context_length, time_lag)
-            else:
-                # It should be converted to Numpy
-                trajectory = np.asanyarray(trajectory)
-                self.data, self.idx_map = self._build_contexts_np(trajectory, context_length, time_lag)
-        else:
-            # It should be converted to Numpy
-            trajectory = np.asanyarray(trajectory)
-            self.data, self.idx_map = self._build_contexts_np(trajectory, context_length, time_lag)
+        # It should be converted to Numpy
+        trajectory = np.asanyarray(trajectory)
+        self.data, self.idx_map = self._build_contexts_np(trajectory, context_length, time_lag)
 
         self.trajectory = trajectory
         self.time_lag = time_lag
@@ -87,22 +69,6 @@ class TrajectoryContextDataset(TensorContextDataset):
         idx_map = np.moveaxis(idx_map, -1, 1)[:, ::time_lag, ...]
         data = np.moveaxis(data, -1, 1)[:, ::time_lag, ...]
         return data, idx_map
-
-    def _build_contexts_torch(self, trajectory, context_length, time_lag):
-        window_shape = 1 + (context_length - 1) * time_lag
-        if window_shape > trajectory.shape[0]:
-            raise ValueError(
-                f"Invalid combination of context_length={context_length} and time_lag={time_lag} for trajectory of "
-                f"length {trajectory.shape[0]}. Try reducing context_length or time_lag."
-            )
-
-        data = trajectory.unfold(0, window_shape, 1)
-        idx_map = torch.arange(len(trajectory)).unfold(0, window_shape, 1)
-
-        data = torch.movedim(data, -1, 1)[:, ::time_lag, ...]
-        idx_map = torch.movedim(idx_map, -1, 1)[:, ::time_lag, ...]
-        return data, idx_map
-
 
 class MultiTrajectoryContextDataset(TrajectoryContextDataset):
     def __init__(self):
