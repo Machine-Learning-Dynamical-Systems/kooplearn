@@ -11,7 +11,7 @@ def parse_observables(observables_dict, data: ContextWindow, data_fit: ContextWi
         )
     lookback_len = data.context_length - 1
     X_inference = data.lookback(lookback_len)
-    X_fit, Y_fit = data.lookback(lookback_len), data.lookforward(lookback_len)
+    X_fit, Y_fit = data_fit.lookback(lookback_len), data_fit.lookforward(lookback_len)
 
     if observables_dict is None:
         observables_dict = {"__state__": Y_fit}
