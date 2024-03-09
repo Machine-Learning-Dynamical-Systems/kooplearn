@@ -1,4 +1,12 @@
 # Roadmap
+#### Mar 9, 2024:
+Some preliminary notes on the updates for the NN part. The main goal should be to have classes which are flexible and comprehensive. In this respect, using Lightning is good. 
+
+Some actual implementation details:
+1. We leave the Auto Encoder as now
+2. We implement the `VAMP` and `DP` losses as `torch Modules` as done, e.g. in `torch.nn` (see the losses section)
+3. We replace `kooplearn.models.feature_maps.DPNets` and `kooplearn.models.feature_maps.VAMPNets` by a single module which takes one of these losses defined in 2. as argument. It is just a matter of rewrapping some stuff, nothing big. 
+4. In the spirit of simplifying I am also considering to remove `kooplearn.modules.DeepEDMD`, as it is ust a light wrapper around `kooplearn.modules.EDMD`.
 
 #### Mar 6, 2024:
 Defining the new context API.

@@ -6,7 +6,9 @@ from kooplearn._src.utils import ShapeError
 logger = logging.getLogger("kooplearn")
 check_torch_deps()
 import torch  # noqa: E402
-from kooplearn.data import TensorContextDataset
+
+from kooplearn.data import TensorContextDataset  # noqa: E402
+
 
 class TorchTensorContextDataset(TensorContextDataset):
     def __init__(self, data: torch.Tensor):
@@ -15,6 +17,7 @@ class TorchTensorContextDataset(TensorContextDataset):
                 f"Invalid shape {data.shape}. The data must have be at least three dimensional [batch_size, context_len, *features]."
             )
         super().__init__(data)
+
 
 class TorchTrajectoryContextDataset(TorchTensorContextDataset):
     def __init__(
@@ -41,7 +44,9 @@ class TorchTrajectoryContextDataset(TorchTensorContextDataset):
         else:
             pass
 
-        self.data, self.idx_map = self._build_contexts_torch(trajectory, context_length, time_lag)
+        self.data, self.idx_map = self._build_contexts_torch(
+            trajectory, context_length, time_lag
+        )
 
         self.trajectory = trajectory
         self.time_lag = time_lag

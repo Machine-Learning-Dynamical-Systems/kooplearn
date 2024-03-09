@@ -6,6 +6,7 @@ from numpy.typing import ArrayLike
 from kooplearn._src.utils import ShapeError
 from kooplearn.abc import ContextWindowDataset
 
+
 class TensorContextDataset(ContextWindowDataset):
     def __init__(self, data: ArrayLike):
         if data.ndim < 3:
@@ -49,7 +50,9 @@ class TrajectoryContextDataset(TensorContextDataset):
 
         # It should be converted to Numpy
         trajectory = np.asanyarray(trajectory)
-        self.data, self.idx_map = self._build_contexts_np(trajectory, context_length, time_lag)
+        self.data, self.idx_map = self._build_contexts_np(
+            trajectory, context_length, time_lag
+        )
 
         self.trajectory = trajectory
         self.time_lag = time_lag
@@ -75,6 +78,7 @@ class TrajectoryContextDataset(TensorContextDataset):
         idx_map = np.moveaxis(idx_map, -1, 1)[:, ::time_lag, ...]
         data = np.moveaxis(data, -1, 1)[:, ::time_lag, ...]
         return data, idx_map
+
 
 class MultiTrajectoryContextDataset(TrajectoryContextDataset):
     def __init__(self):
