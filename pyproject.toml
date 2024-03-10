@@ -21,7 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 torch = [
-  "torch",
+  "torch>=2.0",
   "lightning",
   "pandas",
 ]

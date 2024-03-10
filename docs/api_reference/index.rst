@@ -8,4 +8,4 @@ API Reference
     models
     feature_maps
     data
-    nn_functional
+    nn

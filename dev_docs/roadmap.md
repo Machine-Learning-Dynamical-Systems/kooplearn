@@ -1,4 +1,6 @@
 # Roadmap
+#### Mar 10, 2024:
+Make everything compatible with `torch.compile`.
 #### Mar 9, 2024:
 Some preliminary notes on the updates for the NN part. The main goal should be to have classes which are flexible and comprehensive. In this respect, using Lightning is good. 
 
