@@ -1,10 +1,13 @@
-Neural networks components: :code:`kooplearn.nn`
+Neural network components: :code:`kooplearn.nn`
 ================================================
 
 .. currentmodule:: kooplearn.nn
 
-Score & Loss functions
-----------------------
+:code:`kooplearn.nn`
+--------------------
+
+Score functions
+~~~~~~~~~~~~~~~
 
 .. autoclass:: kooplearn.nn.DPLoss
     :members:
@@ -14,8 +17,16 @@ Score & Loss functions
 
 
 Functional submodule :code:`kooplearn.nn.functional`
------------------------------------------------------
+----------------------------------------------------
+
+Linear algebra utilities
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autofunction:: kooplearn.nn.functional.covariance
 
 .. autofunction:: kooplearn.nn.functional.sqrtmh
+
+Bibliography
+------------
+
+.. footbibliography::
