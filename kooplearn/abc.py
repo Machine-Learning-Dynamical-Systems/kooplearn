@@ -3,7 +3,7 @@ from __future__ import annotations
 import abc
 import os
 from collections.abc import Iterable, Sequence
-from typing import Callable, Optional, Union
+from typing import Optional
 
 import numpy as np
 

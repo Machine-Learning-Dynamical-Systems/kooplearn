@@ -72,12 +72,14 @@ class TrajectoryContextDataset(TensorContextDataset):
         )
 
         idx_map = np.lib.stride_tricks.sliding_window_view(
-            np.arange(trajectory.shape[0], dtype=np.int_), window_shape, axis=0
+            np.arange(trajectory.shape[0], dtype=np.int_).reshape(-1, 1),
+            window_shape,
+            axis=0,
         )
 
         idx_map = np.moveaxis(idx_map, -1, 1)[:, ::time_lag, ...]
         data = np.moveaxis(data, -1, 1)[:, ::time_lag, ...]
-        return data, idx_map
+        return data, TensorContextDataset(idx_map)
 
 
 class MultiTrajectoryContextDataset(TrajectoryContextDataset):

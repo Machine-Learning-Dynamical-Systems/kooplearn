@@ -1,12 +1,12 @@
 import shutil
 from pathlib import Path
 
-import ml_confs as mlcfg
+import ml_confs
 from datasets import DatasetDict, interleave_datasets, load_dataset
 
 main_path = Path(__file__).parent
 data_path = main_path / "__data__"
-configs = mlcfg.from_file(main_path / "configs.yaml")
+configs = ml_confs.from_file(main_path / "configs.yaml")
 
 
 def make_dataset():
@@ -41,14 +41,14 @@ def make_dataset():
     configs.to_file(data_path / "configs.yaml")
 
 
-if __name__ == "__main__":
+def main():
     # Check if data_path exists, if not preprocess the data
     if not data_path.exists():
         print("Data directory not found, preprocessing data.")
         make_dataset()
     else:
         # Try to load the configs.yaml file and compare with the current one, if different, wipe the data_path and preprocess the data
-        _saved_configs = mlcfg.from_file(data_path / "configs.yaml")
+        _saved_configs = ml_confs.from_file(data_path / "configs.yaml")
         if _saved_configs != configs:
             print("Configs changed, preprocessing data.")
             # Delete the data_path and preprocess the data
@@ -56,3 +56,7 @@ if __name__ == "__main__":
             make_dataset()
         else:
             print("Data already preprocessed.")
+
+
+if __name__ == "__main__":
+    main()

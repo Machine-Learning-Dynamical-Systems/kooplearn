@@ -62,11 +62,13 @@ class TorchTrajectoryContextDataset(TorchTensorContextDataset):
             )
 
         data = trajectory.unfold(0, window_shape, 1)
-        idx_map = torch.arange(len(trajectory)).unfold(0, window_shape, 1)
+        idx_map = (torch.arange(len(trajectory)).reshape(-1, 1)).unfold(
+            0, window_shape, 1
+        )
 
         data = torch.movedim(data, -1, 1)[:, ::time_lag, ...]
         idx_map = torch.movedim(idx_map, -1, 1)[:, ::time_lag, ...]
-        return data, idx_map
+        return data, TensorContextDataset(idx_map)
 
 
 def torch_traj_to_contexts(

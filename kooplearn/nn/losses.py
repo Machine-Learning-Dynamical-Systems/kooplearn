@@ -21,7 +21,6 @@ class VAMPLoss(torch.nn.Module):
             NotImplementedError: If ``schatten_norm`` is not 1 or 2.
 
         """
-        super().__init__(self)
         if schatten_norm not in [1, 2]:
             raise NotImplementedError(f"Schatten norm {schatten_norm} not implemented")
         self.schatten_norm = schatten_norm
@@ -53,7 +52,6 @@ class DPLoss(torch.nn.Module):
             center_covariances (bool, optional): Use centered covariances to compute the VAMP score. Defaults to True.
 
         """
-        super().__init__(self)
         self.metric_deformation = metric_deformation
         self.center_covariances = center_covariances
 
