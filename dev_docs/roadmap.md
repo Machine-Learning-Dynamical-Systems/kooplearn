@@ -1,4 +1,14 @@
 # Roadmap
+#### Mar 11, 2024:
+Some notes on the AutoEncoder models:
+1. The signature of `predict` should match `ExtendedDMD.predict` (see how the observables are changed). Same for `modes`, even if it is not implemented.
+2. `eig` still accepts arrays rather than `ContextWindowDataset`.
+
+In addition: 
+1. I am working on `kooplearn.abc` to update the signatures of `BaseModule` too.
+2. Should port some methods from `kooplearn._src.operator_regression.primal` to `torch`, to be used with the deep feature maps.
+
+
 #### Mar 10, 2024:
 Make everything compatible with `torch.compile`.
 #### Mar 9, 2024:
