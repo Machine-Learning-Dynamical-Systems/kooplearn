@@ -21,7 +21,7 @@ logger = logging.getLogger("kooplearn")
 check_torch_deps()
 import lightning  # noqa: E402
 import torch  # noqa: E402
-from kooplearn.nn.data import TorchTensorContextDataset
+from kooplearn.nn.data import TorchTensorContextDataset  # noqa: E402
 
 
 class DynamicAE(BaseModel):
