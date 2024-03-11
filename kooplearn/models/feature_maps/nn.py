@@ -87,7 +87,7 @@ class NNFeatureMap(TrainableFeatureMap):
             filename (path-like or file-like): Load the model from file.
 
         Returns:
-            DPNet: The loaded model.
+            The loaded model.
         """
         restored_obj = pickle_load(cls, filename)
         # Restore the weakref
@@ -128,7 +128,7 @@ class NNFeatureMap(TrainableFeatureMap):
             train_dataloaders is not None or val_dataloaders is not None
         ) and datamodule is not None:
             raise ValueError(
-                "You cannot pass `train_dataloader` or `val_dataloaders` to `DPNet.fit(datamodule=...)`"
+                "You cannot pass `train_dataloader` or `val_dataloaders` to `NNFeatureMap.fit(datamodule=...)`"
             )
         # Get the shape of the first batch to determine the lookback_len
         if train_dataloaders is None:
