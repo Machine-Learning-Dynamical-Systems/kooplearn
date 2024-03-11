@@ -1,5 +1,3 @@
-import sys
-
 import numpy as np
 from numpy.typing import ArrayLike
 
@@ -27,7 +25,6 @@ class TensorContextDataset(ContextWindowDataset):
 
     def slice(self, slice_obj):
         return self.data[:, slice_obj]
-
 
 class TrajectoryContextDataset(TensorContextDataset):
     def __init__(
@@ -106,3 +103,5 @@ def traj_to_contexts(
     return TrajectoryContextDataset(
         trajectory, context_length=context_window_len, time_lag=time_lag
     )
+
+

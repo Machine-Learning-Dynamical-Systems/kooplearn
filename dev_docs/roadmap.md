@@ -8,6 +8,9 @@ In addition:
 1. I am working on `kooplearn.abc` to update the signatures of `BaseModule` too.
 2. Should port some methods from `kooplearn._src.operator_regression.primal` to `torch`, to be used with the deep feature maps.
 
+(LATER): Upon testing the ordered MNIST, some points are emerging:
+1. Write a `collate_fn` to do batching from a `TensorContextDataset`.
+
 
 #### Mar 10, 2024:
 Make everything compatible with `torch.compile`.
