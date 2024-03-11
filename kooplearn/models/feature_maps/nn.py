@@ -8,61 +8,53 @@ import numpy as np
 import torch
 
 from kooplearn._src.serialization import pickle_load, pickle_save
-from kooplearn.abc import TrainableFeatureMap
-from kooplearn.nn.functional import (
-    log_fro_metric_deformation_loss,
-    relaxed_projection_score,
-    vamp_score,
-)
+from kooplearn.abc import ContextWindowDataset, TrainableFeatureMap
 
 logger = logging.getLogger("kooplearn")
 
 
-class DPNet(TrainableFeatureMap):
-    """Implements the DPNets :footcite:p:`Kostic2023DPNets` feature map, which learn an invariant representation of time-homogeneous stochastic dynamical systems. Can be used in conjunction to :class:`kooplearn.models.DeepEDMD` to learn a Koopman/Transfer operator from data. The DPNet feature map is trained using the :class:`lightning.LightningModule` API, and can be trained using the :class:`lightning.Trainer` API. See the `PyTorch Lightning documentation <https://pytorch-lightning.readthedocs.io/en/latest/>`_ for more information.
+class NNFeatureMap(TrainableFeatureMap):
+    """Implements a generic Neural Network feature maps. Can be used in conjunction to :class:`kooplearn.models.DeepEDMD` to learn a Koopman/Transfer operator from data. The NN feature map is trained using the :class:`lightning.LightningModule` API, and can be trained using the :class:`lightning.Trainer` API. See the `PyTorch Lightning documentation <https://pytorch-lightning.readthedocs.io/en/latest/>`_ for more information.
 
     Args:
         encoder (torch.nn.Module): Encoder network. Should be a subclass of :class:`torch.nn.Module`. Will be initialized as ``encoder(**encoder_kwargs)``.
+        loss_fn (torch.nn.Module): Loss function from :class:`kooplearn.nn`
         optimizer_fn (torch.optim.Optimizer): Any optimizer from :class:`torch.optim.Optimizer`.
-        trainer (lightning.Trainer): An initialized `Lightning Trainer <https://lightning.ai/docs/pytorch/stable/common/trainer.html>`_ object used to train the DPNet feature map.
-        use_relaxed_loss (bool, optional): Whether to use the relaxed projection score introduced in :footcite:t:`Kostic2023DPNets`. Might be slower to convergence, but is much more stable in ill-conditioned problems.  Defaults to False.
-        metric_deformation_loss_coefficient (float, optional): Coefficient of the metric deformation loss. Defaults to 1.0.
+        trainer (lightning.Trainer): An initialized `Lightning Trainer <https://lightning.ai/docs/pytorch/stable/common/trainer.html>`_ object used to train the NN feature map.
+        lagged_encoder (Optional[torch.nn.Module], optional): Encoder network for the time-lagged data. Defaults to None. If None, the encoder network is used for time-lagged data as well. If not None, it will be initialized as ``lagged_encoder(**lagged_encoder_kwargs)``.
         encoder_kwargs (dict, optional): Dictionary of keyword arguments passed to the encoder network upon initialization. Defaults to ``{}``.
+        loss_kwargs (dict): Dictionary of keyword arguments passed to the loss function at initialization. Defaults to ``{}``.
         optimizer_kwargs (dict): Dictionary of keyword arguments passed to the optimizer at initialization. Defaults to ``{}``.
-        encoder_timelagged (Optional[torch.nn.Module], optional): Encoder network for the time-lagged data. Defaults to None. If None, the encoder network is used for time-lagged data as well. If not None, it will be initialized as ``encoder_timelagged(**encoder_timelagged_kwargs)``.
-        encoder_timelagged_kwargs (dict, optional): Dictionary of keyword arguments passed to `encoder_timelagged` upon initialization. Defaults to ``{}``.
-        center_covariances (bool, optional): Wheter to compute the VAMP score with centered covariances. Defaults to False.
+        lagged_encoder_kwargs (dict, optional): Dictionary of keyword arguments passed to `lagged_encoder` upon initialization. Defaults to ``{}``.
         seed (int, optional): Seed of the internal random number generator. Defaults to None.
     """
 
     def __init__(
         self,
         encoder: torch.nn.Module,
+        loss_fn: torch.nn.Module,
         optimizer_fn: torch.optim.Optimizer,
         trainer: lightning.Trainer,
-        use_relaxed_loss: bool = False,
-        metric_deformation_loss_coefficient: float = 1.0,  # That is, the parameter γ in the paper.
+        lagged_encoder: Optional[torch.nn.Module] = None,
         encoder_kwargs: dict = {},
+        loss_kwargs: dict = {},
         optimizer_kwargs: dict = {},
-        encoder_timelagged: Optional[torch.nn.Module] = None,
-        encoder_timelagged_kwargs: dict = {},
-        center_covariances: bool = False,
+        lagged_encoder_kwargs: dict = {},
         seed: Optional[int] = None,
     ):
         if seed is not None:
             lightning.seed_everything(seed)
 
         self.lightning_trainer = trainer
-        self.lightning_module = DPModule(
+        self.lightning_module = PLModule(
             encoder,
+            loss_fn,
             optimizer_fn,
-            optimizer_kwargs,
-            use_relaxed_loss=use_relaxed_loss,
-            metric_deformation_loss_coefficient=metric_deformation_loss_coefficient,
+            lagged_encoder=lagged_encoder,
             encoder_kwargs=encoder_kwargs,
-            encoder_timelagged=encoder_timelagged,
-            encoder_timelagged_kwargs=encoder_timelagged_kwargs,
-            center_covariances=center_covariances,
+            loss_kwargs=loss_kwargs,
+            optimizer_kwargs=optimizer_kwargs,
+            lagged_encoder_kwargs=lagged_encoder_kwargs,
             kooplearn_feature_map_weakref=weakref.ref(self),
         )
         self.seed = seed
@@ -112,7 +104,7 @@ class DPNet(TrainableFeatureMap):
         ckpt_path: Optional[str] = None,
         verbose: bool = True,
     ):
-        """Fits the DPNet feature map. Accepts the same arguments as :meth:`lightning.Trainer.fit`, except for the ``model`` keyword, which is automatically set to the DPNet feature map.
+        """Fits the NN feature map. Accepts the same arguments as :meth:`lightning.Trainer.fit`, except for the ``model`` keyword, which is automatically set to the NN feature map.
 
         Args:
             train_dataloaders: An iterable or collection of iterables specifying training samples.
@@ -142,12 +134,14 @@ class DPNet(TrainableFeatureMap):
         if train_dataloaders is None:
             assert isinstance(datamodule, lightning.LightningDataModule)
             for batch in datamodule.train_dataloader():
-                context_len = batch.shape[1]
+                assert isinstance(batch, ContextWindowDataset)
+                context_len = batch.context_length
                 break
         else:
             assert isinstance(train_dataloaders, torch.utils.data.DataLoader)
             for batch in train_dataloaders:
-                context_len = batch.shape[1]
+                assert isinstance(batch, ContextWindowDataset)
+                context_len = batch.context_length
                 break
 
         self._lookback_len = context_len - 1
@@ -175,27 +169,32 @@ class DPNet(TrainableFeatureMap):
         return embedded_X
 
 
-class DPModule(lightning.LightningModule):
+class PLModule(lightning.LightningModule):
     def __init__(
         self,
         encoder: torch.nn.Module,
+        loss_fn: torch.nn.Module,
         optimizer_fn: torch.optim.Optimizer,
-        optimizer_kwargs: dict,
-        use_relaxed_loss: bool = False,
-        metric_deformation_loss_coefficient: float = 1.0,  # That is, the parameter γ in the paper.
+        lagged_encoder: Optional[torch.nn.Module] = None,
         encoder_kwargs: dict = {},
-        encoder_timelagged: Optional[torch.nn.Module] = None,
-        encoder_timelagged_kwargs: dict = {},
-        center_covariances: bool = True,
+        loss_kwargs: dict = {},
+        optimizer_kwargs: dict = {},
+        lagged_encoder_kwargs: dict = {},
         kooplearn_feature_map_weakref=None,
     ):
         super().__init__()
 
         self.save_hyperparameters(
-            ignore=["encoder", "optimizer_fn", "kooplearn_feature_map_weakref"]
+            ignore=[
+                "encoder",
+                "loss_fn",
+                "optimizer_fn",
+                "lagged_encoder",
+                "kooplearn_feature_map_weakref",
+            ]
         )
-        _tmp_opt_kwargs = deepcopy(optimizer_kwargs)
-        if "lr" in _tmp_opt_kwargs:  # For Lightning's LearningRateFinder
+        if "lr" in optimizer_kwargs:  # For Lightning's LearningRateFinder
+            _tmp_opt_kwargs = deepcopy(optimizer_kwargs)
             self.lr = _tmp_opt_kwargs.pop("lr")
             self.opt_kwargs = _tmp_opt_kwargs
         else:
@@ -205,52 +204,28 @@ class DPModule(lightning.LightningModule):
             )
 
         self.encoder = encoder(**encoder_kwargs)
-        if encoder_timelagged is not None:
-            self.encoder_timelagged = encoder_timelagged(**encoder_timelagged_kwargs)
+        if lagged_encoder is not None:
+            self.lagged_encoder = lagged_encoder(**lagged_encoder_kwargs)
         else:
-            self.encoder_timelagged = self.encoder
+            self.lagged_encoder = self.encoder
         self._optimizer = optimizer_fn
+        self._loss = loss_fn(**loss_kwargs)
         self._kooplearn_feature_map_weakref = kooplearn_feature_map_weakref
 
     def configure_optimizers(self):
         kw = self.opt_kwargs | {"lr": self.lr}
         return self._optimizer(self.parameters(), **kw)
 
-    def training_step(self, train_batch, batch_idx):
-        X, Y = train_batch[:, :-1, ...], train_batch[:, 1:, ...]
+    def training_step(self, train_batch: ContextWindowDataset, batch_idx):
+        lookback_len = self._kooplearn_feature_map_weakref().lookback_len
+        X, Y = train_batch.lookback(lookback_len), train_batch.lookback(
+            lookback_len, slide_by=1
+        )
         encoded_X, encoded_Y = self.forward(X), self.forward(Y, time_lagged=True)
-
-        if self.hparams.center_covariances:
-            encoded_X = encoded_X - encoded_X.mean(dim=0, keepdim=True)
-            encoded_Y = encoded_Y - encoded_Y.mean(dim=0, keepdim=True)
-
-        _norm = torch.rsqrt(torch.tensor(encoded_X.shape[0]))
-        encoded_X *= _norm
-        encoded_Y *= _norm
-
-        cov_X = torch.mm(encoded_X.T, encoded_X)
-        cov_Y = torch.mm(encoded_Y.T, encoded_Y)
-        cov_XY = torch.mm(encoded_X.T, encoded_Y)
-
-        metrics = {}
-        # Compute the losses
-        if self.hparams.use_relaxed_loss:
-            svd_loss = -1 * relaxed_projection_score(cov_X, cov_Y, cov_XY)
-            metrics["train/relaxed_projection_score"] = -1.0 * svd_loss.item()
-        else:
-            svd_loss = -1 * vamp_score(cov_X, cov_Y, cov_XY, schatten_norm=2)
-            metrics["train/projection_score"] = -1.0 * svd_loss.item()
-        if self.hparams.metric_deformation_loss_coefficient > 0.0:
-            metric_deformation_loss = 0.5 * (
-                log_fro_metric_deformation_loss(cov_X)
-                + log_fro_metric_deformation_loss(cov_Y)
-            )
-            metric_deformation_loss *= self.hparams.metric_deformation_loss_coefficient
-            metrics["train/metric_deformation_loss"] = metric_deformation_loss.item()
-            svd_loss += metric_deformation_loss
-        metrics["train/total_loss"] = svd_loss.item()
+        loss = self._loss(encoded_X, encoded_Y)
+        metrics = {f"train/{self._loss.__class__.__name__}": loss.item()}
         self.log_dict(metrics, on_step=True, prog_bar=True, logger=True)
-        return svd_loss
+        return loss
 
     def forward(self, X: torch.Tensor, time_lagged: bool = False) -> torch.Tensor:
         # Caution: this method is designed only for internal calling by the DPNet feature map.
@@ -262,6 +237,6 @@ class DPModule(lightning.LightningModule):
             encoded_X = self.encoder_timelagged(X)
         else:
             encoded_X = self.encoder(X)
-        trail_dims = encoded_X.shape[1:]
-        encoded_X = encoded_X.view(batch_size, lookback_len, *trail_dims)
+        encoded_trail_dims = encoded_X.shape[1:]
+        encoded_X = encoded_X.view(batch_size, lookback_len, *encoded_trail_dims)
         return encoded_X.view(batch_size, -1)
