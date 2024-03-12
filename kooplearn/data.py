@@ -21,7 +21,7 @@ class TensorContextDataset(ContextWindowDataset):
         return iter(self.data)
 
     def __getitem__(self, idx):
-        return TensorContextDataset(self.data[idx])
+        return self.data[idx]
 
     def slice(self, slice_obj):
         return self.data[:, slice_obj]

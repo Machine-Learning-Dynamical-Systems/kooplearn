@@ -1,7 +1,8 @@
 import logging
+from math import floor
 import weakref
 from copy import deepcopy
-from typing import Callable, Optional
+from typing import Optional, Union
 
 import numpy as np
 from scipy.linalg import eig
@@ -140,58 +141,91 @@ class DynamicAE(BaseModel):
         self,
         data: TorchTensorContextDataset,
         t: int = 1,
-        observables: Optional[Callable] = None,
+        predict_observables: bool = True,
+        reencode_every: int = 0,
     ):
         """
-        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial conditions ``X = data[:, self.lookback_len:, ...]`` being the lookback slice of ``data``.
-
-        .. attention::
-
-            ``data.shape[1]`` must match the lookback length ``self.lookback_len``. Otherwise, an error is raised.
-
-        If ``observables`` are not ``None``, returns the analogue quantity for the observable instead.
+        Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t`` instants given the initial conditions ``data.lookback(self.lookback_len)`` being the lookback slice of ``data``.
+        If ``data.observables`` is not ``None``, returns the analogue quantity for the observable instead.
 
         Args:
-            data (TorchTensorContextDataset): Initial conditions to predict. Array of context windows with shape ``(n_init_conditions, self.lookback_len, *self.data_fit.shape[2:])`` (see the note above).
+            data (TorchTensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as the initial condition, see the note above.
             t (int): Number of steps in the future to predict (returns the last one).
-            observables (callable or None): Callable or ``None``. If callable should map batches of states of shape ``(batch, *self.data_fit.shape[2:])`` to batches of observables ``(batch, *obs_features_shape)``.
+            predict_observables (bool): Return the prediction for the observables in ``data.observables``, if present. Default to ``True``.
+            reencode_every (int): When ``t > 1``, periodically reencode the predictions as described in :footcite:t:`Fathi2023`. Only available when ``predict_observables = False``.
 
         Returns:
-           The predicted (expected) state/observable at time :math:`t`, shape ``(n_init_conditions, *obs_features_shape)``.
+           The predicted (expected) state/observable at time :math:`t`. The result is composed of arrays with shape matching ``data.lookforward(self.lookback_len)`` or the contents of ``data.observables``. If ``predict_observables = True`` and ``data.observables != None``, the returned ``dict``will contain the special key ``__state__`` containing the prediction for the state as well.
         """
-        # data = self._np_to_torch(data)  # [n_samples, context_len == 1, *trail_dims]
         check_is_fitted(self, ["_state_trail_dims"])
         assert tuple(data.shape[2:]) == self._state_trail_dims
 
-        with torch.no_grad():
-            init_data = data.data[:, self.lookback_len - 1, ...]
-            evolved_data = evolve_batch(
-                init_data,
-                t,
-                self.lightning_module.encoder,
-                self.lightning_module.decoder,
-                self.lightning_module.evolution_operator,
-            )
-            evolved_data = evolved_data.detach().cpu().numpy()
-        if observables is None:
-            return evolved_data
-        elif callable(observables):
-            return observables(evolved_data)
+        if predict_observables and hasattr(data, "observables"):
+            observables = data.observables
+            observables["__state__"] = None
         else:
-            raise ValueError("Observables must be either None, or callable.")
+            observables = {"__state__": None}
+
+        results = {}
+        for obs_name, obs in observables.items():
+            if (reencode_every > 0) and (t > reencode_every):
+                if (predict_observables is True) and (observables is not None):
+                    raise ValueError(
+                        "rencode_every only works when forecasting states, not observables. Consider setting predict_observables to False."
+                    )
+                else:
+                    num_reencodings = floor(t / reencode_every)
+                    for k in range(num_reencodings):
+                        raise NotImplementedError
+            else:
+                with torch.no_grad():
+                    init_data = data.data[:, self.lookback_len - 1, ...]
+                    evolved_data = evolve_batch(
+                        init_data,
+                        t,
+                        self.lightning_module.encoder,
+                        self.lightning_module.decoder,
+                        self.lightning_module.evolution_operator,
+                    )
+                    evolved_data = evolved_data.detach().cpu().numpy()
+                    if obs is None:
+                        results[obs_name] = evolved_data
+                    elif callable(obs):
+                        results[obs_name] = obs(evolved_data)
+                    else:
+                        raise ValueError("Observables must be either None, or callable.")
+
+        if len(results) == 1:
+            return results["__state__"]
+        else:
+            return results
 
     def modes(
         self,
         data: TorchTensorContextDataset,
-        observables: Optional[Callable] = None,
+        predict_observables: bool = True,
     ):
         raise NotImplementedError()
 
     def eig(
         self,
-        eval_left_on: Optional[np.ndarray] = None,
-        eval_right_on: Optional[np.ndarray] = None,
-    ):
+        eval_left_on: Optional[TorchTensorContextDataset] = None,
+        eval_right_on: Optional[TorchTensorContextDataset] = None,
+    ) -> Union[
+        np.ndarray,
+        tuple[np.ndarray, np.ndarray],
+        tuple[np.ndarray, np.ndarray, np.ndarray],
+    ]:
+        """
+        Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right eigenfunctions.
+
+        Args:
+            eval_left_on (TorchTensorContextDataset or None): Dataset of context windows on which the left eigenfunctions are evaluated.
+            eval_right_on (TorchTensorContextDataset or None): Dataset of context windows on which the right eigenfunctions are evaluated.
+
+        Returns:
+            Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. If ``eval_left_on`` or ``eval_right_on``  are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on``/``eval_right_on``: shape ``(n_samples, rank)``.
+        """
         if hasattr(self, "_eig_cache"):
             w, vl, vr = self._eig_cache
         else:
@@ -210,10 +244,10 @@ class DynamicAE(BaseModel):
             return w
         elif eval_left_on is None and eval_right_on is not None:
             # (eigenvalues, right eigenfunctions)
-            eval_right_on = self._np_to_torch(
-                eval_right_on
-            )  # [n_samples, context_len == 1, *trail_dims]
-            eval_right_on = eval_right_on[
+            # eval_right_on = self._np_to_torch(
+            #     eval_right_on
+            # )  # [n_samples, context_len == 1, *trail_dims]
+            eval_right_on = eval_right_on.data[
                 :, self.lookback_len - 1, ...
             ]  # [n_samples, *trail_dims]
             with torch.no_grad():
@@ -224,10 +258,10 @@ class DynamicAE(BaseModel):
             return w, r_fns.detach().cpu().numpy()
         elif eval_left_on is not None and eval_right_on is None:
             # (eigenvalues, left eigenfunctions)
-            eval_left_on = self._np_to_torch(
-                eval_left_on
-            )  # [n_samples, context_len == 1, *trail_dims]
-            eval_left_on = eval_left_on[
+            # eval_left_on = self._np_to_torch(
+            #     eval_left_on
+            # )  # [n_samples, context_len == 1, *trail_dims]
+            eval_left_on = eval_left_on.data[
                 :, self.lookback_len - 1, ...
             ]  # [n_samples, *trail_dims]
             with torch.no_grad():
@@ -239,17 +273,17 @@ class DynamicAE(BaseModel):
         elif eval_left_on is not None and eval_right_on is not None:
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
 
-            eval_right_on = self._np_to_torch(
-                eval_right_on
-            )  # [n_samples, context_len == 1, *trail_dims]
-            eval_right_on = eval_right_on[
+            # eval_right_on = self._np_to_torch(
+            #     eval_right_on
+            # )  # [n_samples, context_len == 1, *trail_dims]
+            eval_right_on = eval_right_on.data[
                 :, self.lookback_len - 1, ...
             ]  # [n_samples, *trail_dims]
 
-            eval_left_on = self._np_to_torch(
-                eval_left_on
-            )  # [n_samples, context_len == 1, *trail_dims]
-            eval_left_on = eval_left_on[
+            # eval_left_on = self._np_to_torch(
+            #     eval_left_on
+            # )  # [n_samples, context_len == 1, *trail_dims]
+            eval_left_on = eval_left_on.data[
                 :, self.lookback_len - 1, ...
             ]  # [n_samples, *trail_dims]
 
@@ -334,9 +368,9 @@ class DynamicAEModule(lightning.LightningModule):
             )
         self._kooplearn_model_weakref = kooplearn_model_weakref
 
-    def _lstsq_evolution(self, batch: torch.Tensor):
-        X = batch[:, 0, ...]
-        Y = batch[:, 1, ...]
+    def _lstsq_evolution(self, batch: TorchTensorContextDataset):
+        X = batch[:, 0, ...].data
+        Y = batch[:, 1, ...].data
         return (torch.linalg.lstsq(X, Y).solution).T
 
     def configure_optimizers(self):
@@ -345,7 +379,7 @@ class DynamicAEModule(lightning.LightningModule):
 
     def training_step(self, train_batch, batch_idx):
         lookback_len = self._kooplearn_model_weakref().lookback_len
-        encoded_batch = encode_contexts(train_batch, self.encoder)
+        encoded_batch = encode_contexts(train_batch.data, self.encoder)
         if self.hparams.use_lstsq_for_evolution:
             K = self._lstsq_evolution(encoded_batch)
         else:
@@ -356,11 +390,11 @@ class DynamicAEModule(lightning.LightningModule):
         MSE = torch.nn.MSELoss()
         # Reconstruction + prediction loss
         rec_loss = MSE(
-            train_batch[:, lookback_len - 1, ...],
+            train_batch[:, lookback_len - 1, ...].data,
             decoded_batch[:, lookback_len - 1, ...],
         )
         pred_loss = MSE(
-            train_batch[:, lookback_len:, ...], decoded_batch[:, lookback_len:, ...]
+            train_batch[:, lookback_len:, ...].data, decoded_batch[:, lookback_len:, ...]
         )
 
         alpha_rec = self.hparams.loss_weights.get("rec", 1.0)
@@ -382,11 +416,11 @@ class DynamicAEModule(lightning.LightningModule):
         self.log_dict(metrics, on_step=True, prog_bar=True, logger=True)
         return loss
 
-    def dry_run(self, batch: torch.Tensor):
+    def dry_run(self, batch: TorchTensorContextDataset):
         lookback_len = self._kooplearn_model_weakref().lookback_len
         check_contexts_shape(batch, lookback_len)
         # Caution: this method is designed only for internal calling.
-        Z = encode_contexts(batch, self.encoder)
+        Z = encode_contexts(batch.data, self.encoder)
         if self.hparams.use_lstsq_for_evolution:
             X = Z[:, 0, ...]
             Y = Z[:, 1, ...]
