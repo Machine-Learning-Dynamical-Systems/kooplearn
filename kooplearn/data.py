@@ -21,10 +21,11 @@ class TensorContextDataset(ContextWindowDataset):
         return iter(self.data)
 
     def __getitem__(self, idx):
-        return self.data[idx]
+        return TensorContextDataset(self.data[idx])
 
     def slice(self, slice_obj):
         return self.data[:, slice_obj]
+
 
 class TrajectoryContextDataset(TensorContextDataset):
     def __init__(
@@ -103,5 +104,3 @@ def traj_to_contexts(
     return TrajectoryContextDataset(
         trajectory, context_length=context_window_len, time_lag=time_lag
     )
-
-

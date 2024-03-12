@@ -9,6 +9,8 @@ import torch  # noqa: E402
 
 from kooplearn.data import TensorContextDataset  # noqa: E402
 
+def context_dataset_collate_fn(list[TensorContextDataset]):
+    pass
 
 class TorchTensorContextDataset(TensorContextDataset):
     def __init__(self, data: torch.Tensor):
@@ -17,7 +19,6 @@ class TorchTensorContextDataset(TensorContextDataset):
                 f"Invalid shape {data.shape}. The data must have be at least three dimensional [batch_size, context_len, *features]."
             )
         super().__init__(data)
-
 
 class TorchTrajectoryContextDataset(TorchTensorContextDataset):
     def __init__(
