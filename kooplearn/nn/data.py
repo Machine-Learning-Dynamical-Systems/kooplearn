@@ -9,8 +9,8 @@ import torch  # noqa: E402
 
 from kooplearn.data import TensorContextDataset  # noqa: E402
 
-def context_dataset_collate_fn(list[TensorContextDataset]):
-    pass
+def context_dataset_collate_fn(batch: list[TensorContextDataset]):
+    return TorchTensorContextDataset(torch.stack([ctx.data for ctx in batch]))
 
 class TorchTensorContextDataset(TensorContextDataset):
     def __init__(self, data: torch.Tensor):
