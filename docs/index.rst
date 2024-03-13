@@ -133,8 +133,7 @@ Learn more
    
    primer
    getting_started
-   .. 
-      examples/index
+   examples/index
    model_zoo
    guides/index
    api_reference/index

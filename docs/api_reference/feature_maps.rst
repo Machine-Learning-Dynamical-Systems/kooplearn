@@ -32,10 +32,7 @@ Kooplearn, in turn will handle the creation of a :code:`lightning.LightningModul
 
  
 
-.. autoclass:: DPNet
-    :members:
-
-.. autoclass:: VAMPNet
+.. autoclass:: NNFeatureMap
     :members:
 
 .. footbibliography::
