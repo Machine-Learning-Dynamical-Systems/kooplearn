@@ -5,34 +5,38 @@ import torch
 from kooplearn._src.utils import ShapeError
 from kooplearn.nn.data import TorchTensorContextDataset
 
-# A bit of code copy paste but it's ok for now
-def encode_contexts(contexts_batch: TorchTensorContextDataset, encoder: torch.nn.Module):
+
+def encode_contexts(
+    contexts_batch: TorchTensorContextDataset, encoder: torch.nn.Module
+):
     # Caution: this method is designed only for internal calling.
-    context_len = contexts_batch.shape[1]
-    Z = []
-    for i in range(context_len):  # Inefficient but working
-        X = contexts_batch[:, i, ...].data
-        Z.append(encoder(X))
-    Z = torch.stack(Z, dim=1)
-    latent_dim = Z.shape[2:]
-    assert (
-        len(latent_dim) == 1
-    ), "The encoder output must be a 1-dimensional tensor (i.e. a vector)."
-    return TorchTensorContextDataset(Z)
+    context_len = contexts_batch.context_length
+    batch_size = len(contexts_batch)
+    trail_dims = contexts_batch.shape[2:]
+
+    encoded_contexts = encoder(
+        contexts_batch.data.view(batch_size * context_len, *trail_dims)
+    )
+    encoded_contexts = encoded_contexts.view(batch_size, context_len, -1)
+    return TorchTensorContextDataset(encoded_contexts)
 
 
-def decode_contexts(encoded_contexts_batch: TorchTensorContextDataset, decoder: torch.nn.Module):
+def decode_contexts(
+    encoded_contexts_batch: TorchTensorContextDataset, decoder: torch.nn.Module
+):
     # Caution: this method is designed only for internal calling.
-    context_len = encoded_contexts_batch.shape[1]
+    context_len = encoded_contexts_batch.context_length
+    batch_size = len(encoded_contexts_batch)
     assert (
         len(encoded_contexts_batch.shape[2:]) == 1
     ), "The decoder input must be a 1-dimensional tensor (i.e. a vector)."
-    Z = []
-    for i in range(context_len):  # Inefficient but working
-        X = encoded_contexts_batch[:, i, ...].data
-        Z.append(decoder(X))
-    Z = torch.stack(Z, dim=1)
-    return TorchTensorContextDataset(Z)
+
+    decoded_contexts = decoder(
+        encoded_contexts_batch.data.view(batch_size * context_len, -1)
+    )
+    trail_dims = decoded_contexts.shape[1:]
+    decoded_contexts = decoded_contexts.view(batch_size, context_len, *trail_dims)
+    return TorchTensorContextDataset(decoded_contexts)
 
 
 def evolve_contexts(
@@ -42,10 +46,11 @@ def evolve_contexts(
     backward_operator: Optional[Union[torch.nn.Parameter, torch.Tensor]] = None,
 ):
     # Caution: this method is designed only for internal calling.
-    batch_size = encoded_contexts_batch.shape[0]
-    context_len = encoded_contexts_batch.shape[1]
-    latent_dim = encoded_contexts_batch.shape[2]
-    X_init = torch.squeeze(encoded_contexts_batch.lookback(lookback_len))  # Initial condition
+    context_len = encoded_contexts_batch.context_length
+
+    X_init = torch.squeeze(
+        encoded_contexts_batch.slice(slice(lookback_len - 1, lookback_len))
+    )  # Initial condition
     if X_init.ndim != 2:
         raise ShapeError(
             f"The encoder network must return a 1D vector for each snapshot, while a shape {X_init.shape[1:]} tensor was received."
@@ -66,7 +71,31 @@ def evolve_contexts(
             pwd_operator = torch.matrix_power(forward_operator, exp)
             Z = torch.mm(pwd_operator, X_init.T).T
         evolved_contexts_batch[:, ctx_idx, ...] = Z
-    return TorchTensorContextDataset(evolved_contexts_batch.reshape(batch_size, context_len, latent_dim))  # [batch_size, context_len, latent_dim]
+    return TorchTensorContextDataset(
+        evolved_contexts_batch
+    )  # [batch_size, context_len, latent_dim]
+
+
+def evolve_forward(
+    batch: TorchTensorContextDataset,
+    lookback_len: int,
+    t: int,
+    encoder: torch.nn.Module,
+    decoder: torch.nn.Module,
+    forward_operator: Union[torch.nn.Parameter, torch.Tensor],
+):
+    init_contexts = batch.slice(
+        slice(lookback_len - 1, lookback_len)
+    )  # Should be of shape [batch_size, 1, *trail_dims]
+    init_contexts = init_contexts.view(len(batch), *batch.shape[2:])
+    encoded_init_contexts = encoder(init_contexts)
+    _raw_encoded_inits = encoded_init_contexts.data.view(len(init_contexts), -1)
+    pwd_operator = torch.matrix_power(forward_operator, t)
+    _raw_evolved_inits = torch.mm(pwd_operator, _raw_encoded_inits.T).T
+    _raw_decoded_preds = decoder(_raw_evolved_inits)
+    return TorchTensorContextDataset(
+        _raw_decoded_preds.view(len(batch), 1, *batch.shape[2:])
+    )
 
 
 def evolve_batch(

@@ -1,7 +1,7 @@
 import logging
-from math import floor
 import weakref
 from copy import deepcopy
+from math import floor
 from typing import Optional, Union
 
 import numpy as np
@@ -9,21 +9,24 @@ from scipy.linalg import eig
 
 from kooplearn._src.check_deps import check_torch_deps
 from kooplearn._src.serialization import pickle_load, pickle_save
-from kooplearn._src.utils import ShapeError, check_contexts_shape, check_is_fitted
+from kooplearn._src.utils import ShapeError, check_is_fitted
 from kooplearn.abc import BaseModel
 from kooplearn.models.ae.utils import (
     decode_contexts,
     encode_contexts,
-    evolve_batch,
     evolve_contexts,
+    evolve_forward,
 )
 
 logger = logging.getLogger("kooplearn")
 check_torch_deps()
 import lightning  # noqa: E402
 import torch  # noqa: E402
+
+from kooplearn.data import TensorContextDataset  # noqa: E402
 from kooplearn.nn.data import TorchTensorContextDataset  # noqa: E402
-from kooplearn.data import TensorContextDataset # noqa: E402
+
+
 class DynamicAE(BaseModel):
     """Dynamic AutoEncoder introduced by :footcite:t:`Lusch2018`. This class also implement the variant introduced by :footcite:t:`Morton2018` in which the linear evolution of the embedded state is given by a least square model.
 
@@ -104,7 +107,7 @@ class DynamicAE(BaseModel):
             train_dataloaders is not None or val_dataloaders is not None
         ) and datamodule is not None:
             raise ValueError(
-                "You cannot pass `train_dataloader` or `val_dataloaders` to `VAMPNet.fit(datamodule=...)`"
+                f"You cannot pass `train_dataloader` or `val_dataloaders` to `{self.__class__.__name__}.fit(datamodule=...)`"
             )
         # Get the shape of the first batch to determine the lookback_len
         if train_dataloaders is None:
@@ -133,10 +136,17 @@ class DynamicAE(BaseModel):
         )
         self._is_fitted = True
 
-    def _np_to_torch(self, data: TensorContextDataset):
+    def _to_torch(self, data: TensorContextDataset):
         # check_contexts_shape(data, self.lookback_len, is_inference_data=True)
         model_device = self.lightning_module.device
-        return TorchTensorContextDataset(torch.stack([torch.tensor(ctx).float().to(model_device) for ctx in data.data]))
+        return TorchTensorContextDataset(torch.tensor(data.data, device=model_device))
+
+    def _preprocess_for_eigfun(self, data: TensorContextDataset):
+        data_ondevice = self._to_torch(data)
+        contexts_for_inference = data_ondevice.slice(
+            slice(self.lookback_len - 1, self.lookback_len)
+        )
+        return contexts_for_inference.view(len(data_ondevice), *data_ondevice.shape[2:])
 
     def predict(
         self,
@@ -161,12 +171,7 @@ class DynamicAE(BaseModel):
         check_is_fitted(self, ["_state_trail_dims"])
         assert tuple(data.shape[2:]) == self._state_trail_dims
 
-        if not torch.is_tensor(data.data):
-            logger.warning(
-                f"The provided contexts are of type {type(data.data)}. Converting to torch.Tensor."
-            )
-            data = TorchTensorContextDataset(torch.stack([torch.tensor(ctx) for ctx in data.data]))
-
+        data = self._to_torch(data)
         if predict_observables and hasattr(data, "observables"):
             observables = data.observables
             observables["__state__"] = None
@@ -186,9 +191,9 @@ class DynamicAE(BaseModel):
                         raise NotImplementedError
             else:
                 with torch.no_grad():
-                    init_data = data.lookback(self.lookback_len)
-                    evolved_data = evolve_batch(
-                        init_data,
+                    evolved_data = evolve_forward(
+                        data,
+                        self.lookback_len,
                         t,
                         self.lightning_module.encoder,
                         self.lightning_module.decoder,
@@ -200,7 +205,9 @@ class DynamicAE(BaseModel):
                     elif callable(obs):
                         results[obs_name] = obs(evolved_data)
                     else:
-                        raise ValueError("Observables must be either None, or callable.")
+                        raise ValueError(
+                            "Observables must be either None, or callable."
+                        )
 
         if len(results) == 1:
             return results["__state__"]
@@ -238,7 +245,7 @@ class DynamicAE(BaseModel):
         else:
             if self.lightning_module.hparams.use_lstsq_for_evolution:
                 raise NotImplementedError(
-                    f"Eigenvalues and eigenvectors are not implemented when {self.lightning_module.hparams.use_lstsq_for_evolution} == True."
+                    "Eigenvalues and eigenvectors are not implemented when self.lightning_module.hparams.use_lstsq_for_evolution == True."
                 )
             else:
                 K = self.lightning_module.evolution_operator
@@ -251,9 +258,7 @@ class DynamicAE(BaseModel):
             return w
         elif eval_left_on is None and eval_right_on is not None:
             # (eigenvalues, right eigenfunctions)
-            if not torch.is_tensor(eval_right_on.data):
-                eval_right_on = self._np_to_torch(eval_right_on)  # [n_samples, context_len == 1, *trail_dims]
-            eval_right_on = eval_right_on.lookback(self.lookback_len) # [n_samples, *trail_dims]
+            eval_right_on = self._preprocess_for_eigfun(eval_right_on)
             with torch.no_grad():
                 phi_Xin = self.lightning_module.encoder(eval_right_on)
                 r_fns = (
@@ -262,9 +267,7 @@ class DynamicAE(BaseModel):
             return w, r_fns.detach().cpu().numpy()
         elif eval_left_on is not None and eval_right_on is None:
             # (eigenvalues, left eigenfunctions)
-            if not torch.is_tensor(eval_left_on.data):
-                eval_left_on = self._np_to_torch(eval_left_on)  # [n_samples, context_len == 1, *trail_dims]
-            eval_left_on = eval_left_on.lookback(self.lookback_len) # [n_samples, *trail_dims]
+            eval_left_on = self._preprocess_for_eigfun(eval_left_on)
             with torch.no_grad():
                 phi_Xin = self.lightning_module.encoder(eval_left_on)
                 l_fns = (
@@ -273,13 +276,8 @@ class DynamicAE(BaseModel):
             return w, l_fns.detach().cpu().numpy()
         elif eval_left_on is not None and eval_right_on is not None:
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
-            if not torch.is_tensor(eval_right_on.data):
-                eval_right_on = self._np_to_torch(eval_right_on)  # [n_samples, context_len == 1, *trail_dims]
-            eval_right_on = eval_right_on.lookback(self.lookback_len) # [n_samples, *trail_dims]
-            if not torch.is_tensor(eval_left_on.data):
-                eval_left_on = self._np_to_torch(eval_left_on)  # [n_samples, context_len == 1, *trail_dims]
-            eval_left_on = eval_left_on.lookback(self.lookback_len) # [n_samples, *trail_dims]
-
+            eval_right_on = self._preprocess_for_eigfun(eval_right_on)
+            eval_left_on = self._preprocess_for_eigfun(eval_left_on)
             with torch.no_grad():
                 phi_Xin_r = self.lightning_module.encoder(eval_right_on)
                 r_fns = (
@@ -362,8 +360,8 @@ class DynamicAEModule(lightning.LightningModule):
         self._kooplearn_model_weakref = kooplearn_model_weakref
 
     def _lstsq_evolution(self, batch: TorchTensorContextDataset):
-        X = batch[:, 0, ...].data
-        Y = batch[:, 1, ...].data
+        X = batch.data[:, 0, ...]
+        Y = batch.data[:, 1, ...]
         return (torch.linalg.lstsq(X, Y).solution).T
 
     def configure_optimizers(self):
@@ -387,7 +385,8 @@ class DynamicAEModule(lightning.LightningModule):
             decoded_batch.lookback(lookback_len),
         )
         pred_loss = MSE(
-            train_batch.lookforward(lookback_len), decoded_batch.lookforward(lookback_len)
+            train_batch.lookforward(lookback_len),
+            decoded_batch.lookforward(lookback_len),
         )
 
         alpha_rec = self.hparams.loss_weights.get("rec", 1.0)
@@ -415,12 +414,11 @@ class DynamicAEModule(lightning.LightningModule):
 
     def dry_run(self, batch: TorchTensorContextDataset):
         lookback_len = self._kooplearn_model_weakref().lookback_len
-        check_contexts_shape(batch, lookback_len)
         # Caution: this method is designed only for internal calling.
-        Z = encode_contexts(batch.data, self.encoder)
+        Z = encode_contexts(batch, self.encoder)
         if self.hparams.use_lstsq_for_evolution:
-            X = Z[:, 0, ...]
-            Y = Z[:, 1, ...]
+            X = Z.data[:, 0, ...]
+            Y = Z.data[:, 1, ...]
             evolution_operator = (torch.linalg.lstsq(X, Y).solution).T
         else:
             evolution_operator = self.evolution_operator
