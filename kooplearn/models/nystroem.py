@@ -226,7 +226,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
             observables, data, self.data_fit
         )
 
-        K_Xin_X = self.kernel(X_inference, X_fit)
+        K_Xin_X = self.kernel(X_inference, X_fit[self.nys_centers_idxs])
 
         results = {}
         for obs_name, obs in parsed_obs.items():
@@ -240,7 +240,14 @@ class NystroemKernel(BaseModel, RegressorMixin):
                     for k in range(num_reencodings):
                         raise NotImplementedError
             else:
-                obs_pred = dual.predict(t, self.U, self.V, self.kernel_YX, K_Xin_X, obs)
+                obs_pred = dual.predict(
+                    t,
+                    self.U,
+                    self.V,
+                    self.kernel_YX,
+                    K_Xin_X,
+                    obs[self.nys_centers_idxs],
+                )
                 obs_pred = obs_pred.reshape(expected_shapes[obs_name])
                 results[obs_name] = obs_pred
         if len(results) == 1:
@@ -283,6 +290,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
         X_fit, Y_fit = self.data_fit.lookback(
             self.lookback_len
         ), self.data_fit.lookback(self.lookback_len, slide_by=1)
+        X_fit, Y_fit = X_fit[self.nys_centers_idxs], Y_fit[self.nys_centers_idxs]
         if eval_left_on is None and eval_right_on is None:
             # (eigenvalues,)
             return w
@@ -347,13 +355,13 @@ class NystroemKernel(BaseModel, RegressorMixin):
                 self.U, self.V, self.kernel_X, self.kernel_YX
             )
 
-        K_Xin_X = self.kernel(X_inference, X_fit)
+        K_Xin_X = self.kernel(X_inference, X_fit[self.nys_centers_idxs])
         _gamma = dual.estimator_modes(K_Xin_X, rv, lv)
 
         results = {}
         for obs_name, obs in parsed_obs.items():
             expected_shape = (self.rank,) + expected_shapes[obs_name]
-            res = np.tensordot(_gamma, obs, axes=1).reshape(
+            res = np.tensordot(_gamma, obs[self.nys_centers_idxs], axes=1).reshape(
                 expected_shape
             )  # [rank, num_initial_conditions, ...]
             results[obs_name] = res
