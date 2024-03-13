@@ -1,8 +1,11 @@
+import logging
 import numpy as np
+import torch
 from numpy.typing import ArrayLike
 
 from kooplearn._src.utils import ShapeError
 from kooplearn.abc import ContextWindowDataset
+logger = logging.getLogger("kooplearn")
 
 
 class TensorContextDataset(ContextWindowDataset):
@@ -24,7 +27,14 @@ class TensorContextDataset(ContextWindowDataset):
         if np.issubdtype(type(idx), np.integer):
             return TensorContextDataset(self.data[slice(idx, idx + 1)])
         else:
-            return TensorContextDataset(self.data[idx])
+            if sum([isinstance(v, int) for v in idx]) > 0: # it may happen that the slicing operation removes a dimension, we want to preserve it!
+                axis_idx = np.where([isinstance(v, int) for v in idx])[0]
+                if isinstance(self.data, torch.Tensor):
+                    return TensorContextDataset(self.data[idx].unsqueeze(int(axis_idx)))
+                else:
+                    return TensorContextDataset(np.expand_dims(self.data[idx],int(axis_idx)))
+            else:
+                return TensorContextDataset(self.data[idx])
 
     def slice(self, slice_obj):
         return self.data[:, slice_obj]
