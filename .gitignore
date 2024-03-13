@@ -150,9 +150,8 @@ workspace.code-workspace
 .DS_Store
 .vscode
 
-# Logging
+# Logging & data
 **/lightning_logs
-
-# Private tests
 **/__data__
 **/__ckpts__
+**.npz
