@@ -134,9 +134,9 @@ class DynamicAE(BaseModel):
         self._is_fitted = True
 
     def _np_to_torch(self, data: TensorContextDataset):
-        check_contexts_shape(data, self.lookback_len, is_inference_data=True)
+        # check_contexts_shape(data, self.lookback_len, is_inference_data=True)
         model_device = self.lightning_module.device
-        return torch.from_numpy(data.data.copy()).float().to(model_device)
+        return TorchTensorContextDataset(torch.stack([torch.tensor(ctx).float().to(model_device) for ctx in data.data]))
 
     def predict(
         self,
