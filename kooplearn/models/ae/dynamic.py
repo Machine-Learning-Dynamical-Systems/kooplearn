@@ -186,7 +186,7 @@ class DynamicAE(BaseModel):
                         raise NotImplementedError
             else:
                 with torch.no_grad():
-                    init_data = data.data[:, self.lookback_len - 1, ...]
+                    init_data = data.lookback(self.lookback_len)
                     evolved_data = evolve_batch(
                         init_data,
                         t,
@@ -194,7 +194,7 @@ class DynamicAE(BaseModel):
                         self.lightning_module.decoder,
                         self.lightning_module.evolution_operator,
                     )
-                    evolved_data = evolved_data.detach().cpu().numpy()
+                    evolved_data = evolved_data.data.detach().cpu().numpy()
                     if obs is None:
                         results[obs_name] = evolved_data
                     elif callable(obs):
@@ -253,9 +253,7 @@ class DynamicAE(BaseModel):
             # (eigenvalues, right eigenfunctions)
             if not torch.is_tensor(eval_right_on.data):
                 eval_right_on = self._np_to_torch(eval_right_on)  # [n_samples, context_len == 1, *trail_dims]
-            eval_right_on = eval_right_on.data[
-                :, self.lookback_len - 1, ...
-            ]  # [n_samples, *trail_dims]
+            eval_right_on = eval_right_on.lookback(self.lookback_len) # [n_samples, *trail_dims]
             with torch.no_grad():
                 phi_Xin = self.lightning_module.encoder(eval_right_on)
                 r_fns = (
@@ -266,9 +264,7 @@ class DynamicAE(BaseModel):
             # (eigenvalues, left eigenfunctions)
             if not torch.is_tensor(eval_left_on.data):
                 eval_left_on = self._np_to_torch(eval_left_on)  # [n_samples, context_len == 1, *trail_dims]
-            eval_left_on = eval_left_on.data[
-                :, self.lookback_len - 1, ...
-            ]  # [n_samples, *trail_dims]
+            eval_left_on = eval_left_on.lookback(self.lookback_len) # [n_samples, *trail_dims]
             with torch.no_grad():
                 phi_Xin = self.lightning_module.encoder(eval_left_on)
                 l_fns = (
@@ -279,14 +275,10 @@ class DynamicAE(BaseModel):
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
             if not torch.is_tensor(eval_right_on.data):
                 eval_right_on = self._np_to_torch(eval_right_on)  # [n_samples, context_len == 1, *trail_dims]
-            eval_right_on = eval_right_on.data[
-                :, self.lookback_len - 1, ...
-            ]  # [n_samples, *trail_dims]
+            eval_right_on = eval_right_on.lookback(self.lookback_len) # [n_samples, *trail_dims]
             if not torch.is_tensor(eval_left_on.data):
                 eval_left_on = self._np_to_torch(eval_left_on)  # [n_samples, context_len == 1, *trail_dims]
-            eval_left_on = eval_left_on.data[
-                :, self.lookback_len - 1, ...
-            ]  # [n_samples, *trail_dims]
+            eval_left_on = eval_left_on.lookback(self.lookback_len) # [n_samples, *trail_dims]
 
             with torch.no_grad():
                 phi_Xin_r = self.lightning_module.encoder(eval_right_on)
@@ -380,7 +372,7 @@ class DynamicAEModule(lightning.LightningModule):
 
     def training_step(self, train_batch, batch_idx):
         lookback_len = self._kooplearn_model_weakref().lookback_len
-        encoded_batch = encode_contexts(train_batch.data, self.encoder)
+        encoded_batch = encode_contexts(train_batch, self.encoder)
         if self.hparams.use_lstsq_for_evolution:
             K = self._lstsq_evolution(encoded_batch)
         else:
@@ -391,11 +383,11 @@ class DynamicAEModule(lightning.LightningModule):
         MSE = torch.nn.MSELoss()
         # Reconstruction + prediction loss
         rec_loss = MSE(
-            train_batch[:, lookback_len - 1, ...].data,
-            decoded_batch[:, lookback_len - 1, ...],
+            train_batch.lookback(lookback_len),
+            decoded_batch.lookback(lookback_len),
         )
         pred_loss = MSE(
-            train_batch[:, lookback_len:, ...].data, decoded_batch[:, lookback_len:, ...]
+            train_batch.lookforward(lookback_len), decoded_batch.lookforward(lookback_len)
         )
 
         alpha_rec = self.hparams.loss_weights.get("rec", 1.0)
@@ -408,7 +400,7 @@ class DynamicAEModule(lightning.LightningModule):
         }
         if not self.hparams.use_lstsq_for_evolution:
             # Linear loss
-            lin_loss = MSE(encoded_batch, evolved_batch)
+            lin_loss = MSE(encoded_batch.data, evolved_batch.data)
             metrics["train/linear_loss"] = lin_loss.item()
             alpha_lin = self.hparams.loss_weights.get("lin", 1.0)
             loss += alpha_lin * lin_loss
