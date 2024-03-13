@@ -21,7 +21,10 @@ class TensorContextDataset(ContextWindowDataset):
         return iter(self.data)
 
     def __getitem__(self, idx):
-        return self.data[idx]
+        if np.issubdtype(type(idx), np.integer):
+            return TensorContextDataset(self.data[slice(idx, idx + 1)])
+        else:
+            return TensorContextDataset(self.data[idx])
 
     def slice(self, slice_obj):
         return self.data[:, slice_obj]
@@ -89,6 +92,7 @@ def traj_to_contexts(
     trajectory: np.ndarray,
     context_window_len: int = 2,
     time_lag: int = 1,
+    backend: str = "auto",
 ):
     """Convert a single trajectory to a sequence of context windows.
 
@@ -100,7 +104,40 @@ def traj_to_contexts(
     Returns:
         TrajectoryContexts: A sequence of Context Windows.
     """
+    if backend not in ["auto", "numpy", "torch"]:
+        raise ValueError(
+            f"Invalid backend {backend}. Accepted values are 'auto', 'numpy', or 'torch'."
+        )
+    # Check if torch is available
+    try:
+        import torch
+    except ImportError:
+        torch = None
 
-    return TrajectoryContextDataset(
-        trajectory, context_length=context_window_len, time_lag=time_lag
-    )
+    if backend == "numpy":
+        if torch is not None:
+            if torch.is_tensor(trajectory):
+                trajectory = trajectory.detach().cpu().numpy()
+        return TrajectoryContextDataset(
+            trajectory, context_length=context_window_len, time_lag=time_lag
+        )
+    elif backend == "torch":
+        try:
+            from kooplearn.nn.data import TorchTrajectoryContextDataset
+
+            return TorchTrajectoryContextDataset(
+                trajectory, context_length=context_window_len, time_lag=time_lag
+            )
+        except ImportError:
+            raise
+    elif backend == "auto":
+        if torch is not None:
+            if torch.is_tensor(trajectory):
+                from kooplearn.nn.data import TorchTrajectoryContextDataset
+
+                return TorchTrajectoryContextDataset(
+                    trajectory, context_length=context_window_len, time_lag=time_lag
+                )
+        return TrajectoryContextDataset(
+            trajectory, context_length=context_window_len, time_lag=time_lag
+        )

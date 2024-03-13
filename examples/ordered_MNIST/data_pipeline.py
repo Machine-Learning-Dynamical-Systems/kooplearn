@@ -49,7 +49,11 @@ def main():
     else:
         # Try to load the configs.yaml file and compare with the current one, if different, wipe the data_path and preprocess the data
         _saved_configs = ml_confs.from_file(data_path / "configs.yaml")
-        if _saved_configs != configs:
+        configs_changed = False
+        for attr in ["train_samples", "test_samples", "classes", "val_ratio"]:
+            if _saved_configs[attr] != configs[attr]:
+                configs_changed = True
+        if configs_changed:
             print("Configs changed, preprocessing data.")
             # Delete the data_path and preprocess the data
             shutil.rmtree(data_path)

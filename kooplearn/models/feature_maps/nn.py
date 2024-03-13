@@ -221,20 +221,24 @@ class PLModule(lightning.LightningModule):
         X, Y = train_batch.lookback(lookback_len), train_batch.lookback(
             lookback_len, slide_by=1
         )
-        encoded_X, encoded_Y = self.forward(X), self.forward(Y, time_lagged=True)
+        encoded_X, encoded_Y = self.forward(X), self.forward(Y, lagged=True)
         loss = self._loss(encoded_X, encoded_Y)
         metrics = {f"train/{self._loss.__class__.__name__}": loss.item()}
         self.log_dict(metrics, on_step=True, prog_bar=True, logger=True)
         return loss
 
-    def forward(self, X: torch.Tensor, time_lagged: bool = False) -> torch.Tensor:
+    def transfer_batch_to_device(self, batch, device, dataloader_idx):
+        batch.data = batch.data.to(device)
+        return batch
+
+    def forward(self, X: torch.Tensor, lagged: bool = False) -> torch.Tensor:
         # Caution: this method is designed only for internal calling by the DPNet feature map.
         lookback_len = X.shape[1]
         batch_size = X.shape[0]
         trail_dims = X.shape[2:]
         X = X.view(lookback_len * batch_size, *trail_dims)
-        if time_lagged:
-            encoded_X = self.encoder_timelagged(X)
+        if lagged:
+            encoded_X = self.lagged_encoder(X)
         else:
             encoded_X = self.encoder(X)
         encoded_trail_dims = encoded_X.shape[1:]

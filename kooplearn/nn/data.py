@@ -1,16 +1,19 @@
 import logging
 
-from kooplearn._src.check_deps import check_torch_deps
+import numpy as np
+import torch
+
 from kooplearn._src.utils import ShapeError
+from kooplearn.data import TensorContextDataset
 
 logger = logging.getLogger("kooplearn")
-check_torch_deps()
-import torch  # noqa: E402
 
-from kooplearn.data import TensorContextDataset  # noqa: E402
 
-def context_dataset_collate_fn(batch: list[TensorContextDataset]):
-    return TorchTensorContextDataset(torch.stack([ctx.data for ctx in batch]))
+def collate_context_dataset(batch: list[TensorContextDataset]):
+    concat_fn = torch.cat if torch.is_tensor(batch[0].data) else np.concatenate
+    batched_data = torch.tensor(concat_fn([ctx.data for ctx in batch]))
+    return TorchTensorContextDataset(batched_data)
+
 
 class TorchTensorContextDataset(TensorContextDataset):
     def __init__(self, data: torch.Tensor):
@@ -18,7 +21,10 @@ class TorchTensorContextDataset(TensorContextDataset):
             raise ShapeError(
                 f"Invalid shape {data.shape}. The data must have be at least three dimensional [batch_size, context_len, *features]."
             )
+        if not torch.is_tensor(data):
+            data = torch.as_tensor(data)
         super().__init__(data)
+
 
 class TorchTrajectoryContextDataset(TorchTensorContextDataset):
     def __init__(
@@ -70,24 +76,3 @@ class TorchTrajectoryContextDataset(TorchTensorContextDataset):
         data = torch.movedim(data, -1, 1)[:, ::time_lag, ...]
         idx_map = torch.movedim(idx_map, -1, 1)[:, ::time_lag, ...]
         return data, TensorContextDataset(idx_map)
-
-
-def torch_traj_to_contexts(
-    trajectory: torch.Tensor,
-    context_window_len: int = 2,
-    time_lag: int = 1,
-):
-    """Convert a single trajectory to a sequence of context windows.
-
-    Args:
-        trajectory (torch.Tensor): A trajectory of shape ``(n_frames, *features_shape)``.
-        context_window_len (int, optional): Length of the context window. Defaults to 2.
-        time_lag (int, optional): Time lag, i.e. stride, between successive context windows. Defaults to 1.
-
-    Returns:
-        TrajectoryContexts: A sequence of Context Windows.
-    """
-
-    return TorchTrajectoryContextDataset(
-        trajectory, context_length=context_window_len, time_lag=time_lag
-    )

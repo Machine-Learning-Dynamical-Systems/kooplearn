@@ -65,7 +65,7 @@ def vamp_score(X, Y, schatten_norm: int = 2, center_covariances: bool = True):
     if schatten_norm == 2:
         # Using least squares in place of pinv for numerical stability
         M_X = torch.linalg.lstsq(cov_X, cov_XY).solution
-        M_Y = torch.linalg.lstsq(cov_Y, cov_XY.T).solutions
+        M_Y = torch.linalg.lstsq(cov_Y, cov_XY.T).solution
         return torch.trace(M_X @ M_Y)
     elif schatten_norm == 1:
         sqrt_cov_X = sqrtmh(cov_X)
@@ -83,13 +83,18 @@ def vamp_score(X, Y, schatten_norm: int = 2, center_covariances: bool = True):
 
 
 def deepprojection_score(
-    X, Y, metric_deformation: float = 1.0, center_covariances: bool = True
+    X,
+    Y,
+    relaxed: bool = True,
+    metric_deformation: float = 1.0,
+    center_covariances: bool = True,
 ):
-    """(Relaxed) Deep Projection score by :footcite:t:`Kostic2023DPNets`.
+    """Deep Projection score by :footcite:t:`Kostic2023DPNets`.
 
     Args:
         X (torch.Tensor): Covariates for the initial time steps.
         Y (torch.Tensor): Covariates for the evolved time steps.
+        relaxed (bool, optional): Whether to use the relaxed (more numerically stable) or the full deep-projection loss. Defaults to True.
         metric_deformation (float, optional): Strength of the metric metric deformation loss: Defaults to 1.0.
         center_covariances (bool, optional): Use centered covariances to compute the VAMP score. Defaults to True.
 
@@ -99,14 +104,19 @@ def deepprojection_score(
         covariance(Y, center=center_covariances),
         covariance(X, Y, center=center_covariances),
     )
-    S = (torch.linalg.matrix_norm(cov_XY, ord="fro") ** 2) / (
-        (
-            torch.linalg.matrix_norm(cov_X, ord=2)
-            * torch.linalg.matrix_norm(cov_Y, ord=2)
-        )
-    )
     R_X = log_fro_metric_deformation_loss(cov_X)
     R_Y = log_fro_metric_deformation_loss(cov_Y)
+    if relaxed:
+        S = (torch.linalg.matrix_norm(cov_XY, ord="fro") ** 2) / (
+            (
+                torch.linalg.matrix_norm(cov_X, ord=2)
+                * torch.linalg.matrix_norm(cov_Y, ord=2)
+            )
+        )
+    else:
+        M_X = torch.linalg.lstsq(cov_X, cov_XY).solution
+        M_Y = torch.linalg.lstsq(cov_Y, cov_XY.T).solution
+        S = torch.trace(M_X @ M_Y)
     return S - 0.5 * metric_deformation * (R_X + R_Y)
 
 
