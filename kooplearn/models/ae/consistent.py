@@ -1,7 +1,7 @@
 import logging
-from math import floor
 import weakref
 from copy import deepcopy
+from math import floor
 from typing import Optional, Union
 
 import numpy as np
@@ -9,7 +9,7 @@ from scipy.linalg import eig
 
 from kooplearn._src.check_deps import check_torch_deps
 from kooplearn._src.serialization import pickle_load, pickle_save
-from kooplearn._src.utils import ShapeError, check_contexts_shape, check_is_fitted
+from kooplearn._src.utils import ShapeError, check_is_fitted
 from kooplearn.abc import BaseModel
 from kooplearn.models.ae.utils import (
     consistency_loss,
@@ -23,8 +23,8 @@ logger = logging.getLogger("kooplearn")
 check_torch_deps()
 import lightning  # noqa: E402
 import torch  # noqa: E402
-from kooplearn.nn.data import TorchTensorContextDataset # noqa: E402
-from kooplearn.data import TensorContextDataset # noqa: E402
+
+from kooplearn.data import TensorContextDataset  # noqa: E402
 
 
 class ConsistentAE(BaseModel):
@@ -124,7 +124,7 @@ class ConsistentAE(BaseModel):
         if train_dataloaders is None:
             assert isinstance(datamodule, lightning.LightningDataModule)
             for batch in datamodule.train_dataloader():
-                assert isinstance(batch, TorchTensorContextDataset)
+                assert isinstance(batch, TensorContextDataset)
                 with torch.no_grad():
                     self.lightning_module.dry_run(batch)
                     self._state_trail_dims = tuple(batch.shape[2:])
@@ -132,7 +132,7 @@ class ConsistentAE(BaseModel):
         else:
             assert isinstance(train_dataloaders, torch.utils.data.DataLoader)
             for batch in train_dataloaders:
-                assert isinstance(batch, TorchTensorContextDataset)
+                assert isinstance(batch, TensorContextDataset)
                 with torch.no_grad():
                     self.lightning_module.dry_run(batch)
                     self._state_trail_dims = tuple(batch.shape[2:])
@@ -148,13 +148,12 @@ class ConsistentAE(BaseModel):
         self._is_fitted = True
 
     def _np_to_torch(self, data: TensorContextDataset):
-        check_contexts_shape(data, self.lookback_len, is_inference_data=True)
         model_device = self.lightning_module.device
         return torch.from_numpy(data.data.copy()).float().to(model_device)
 
     def predict(
         self,
-        data: TorchTensorContextDataset,
+        data: TensorContextDataset,
         t: int = 1,
         predict_observables: bool = True,
         reencode_every: int = 0,
@@ -164,7 +163,7 @@ class ConsistentAE(BaseModel):
         If ``data.observables`` is not ``None``, returns the analogue quantity for the observable instead.
 
         Args:
-            data (TorchTensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as the initial condition, see the note above.
+            data (TensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as the initial condition, see the note above.
             t (int): Number of steps in the future to predict (returns the last one).
             predict_observables (bool): Return the prediction for the observables in ``data.observables``, if present. Default to ``True``.
             reencode_every (int): When ``t > 1``, periodically reencode the predictions as described in :footcite:t:`Fathi2023`. Only available when ``predict_observables = False``.
@@ -179,7 +178,9 @@ class ConsistentAE(BaseModel):
             logger.warning(
                 f"The provided contexts are of type {type(data.data)}. Converting to torch.Tensor."
             )
-            data = TorchTensorContextDataset(torch.stack([torch.tensor(ctx) for ctx in data.data]))
+            data = TensorContextDataset(
+                torch.stack([torch.tensor(ctx) for ctx in data.data])
+            )
 
         if predict_observables and hasattr(data, "observables"):
             observables = data.observables
@@ -214,7 +215,9 @@ class ConsistentAE(BaseModel):
                     elif callable(obs):
                         results[obs_name] = obs(evolved_data)
                     else:
-                        raise ValueError("Observables must be either None, or callable.")
+                        raise ValueError(
+                            "Observables must be either None, or callable."
+                        )
 
         if len(results) == 1:
             return results["__state__"]
@@ -223,15 +226,15 @@ class ConsistentAE(BaseModel):
 
     def modes(
         self,
-        data: TorchTensorContextDataset,
+        data: TensorContextDataset,
         predict_observables: bool = True,
     ):
         raise NotImplementedError()
 
     def eig(
         self,
-            eval_left_on: Optional[TorchTensorContextDataset] = None,
-            eval_right_on: Optional[TorchTensorContextDataset] = None,
+        eval_left_on: Optional[TensorContextDataset] = None,
+        eval_right_on: Optional[TensorContextDataset] = None,
     ) -> Union[
         np.ndarray,
         tuple[np.ndarray, np.ndarray],
@@ -241,8 +244,8 @@ class ConsistentAE(BaseModel):
         Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right eigenfunctions.
 
         Args:
-            eval_left_on (TorchTensorContextDataset or None): Dataset of context windows on which the left eigenfunctions are evaluated.
-            eval_right_on (TorchTensorContextDataset or None): Dataset of context windows on which the right eigenfunctions are evaluated.
+            eval_left_on (TensorContextDataset or None): Dataset of context windows on which the left eigenfunctions are evaluated.
+            eval_right_on (TensorContextDataset or None): Dataset of context windows on which the right eigenfunctions are evaluated.
 
         Returns:
             Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. If ``eval_left_on`` or ``eval_right_on``  are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on``/``eval_right_on``: shape ``(n_samples, rank)``.
@@ -261,7 +264,9 @@ class ConsistentAE(BaseModel):
         elif eval_left_on is None and eval_right_on is not None:
             # (eigenvalues, right eigenfunctions)
             if not torch.is_tensor(eval_right_on.data):
-                eval_right_on = self._np_to_torch(eval_right_on)  # [n_samples, context_len == 1, *trail_dims]
+                eval_right_on = self._np_to_torch(
+                    eval_right_on
+                )  # [n_samples, context_len == 1, *trail_dims]
             eval_right_on = eval_right_on[
                 :, self.lookback_len - 1, ...
             ]  # [n_samples, *trail_dims]
@@ -274,7 +279,9 @@ class ConsistentAE(BaseModel):
         elif eval_left_on is not None and eval_right_on is None:
             # (eigenvalues, left eigenfunctions)
             if not torch.is_tensor(eval_left_on.data):
-                eval_left_on = self._np_to_torch(eval_left_on)  # [n_samples, context_len == 1, *trail_dims]
+                eval_left_on = self._np_to_torch(
+                    eval_left_on
+                )  # [n_samples, context_len == 1, *trail_dims]
             eval_left_on = eval_left_on[
                 :, self.lookback_len - 1, ...
             ]  # [n_samples, *trail_dims]
@@ -288,13 +295,17 @@ class ConsistentAE(BaseModel):
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
 
             if not torch.is_tensor(eval_right_on.data):
-                eval_right_on = self._np_to_torch(eval_right_on)  # [n_samples, context_len == 1, *trail_dims]
+                eval_right_on = self._np_to_torch(
+                    eval_right_on
+                )  # [n_samples, context_len == 1, *trail_dims]
             eval_right_on = eval_right_on[
                 :, self.lookback_len - 1, ...
             ]  # [n_samples, *trail_dims]
 
             if not torch.is_tensor(eval_left_on.data):
-                eval_left_on = self._np_to_torch(eval_left_on)  # [n_samples, context_len == 1, *trail_dims]
+                eval_left_on = self._np_to_torch(
+                    eval_left_on
+                )  # [n_samples, context_len == 1, *trail_dims]
             eval_left_on = eval_left_on[
                 :, self.lookback_len - 1, ...
             ]  # [n_samples, *trail_dims]
@@ -412,7 +423,8 @@ class ConsistentAEModule(lightning.LightningModule):
         )
 
         pred_loss = MSE(
-            train_batch[:, lookback_len:, ...].data, decoded_batch[:, lookback_len:, ...]
+            train_batch[:, lookback_len:, ...].data,
+            decoded_batch[:, lookback_len:, ...],
         )
         bwd_pred_loss = MSE(
             train_batch[:, : (lookback_len - 1), ...].data,
@@ -453,9 +465,8 @@ class ConsistentAEModule(lightning.LightningModule):
         batch.data = batch.data.to(device)
         return batch
 
-    def dry_run(self, batch: TorchTensorContextDataset):
+    def dry_run(self, batch: TensorContextDataset):
         lookback_len = self._kooplearn_model_weakref().lookback_len
-        check_contexts_shape(batch, lookback_len)
         # Caution: this method is designed only for internal calling.
         Z = encode_contexts(batch.data, self.encoder)
 

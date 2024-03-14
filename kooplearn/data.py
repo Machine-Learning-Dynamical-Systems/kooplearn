@@ -1,15 +1,47 @@
-import logging
 import numpy as np
 import torch
 from numpy.typing import ArrayLike
 
+from kooplearn._src.check_deps import parse_backend
 from kooplearn._src.utils import ShapeError
 from kooplearn.abc import ContextWindowDataset
-logger = logging.getLogger("kooplearn")
 
 
-class TensorContextDataset(ContextWindowDataset): # A collection of context window with tensor features
-    def __init__(self, data: ArrayLike):
+class TensorContextDataset(
+    ContextWindowDataset
+):  # A collection of context window with tensor features
+    def __init__(self, data: ArrayLike, backend: str = "auto", **backend_kw):
+        # Backend selection
+        torch, backend = parse_backend(backend)
+
+        if backend == "numpy":
+            if torch is not None:
+                if torch.is_tensor(data):
+                    data = data.detach().cpu().numpy()
+                else:
+                    data = np.asanyarray(data, **backend_kw)
+            else:
+                data = np.asanyarray(data, **backend_kw)
+        elif backend == "torch":
+            if torch is None:
+                raise ImportError(
+                    "You selected the 'torch' backend, but kooplearn wasn't able to import it."
+                )
+            else:
+                if torch.is_tensor(data):
+                    pass
+                else:
+                    data = torch.tensor(data, **backend_kw)
+        elif backend == "auto":
+            if torch is not None:
+                if torch.is_tensor(data):
+                    pass
+                else:
+                    data = np.asanyarray(data, **backend_kw)
+            else:
+                data = np.asanyarray(data, **backend_kw)
+
+        # Attributes init
         if data.ndim < 3:
             raise ShapeError(
                 f"Invalid shape {data.shape}. The data must have be at least three dimensional [batch_size, context_len, *features]."
@@ -29,12 +61,16 @@ class TensorContextDataset(ContextWindowDataset): # A collection of context wind
         elif isinstance(idx, slice):
             return TensorContextDataset(self.data[idx])
         else:
-            if sum([isinstance(v, int) for v in idx]) > 0: # it may happen that the slicing operation removes a dimension, we want to preserve it!
+            if (
+                sum([isinstance(v, int) for v in idx]) > 0
+            ):  # it may happen that the slicing operation removes a dimension, we want to preserve it!
                 axis_idx = np.where([isinstance(v, int) for v in idx])[0]
                 if isinstance(self.data, torch.Tensor):
                     return TensorContextDataset(self.data[idx].unsqueeze(int(axis_idx)))
                 else:
-                    return TensorContextDataset(np.expand_dims(self.data[idx],int(axis_idx)))
+                    return TensorContextDataset(
+                        np.expand_dims(self.data[idx], int(axis_idx))
+                    )
             else:
                 return TensorContextDataset(self.data[idx])
 
@@ -44,7 +80,12 @@ class TensorContextDataset(ContextWindowDataset): # A collection of context wind
 
 class TrajectoryContextDataset(TensorContextDataset):
     def __init__(
-        self, trajectory: ArrayLike, context_length: int = 2, time_lag: int = 1
+        self,
+        trajectory: ArrayLike,
+        context_length: int = 2,
+        time_lag: int = 1,
+        backend: str = "auto",
+        **backend_kw,
     ):
         if context_length < 1:
             raise ValueError(f"context_length must be >= 1, got {context_length}")
@@ -61,38 +102,83 @@ class TrajectoryContextDataset(TensorContextDataset):
         else:
             pass
 
-        # It should be converted to Numpy
-        trajectory = np.asanyarray(trajectory)
-        self.data, self.idx_map = self._build_contexts_np(
-            trajectory, context_length, time_lag
-        )
+        # Backend selection
+
+        torch, backend = parse_backend(backend)
+
+        if backend == "numpy":
+            if torch is not None:
+                if torch.is_tensor(trajectory):
+                    trajectory = trajectory.detach().cpu().numpy()
+                    self.data, self.idx_map = _contexts_from_traj_np(
+                        trajectory, context_length, time_lag
+                    )
+                else:
+                    trajectory = np.asanyarray(trajectory, **backend_kw)
+                    self.data, self.idx_map = _contexts_from_traj_np(
+                        trajectory, context_length, time_lag
+                    )
+            else:
+                trajectory = np.asanyarray(trajectory, **backend_kw)
+                self.data, self.idx_map = _contexts_from_traj_np(
+                    trajectory, context_length, time_lag
+                )
+
+        elif backend == "torch":
+            if torch is None:
+                raise ImportError(
+                    "You selected the 'torch' backend, but kooplearn wasn't able to import it."
+                )
+            else:
+                from kooplearn.nn.data import _contexts_from_traj_torch
+
+                if not torch.is_tensor(trajectory):
+                    trajectory = torch.tensor(trajectory, **backend_kw)
+                self.data, self.idx_map = _contexts_from_traj_torch(
+                    trajectory, context_length, time_lag
+                )
+        elif backend == "auto":
+            if torch is not None:
+                if torch.is_tensor(trajectory):
+                    self.data, self.idx_map = _contexts_from_traj_torch(
+                        trajectory, context_length, time_lag
+                    )
+                else:
+                    trajectory = np.asanyarray(trajectory, **backend_kw)
+                    self.data, self.idx_map = _contexts_from_traj_np(
+                        trajectory, context_length, time_lag
+                    )
+            else:
+                trajectory = np.asanyarray(trajectory, **backend_kw)
+                self.data, self.idx_map = _contexts_from_traj_np(
+                    trajectory, context_length, time_lag
+                )
 
         self.trajectory = trajectory
         self.time_lag = time_lag
         super().__init__(self.data)
         assert context_length == self.context_length
 
-    def _build_contexts_np(self, trajectory, context_length, time_lag):
-        window_shape = 1 + (context_length - 1) * time_lag
-        if window_shape > trajectory.shape[0]:
-            raise ValueError(
-                f"Invalid combination of context_length={context_length} and time_lag={time_lag} for trajectory of "
-                f"length {trajectory.shape[0]}. Try reducing context_length or time_lag."
-            )
 
-        data = np.lib.stride_tricks.sliding_window_view(
-            trajectory, window_shape, axis=0
+def _contexts_from_traj_np(trajectory, context_length, time_lag):
+    window_shape = 1 + (context_length - 1) * time_lag
+    if window_shape > trajectory.shape[0]:
+        raise ValueError(
+            f"Invalid combination of context_length={context_length} and time_lag={time_lag} for trajectory of "
+            f"length {trajectory.shape[0]}. Try reducing context_length or time_lag."
         )
 
-        idx_map = np.lib.stride_tricks.sliding_window_view(
-            np.arange(trajectory.shape[0], dtype=np.int_).reshape(-1, 1),
-            window_shape,
-            axis=0,
-        )
+    data = np.lib.stride_tricks.sliding_window_view(trajectory, window_shape, axis=0)
 
-        idx_map = np.moveaxis(idx_map, -1, 1)[:, ::time_lag, ...]
-        data = np.moveaxis(data, -1, 1)[:, ::time_lag, ...]
-        return data, TensorContextDataset(idx_map)
+    idx_map = np.lib.stride_tricks.sliding_window_view(
+        np.arange(trajectory.shape[0], dtype=np.int_).reshape(-1, 1),
+        window_shape,
+        axis=0,
+    )
+
+    idx_map = np.moveaxis(idx_map, -1, 1)[:, ::time_lag, ...]
+    data = np.moveaxis(data, -1, 1)[:, ::time_lag, ...]
+    return data, TensorContextDataset(idx_map)
 
 
 class MultiTrajectoryContextDataset(TrajectoryContextDataset):
@@ -105,6 +191,7 @@ def traj_to_contexts(
     context_window_len: int = 2,
     time_lag: int = 1,
     backend: str = "auto",
+    **backend_kwargs,
 ):
     """Convert a single trajectory to a sequence of context windows.
 
@@ -116,40 +203,10 @@ def traj_to_contexts(
     Returns:
         TrajectoryContexts: A sequence of Context Windows.
     """
-    if backend not in ["auto", "numpy", "torch"]:
-        raise ValueError(
-            f"Invalid backend {backend}. Accepted values are 'auto', 'numpy', or 'torch'."
-        )
-    # Check if torch is available
-    try:
-        import torch
-    except ImportError:
-        torch = None
-
-    if backend == "numpy":
-        if torch is not None:
-            if torch.is_tensor(trajectory):
-                trajectory = trajectory.detach().cpu().numpy()
-        return TrajectoryContextDataset(
-            trajectory, context_length=context_window_len, time_lag=time_lag
-        )
-    elif backend == "torch":
-        try:
-            from kooplearn.nn.data import TorchTrajectoryContextDataset
-
-            return TorchTrajectoryContextDataset(
-                trajectory, context_length=context_window_len, time_lag=time_lag
-            )
-        except ImportError:
-            raise
-    elif backend == "auto":
-        if torch is not None:
-            if torch.is_tensor(trajectory):
-                from kooplearn.nn.data import TorchTrajectoryContextDataset
-
-                return TorchTrajectoryContextDataset(
-                    trajectory, context_length=context_window_len, time_lag=time_lag
-                )
-        return TrajectoryContextDataset(
-            trajectory, context_length=context_window_len, time_lag=time_lag
-        )
+    return TrajectoryContextDataset(
+        trajectory,
+        context_length=context_window_len,
+        time_lag=time_lag,
+        backend=backend,
+        **backend_kwargs,
+    )

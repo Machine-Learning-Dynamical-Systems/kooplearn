@@ -3,12 +3,10 @@ from typing import Optional, Union
 import torch
 
 from kooplearn._src.utils import ShapeError
-from kooplearn.nn.data import TorchTensorContextDataset
+from kooplearn.data import TensorContextDataset
 
 
-def encode_contexts(
-    contexts_batch: TorchTensorContextDataset, encoder: torch.nn.Module
-):
+def encode_contexts(contexts_batch: TensorContextDataset, encoder: torch.nn.Module):
     # Caution: this method is designed only for internal calling.
     context_len = contexts_batch.context_length
     batch_size = len(contexts_batch)
@@ -18,11 +16,11 @@ def encode_contexts(
         contexts_batch.data.view(batch_size * context_len, *trail_dims)
     )
     encoded_contexts = encoded_contexts.view(batch_size, context_len, -1)
-    return TorchTensorContextDataset(encoded_contexts)
+    return TensorContextDataset(encoded_contexts)
 
 
 def decode_contexts(
-    encoded_contexts_batch: TorchTensorContextDataset, decoder: torch.nn.Module
+    encoded_contexts_batch: TensorContextDataset, decoder: torch.nn.Module
 ):
     # Caution: this method is designed only for internal calling.
     context_len = encoded_contexts_batch.context_length
@@ -36,11 +34,11 @@ def decode_contexts(
     )
     trail_dims = decoded_contexts.shape[1:]
     decoded_contexts = decoded_contexts.view(batch_size, context_len, *trail_dims)
-    return TorchTensorContextDataset(decoded_contexts)
+    return TensorContextDataset(decoded_contexts)
 
 
 def evolve_contexts(
-    encoded_contexts_batch: TorchTensorContextDataset,
+    encoded_contexts_batch: TensorContextDataset,
     lookback_len: int,
     forward_operator: Union[torch.nn.Parameter, torch.Tensor],
     backward_operator: Optional[Union[torch.nn.Parameter, torch.Tensor]] = None,
@@ -71,13 +69,13 @@ def evolve_contexts(
             pwd_operator = torch.matrix_power(forward_operator, exp)
             Z = torch.mm(pwd_operator, X_init.T).T
         evolved_contexts_batch[:, ctx_idx, ...] = Z
-    return TorchTensorContextDataset(
+    return TensorContextDataset(
         evolved_contexts_batch
     )  # [batch_size, context_len, latent_dim]
 
 
 def evolve_forward(
-    batch: TorchTensorContextDataset,
+    batch: TensorContextDataset,
     lookback_len: int,
     t: int,
     encoder: torch.nn.Module,
@@ -93,13 +91,13 @@ def evolve_forward(
     pwd_operator = torch.matrix_power(forward_operator, t)
     _raw_evolved_inits = torch.mm(pwd_operator, _raw_encoded_inits.T).T
     _raw_decoded_preds = decoder(_raw_evolved_inits)
-    return TorchTensorContextDataset(
+    return TensorContextDataset(
         _raw_decoded_preds.view(len(batch), 1, *batch.shape[2:])
     )
 
 
 def evolve_batch(
-    batch: TorchTensorContextDataset,
+    batch: TensorContextDataset,
     t: int,
     encoder: torch.nn.Module,
     decoder: torch.nn.Module,
@@ -114,7 +112,7 @@ def evolve_batch(
     batch_evolved = decoder(Z_evolved)
     batch_evolved = batch_evolved.reshape(batch.shape)
     assert batch.shape == batch_evolved.shape
-    return TorchTensorContextDataset(batch_evolved)
+    return TensorContextDataset(batch_evolved)
 
 
 def consistency_loss(

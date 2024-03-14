@@ -24,7 +24,6 @@ import lightning  # noqa: E402
 import torch  # noqa: E402
 
 from kooplearn.data import TensorContextDataset  # noqa: E402
-from kooplearn.nn.data import TorchTensorContextDataset  # noqa: E402
 
 
 class DynamicAE(BaseModel):
@@ -113,7 +112,7 @@ class DynamicAE(BaseModel):
         if train_dataloaders is None:
             assert isinstance(datamodule, lightning.LightningDataModule)
             for batch in datamodule.train_dataloader():
-                assert isinstance(batch, TorchTensorContextDataset)
+                assert isinstance(batch, TensorContextDataset)
                 with torch.no_grad():
                     self.lightning_module.dry_run(batch)
                     self._state_trail_dims = tuple(batch.shape[2:])
@@ -121,7 +120,7 @@ class DynamicAE(BaseModel):
         else:
             assert isinstance(train_dataloaders, torch.utils.data.DataLoader)
             for batch in train_dataloaders:
-                assert isinstance(batch, TorchTensorContextDataset)
+                assert isinstance(batch, TensorContextDataset)
                 with torch.no_grad():
                     self.lightning_module.dry_run(batch)
                     self._state_trail_dims = tuple(batch.shape[2:])
@@ -139,7 +138,7 @@ class DynamicAE(BaseModel):
     def _to_torch(self, data: TensorContextDataset):
         # check_contexts_shape(data, self.lookback_len, is_inference_data=True)
         model_device = self.lightning_module.device
-        return TorchTensorContextDataset(torch.tensor(data.data, device=model_device))
+        return TensorContextDataset(data.data, backend="torch", device=model_device)
 
     def _preprocess_for_eigfun(self, data: TensorContextDataset):
         data_ondevice = self._to_torch(data)
@@ -150,7 +149,7 @@ class DynamicAE(BaseModel):
 
     def predict(
         self,
-        data: TorchTensorContextDataset,
+        data: TensorContextDataset,
         t: int = 1,
         predict_observables: bool = True,
         reencode_every: int = 0,
@@ -160,7 +159,7 @@ class DynamicAE(BaseModel):
         If ``data.observables`` is not ``None``, returns the analogue quantity for the observable instead.
 
         Args:
-            data (TorchTensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as the initial condition, see the note above.
+            data (TensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as the initial condition, see the note above.
             t (int): Number of steps in the future to predict (returns the last one).
             predict_observables (bool): Return the prediction for the observables in ``data.observables``, if present. Default to ``True``.
             reencode_every (int): When ``t > 1``, periodically reencode the predictions as described in :footcite:t:`Fathi2023`. Only available when ``predict_observables = False``.
@@ -216,15 +215,15 @@ class DynamicAE(BaseModel):
 
     def modes(
         self,
-        data: TorchTensorContextDataset,
+        data: TensorContextDataset,
         predict_observables: bool = True,
     ):
         raise NotImplementedError()
 
     def eig(
         self,
-        eval_left_on: Optional[TorchTensorContextDataset] = None,
-        eval_right_on: Optional[TorchTensorContextDataset] = None,
+        eval_left_on: Optional[TensorContextDataset] = None,
+        eval_right_on: Optional[TensorContextDataset] = None,
     ) -> Union[
         np.ndarray,
         tuple[np.ndarray, np.ndarray],
@@ -234,8 +233,8 @@ class DynamicAE(BaseModel):
         Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right eigenfunctions.
 
         Args:
-            eval_left_on (TorchTensorContextDataset or None): Dataset of context windows on which the left eigenfunctions are evaluated.
-            eval_right_on (TorchTensorContextDataset or None): Dataset of context windows on which the right eigenfunctions are evaluated.
+            eval_left_on (TensorContextDataset or None): Dataset of context windows on which the left eigenfunctions are evaluated.
+            eval_right_on (TensorContextDataset or None): Dataset of context windows on which the right eigenfunctions are evaluated.
 
         Returns:
             Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. If ``eval_left_on`` or ``eval_right_on``  are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on``/``eval_right_on``: shape ``(n_samples, rank)``.
@@ -359,7 +358,7 @@ class DynamicAEModule(lightning.LightningModule):
             )
         self._kooplearn_model_weakref = kooplearn_model_weakref
 
-    def _lstsq_evolution(self, batch: TorchTensorContextDataset):
+    def _lstsq_evolution(self, batch: TensorContextDataset):
         X = batch.data[:, 0, ...]
         Y = batch.data[:, 1, ...]
         return (torch.linalg.lstsq(X, Y).solution).T
@@ -412,7 +411,7 @@ class DynamicAEModule(lightning.LightningModule):
         batch.data = batch.data.to(device)
         return batch
 
-    def dry_run(self, batch: TorchTensorContextDataset):
+    def dry_run(self, batch: TensorContextDataset):
         lookback_len = self._kooplearn_model_weakref().lookback_len
         # Caution: this method is designed only for internal calling.
         Z = encode_contexts(batch, self.encoder)

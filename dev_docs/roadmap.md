@@ -16,10 +16,24 @@
 2. When `data` is an instance of `TensorContextDataset`, why calling `data[xyz].data`? I don't know what this behaviour is supposed to do. I would call instead `data.data[xyz]`.
 
 **Implementations**.
+1. Consistent AE. To be tested on the `ordered_MNIST` example.
+2. Test the `use_lstsq_for_evolution = True` option for the Dynamic AE.
 
 **Documentation & Examples**.
 1. Add docstrings (google style) to 
    - `kooplearn.abc.ContextWindow`
+   - `kooplearn.abc.ContextWindowDataset`
+   - `kooplearn.data.TensorContextDataset`
+   - `kooplearn.data.TrajectoryContextDataset`
+2. Update the guide in `docs/guides/data_specs.md` to introduce the new Context Windows classes and methods.
+3. Create a jupyter notebook 'Using Context Windows', in which are illustrated the methods and attributes:
+   - `lookback()`
+   - `lookforward()`
+   - `slice()`
+   - `context_length`
+   - `shape` (For Tensor Contexts)
+   
+   Show a practical example of `traj_to_contexts` with a simple `np.arange(20)`, and what is returned by the functions `predict`. To be clear: `predict` now returns a Tensor of the same shape of `data.lookforward(lookback_len)`. (Check this is true also for the autoencoders and fix it if not).
 
 
 #### Mar 11, 2024:

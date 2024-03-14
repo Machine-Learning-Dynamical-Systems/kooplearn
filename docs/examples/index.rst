@@ -4,4 +4,4 @@ Examples
 .. toctree:: 
     :maxdepth: 4
 
-    nys-rrr-ala2-tutorial
+    ala2_nys_tutorial

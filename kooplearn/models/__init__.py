@@ -10,5 +10,5 @@ try:
     check_torch_deps()
     from kooplearn.models.ae.consistent import ConsistentAE
     from kooplearn.models.ae.dynamic import DynamicAE
-except:
+except ImportError:
     pass
