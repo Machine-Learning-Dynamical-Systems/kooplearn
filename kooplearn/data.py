@@ -8,7 +8,7 @@ from kooplearn.abc import ContextWindowDataset
 logger = logging.getLogger("kooplearn")
 
 
-class TensorContextDataset(ContextWindowDataset):
+class TensorContextDataset(ContextWindowDataset): # A collection of context window with tensor features
     def __init__(self, data: ArrayLike):
         if data.ndim < 3:
             raise ShapeError(
@@ -26,6 +26,8 @@ class TensorContextDataset(ContextWindowDataset):
     def __getitem__(self, idx):
         if np.issubdtype(type(idx), np.integer):
             return TensorContextDataset(self.data[slice(idx, idx + 1)])
+        elif isinstance(idx, slice):
+            return TensorContextDataset(self.data[idx])
         else:
             if sum([isinstance(v, int) for v in idx]) > 0: # it may happen that the slicing operation removes a dimension, we want to preserve it!
                 axis_idx = np.where([isinstance(v, int) for v in idx])[0]

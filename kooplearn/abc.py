@@ -195,7 +195,7 @@ class ContextWindow(Sequence):  # A single context window
         return pickle_load(cls, filename)
 
 
-class ContextWindowDataset(ContextWindow):
+class ContextWindowDataset(ContextWindow):  # A collection of Context Windows
     def __init__(self, dataset: Iterable[Sequence]):
         data = []
         context_lengths = []

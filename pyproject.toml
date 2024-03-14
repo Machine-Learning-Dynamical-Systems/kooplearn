@@ -23,7 +23,6 @@ dependencies = [
 torch = [
   "torch>=2.0",
   "lightning",
-  "pandas",
 ]
 docs = [
   "sphinx",

@@ -1,4 +1,27 @@
 # Roadmap
+#### Mar 14, 2024:
+**Questions**.
+1. What is the purpose of 
+    ```python 
+    if sum([isinstance(v, int) for v in idx]) > 0: # it may happen that the slicing operation removes a dimension, we want to preserve it!
+                axis_idx = np.where([isinstance(v, int) for v in idx])[0]
+                if isinstance(self.data, torch.Tensor):
+                    return TensorContextDataset(self.data[idx].unsqueeze(int(axis_idx)))
+                else:
+                    return TensorContextDataset(np.expand_dims(self.data[idx],int(axis_idx)))
+            else:
+                return TensorContextDataset(self.data[idx])
+    ```
+    in `TensorContextDataset.__getitem__`?
+2. When `data` is an instance of `TensorContextDataset`, why calling `data[xyz].data`? I don't know what this behaviour is supposed to do. I would call instead `data.data[xyz]`.
+
+**Implementations**.
+
+**Documentation & Examples**.
+1. Add docstrings (google style) to 
+   - `kooplearn.abc.ContextWindow`
+
+
 #### Mar 11, 2024:
 Some notes on the AutoEncoder models:
 1. The signature of `predict` should match `ExtendedDMD.predict` (see how the observables are changed). Same for `modes`, even if it is not implemented.
