@@ -133,6 +133,12 @@ class DynamicAE(BaseModel):
             datamodule=datamodule,
             ckpt_path=ckpt_path,
         )
+
+        if self.lightning_module.hparams.use_lstsq_for_evolution:
+            train_dataset = self._to_torch(train_dataloaders.dataset)
+            encoded_train = encode_contexts(train_dataset, self.lightning_module.encoder)
+            self.lightning_module.evolution_operator = self.lightning_module._lstsq_evolution(encoded_train)
+
         self._is_fitted = True
 
     def _to_torch(self, data: TensorContextDataset):
@@ -416,9 +422,7 @@ class DynamicAEModule(lightning.LightningModule):
         # Caution: this method is designed only for internal calling.
         Z = encode_contexts(batch, self.encoder)
         if self.hparams.use_lstsq_for_evolution:
-            X = Z.data[:, 0, ...]
-            Y = Z.data[:, 1, ...]
-            evolution_operator = (torch.linalg.lstsq(X, Y).solution).T
+            evolution_operator = self._lstsq_evolution(Z)
         else:
             evolution_operator = self.evolution_operator
         Z_evolved = evolve_contexts(Z, lookback_len, evolution_operator)
