@@ -34,6 +34,7 @@
    - `shape` (For Tensor Contexts)
    
    Show a practical example of `traj_to_contexts` with a simple `np.arange(20)`, and what is returned by the functions `predict`. To be clear: `predict` now returns a Tensor of the same shape of `data.lookforward(lookback_len)`. (Check this is true also for the autoencoders and fix it if not).
+4. In the Ordered MNIST example, I have sketched a couple of cells to check whether the eigenfunctions of a model provide a good dimensionality reduction. I plotted the value of the eigenfunction in a 2d space for each image in the test set and colored with respect to the true label. We see that points with the same color (that is corresponding to the same labels) are clustered toghether. Can you write it down nicely? In this way we test both the forecasting and the eigenvalue decomposition for this example.
 
 
 #### Mar 11, 2024:
