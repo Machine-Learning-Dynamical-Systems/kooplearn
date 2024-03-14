@@ -1,5 +1,0 @@
-datasets
-SciencePlots
-ml-confs
-optuna
-ipykernel
