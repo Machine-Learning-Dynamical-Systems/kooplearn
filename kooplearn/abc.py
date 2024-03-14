@@ -144,22 +144,52 @@ class TrainableFeatureMap(FeatureMap):
         pass
 
 
-class ContextWindow(Sequence):  # A single context window
+class ContextWindow(Sequence):
+    """Class for a single context window, i.e. the kooplearn's data paradigm.
+
+    Args:
+        Sequence : A sequence of data points.
+
+    Returns:
+        A context window.
+    """
     def __init__(self, window: Sequence):
         self.data = window
         self._context_length = len(window)
 
     @property
     def context_length(self):
+        """Length of the context window.
+
+        Returns:
+            Length of the context window.
+        """
         return self._context_length
 
     def slice(self, slice_obj):
+        """Returns a slice of the context window given a slice object.
+
+        Args:
+            slice_obj (slice): The python slice function.
+
+        Returns:
+            Slice of the context window.
+        """
         return self.data[slice_obj]
 
     def __len__(self):
         return 1  # Single context window
 
     def lookback(self, lookback_length: int, slide_by: int = 0):
+        """Returns the lookback window of the context window.
+
+        Args:
+            lookback_length (int):  Length of the lookback window.
+            slide_by (int, optional): Number of slides along the context window. Defaults to 0.
+
+        Returns:
+            Lookback window of the context window.
+        """
         self._check_lb_len(lookback_length)
         max_slide = self._context_length - lookback_length
         if slide_by > max_slide:
@@ -171,6 +201,14 @@ class ContextWindow(Sequence):  # A single context window
         return lb_window
 
     def lookforward(self, lookback_length: int):
+        """Returns the lookforward window of the context window.
+
+        Args:
+            lookback_length (int): Length of the lookback window.
+
+        Returns:
+            Lookforward window of the context window.
+        """
         self._check_lb_len(lookback_length)
         lf_window = self.slice(slice(lookback_length, None))
         return lf_window
@@ -188,14 +226,37 @@ class ContextWindow(Sequence):  # A single context window
         return self.data[idx]
 
     def save(self, path: os.PathLike):
+        """
+        Saves the current context window to the given path.
+
+        Args:
+            path (path-like): Save the context window to path.
+        """
         pickle_save(self, path)
 
     @classmethod
     def load(cls, filename):
+        """
+        Loads the context window from the given filename.
+        Args:
+            filename: Load the context window from the given filename.
+
+        Returns:
+            The context window object.
+        """
         return pickle_load(cls, filename)
 
 
-class ContextWindowDataset(ContextWindow):  # A collection of Context Windows
+class ContextWindowDataset(ContextWindow):
+    """Class for a collection of context windows.
+
+        Args:
+            A sequence of context windows.
+
+        Attributes:
+
+
+        """
     def __init__(self, dataset: Iterable[Sequence]):
         data = []
         context_lengths = []
@@ -231,4 +292,12 @@ class ContextWindowDataset(ContextWindow):  # A collection of Context Windows
         return f"{self.__class__.__name__} <item_count={len(self)}, context_length={self.context_length}, data={self.data.__str__()}>"
 
     def slice(self, slice_obj):
+        """Returns a slice of the context windows given a slice object.
+
+        Args:
+            slice_obj (slice): The python slice object.
+
+        Returns:
+            Slice of the context windows.
+        """
         return [ctx[slice_obj] for ctx in self.data]

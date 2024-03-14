@@ -1,5 +1,4 @@
 import numpy as np
-import torch
 from numpy.typing import ArrayLike
 
 from kooplearn._src.check_deps import parse_backend
@@ -7,9 +6,17 @@ from kooplearn._src.utils import ShapeError
 from kooplearn.abc import ContextWindowDataset
 
 
-class TensorContextDataset(
-    ContextWindowDataset
-):  # A collection of context window with tensor features
+class TensorContextDataset(ContextWindowDataset):
+    """Class for a collection of context windows with tensor features.
+
+    Args:
+        data (ArrayLike): A collection of context windows.
+        backend (str, optional): Specifies the backend to be used (:obj:`"numpy"`, :obj:`"torch"`). If set to :obj:`"auto"`, will use the same backend of data. Defaults to :obj:`"auto"`.
+        backend_kw (dict, optional): Keyword arguments to pass to the backend, e.g. if :obj:`"torch"`, it is possible to specify the device of the tensor.
+
+    Returns:
+        A sequence of context windows with tensor features.
+    """
     def __init__(self, data: ArrayLike, backend: str = "auto", **backend_kw):
         # Backend selection
         torch, backend = parse_backend(backend)
@@ -62,10 +69,30 @@ class TensorContextDataset(
             return TensorContextDataset(self.data[idx])
 
     def slice(self, slice_obj):
+        """Returns a slice of the context windows given a slice object.
+
+        Args:
+            slice_obj (slice): The python slice object.
+
+        Returns:
+            Slice of the context windows.
+        """
         return self.data[:, slice_obj]
 
 
 class TrajectoryContextDataset(TensorContextDataset):
+    """Transforms a single trajectory to a sequence of context windows.
+
+    Args:
+        trajectory (ArrayLike): A trajectory of shape ``(n_frames, *features_shape)``.
+        context_length (int, optional): Length of the context window. Defaults to 2.
+        time_lag (int, optional): Time lag, i.e. stride, between successive context windows. Defaults to 1.
+        backend (str, optional): Specifies the backend to be used (:obj:`"numpy"`, :obj:`"torch"`). If set to :obj:`"auto"`, will use the same backend of the trajectory. Defaults to :obj:`"auto"`.
+        backend_kw (dict, optional): Keyword arguments to pass to the backend, e.g. if :obj:`"torch"`, it is possible to specify the device of the tensor.
+
+    Returns:
+        A sequence of context windows.
+    """
     def __init__(
         self,
         trajectory: ArrayLike,
@@ -127,6 +154,7 @@ class TrajectoryContextDataset(TensorContextDataset):
         elif backend == "auto":
             if torch is not None:
                 if torch.is_tensor(trajectory):
+                    from kooplearn.nn.data import _contexts_from_traj_torch
                     self.data, self.idx_map = _contexts_from_traj_torch(
                         trajectory, context_length, time_lag
                     )
@@ -186,9 +214,11 @@ def traj_to_contexts(
         trajectory (np.ndarray): A trajectory of shape ``(n_frames, *features_shape)``.
         context_window_len (int, optional): Length of the context window. Defaults to 2.
         time_lag (int, optional): Time lag, i.e. stride, between successive context windows. Defaults to 1.
+        backend (str, optional): Specifies the backend to be used (:obj:`"numpy"`, :obj:`"torch"`). If set to :obj:`"auto"`, will use the same backend of the trajectory. Defaults to :obj:`"auto"`.
+        backend_kw (dict, optional): Keyword arguments to pass to the backend, e.g. if :obj:`"torch"`, it is possible to specify the device of the tensor.
 
     Returns:
-        TrajectoryContexts: A sequence of Context Windows.
+        TrajectoryContextDataset: A sequence of context windows.
     """
     return TrajectoryContextDataset(
         trajectory,
