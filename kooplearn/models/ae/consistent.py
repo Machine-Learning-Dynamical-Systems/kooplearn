@@ -15,8 +15,8 @@ from kooplearn.models.ae.utils import (
     consistency_loss,
     decode_contexts,
     encode_contexts,
-    evolve_batch,
     evolve_contexts,
+    evolve_forward,
 )
 
 logger = logging.getLogger("kooplearn")
@@ -51,13 +51,7 @@ class ConsistentAE(BaseModel):
         latent_dim: int,
         optimizer_fn: torch.optim.Optimizer,
         trainer: lightning.Trainer,
-        loss_weights: dict = {
-            "rec": 1.0,
-            "pred": 1.0,
-            "bwd_pred": 1.0,
-            "lin": 1.0,
-            "consistency": 1.0,
-        },
+        loss_weights: dict = {"rec": 1.0, "pred": 1.0, "bwd_pred": 1.0, "lin": 1.0, "consistency": 1.0},
         encoder_kwargs: dict = {},
         decoder_kwargs: dict = {},
         optimizer_kwargs: dict = {},
@@ -118,7 +112,7 @@ class ConsistentAE(BaseModel):
             train_dataloaders is not None or val_dataloaders is not None
         ) and datamodule is not None:
             raise ValueError(
-                "You cannot pass `train_dataloader` or `val_dataloaders` to `fit(datamodule=...)`"
+                f"You cannot pass `train_dataloader` or `val_dataloaders` to `{self.__class__.__name__}.fit(datamodule=...)`"
             )
         # Get the shape of the first batch to determine the lookback_len
         if train_dataloaders is None:
@@ -147,9 +141,17 @@ class ConsistentAE(BaseModel):
         )
         self._is_fitted = True
 
-    def _np_to_torch(self, data: TensorContextDataset):
+    def _to_torch(self, data: TensorContextDataset):
+        # check_contexts_shape(data, self.lookback_len, is_inference_data=True)
         model_device = self.lightning_module.device
-        return torch.from_numpy(data.data.copy()).float().to(model_device)
+        return TensorContextDataset(data.data, backend="torch", device=model_device)
+
+    def _preprocess_for_eigfun(self, data: TensorContextDataset):
+        data_ondevice = self._to_torch(data)
+        contexts_for_inference = data_ondevice.slice(
+            slice(self.lookback_len - 1, self.lookback_len)
+        )
+        return contexts_for_inference.view(len(data_ondevice), *data_ondevice.shape[2:])
 
     def predict(
         self,
@@ -174,14 +176,7 @@ class ConsistentAE(BaseModel):
         check_is_fitted(self, ["_state_trail_dims"])
         assert tuple(data.shape[2:]) == self._state_trail_dims
 
-        if not torch.is_tensor(data.data):
-            logger.warning(
-                f"The provided contexts are of type {type(data.data)}. Converting to torch.Tensor."
-            )
-            data = TensorContextDataset(
-                torch.stack([torch.tensor(ctx) for ctx in data.data])
-            )
-
+        data = self._to_torch(data)
         if predict_observables and hasattr(data, "observables"):
             observables = data.observables
             observables["__state__"] = None
@@ -201,15 +196,15 @@ class ConsistentAE(BaseModel):
                         raise NotImplementedError
             else:
                 with torch.no_grad():
-                    init_data = data.data[:, self.lookback_len - 1, ...]
-                    evolved_data = evolve_batch(
-                        init_data,
+                    evolved_data = evolve_forward(
+                        data,
+                        self.lookback_len,
                         t,
                         self.lightning_module.encoder,
                         self.lightning_module.decoder,
                         self.lightning_module.evolution_operator,
                     )
-                    evolved_data = evolved_data.detach().cpu().numpy()
+                    evolved_data = evolved_data.data.detach().cpu().numpy()
                     if obs is None:
                         results[obs_name] = evolved_data
                     elif callable(obs):
@@ -263,13 +258,7 @@ class ConsistentAE(BaseModel):
             return w
         elif eval_left_on is None and eval_right_on is not None:
             # (eigenvalues, right eigenfunctions)
-            if not torch.is_tensor(eval_right_on.data):
-                eval_right_on = self._np_to_torch(
-                    eval_right_on
-                )  # [n_samples, context_len == 1, *trail_dims]
-            eval_right_on = eval_right_on[
-                :, self.lookback_len - 1, ...
-            ]  # [n_samples, *trail_dims]
+            eval_right_on = self._preprocess_for_eigfun(eval_right_on)
             with torch.no_grad():
                 phi_Xin = self.lightning_module.encoder(eval_right_on)
                 r_fns = (
@@ -278,13 +267,7 @@ class ConsistentAE(BaseModel):
             return w, r_fns.detach().cpu().numpy()
         elif eval_left_on is not None and eval_right_on is None:
             # (eigenvalues, left eigenfunctions)
-            if not torch.is_tensor(eval_left_on.data):
-                eval_left_on = self._np_to_torch(
-                    eval_left_on
-                )  # [n_samples, context_len == 1, *trail_dims]
-            eval_left_on = eval_left_on[
-                :, self.lookback_len - 1, ...
-            ]  # [n_samples, *trail_dims]
+            eval_left_on = self._preprocess_for_eigfun(eval_left_on)
             with torch.no_grad():
                 phi_Xin = self.lightning_module.encoder(eval_left_on)
                 l_fns = (
@@ -293,23 +276,8 @@ class ConsistentAE(BaseModel):
             return w, l_fns.detach().cpu().numpy()
         elif eval_left_on is not None and eval_right_on is not None:
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
-
-            if not torch.is_tensor(eval_right_on.data):
-                eval_right_on = self._np_to_torch(
-                    eval_right_on
-                )  # [n_samples, context_len == 1, *trail_dims]
-            eval_right_on = eval_right_on[
-                :, self.lookback_len - 1, ...
-            ]  # [n_samples, *trail_dims]
-
-            if not torch.is_tensor(eval_left_on.data):
-                eval_left_on = self._np_to_torch(
-                    eval_left_on
-                )  # [n_samples, context_len == 1, *trail_dims]
-            eval_left_on = eval_left_on[
-                :, self.lookback_len - 1, ...
-            ]  # [n_samples, *trail_dims]
-
+            eval_right_on = self._preprocess_for_eigfun(eval_right_on)
+            eval_left_on = self._preprocess_for_eigfun(eval_left_on)
             with torch.no_grad():
                 phi_Xin_r = self.lightning_module.encoder(eval_right_on)
                 r_fns = (
@@ -329,7 +297,6 @@ class ConsistentAE(BaseModel):
         Args:
             filename (path-like or file-like): Save the model to file.
         """
-        # Delete (un-picklable) weakref self.lightning_module._kooplearn_feature_map_weakref
         self.lightning_module._kooplearn_model_weakref = None
         pickle_save(self, filename)
 
@@ -367,13 +334,7 @@ class ConsistentAEModule(lightning.LightningModule):
         latent_dim: int,
         optimizer_fn: torch.optim.Optimizer,
         optimizer_kwargs: dict,
-        loss_weights: dict = {
-            "rec": 1.0,
-            "pred": 1.0,
-            "bwd_pred": 1.0,
-            "lin": 1.0,
-            "consistency": 1.0,
-        },
+        loss_weights: dict = {"rec": 1.0, "pred": 1.0, "bwd_pred": 1.0, "lin": 1.0, "consistency": 1.0},
         encoder_kwargs: dict = {},
         decoder_kwargs: dict = {},
         kooplearn_model_weakref: weakref.ReferenceType = None,
@@ -405,33 +366,31 @@ class ConsistentAEModule(lightning.LightningModule):
 
     def training_step(self, train_batch, batch_idx):
         lookback_len = self._kooplearn_model_weakref().lookback_len
-        encoded_batch = encode_contexts(train_batch.data, self.encoder)
-
+        encoded_batch = encode_contexts(train_batch, self.encoder)
         K = self.evolution_operator
         bwd_K = self.bwd_evolution_operator
 
-        evolved_batch = evolve_contexts(
-            encoded_batch, lookback_len, K, backward_operator=bwd_K
-        )
+        evolved_batch = evolve_contexts(encoded_batch, lookback_len, K, backward_operator=bwd_K)
         decoded_batch = decode_contexts(evolved_batch, self.decoder)
 
         MSE = torch.nn.MSELoss()
-        # Reconstruction + prediction loss
+        # Reconstruction loss
         rec_loss = MSE(
-            train_batch[:, lookback_len - 1, ...].data,
-            decoded_batch[:, lookback_len - 1, ...],
+            train_batch.slice(slice(lookback_len - 1, lookback_len)),
+            decoded_batch.slice(slice(lookback_len - 1, lookback_len)),
         )
-
+        # Prediction loss
         pred_loss = MSE(
-            train_batch[:, lookback_len:, ...].data,
-            decoded_batch[:, lookback_len:, ...],
+            train_batch.lookforward(lookback_len),
+            decoded_batch.lookforward(lookback_len),
         )
+        # Backward prediction loss
         bwd_pred_loss = MSE(
-            train_batch[:, : (lookback_len - 1), ...].data,
-            decoded_batch[:, : (lookback_len - 1), ...],
+            train_batch.lookback(lookback_len - 1),
+            decoded_batch.lookback(lookback_len - 1),
         )
         # Linear loss
-        lin_loss = MSE(encoded_batch, evolved_batch)
+        lin_loss = MSE(encoded_batch.data, evolved_batch.data)
         # Consistency loss
         cnst_loss = consistency_loss(
             self.evolution_operator, self.bwd_evolution_operator
@@ -468,20 +427,13 @@ class ConsistentAEModule(lightning.LightningModule):
     def dry_run(self, batch: TensorContextDataset):
         lookback_len = self._kooplearn_model_weakref().lookback_len
         # Caution: this method is designed only for internal calling.
-        Z = encode_contexts(batch.data, self.encoder)
+        Z = encode_contexts(batch, self.encoder)
 
         evolution_operator = self.evolution_operator
         bwd_evolution_operator = self.bwd_evolution_operator
 
-        Z_evolved = evolve_contexts(
-            Z,
-            lookback_len,
-            evolution_operator,
-            backward_operator=bwd_evolution_operator,
-        )
-        X_evol = decode_contexts(
-            Z_evolved, self.decoder
-        )  # Should fail if the shape is wrong
+        Z_evolved = evolve_contexts(Z, lookback_len, evolution_operator, backward_operator=bwd_evolution_operator)
+        X_evol = decode_contexts(Z_evolved, self.decoder)  # Should fail if the shape is wrong
         assert Z.shape == Z_evolved.shape
 
         if batch.shape != X_evol.shape:
