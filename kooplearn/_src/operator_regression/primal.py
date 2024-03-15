@@ -208,7 +208,8 @@ def estimator_modes(
     # This should be multiplied on the right by the observable evaluated at the output training data
     lv_obs = np.linalg.multi_dot([r_dim * phi_X, U, lv]).T
     return (
-        rv_in[:, :, None] * lv_obs[:, None, :]
+        rv_in[:, :, None] * lv_obs[:, None, :],
+        values,
     )  # [rank, num_init_conditions, num_training_points]
 
 

@@ -349,9 +349,9 @@ class NystroemKernel(BaseModel, RegressorMixin):
         )
 
         if hasattr(self, "_eig_cache"):
-            _, lv, rv = self._eig_cache
+            _eigs, lv, rv = self._eig_cache
         else:
-            _, lv, rv = dual.estimator_eig(
+            _eigs, lv, rv = dual.estimator_eig(
                 self.U, self.V, self.kernel_X, self.kernel_YX
             )
 
@@ -367,9 +367,9 @@ class NystroemKernel(BaseModel, RegressorMixin):
             results[obs_name] = res
 
         if len(results) == 1:
-            return results["__state__"]
+            return results["__state__"], _eigs
         else:
-            return results
+            return results, _eigs
 
     def svals(self):
         """Singular values of the Koopman/Transfer operator.

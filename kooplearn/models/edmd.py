@@ -339,7 +339,7 @@ class ExtendedDMD(BaseModel):
 
         phi_Xin = self.feature_map(X_inference)
         phi_X = self.feature_map(X_fit)
-        _gamma = primal.estimator_modes(self.U, self.cov_XY, phi_X, phi_Xin)
+        _gamma, _eigs = primal.estimator_modes(self.U, self.cov_XY, phi_X, phi_Xin)
 
         results = {}
         for obs_name, obs in parsed_obs.items():
@@ -350,9 +350,9 @@ class ExtendedDMD(BaseModel):
             results[obs_name] = res
 
         if len(results) == 1:
-            return results["__state__"]
+            return results["__state__"], _eigs
         else:
-            return results
+            return results, _eigs
 
     def svals(self) -> np.ndarray:
         """Singular values of the Koopman/Transfer operator.
