@@ -120,7 +120,15 @@ def deepprojection_score(
     return S - 0.5 * metric_deformation * (R_X + R_Y)
 
 
-def log_fro_metric_deformation_loss(cov):
+def log_fro_metric_deformation_loss(cov: torch.tensor):
+    """Logarithmic + Frobenious metric deformation loss as used in :footcite:t:`Kostic2023DPNets`, defined as :math:`{{\\rm Tr}}(C^{2} - C -\ln(C))` .
+
+    Args:
+        cov (torch.tensor): A symmetric positive-definite matrix.
+
+    Returns:
+        torch.tensor: Loss function
+    """
     eps = torch.finfo(cov.dtype).eps * cov.shape[0]
     vals_x = torch.linalg.eigvalsh(cov)
     vals_x = torch.where(vals_x > eps, vals_x, eps)
