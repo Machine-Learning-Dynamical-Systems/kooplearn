@@ -17,15 +17,27 @@ General abstract classes
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: kooplearn.abc.ContextWindow
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 .. autoclass:: kooplearn.abc.ContextWindowDataset
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 
 Context windows with tensor elements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: kooplearn.data.TensorContextDataset
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 .. autoclass:: kooplearn.data.TrajectoryContextDataset
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 .. autofunction:: kooplearn.data.traj_to_contexts
