@@ -16,17 +16,9 @@ A context window, whose abstract implementation can be found in the class {class
 
 In kooplearn, the lookback window length is specified by the model, and stored in the attribute {class}`kooplearn.abc.BaseModel.lookback_len`, while the context length (and hence the lookforward window length) are defined in the attribute {class}`kooplearn.abc.ContextWindow.context_length`. 
 
-### Tensor Context Windows
+### Tutorial & Further References
 
-{guilabel}`TODO - Finish this and add examples.`.
-Kooplearn expects tensors of shape `[batch_size, context_len, *features]`, where `features` can contain an arbitrary $\geq 1$ number of dimensions. 
-
-Kooplearn **do not perform** shape inference, and will throw an error if tensors with less than $3$ dimensions are provided. This is quite important for dealing with single data points (or single features). Indeed, in a tensor of shape `[5, 10]` there is no way of tell if we are dealing with $5$ examples, a context length of $10$ and a single feature (which should be passed to kooplearn as a tensor of shape `[5, 10, 1]`) or with a single example, a context length of $5$ and $10$ features (passed in kooplearn as a tensor of shape `[1, 5, 10]`).
-
-### Data at fitting/inference
-Data pipelines in kooplearn are organized so that the look*back* slice of context windows can be accessed both at training and inference time. The look*forward* slice, on the other hand, can be accessed only at training time. {guilabel}`TODO - Add code snippet to show the data shapes at fitting and inference time`.
-
-In kooplearn we expose several utility function to manipulate data and generate context-windows-based datasets. In this respect, see [the API reference](data_api).
+Working with context windows in kooplearn is explained in the example [Working with Context Windows](context_windows_tutorial). To check out the full documentation of the context window objects, see [the API reference](data_api). 
 
 ```{footbibliography}
 ```
