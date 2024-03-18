@@ -40,6 +40,19 @@ class LinearModel(DiscreteTimeDynamics):
     def __init__(
         self, A: np.ndarray, noise: float = 0.0, rng_seed: Optional[int] = None
     ):
+        """Linear Dynamical System of the form
+
+        .. math::
+            x_{t + 1} = A x_{t} + \\xi_{t}
+
+        For this linear system, the Koopman operator is simply the transpose of :math:`A` .
+
+        Args:
+            A (np.ndarray): :math:`d\\times d` matrix defining the dynamical system.
+            noise (float): Intensity of the (zero-mean) Gaussian noise :math:`\\xi_{t}`. Defaults to 0.0.
+            rng_seed (int): Internal number generator seed. Defaults to None.
+
+        """
         self.A = A
         self.noise = noise
         self.rng = np.random.default_rng(rng_seed)
@@ -85,18 +98,21 @@ class CosineDistribution:
 
 
 class LogisticMap(DiscreteTimeDynamics):
-    """Noisy Logistic map
-
-    Args:
-        r (float): parameter of the logistic map. Defaults to 4.0.
-        N (int): Exponent of the trigonometric noise as defined in :footcite:t:`Kostic2022` (Appendix). Should be an _even_ integer or None (no noise). Defaults to None.
-        rng_seed (int): Internal number generator seed. Defaults to None.
-
-    """
 
     def __init__(
         self, r: float = 4.0, N: Optional[int] = None, rng_seed: Optional[int] = None
     ):
+        """Noisy Logistic map
+
+        .. math::
+            x_{t + 1} = (4x_{t}(1 - x_{t}) + \\xi_{t}) \mod 1.
+
+        Args:
+            r (float): parameter of the logistic map. Defaults to 4.0.
+            N (int): Exponent of the trigonometric noise as defined in :footcite:t:`Kostic2022` (Appendix). Should be an _even_ integer or None (no noise). Defaults to None.
+            rng_seed (int): Internal number generator seed. Defaults to None.
+
+        """
         self.rng_seed = rng_seed
         self.r = r
         self._rng = np.random.default_rng(self.rng_seed)
@@ -131,6 +147,15 @@ class LogisticMap(DiscreteTimeDynamics):
         eval_left_on: Optional[np.ndarray] = None,
         eval_right_on: Optional[np.ndarray] = None,
     ):
+        """Eigenvalue Decomposition of the Noisy Logistic Map
+
+        Args:
+            eval_left_on (Optional[np.ndarray], optional): Array of points on which the left eigenfunctions are evaluated. Defaults to None.
+            eval_right_on (Optional[np.ndarray], optional): Array of points on which the right eigenfunctions are evaluated.. Defaults to None.
+
+        Returns:
+            Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. If ``eval_left_on`` or ``eval_right_on``  are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on``/``eval_right_on``: shape ``(n_samples, rank)``.
+        """
         if not self.has_noise:
             raise ValueError("This method is only available for the noisy logistic map")
         perron_eig_idx = np.argmax(np.abs(self._eigvals))
@@ -291,12 +316,6 @@ class MullerBrownPotential(DataGenerator):
         return np.dot(self.A, np.exp(tinexp))
 
     def neg_grad_potential(self, x: np.ndarray, t: np.ndarray):
-        """
-        A_j * exp[a_j * (x1^2 - 2 * x1 * X_j) + b_j * (x1 * x2 - x1 * Y_j)]
-
-        -> grad inner exp:
-            a_j * (2 * x1 - 2 * X_j) + b_j * (x2 - Y_j)
-        """
         t1 = x[0] - self.X
         t2 = x[1] - self.Y
         grad_inner_exp_x1 = 2 * self.a * t1 + self.b * t2

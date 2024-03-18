@@ -3,7 +3,7 @@
 
 > _Author:_ Pietro Novelli — [@pie_novelli](https://twitter.com/pie_novelli)
 
-In this guide we describe kooplearn's data paradigm, which is based on context windows. 
+This guide describes kooplearn's data paradigm, which is based on context windows. 
 
 <p align = "center">
   <img src="../_static/_images/context_window_scheme.svg" alt="context-window-scheme" style="width:50%;"/>
@@ -12,11 +12,13 @@ In this guide we describe kooplearn's data paradigm, which is based on context w
 
 Kooplearn uses context windows as single _data points_, and expect (batches of) context windows to be provided to the fitting ({class}`kooplearn.abc.BaseModel.fit`, {class}`kooplearn.abc.TrainableFeatureMap.fit`) and inference ({class}`kooplearn.abc.BaseModel.predict`, {class}`kooplearn.abc.BaseModel.eig`, {class}`kooplearn.abc.BaseModel.modes`) methods.
 
-A context window is a _fixed length_ sequence of observations of the system, and it may be further divided into two splits: the _lookback_ and _lookforward_ windows. The partitioning between lookback and lookforward slices is used to train models --- such as consistent Koopman auto-encoders {footcite:t}`Azencot2020CAE` --- which expect multiple-step forward/backward predictions at train time.
+A context window, whose abstract implementation can be found in the class {class}`kooplearn.abc.ContextWindow`, is a _fixed length_ sequence of observations of the system, and it may be further divided into two splits: the _lookback_ and _lookforward_ windows. In kooplearn this is as easy as calling `context_window.lookback(lookback_length)` and `context_window.lookforward(lookback_length)` on an initialized `context_window` object. The partitioning between lookback and lookforward windows is defined by the kind of model we are using. For example, in models such as {class}`kooplearn.models.ExtendedDMD` or {class}`kooplearn.models.KernelDMD`, the lookforward window is _always_ of length 1, and the states in the lookback window are stacked to create an augmented state of delay embeddings, used e.g. in Hankel DMD by {footcite:t}`Arbabi2017`. Conversely, consistent Koopman auto-encoders {footcite:t}`Azencot2020CAE` expect multiple-step forward/backward evolutions at train time, and the lookback and lookforward windows are used to provide the ground truth values for these evolutions.
 
-In kooplearn, the lookback window length is specified by the model, and stored in the attribute {class}`kooplearn.abc.BaseModel.lookback_len`, while the context length (and hence the lookforward window length) are inferenced at fitting time from the data shape. 
+In kooplearn, the lookback window length is specified by the model, and stored in the attribute {class}`kooplearn.abc.BaseModel.lookback_len`, while the context length (and hence the lookforward window length) are defined in the attribute {class}`kooplearn.abc.ContextWindow.context_length`. 
 
-### Standard tensors shapes
+### Tensor Context Windows
+
+{guilabel}`TODO - Finish this and add examples.`.
 Kooplearn expects tensors of shape `[batch_size, context_len, *features]`, where `features` can contain an arbitrary $\geq 1$ number of dimensions. 
 
 Kooplearn **do not perform** shape inference, and will throw an error if tensors with less than $3$ dimensions are provided. This is quite important for dealing with single data points (or single features). Indeed, in a tensor of shape `[5, 10]` there is no way of tell if we are dealing with $5$ examples, a context length of $10$ and a single feature (which should be passed to kooplearn as a tensor of shape `[5, 10, 1]`) or with a single example, a context length of $5$ and $10$ features (passed in kooplearn as a tensor of shape `[1, 5, 10]`).
