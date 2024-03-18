@@ -335,7 +335,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
             predict_observables (bool): Return the prediction for the observables in ``data.observables``, if present. Default to ``True``
 
         Returns:
-            Modes of the system at the states defined by ``data``. The result is composed of arrays with shape matching ``data.lookforward(self.lookback_len)`` or the contents of ``data.observables``. If ``predict_observables = True`` and ``data.observables != None``, the returned ``dict``will contain the special key ``__state__`` containing the modes for the state as well.
+            (modes, eigenvalues): Modes and corresponding eigenvalues of the system at the states defined by ``data``. The result is composed of arrays with shape matching ``data.lookforward(self.lookback_len)`` or the contents of ``data.observables``. If ``predict_observables = True`` and ``data.observables != None``, the returned ``dict`` will contain the special key ``__state__`` containing the modes for the state as well.
         """
         check_is_fitted(
             self, ["U", "V", "kernel_X", "kernel_YX", "lookback_len", "data_fit"]

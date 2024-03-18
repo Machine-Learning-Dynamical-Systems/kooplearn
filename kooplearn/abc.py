@@ -36,7 +36,7 @@ class BaseModel(abc.ABC):
             reencode_every (int): When ``t > 1``, periodically reencode the predictions as described in :footcite:t:`Fathi2023`. Only available when ``predict_observables = False``.
 
         Returns:
-           The predicted (expected) state/observable at time :math:`t`. The result is composed of arrays with shape matching ``data.lookforward(self.lookback_len)`` or the contents of ``data.observables``. If ``predict_observables = True`` and ``data.observables != None``, the returned ``dict``will contain the special key ``__state__`` containing the prediction for the state as well.
+           The predicted (expected) state/observable at time :math:`t`. The result is composed of arrays with shape matching ``data.lookforward(self.lookback_len)`` or the contents of ``data.observables``. If ``predict_observables = True`` and ``data.observables != None``, the returned ``dict`` will contain the special key ``__state__`` containing the prediction for the state as well.
         """
         pass
 
@@ -54,7 +54,7 @@ class BaseModel(abc.ABC):
             eval_right_on (ContextWindowDataset or None): Dataset of context windows on which the right eigenfunctions are evaluated.
 
         Returns:
-            Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. If ``eval_left_on`` or ``eval_right_on``  are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on``/``eval_right_on``: shape ``(n_samples, rank)``.
+            Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. If ``eval_left_on`` or ``eval_right_on`` are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on`` / ``eval_right_on`` : shape ``(n_samples, rank)``.
         """
         pass
 
@@ -82,7 +82,7 @@ class BaseModel(abc.ABC):
             data (TensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as the initial condition, see the note above.
             predict_observables (bool): Return the prediction for the observables in ``data.observables``, if present. Default to ``True``.
         Returns:
-            Modes of the system at the states defined by ``data``. The result is composed of arrays with shape matching ``data.lookforward(self.lookback_len)`` or the contents of ``data.observables``. If ``predict_observables = True`` and ``data.observables != None``, the returned ``dict``will contain the special key ``__state__`` containing the modes for the state as well.
+            (modes, eigenvalues): Modes and corresponding eigenvalues of the system at the states defined by ``data``. The result is composed of arrays with shape matching ``data.lookforward(self.lookback_len)`` or the contents of ``data.observables``. If ``predict_observables = True`` and ``data.observables != None``, the returned ``dict`` will contain the special key ``__state__`` containing the modes for the state as well.
         """
         pass
 
@@ -153,6 +153,7 @@ class ContextWindow(Sequence):
     Returns:
         A context window.
     """
+
     def __init__(self, window: Sequence):
         self.data = window
         self._context_length = len(window)
@@ -250,13 +251,14 @@ class ContextWindow(Sequence):
 class ContextWindowDataset(ContextWindow):
     """Class for a collection of context windows.
 
-        Args:
-            A sequence of context windows.
+    Args:
+        A sequence of context windows.
 
-        Attributes:
+    Attributes:
 
 
-        """
+    """
+
     def __init__(self, dataset: Iterable[Sequence]):
         data = []
         context_lengths = []
