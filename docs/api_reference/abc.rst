@@ -39,7 +39,7 @@ Feature Maps
 Data & Context Windows
 ----------------------
 
-As explained in :ref:`the guide on Kooplearn's data paradigm <kooplearn_data_paradigm>`, Kooplearn uses a data paradigm based on context windows. The following base classes show the implementation of context windows expected by Kooplearn, in particular the definition of the basic properties such as :code:`context_length` and methods :code:`lookback` and :code:`lookforward`
+As explained in :ref:`the guide on Kooplearn's data paradigm <kooplearn_data_paradigm>`, Kooplearn uses a data paradigm based on context windows. The following base classes show the implementation of context windows expected by Kooplearn, in particular the definition of the basic properties such as :code:`context_length` and methods :code:`lookback` and :code:`lookforward`.
 
 Abstract Context Windows
 ~~~~~~~~~~~~~~~~~~~~~~~~

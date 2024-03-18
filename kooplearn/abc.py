@@ -145,30 +145,29 @@ class TrainableFeatureMap(FeatureMap):
 
 
 class ContextWindow(Sequence):
-    """Class for a single context window, i.e. the kooplearn's data paradigm.
-
-    Args:
-        Sequence : A sequence of data points.
-
-    Returns:
-        A context window.
     """
-
+    Class for a single context window, i.e. the :ref:`kooplearn's data paradigm <kooplearn_data_paradigm>`.
+    """
     def __init__(self, window: Sequence):
+        """
+        Initializes the context window.
+
+        Args:
+            window (Sequence): A sequence of data points.
+        """
         self.data = window
         self._context_length = len(window)
 
     @property
     def context_length(self):
-        """Length of the context window.
-
-        Returns:
-            Length of the context window.
+        """
+        Returns the length of the context window.
         """
         return self._context_length
 
     def slice(self, slice_obj):
-        """Returns a slice of the context window given a slice object.
+        """
+        Returns a slice of the context window given a slice object.
 
         Args:
             slice_obj (slice): The python slice function.
@@ -179,14 +178,18 @@ class ContextWindow(Sequence):
         return self.data[slice_obj]
 
     def __len__(self):
+        """
+        Returns the length of the context window.
+        """
         return 1  # Single context window
 
     def lookback(self, lookback_length: int, slide_by: int = 0):
-        """Returns the lookback window of the context window.
+        """
+        Returns the lookback window of the context window.
 
         Args:
             lookback_length (int):  Length of the lookback window.
-            slide_by (int, optional): Number of slides along the context window. Defaults to 0.
+            slide_by (int, optional): Number of slides along the context window. Default to ``0``.
 
         Returns:
             Lookback window of the context window.
@@ -202,7 +205,8 @@ class ContextWindow(Sequence):
         return lb_window
 
     def lookforward(self, lookback_length: int):
-        """Returns the lookforward window of the context window.
+        """
+        Returns the lookforward window of the context window.
 
         Args:
             lookback_length (int): Length of the lookback window.
@@ -215,15 +219,33 @@ class ContextWindow(Sequence):
         return lf_window
 
     def _check_lb_len(self, lookback_length: int):
+        """
+        Checks the validity of the lookback length.
+
+        Args:
+            lookback_length (int): Length of the lookback window.
+        """
         if (lookback_length > self.context_length) or (lookback_length < 1):
             raise ValueError(
                 f"Invalid lookback_length = {lookback_length} for ContextWindow of length = {self.context_length}. It should be 1 <= lookback_length <= context_length."
             )
 
     def __repr__(self):
+        """
+        Returns a string representation of the context window.
+        """
         return f"ContextWindow <context_length={self.context_length}, data={self.data.__str__()}>"
 
     def __getitem__(self, idx):
+        """
+        Returns the context window's point at the given index.
+
+        Args:
+            idx (int): The index of the point to be returned.
+
+        Returns:
+            The point at the given index.
+        """
         return self.data[idx]
 
     def save(self, path: os.PathLike):
@@ -239,6 +261,7 @@ class ContextWindow(Sequence):
     def load(cls, filename):
         """
         Loads the context window from the given filename.
+
         Args:
             filename: Load the context window from the given filename.
 
@@ -249,17 +272,16 @@ class ContextWindow(Sequence):
 
 
 class ContextWindowDataset(ContextWindow):
-    """Class for a collection of context windows.
-
-    Args:
-        A sequence of context windows.
-
-    Attributes:
-
-
     """
-
+    Class for a collection of :obj:`ContextWindow` objects.
+    """
     def __init__(self, dataset: Iterable[Sequence]):
+        """
+        Initializes the context window dataset.
+
+        Args:
+            dataset (Iterable[Sequence]): A sequence of :obj:`ContextWindow` objects.
+        """
         data = []
         context_lengths = []
         for ctx in dataset:
@@ -282,24 +304,43 @@ class ContextWindowDataset(ContextWindow):
         self._context_length = context_lengths.pop()
 
     def __len__(self):
+        """
+        Returns the number of context windows in the dataset.
+        """
         return len(self.data)
 
     def __iter__(self):
+        """
+        Returns an iterator over the context windows in the dataset
+        """
         return iter([ContextWindow(ctx) for ctx in self.data])
 
     def __getitem__(self, idx):
+        """
+        Returns the context window at the given index.
+
+        Args:
+            idx: The index of the context window to be returned.
+
+        Returns:
+            The context window at the given index.
+        """
         return ContextWindow(self.data[idx])
 
     def __repr__(self):
+        """
+        Returns a string representation of the context window dataset.
+        """
         return f"{self.__class__.__name__} <item_count={len(self)}, context_length={self.context_length}, data={self.data.__str__()}>"
 
     def slice(self, slice_obj):
-        """Returns a slice of the context windows given a slice object.
+        """
+        Returns a slice of the context window dataset given a slice object.
 
         Args:
             slice_obj (slice): The python slice object.
 
         Returns:
-            Slice of the context windows.
+            Slice of the context window dataset.
         """
         return [ctx[slice_obj] for ctx in self.data]
