@@ -58,3 +58,4 @@ html_favicon = "favicon.png"
 bibtex_bibfiles = ["bibliography.bib"]
 
 myst_enable_extensions = ["amsmath", "dollarmath", "html_image"]
+nb_execution_timeout = -1
