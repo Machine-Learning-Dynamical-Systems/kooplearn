@@ -53,6 +53,8 @@ html_theme_options = {
     "show_toc_level": 3,
 }
 
+html_favicon = "favicon.png"
+
 bibtex_bibfiles = ["bibliography.bib"]
 
 myst_enable_extensions = ["amsmath", "dollarmath", "html_image"]
