@@ -83,7 +83,7 @@ def test_reduced_rank_tikhonov_primal_dual_consistency(dt, svd_solver, tikhonov_
 
     primal_predict = primal.predict(dt, U_primal, C_XY, X_test, X, Y)
     primal_eig, primal_lv, primal_rv = primal.estimator_eig(U_primal, C_XY)
-    primal_modes = primal.estimator_modes(U_primal, C_XY, X, X_test)
+    primal_modes, _ = primal.estimator_modes(U_primal, C_XY, X, X_test)
 
     evd_primal = EigenDecomposition(
         primal_eig,
@@ -152,7 +152,7 @@ def test_tikhonov_primal_dual_consistency(dt, svd_solver, rank, tikhonov_reg):
 
     primal_predict = primal.predict(dt, U_primal, C_XY, X_test, X, Y)
     primal_eig, primal_lv, primal_rv = primal.estimator_eig(U_primal, C_XY)
-    primal_modes = primal.estimator_modes(U_primal, C_XY, X, X_test)
+    primal_modes, _ = primal.estimator_modes(U_primal, C_XY, X, X_test)
 
     evd_primal = EigenDecomposition(
         primal_eig,

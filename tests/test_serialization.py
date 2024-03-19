@@ -9,16 +9,18 @@ import torch
 from kooplearn.data import traj_to_contexts
 from kooplearn.datasets import Mock
 from kooplearn.models import ConsistentAE, DynamicAE
-from kooplearn.models.feature_maps import DPNet, VAMPNet
-from kooplearn.nn.data import TrajToContextsDataset
+from kooplearn.models.feature_maps import NNFeatureMap
+from kooplearn.nn import DPLoss, VAMPLoss
+from kooplearn.nn.data import collate_context_dataset
 
 NUM_SAMPLES = 100
 DIM = 7
 
 TRAJ = Mock(num_features=DIM, rng_seed=0).sample(None, NUM_SAMPLES).astype(np.float32)
 DATA = traj_to_contexts(TRAJ)
-NN_DATA = TrajToContextsDataset(TRAJ)
-NN_DATALOADER = torch.utils.data.DataLoader(NN_DATA, batch_size=100, shuffle=True)
+NN_DATALOADER = torch.utils.data.DataLoader(
+    DATA, batch_size=100, shuffle=True, collate_fn=collate_context_dataset
+)
 
 
 def _make_tmp_path(model_name: str):
@@ -69,8 +71,8 @@ def test_KernelDMD_serialization():
     )
 
     assert _allclose(
-        model.modes(DATA),
-        restored_model.modes(DATA),
+        model.modes(DATA)[0],
+        restored_model.modes(DATA)[0],
     )
 
     e1, l1, r1 = model.eig(
@@ -104,8 +106,8 @@ def test_ExtendedDMD_serialization():
     )
 
     assert _allclose(
-        model.modes(DATA),
-        restored_model.modes(DATA),
+        model.modes(DATA)[0],
+        restored_model.modes(DATA)[0],
     )
 
     e1, l1, r1 = model.eig(
@@ -124,8 +126,8 @@ def test_ExtendedDMD_serialization():
     _cleanup()
 
 
-@pytest.mark.parametrize("feature_map_cls", [DPNet, VAMPNet])
-def test_DeepEDMD_serialization(feature_map_cls):
+@pytest.mark.parametrize("feature_map_loss", [DPLoss, VAMPLoss])
+def test_DeepEDMD_serialization(feature_map_loss):
     from kooplearn.models import DeepEDMD
 
     trainer = lightning.Trainer(
@@ -135,14 +137,19 @@ def test_DeepEDMD_serialization(feature_map_cls):
         accelerator="cpu",
         max_epochs=1,
     )
-    feature_map = feature_map_cls(
-        Encoder, torch.optim.SGD, trainer, optimizer_kwargs={"lr": 1e-6}, seed=0
+    feature_map = NNFeatureMap(
+        Encoder,
+        feature_map_loss,
+        torch.optim.SGD,
+        trainer,
+        optimizer_kwargs={"lr": 1e-6},
+        seed=0,
     )
     feature_map.fit(NN_DATALOADER)
 
     tmp_path = _make_tmp_path(feature_map.__class__.__name__)
     feature_map.save(tmp_path)
-    restored_feature_map = feature_map_cls.load(tmp_path)
+    restored_feature_map = NNFeatureMap.load(tmp_path)
 
     assert _allclose(feature_map(TRAJ), restored_feature_map(TRAJ))
 
@@ -158,8 +165,8 @@ def test_DeepEDMD_serialization(feature_map_cls):
     )
 
     assert _allclose(
-        model.modes(DATA),
-        restored_model.modes(DATA),
+        model.modes(DATA)[0],
+        restored_model.modes(DATA)[0],
     )
 
     e1, l1, r1 = model.eig(

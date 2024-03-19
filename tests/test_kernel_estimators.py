@@ -76,7 +76,7 @@ def test_KernelDMD_fit_predict_eig_modes_save_load(
             data.observables = observables
             X_pred = model.predict(data, predict_observables=predict_observables)
             assert X_pred.shape == data.lookforward(model.lookback_len).shape
-            modes = model.modes(data, predict_observables=predict_observables)
+            modes, _ = model.modes(data, predict_observables=predict_observables)
             assert (
                 modes.shape
                 == (model.rank,) + data.lookforward(model.lookback_len).shape
@@ -95,7 +95,7 @@ def test_KernelDMD_fit_predict_eig_modes_save_load(
                 else:
                     assert v.shape == obs_shape
 
-            modes = model.modes(data, predict_observables=predict_observables)
+            modes, _ = model.modes(data, predict_observables=predict_observables)
             assert "__state__" in modes.keys()
             for k, v in modes.items():
                 if k == "__state__":
