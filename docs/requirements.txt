@@ -12,5 +12,6 @@ sphinxcontrib-bibtex
 docutils == 0.16
 matplotlib
 scienceplots
+pandas
 ml_confs
 -e ".[full]"
