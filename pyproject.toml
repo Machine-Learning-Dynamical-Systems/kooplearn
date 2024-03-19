@@ -3,8 +3,10 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "kooplearn"  
-version = "1.0.6"  
+name = "kooplearn"
+dynamic = [
+  "version"
+]  
 description = "A package to learn Koopman operators" 
 readme = "README.md"
 requires-python = ">=3.9"
@@ -21,9 +23,8 @@ dependencies = [
 
 [project.optional-dependencies]
 torch = [
-  "torch",
+  "torch>=2.0",
   "lightning",
-  "pandas",
 ]
 docs = [
   "sphinx",
@@ -46,6 +47,9 @@ full = [
 
 [project.urls]  # Optional
 "Homepage" = "https://github.com/Machine-Learning-Dynamical-Systems/kooplearn"
+
+[tool.hatch.version]
+path = "kooplearn/__about__.py"
 
 [tool.isort]
 # make it compatible with black

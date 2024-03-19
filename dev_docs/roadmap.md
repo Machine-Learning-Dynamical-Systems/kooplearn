@@ -1,4 +1,97 @@
 # Roadmap
+#### Mar 14, 2024:
+**Implementations**.
+1. Consistent AE. To be tested on the `ordered_MNIST` example.
+
+**Documentation & Examples**.
+1. Add docstrings (google style) to 
+   - `kooplearn.abc.ContextWindow`
+   - `kooplearn.abc.ContextWindowDataset`
+   - `kooplearn.data.TensorContextDataset`
+   - `kooplearn.data.TrajectoryContextDataset`
+2. Update the guide in `docs/guides/data_specs.md` to introduce the new Context Windows classes and methods.
+3. Create a jupyter notebook 'Using Context Windows', in which are illustrated the methods and attributes:
+   - `lookback()`
+   - `lookforward()`
+   - `slice()`
+   - `context_length`
+   - `shape` (For Tensor Contexts)
+   
+   Show a practical example of `traj_to_contexts` with a simple `np.arange(20)`, and what is returned by the functions `predict`. To be clear: `predict` now returns a Tensor of the same shape of shape `(len(data), 1, data.shape[:2])`.
+4. In the Ordered MNIST example, I have sketched a couple of cells to check whether the eigenfunctions of a model provide a good dimensionality reduction. I plotted the value of the eigenfunction in a 2d space for each image in the test set and colored with respect to the true label. We see that points with the same color (that is corresponding to the same labels) are clustered toghether. Can you write it down nicely? In this way we test both the forecasting and the eigenvalue decomposition for this example.
+
+
+#### Mar 11, 2024:
+Some notes on the AutoEncoder models:
+1. The signature of `predict` should match `Nonlinear.predict` (see how the observables are changed). Same for `modes`, even if it is not implemented.
+2. `eig` still accepts arrays rather than `ContextWindowDataset`.
+
+In addition: 
+1. I am working on `kooplearn.abc` to update the signatures of `BaseModule` too.
+2. Should port some methods from `kooplearn._src.operator_regression.primal` to `torch`, to be used with the deep feature maps.
+
+(LATER): Upon testing the ordered MNIST, some points are emerging:
+1. Write a `collate_fn` to do batching from a `TensorContextDataset`.
+
+
+#### Mar 10, 2024:
+Make everything compatible with `torch.compile`.
+#### Mar 9, 2024:
+Some preliminary notes on the updates for the NN part. The main goal should be to have classes which are flexible and comprehensive. In this respect, using Lightning is good. 
+
+Some actual implementation details:
+1. We leave the Auto Encoder as now
+2. We implement the `VAMP` and `DP` losses as `torch Modules` as done, e.g. in `torch.nn` (see the losses section)
+3. We replace `kooplearn.models.feature_maps.DPNets` and `kooplearn.models.feature_maps.VAMPNets` by a single module which takes one of these losses defined in 2. as argument. It is just a matter of rewrapping some stuff, nothing big. 
+4. In the spirit of simplifying I am also considering to remove `kooplearn.modules.DeepEDMD`, as it is ust a light wrapper around `kooplearn.modules.EDMD`.
+
+#### Mar 6, 2024:
+Defining the new context API.
+
+**Base class**: `ContextWindow` should just be an Iterable, and implement
+1. Attributes:
+    - `context_length`
+2. Methods:
+    - `lookback(lookback_length: int, slide_by: int = 0)`
+    - `lookforward(lookback_length: int)` 
+    - `save`
+    - `load`
+    - `__repr__`
+3. It should be a subclass of `collections.abc.Sequence`
+
+**ContextWindowDataset**: A collection of context windows. Should be subclassed to be used both with `torch` or `numpy`. Should implement:
+- `__init__`
+- `__len__`
+- `__iter__`
+
+(**LATER**) To do for tomorrow:
+1. Organize the `torch Dataset` classes for the new context windows.
+2. Update the AutoEncoder models to deal with it.
+3. Add `fsspec` to `pickle_load` and `pickle_save` to store artifacts on the cloud.
+4. Review the whole documentation and port the examples in the new formalism.
+
+#### Mar 5, 2024:
+Features to add to `Contexts`:
+- A bijective map of indices from the original trajectory (possibly, trajectories) to the element of the context window length.
+
+#### Mar 4, 2024:
+Added a branch `better_contexts`, to implement a better management of the data flow. The main goal is to have a more intuitive way to call the functions `modes`, `predict`, and `eig` (for the evaluation of the eigenfunctions) in each model. Upon merging to main, this will result in the release of a new minor version. Without overhauling the current design, we will keep the following principles:
+1. `Contexts` only specify the context length, whereas the lookback window should be specified in each model.
+2. Lookback windows can be used for inference, lookforward windows only for train.
+3. Re-use the utilities in `kooplearn._src.operator_regression.utils` to do shape checks.
+4. Implement a `torch` version of contexts to collate them easily even in the case of GNNs.
+5. **Extra**: add a `reencode_every` keyword argument to `predict` as proposed in [Course Correcting Koopman Representations](https://arxiv.org/abs/2310.15386).
+
+**Open questions.**
+
+- The class should contain only 1 context or a batch of them? 
+
+**Status.**
+
+- Implemented an initial `Contexts` class. Add shape checks and remove the explicit definition of `lookback_length` as a property.
+- Update every model to use `Contexts`. I should do minimal surgery, editing as close as possible to the API boundaries. I am just adding an abstraction.
+
+
 #### Jan 24, 2024:
 Testing the old and new versions of the algorithm. Some observations:
 - At low (approaching machine precision) regularization strengths, or when the rank is too high, the computed estimator is highly unstable. As expected.
@@ -20,7 +113,7 @@ Added branch `in_out` in which I will work on serialization of each model, and m
 
 #### Oct 3, 2023:
 Macro implementations left to do:
-- Nystrom Kernel methods (add a `NystromKernelDMD` model)
+- Nystrom Kernel methods (add a `NystromKernel` model)
 - Test Randomized solvers.
 - Implement `modes` and `eig` for AutoEncoders
 - Implement dictionary learning schemes listed in the note of Sep 12 - 18
@@ -88,7 +181,7 @@ Above, pictorial representation of the context-window based data approach.
 ***
 #### Aug 20, 2023
 ###### Pie:
-For the kernel DMD I have dropped the custom kernel objects defined in `kooplearn._src.kernels` and relied instead on `sklearn.gaussian_processes.kernels`, which better documented, supported and allow for easy HP tuning. Minimal API changing, working to have running tests. Check that `ExtendedDMD` models are working too.
+For the kernel DMD I have dropped the custom kernel objects defined in `kooplearn._src.kernels` and relied instead on `sklearn.gaussian_processes.kernels`, which better documented, supported and allow for easy HP tuning. Minimal API changing, working to have running tests. Check that `Nonlinear` models are working too.
 ***
 #### Jul 18 '23
 ###### Bruno:

@@ -12,7 +12,7 @@ from kooplearn._src.utils import fuzzy_parse_complex, topk
 def fit_reduced_rank_regression(
     C_X: np.ndarray,  # Input covariance matrix
     C_XY: np.ndarray,  # Cross-covariance matrix
-    tikhonov_reg: float,  # Tikhonov regularization parameter, can be 0.0
+    tikhonov_reg: float,  # Tikhonov (ridge) regularization parameter, can be 0.0
     rank: int,  # Rank of the estimator
     svd_solver: str = "arnoldi",  # SVD solver to use. Arnoldi is faster for low ranks.
 ):
@@ -57,7 +57,7 @@ def _fit_reduced_rank_regression_noreg(
 def fit_rand_reduced_rank_regression(
     C_X: np.ndarray,  # Input covariance matrix
     C_XY: np.ndarray,  # Cross-covariance matrix
-    tikhonov_reg: float,  # Tikhonov regularization parameter
+    tikhonov_reg: float,  # Tikhonov (ridge) regularization parameter
     rank: int,  # Rank of the estimator
     n_oversamples: int,  # Number of oversamples
     iterated_power: int,  # Number of power iterations
@@ -89,7 +89,7 @@ def fit_rand_reduced_rank_regression(
 
 def fit_principal_component_regression(
     C_X: np.ndarray,  # Input covariance matrix
-    tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter, can be 0
+    tikhonov_reg: float = 0.0,  # Tikhonov (ridge) regularization parameter, can be 0
     rank: Optional[int] = None,  # Rank of the estimator
     svd_solver: str = "arnoldi",  # SVD solver to use. Arnoldi is faster for low ranks.
 ):
@@ -109,7 +109,7 @@ def fit_principal_component_regression(
 
 def fit_rand_principal_component_regression(
     C_X: np.ndarray,  # Input covariance matrix
-    tikhonov_reg: float,  # Tikhonov regularization parameter
+    tikhonov_reg: float,  # Tikhonov (ridge) regularization parameter
     rank: int,  # Rank of the estimator
     n_oversamples: int,  # Number of oversamples
     iterated_power: int,  # Number of power iterations
@@ -208,7 +208,8 @@ def estimator_modes(
     # This should be multiplied on the right by the observable evaluated at the output training data
     lv_obs = np.linalg.multi_dot([r_dim * phi_X, U, lv]).T
     return (
-        rv_in[:, :, None] * lv_obs[:, None, :]
+        rv_in[:, :, None] * lv_obs[:, None, :],
+        values,
     )  # [rank, num_init_conditions, num_training_points]
 
 

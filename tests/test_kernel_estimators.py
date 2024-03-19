@@ -8,7 +8,7 @@ from sklearn.gaussian_process.kernels import RBF, DotProduct, Matern
 
 from kooplearn.data import traj_to_contexts
 from kooplearn.datasets.stochastic import LinearModel
-from kooplearn.models import KernelDMD
+from kooplearn.models import Kernel
 
 TRUE_RANK = 5
 DIM = 20
@@ -34,17 +34,25 @@ def make_linear_system():
 @pytest.mark.parametrize("rank", [TRUE_RANK, TRUE_RANK - 2, TRUE_RANK + 10])
 @pytest.mark.parametrize("solver", ["full", "arnoldi", "wrong"])
 @pytest.mark.parametrize("tikhonov_reg", [None, 0.0, 1e-5])
-@pytest.mark.parametrize("observables", [None, lambda x: x[:, 0]])
+@pytest.mark.parametrize("observables", [None, {"zeroes": np.zeros, "ones": np.ones}])
+@pytest.mark.parametrize("predict_observables", [True, False])
 @pytest.mark.parametrize("lookback_len", [1, 2, 3])
-def test_KernelDMD_fit_predict_eig_modes_save_load(
-    kernel, reduced_rank, rank, solver, tikhonov_reg, observables, lookback_len
+def test_Kernel_fit_predict_eig_modes_save_load(
+    kernel,
+    reduced_rank,
+    rank,
+    solver,
+    tikhonov_reg,
+    observables,
+    predict_observables,
+    lookback_len,
 ):
     dataset = make_linear_system()
     _Z = dataset.sample(np.zeros(DIM), NUM_SAMPLES)
     data = traj_to_contexts(_Z, lookback_len + 1)
     if solver not in ["full", "arnoldi"]:
         with pytest.raises(ValueError):
-            model = KernelDMD(
+            model = Kernel(
                 kernel=kernel,
                 reduced_rank=reduced_rank,
                 rank=rank,
@@ -52,7 +60,7 @@ def test_KernelDMD_fit_predict_eig_modes_save_load(
                 svd_solver=solver,
             )
     else:
-        model = KernelDMD(
+        model = Kernel(
             kernel=kernel,
             reduced_rank=reduced_rank,
             rank=rank,
@@ -62,30 +70,48 @@ def test_KernelDMD_fit_predict_eig_modes_save_load(
 
         assert model.is_fitted is False
         model.fit(data)
-        test_data = data[:, :lookback_len, ...]
         assert model.is_fitted is True
-        if observables is None:
-            X_pred = model.predict(test_data, observables=observables)
-            assert X_pred.shape == (data.shape[0],) + data.shape[2:]
-            modes = model.modes(test_data, observables=observables)
-            assert modes.shape[1:] == (data.shape[0],) + data.shape[2:]
-        else:
-            Y = data[:, -1, ...]
-            _dummy_vec = observables(Y)
-            if _dummy_vec.ndim == 1:
-                _dummy_vec = _dummy_vec[:, None]
-            X_pred = model.predict(test_data, observables=observables)
-            assert X_pred.shape == _dummy_vec.shape
-            modes = model.modes(test_data, observables=observables)
-            _target_shape = _dummy_vec.shape
-            assert modes.shape[1:] == _target_shape
 
-        vals, lv, rv = model.eig(eval_left_on=test_data, eval_right_on=test_data)
+        if (observables is None) or (predict_observables is False):
+            data.observables = observables
+            X_pred = model.predict(data, predict_observables=predict_observables)
+            assert X_pred.shape == data.lookforward(model.lookback_len).shape
+            modes, _ = model.modes(data, predict_observables=predict_observables)
+            assert (
+                modes.shape
+                == (model.rank,) + data.lookforward(model.lookback_len).shape
+            )
+        else:
+            obs_shape = (len(data), 1, 2, 3, 4)
+            data.observables = {
+                k: v(obs_shape, dtype=np.float_) for k, v in observables.items()
+            }
+
+            X_pred = model.predict(data, predict_observables=predict_observables)
+            assert "__state__" in X_pred.keys()
+            for k, v in X_pred.items():
+                if k == "__state__":
+                    assert v.shape == data.lookforward(model.lookback_len).shape
+                else:
+                    assert v.shape == obs_shape
+
+            modes, _ = model.modes(data, predict_observables=predict_observables)
+            assert "__state__" in modes.keys()
+            for k, v in modes.items():
+                if k == "__state__":
+                    assert (
+                        v.shape
+                        == (model.rank,) + data.lookforward(model.lookback_len).shape
+                    )
+                else:
+                    assert v.shape == (model.rank,) + obs_shape
+
+        vals, lv, rv = model.eig(eval_left_on=data, eval_right_on=data)
         assert vals.shape[0] <= rank
         assert vals.ndim == 1
         tmp_path = Path(__file__).parent / f"tmp/model.bin"
         model.save(tmp_path)
-        restored_model = KernelDMD.load(tmp_path)
+        restored_model = Kernel.load(tmp_path)
 
         assert np.allclose(model.kernel_X, restored_model.kernel_X)
         assert np.allclose(model.kernel_Y, restored_model.kernel_Y)

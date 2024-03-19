@@ -3,7 +3,6 @@ import math
 from typing import NamedTuple
 
 import numpy as np
-from numpy.typing import ArrayLike
 from scipy.spatial.distance import pdist
 
 logger = logging.getLogger("kooplearn")
@@ -24,31 +23,6 @@ def check_is_fitted(obj: object, attr_list: list[str]):
         if not hasattr(obj, attr):
             raise NotFittedError(
                 f"Attribute \"{attr}\" not found. {obj.__class__.__name__} is not fitted. Please call the 'fit' method first."
-            )
-
-
-def check_contexts_shape(
-    data: ArrayLike, lookback_len: int, is_inference_data: bool = False
-):
-    # Numpy/Torch/Jax compatible
-    if not isinstance(lookback_len, int):
-        raise ValueError(
-            f"The lookback_len must be an int, while {type(lookback_len)=}"
-        )
-    if lookback_len < 1:
-        raise ValueError(f"Invalid lookback_len={lookback_len}.")
-    if data.ndim < 3:
-        raise ShapeError(
-            f"Invalid shape {data.shape}. The data must have be at least three dimensional [batch_size, context_len, *features]."
-        )
-    if lookback_len > data.shape[1]:
-        raise ShapeError(
-            f"Invalid lookback_len={lookback_len} for data of shape {data.shape}."
-        )
-    if is_inference_data:
-        if data.shape[1] != lookback_len:
-            raise ShapeError(
-                f"Invalid context length ({data.shape[1]}). For inference data, context window length should be matching the lookback length ({lookback_len})"
             )
 
 

@@ -14,6 +14,29 @@ Kooplearn
 
 ----
 
+Installation
+^^^^^^^^^^^^
+
+To install the core version of ``kooplearn``, without optional the dependencies `Torch <https://pytorch.org/>`_ and `Lightning <https://lightning.ai/>`_, run
+
+.. code-block:: bash
+
+   pip install kooplearn
+
+To install the full version of ``kooplearn``, including Neural-Network models, run
+
+.. code-block:: bash
+
+   pip install "kooplearn[full]"
+
+To install the development version of ``kooplearn``, run
+
+.. code-block:: bash
+
+   pip install --upgrade git+https://github.com/Machine-Learning-Dynamical-Systems/kooplearn.git
+
+----
+
 Features
 ^^^^^^^^^
 
@@ -29,7 +52,7 @@ Features
 
          .. div:: sd-font-normal
 
-            Kooplearn offers a diverse range of state of the art algorithms tailored for learning Koopman and Transfer operators of deterministic and stochastic dynamical systems, respectively. Check out kooplearn's :ref:`model zoo <model_zoo>` for a complete list of available algorithms.
+            Kooplearn offers a diverse range of state of the art algorithms tailored for learning :ref:`Koopman and Transfer operators <primer>` of deterministic and stochastic dynamical systems, respectively. Check out kooplearn's :ref:`model zoo <model_zoo>` for a complete list of available algorithms.
 
    .. grid-item::
       :columns: 12 12 12 6
@@ -53,7 +76,7 @@ Features
 
          .. div:: sd-font-normal
 
-            Unlock deeper insights into your dynamical systems using spectral analysis. Every model in kooplearn implements an `eig` method returning the spectral decomposition of the learned operator. This can be used for a number of downstream tasks, such as modal decomposition, control, system identification, and more.
+            Unlock deeper insights into your dynamical systems using spectral analysis. Every model in kooplearn implements :code:`eig` and :code:`modes` methods returning the spectral and mode decompositions of the learned operator. This can be used for a number of downstream tasks, such as control, system identification, and more.
 
    .. grid-item::
       :columns: 12 12 12 6
@@ -68,27 +91,6 @@ Features
             Kooplearn implements many neural-network models to learn the Koopman/transfer operators. Kooplearn's Deep-Learning models are based upon `Pytorch Lightning <https://lightning.ai/>`_ for fast and easy training on CPU, GPU, and multi-GPU systems. 
 
 ----
-
-Installation
-^^^^^^^^^^^^
-
-To install the core version of ``kooplearn``, without optional dependencies, run
-
-.. code-block:: bash
-
-   pip install kooplearn
-
-To install the full version of ``kooplearn``, including Neural-Network models, and the dahsboard, run
-
-.. code-block:: bash
-
-   pip install "kooplearn[full]"
-
-To install the development version of ``kooplearn``, run
-
-.. code-block:: bash
-
-   pip install --upgrade git+https://github.com/Machine-Learning-Dynamical-Systems/kooplearn.git
 
 
 Learn more
@@ -133,9 +135,9 @@ Learn more
    
    primer
    getting_started
-   .. 
-      examples/index
+   examples/index
    model_zoo
+   datasets
    guides/index
    api_reference/index
 

@@ -7,6 +7,19 @@ def check_torch_deps():
         )
 
 
+def parse_backend(backend: str):
+    if backend not in ["auto", "numpy", "torch"]:
+        raise ValueError(
+            f"Invalid backend {backend}. Accepted values are 'auto', 'numpy', or 'torch'."
+        )
+    # Check if torch is available
+    try:
+        import torch
+    except ImportError:
+        torch = None
+    return torch, backend
+
+
 def check_dashboard_deps():
     try:
         import dash_iconify
