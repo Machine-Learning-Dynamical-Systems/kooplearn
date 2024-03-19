@@ -14,7 +14,7 @@ logger = logging.getLogger("kooplearn")
 
 
 class NNFeatureMap(TrainableFeatureMap):
-    """Implements a generic Neural Network feature maps. Can be used in conjunction to :class:`kooplearn.models.DeepEDMD` to learn a Koopman/Transfer operator from data. The NN feature map is trained using the :class:`lightning.LightningModule` API, and can be trained using the :class:`lightning.Trainer` API. See the `PyTorch Lightning documentation <https://pytorch-lightning.readthedocs.io/en/latest/>`_ for more information.
+    """Implements a generic Neural Network feature maps. Can be used in conjunction to :class:`kooplearn.models.Nonlinear` to learn a Koopman/Transfer operator from data. The NN feature map is trained using the :class:`lightning.LightningModule` API, and can be trained using the :class:`lightning.Trainer` API. See the `PyTorch Lightning documentation <https://pytorch-lightning.readthedocs.io/en/latest/>`_ for more information.
 
     Args:
         encoder (torch.nn.Module): Encoder network. Should be a subclass of :class:`torch.nn.Module`. Will be initialized as ``encoder(**encoder_kwargs)``.

@@ -56,13 +56,13 @@ class Decoder(torch.nn.Module):
         return self.decoder(x)
 
 
-def test_KernelDMD_serialization():
-    from kooplearn.models import KernelDMD
+def test_Kernel_serialization():
+    from kooplearn.models import Kernel
 
-    model = KernelDMD().fit(DATA)
+    model = Kernel().fit(DATA)
     tmp_path = _make_tmp_path(model.__class__.__name__)
     model.save(tmp_path)
-    restored_model = KernelDMD.load(tmp_path)
+    restored_model = Kernel.load(tmp_path)
 
     # Check that predict, eig and modes return the same values
     assert _allclose(
@@ -91,13 +91,13 @@ def test_KernelDMD_serialization():
     _cleanup()
 
 
-def test_ExtendedDMD_serialization():
-    from kooplearn.models import ExtendedDMD
+def test_Nonlinear_serialization():
+    from kooplearn.models import Nonlinear
 
-    model = ExtendedDMD().fit(DATA)
+    model = Nonlinear().fit(DATA)
     tmp_path = _make_tmp_path(model.__class__.__name__)
     model.save(tmp_path)
-    restored_model = ExtendedDMD.load(tmp_path)
+    restored_model = Nonlinear.load(tmp_path)
 
     # Check that predict, eig and modes return the same values
     assert _allclose(
@@ -127,8 +127,8 @@ def test_ExtendedDMD_serialization():
 
 
 @pytest.mark.parametrize("feature_map_loss", [DPLoss, VAMPLoss])
-def test_DeepEDMD_serialization(feature_map_loss):
-    from kooplearn.models import DeepEDMD
+def test_NN_Nonlinear_serialization(feature_map_loss):
+    from kooplearn.models import Nonlinear
 
     trainer = lightning.Trainer(
         enable_progress_bar=False,
@@ -153,10 +153,10 @@ def test_DeepEDMD_serialization(feature_map_loss):
 
     assert _allclose(feature_map(TRAJ), restored_feature_map(TRAJ))
 
-    model = DeepEDMD(feature_map=feature_map).fit(DATA)
+    model = Nonlinear(feature_map=feature_map).fit(DATA)
     tmp_path = _make_tmp_path(model.__class__.__name__)
     model.save(tmp_path)
-    restored_model = DeepEDMD.load(tmp_path)
+    restored_model = Nonlinear.load(tmp_path)
 
     # Check that predict, eig and modes return the same values
     assert _allclose(

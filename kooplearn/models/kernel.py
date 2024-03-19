@@ -7,7 +7,7 @@ from typing import Optional, Union
 import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.base import RegressorMixin
-from sklearn.gaussian_process.kernels import DotProduct, Kernel
+from sklearn.gaussian_process.kernels import DotProduct
 
 from kooplearn._src.operator_regression import dual
 from kooplearn._src.operator_regression.utils import parse_observables
@@ -19,16 +19,20 @@ from kooplearn.data import TensorContextDataset
 logger = logging.getLogger("kooplearn")
 
 
-class KernelDMD(BaseModel, RegressorMixin):
+class Kernel(BaseModel, RegressorMixin):
     """
-    Kernel Dynamic Mode Decomposition (KernelDMD) Model.
-    Implements the KernelDMD estimators approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator following the approach described in :footcite:t:`Kostic2022`.
+    Kernel model minimizing the :math:`L^{2}` loss.
+    Implements a model approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator by lifting the state with a *infinite-dimensional nonlinear* feature map associated to a kernel :math:`k` and then minimizing the :math:`L^{2}` loss in the embedded space as described in :footcite:t:`Kostic2022`.
+
+    .. tip::
+
+        The dynamical modes obtained by calling :class:`kooplearn.models.Kernel.modes` correspond to the *Kernel Dynamical Mode Decomposition* by :footcite:t:`Williams2015_KDMD`.
 
     Args:
         kernel (sklearn.gaussian_process.kernels.Kernel): sklearn Kernel object. Defaults to `DotProduct`.
         reduced_rank (bool): If ``True`` initializes the reduced rank estimator introduced in :footcite:t:`Kostic2022`, if ``False`` initializes the classical principal component estimator.
         rank (int): Rank of the estimator. Defaults to 5.
-        tikhonov_reg (float): Tikhonov regularization coefficient. ``None`` is equivalent to ``tikhonov_reg = 0``, and internally calls specialized stable algorithms to deal with this specific case.
+        tikhonov_reg (float): Tikhonov (ridge) regularization coefficient. ``None`` is equivalent to ``tikhonov_reg = 0``, and internally calls specialized stable algorithms to deal with this specific case.
         svd_solver (str): Solver used to perform the internal SVD calcuations. Currently supported: `full`, uses LAPACK solvers, `arnoldi`, uses ARPACK solvers, `randomized`, uses randomized SVD algorithms as described in :footcite:t:`Turri2023`.
         iterated_power (int): Number of power iterations when using a randomized algorithm (``svd_solver == 'randomized'``).
         n_oversamples (int): Number of oversamples when using a randomized algorithm (``svd_solver == 'randomized'``).
@@ -110,9 +114,9 @@ class KernelDMD(BaseModel, RegressorMixin):
             Y = Y.reshape(Y.shape[0], -1)
         return self._kernel(X, Y)
 
-    def fit(self, data: TensorContextDataset) -> KernelDMD:
+    def fit(self, data: TensorContextDataset) -> Kernel:
         """
-        Fits the KernelDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
+        Fits the Kernel model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
 
 
@@ -450,6 +454,6 @@ class KernelDMD(BaseModel, RegressorMixin):
             filename (path-like or file-like): Load the model from file.
 
         Returns:
-            KernelDMD: The loaded model.
+            Kernel: The loaded model.
         """
         return pickle_load(cls, filename)

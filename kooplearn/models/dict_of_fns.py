@@ -19,16 +19,20 @@ from kooplearn.models.feature_maps import IdentityFeatureMap
 logger = logging.getLogger("kooplearn")
 
 
-class ExtendedDMD(BaseModel):
+class Nonlinear(BaseModel):
     """
-    Extended Dynamic Mode Decomposition (ExtendedDMD) Model.
-    Implements the ExtendedDMD estimators approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator following the approach described in :footcite:t:`Kostic2022`.
+    Nonlinear model minimizing the :math:`L^{2}` loss.
+    Implements a model approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator by lifting the state with a *nonlinear* feature map and then minimizing the :math:`L^{2}` loss in the embedded space as described in :footcite:t:`Kostic2022`.
+
+    .. tip::
+
+        The dynamical modes obtained by calling :class:`kooplearn.models.Nonlinear.modes` correspond to the *Extended Dynamical Mode Decomposition* by :footcite:t:`Williams2015_EDMD`.
 
     Args:
-        feature_map (callable): Dictionary of functions used for the ExtendedDMD algorithm. Should be a subclass of ``kooplearn.abc.FeatureMap``.
+        feature_map (callable): Dictionary of functions used for the Nonlinear algorithm. Should be a subclass of ``kooplearn.abc.FeatureMap``.
         reduced_rank (bool): If ``True`` initializes the reduced rank estimator introduced in :footcite:t:`Kostic2022`, if ``False`` initializes the classical principal component estimator.
         rank (int): Rank of the estimator. ``None`` returns the full rank estimator.
-        tikhonov_reg (float): Tikhonov regularization coefficient. ``None`` is equivalent to ``tikhonov_reg = 0``, and internally calls specialized stable algorithms to deal with this specific case.
+        tikhonov_reg (float): Tikhonov (ridge) regularization coefficient. ``None`` is equivalent to ``tikhonov_reg = 0``, and internally calls specialized stable algorithms to deal with this specific case.
         svd_solver (str): Solver used to perform the internal SVD calcuations. Currently supported: `full`, uses LAPACK solvers, `arnoldi`, uses ARPACK solvers, `randomized`, uses randomized SVD algorithms as described in :footcite:t:`Turri2023`.
         iterated_power (int): Number of power iterations when using a randomized algorithm (``svd_solver == 'randomized'``).
         n_oversamples (int): Number of oversamples when using a randomized algorithm (``svd_solver == 'randomized'``).
@@ -36,7 +40,7 @@ class ExtendedDMD(BaseModel):
 
     .. tip::
 
-        A powerful DMD variation proposed by :footcite:t:`Arbabi2017`, known as Hankel-DMD, evaluates the Koopman/Transfer estimators by stacking consecutive snapshots together in a Hankel matrix. When this model is fitted on context windows of length > 2, the lookback window is automatically set to length ``context_len - 1``. Upon fitting, the whole lookback window is passed through the feature map and the results are then flattened and *concatenated* together, realizing an Hankel-EDMD estimator.
+        A powerful variation proposed by :footcite:t:`Arbabi2017`, known as Hankel-DMD, evaluates the Koopman/Transfer estimators by stacking consecutive snapshots together in a Hankel matrix. When this model is fitted on context windows of length > 2, the lookback window is automatically set to length ``context_len - 1``. Upon fitting, the whole lookback window is passed through the feature map and the results are then flattened and *concatenated* together, realizing an Hankel-EDMD estimator.
 
     Attributes:
         data_fit : Training data, of type ``kooplearn.data.TensorContextDataset``.
@@ -57,6 +61,15 @@ class ExtendedDMD(BaseModel):
         n_oversamples: int = 5,
         rng_seed: Optional[int] = None,
     ):
+        # Check whether the provided feature map is trainable
+        if hasattr(feature_map, "fit"):
+            if not feature_map.is_fitted:
+                raise NotFittedError(
+                    """
+                    The provided feature map is not fitted. Please call the fit method before initializing the Nonlinear model.
+                    """
+                )
+
         # Perform checks on the input arguments:
         if svd_solver not in ["full", "arnoldi", "randomized"]:
             raise ValueError(
@@ -108,9 +121,9 @@ class ExtendedDMD(BaseModel):
         feat_X = feat_X.reshape(_n_samples, self.lookback_len, *_trail_dims)
         return feat_X.reshape(_n_samples, -1)
 
-    def fit(self, data: TensorContextDataset) -> ExtendedDMD:
+    def fit(self, data: TensorContextDataset) -> Nonlinear:
         """
-        Fits the ExtendedDMD model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
+        Fits the Nonlinear model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
         depending on the parameters of the model.
 
         .. attention::
@@ -379,7 +392,7 @@ class ExtendedDMD(BaseModel):
             filename (path-like or file-like): Load the model from file.
 
         Returns:
-            ExtendedDMD: The loaded model.
+            Nonlinear: The loaded model.
         """
         return pickle_load(cls, filename)
 
@@ -431,10 +444,14 @@ class ExtendedDMD(BaseModel):
             del self._eig_cache
 
 
-class DMD(ExtendedDMD):
+class Linear(Nonlinear):
     """
-    Dynamic Mode Decomposition (DMD) Model.
-    Implements the classical DMD estimator approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator. This model just a minimal wrapper around ``ExtendedDMD`` setting the feature map to the identity function.
+    Linear model minimizing the :math:`L^{2}` loss.
+    Implements a model approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator finding the *linear* operator minimizing the :math:`L^{2}` loss as described in :footcite:t:`Kostic2022`.
+
+    .. tip::
+
+        The dynamical modes obtained by calling :class:`kooplearn.models.Linear.modes` correspond to the *Dynamical Mode Decomposition* by :footcite:t:`Schmid2010`.
     """
 
     def __init__(

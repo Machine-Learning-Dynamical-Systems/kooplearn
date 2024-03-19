@@ -8,7 +8,7 @@ from scipy.stats import special_ortho_group
 from kooplearn.abc import FeatureMap
 from kooplearn.data import traj_to_contexts
 from kooplearn.datasets.stochastic import LinearModel
-from kooplearn.models.edmd import ExtendedDMD
+from kooplearn.models.dict_of_fns import Nonlinear
 from kooplearn.models.feature_maps import IdentityFeatureMap
 
 TRUE_RANK = 5
@@ -47,7 +47,7 @@ class PolyFeatureMap(FeatureMap):
 @pytest.mark.parametrize("observables", [None, {"zeroes": np.zeros, "ones": np.ones}])
 @pytest.mark.parametrize("predict_observables", [True, False])
 @pytest.mark.parametrize("lookback_len", [1, 2, 3])
-def test_ExtendedDMD_fit_predict_eig_modes_save_load(
+def test_Nonlinear_fit_predict_eig_modes_save_load(
     feature_map,
     reduced_rank,
     rank,
@@ -62,7 +62,7 @@ def test_ExtendedDMD_fit_predict_eig_modes_save_load(
     data = traj_to_contexts(_Z, lookback_len + 1)
     if svd_solver not in ["full", "arnoldi"]:
         with pytest.raises(ValueError):
-            model = ExtendedDMD(
+            model = Nonlinear(
                 feature_map=feature_map,
                 reduced_rank=reduced_rank,
                 rank=rank,
@@ -70,7 +70,7 @@ def test_ExtendedDMD_fit_predict_eig_modes_save_load(
                 svd_solver=svd_solver,
             )
     else:
-        model = ExtendedDMD(
+        model = Nonlinear(
             feature_map=feature_map,
             reduced_rank=reduced_rank,
             rank=rank,
@@ -120,7 +120,7 @@ def test_ExtendedDMD_fit_predict_eig_modes_save_load(
         assert vals.ndim == 1
         tmp_path = Path(__file__).parent / "tmp/model.bin"
         model.save(tmp_path)
-        restored_model = ExtendedDMD.load(tmp_path)
+        restored_model = Nonlinear.load(tmp_path)
         assert np.allclose(model.cov_X, restored_model.cov_X)
         assert np.allclose(model.cov_Y, restored_model.cov_Y)
         assert np.allclose(model.cov_XY, restored_model.cov_XY)

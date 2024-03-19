@@ -21,14 +21,18 @@ logger = logging.getLogger("kooplearn")
 
 class NystroemKernel(BaseModel, RegressorMixin):
     """
-    Nystroem-accelerated Kernel Least Squares (KernelDMD) Model.
-    Implements the KernelDMD estimators approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator following the approach described in :footcite:t:`Meanti2023`.
+    Nystroem-accelerated Kernel model minimizing the :math:`L^{2}` loss.
+    Implements a model approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator by lifting the state with a *infinite-dimensional nonlinear* feature map associated to a kernel :math:`k` and then minimizing the :math:`L^{2}` loss in the embedded space as described in :footcite:t:`Meanti2023`.
+
+    .. tip::
+
+        The dynamical modes obtained by calling :class:`kooplearn.models.Kernel.modes` correspond to the *Kernel Dynamical Mode Decomposition* by :footcite:t:`Williams2015_KDMD`.
 
     Args:
         kernel (sklearn.gaussian_process.kernels.Kernel): sklearn Kernel object. Defaults to `DotProduct`.
         reduced_rank (bool): If ``True`` initializes the reduced rank estimator introduced in :footcite:t:`Kostic2022`, if ``False`` initializes the classical principal component estimator.
         rank (int): Rank of the estimator. Defaults to 5.
-        tikhonov_reg (float): Tikhonov regularization coefficient. ``None`` is equivalent to ``tikhonov_reg = 0``, and internally calls specialized stable algorithms to deal with this specific case.
+        tikhonov_reg (float): Tikhonov (ridge) regularization coefficient. ``None`` is equivalent to ``tikhonov_reg = 0``, and internally calls specialized stable algorithms to deal with this specific case.
         svd_solver (str): Solver used to perform the internal SVD calcuations. Currently supported: `full`, uses LAPACK solvers, `arnoldi`, uses ARPACK solvers.
         num_centers (int or float): Number of centers to select. If ``num_centers < 1``, selects ``int(num_centers * n_samples)`` centers. If ``num_centers >= 1``, selects ``int(num_centers)`` centers. Defaults to ``0.1``.
         rng_seed (int): Random Number Generator seed. Only used when ``svd_solver == 'randomized'``.  Defaults to ``None``, that is no explicit seed is setted.
@@ -103,7 +107,7 @@ class NystroemKernel(BaseModel, RegressorMixin):
 
     def fit(self, data: TensorContextDataset) -> NystroemKernel:
         """
-        Fits the Nystroem KernelDMD model.
+        Fits the Nystroem Kernel model.
 
 
         .. attention::

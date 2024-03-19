@@ -19,17 +19,17 @@
 ## Models
 ### NystromKDMD
 - [ ] Fix the low level algorithms for numerical stability & test
-- [ ] Use `kooplearn.models.KernelDMD` as an example to implement the Nystrom version. ~~Link to Falkon for a GPU implementation.~~
+- [ ] Use `kooplearn.models.Kernel` as an example to implement the Nystrom version. ~~Link to Falkon for a GPU implementation.~~
 - [ ] Check the role of Tikhnonv reg. in both PCR and RRR -- [Giacomo's implementation](https://github.com/Giodiro/NystromKoopman/tree/9463faf5dd6a7b7a5ccba31ebbd755fcfa91e20f/nyskoop/estimators) is not 100% consistent (PCR has no reg, while RRR has it) 
 
-### ExtendedDMD
+### Nonlinear
 - [x] Add `risk` method.
 - [ ] Add power iteration QR normalization for the randomized RRR algorithms.
 - [x] Lift the constraint of having 2D observables in `modes` and `predict`
-- [x] Do as above for `KernelDMD`
+- [x] Do as above for `Kernel`
 
 ### ~~EncoderModel~~ DeepEDMD Model
-- [x] Rewrite it by subclassing `kooplearn.models.ExtendedDMD`
+- [x] Rewrite it by subclassing `kooplearn.models.Nonlinear`
 - [ ] Implement the loading and saving utilities - pay attention to saving the feature map.
 - [x] Drop the requirements for the data to be of shape `[n_samples, n_features]`, and allow for a general `[n_samples, ...]`.
 
@@ -40,11 +40,11 @@
 - [x] Modify the `training_step` to get data from a context window.
 - [ ] Add Chapman-Kolmogorov Regularization
 - [x] Perform shape checks at the beginning of every epoch (`batch_idx == 0`).
-- [x] Add shape checks: outputs should be 2D, and context windows should be two-dimensional. _Non-2D inputs are handled as  in_ `ExtendedDMD`
+- [x] Add shape checks: outputs should be 2D, and context windows should be two-dimensional. _Non-2D inputs are handled as  in_ `Nonlinear`
 - [ ] Add a test in `tests`
 
 ### VAMPNets
-- [x] Add shape checks: outputs should be 2D, and context windows should be two-dimensional. _Non-2D inputs are handled as  in_ `ExtendedDMD`
+- [x] Add shape checks: outputs should be 2D, and context windows should be two-dimensional. _Non-2D inputs are handled as  in_ `Nonlinear`
 - [ ] Add a test in `tests`
 
 ### AutoEncoders
@@ -72,7 +72,7 @@
 - [x] The `FeatureMap.cov` must be popped out of it and moved into `kooplearn._src.utils`, as I do not find a reasonable default behaviour in the context-window data paradigm.
 - [x] `kooplearn.abc.TrainableFeatureMap` must now have a `lookback_len` keyword ~~(or equivalent, should we opt for a different nomenclature)~~.
 
-###### Modules ~~`kooplearn.models.ExtendedDMD`~~, `kooplearn.models.KernelDMD` and `kooplearn.models.DeepEDMD`
+###### Modules ~~`kooplearn.models.Nonlinear`~~, `kooplearn.models.Kernel` and `kooplearn.models.DeepEDMD`
 - [x] Implement functions to be called at the I/O boundaries to reshape the I/O data in a coherent fashion.
 - [x] `fit(X, Y) -> fit(data, lookback_len = None)`
 - [x] Throw a ~~Warning~~ Error if `lookback_len != context_len - 1` (we cannot use future steps in these methods)
@@ -140,7 +140,7 @@ Thoughts: this scheme might be a bit too general, and possibly detrimental. At t
     - [ ] 1D Triple Well
 - [ ] Test _randomized_ algorithms (not clear how to do that now).
 - [x] Test the left eigenfunctions of the primal algorithm.
-- [x] Handle the case of 0 Tikhonov regularization.
+- [x] Handle the case of 0 Tikhonov (ridge) regularization.
 - [ ] *Sep 11, 2023:* Review the current tests and plan a comprehensive test suite for DMD-based estimators. 
 
 ### Make the code clearer

@@ -8,7 +8,7 @@ from sklearn.gaussian_process.kernels import RBF, DotProduct, Matern
 
 from kooplearn.data import traj_to_contexts
 from kooplearn.datasets.stochastic import LinearModel
-from kooplearn.models import KernelDMD
+from kooplearn.models import Kernel
 
 TRUE_RANK = 5
 DIM = 20
@@ -37,7 +37,7 @@ def make_linear_system():
 @pytest.mark.parametrize("observables", [None, {"zeroes": np.zeros, "ones": np.ones}])
 @pytest.mark.parametrize("predict_observables", [True, False])
 @pytest.mark.parametrize("lookback_len", [1, 2, 3])
-def test_KernelDMD_fit_predict_eig_modes_save_load(
+def test_Kernel_fit_predict_eig_modes_save_load(
     kernel,
     reduced_rank,
     rank,
@@ -52,7 +52,7 @@ def test_KernelDMD_fit_predict_eig_modes_save_load(
     data = traj_to_contexts(_Z, lookback_len + 1)
     if solver not in ["full", "arnoldi"]:
         with pytest.raises(ValueError):
-            model = KernelDMD(
+            model = Kernel(
                 kernel=kernel,
                 reduced_rank=reduced_rank,
                 rank=rank,
@@ -60,7 +60,7 @@ def test_KernelDMD_fit_predict_eig_modes_save_load(
                 svd_solver=solver,
             )
     else:
-        model = KernelDMD(
+        model = Kernel(
             kernel=kernel,
             reduced_rank=reduced_rank,
             rank=rank,
@@ -111,7 +111,7 @@ def test_KernelDMD_fit_predict_eig_modes_save_load(
         assert vals.ndim == 1
         tmp_path = Path(__file__).parent / f"tmp/model.bin"
         model.save(tmp_path)
-        restored_model = KernelDMD.load(tmp_path)
+        restored_model = Kernel.load(tmp_path)
 
         assert np.allclose(model.kernel_X, restored_model.kernel_X)
         assert np.allclose(model.kernel_Y, restored_model.kernel_Y)

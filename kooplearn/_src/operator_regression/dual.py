@@ -69,7 +69,7 @@ def _filter_reduced_rank_svals(values, vectors, rank):
 def fit_reduced_rank_regression(
     kernel_X: np.ndarray,  # Kernel matrix of the input data
     kernel_Y: np.ndarray,  # Kernel matrix of the output data
-    tikhonov_reg: float,  # Tikhonov regularization parameter, can be 0
+    tikhonov_reg: float,  # Tikhonov (ridge) regularization parameter, can be 0
     rank: int,  # Rank of the estimator
     svd_solver: str = "arnoldi",  # SVD solver to use. 'arnoldi' is faster but might be numerically unstable.
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -105,8 +105,7 @@ def fit_reduced_rank_regression(
         # Eigenvector normalization
         kernel_X_vecs = np.dot(np.multiply(kernel_X, n_pts ** (-0.5)), vectors)
         vecs_norms = np.sum(
-            kernel_X_vecs**2
-            + tikhonov_reg * kernel_X_vecs * vectors * (n_pts**0.5),
+            kernel_X_vecs**2 + tikhonov_reg * kernel_X_vecs * vectors * (n_pts**0.5),
             axis=0,
         ) ** (0.5)
         U = vectors / vecs_norms
@@ -156,7 +155,7 @@ def fit_nystroem_reduced_rank_regression(
     kernel_Y: np.ndarray,  # Kernel matrix of the output inducing points
     kernel_Xnys: np.ndarray,  # Kernel matrix between the input data and the input inducing points
     kernel_Ynys: np.ndarray,  # Kernel matrix between the output data and the output inducing points
-    tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter
+    tikhonov_reg: float = 0.0,  # Tikhonov (ridge) regularization parameter
     rank: Optional[int] = None,  # Rank of the estimator
     svd_solver: str = "arnoldi",  # Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -217,7 +216,7 @@ def fit_nystroem_reduced_rank_regression(
 def fit_rand_reduced_rank_regression(
     kernel_X: np.ndarray,  # Kernel matrix of the input data
     kernel_Y: np.ndarray,  # Kernel matrix of the output data
-    tikhonov_reg: float,  # Tikhonov regularization parameter
+    tikhonov_reg: float,  # Tikhonov (ridge) regularization parameter
     rank: int,  # Rank of the estimator
     n_oversamples: int,  # Number of oversamples
     optimal_sketching: bool,  # Whether to use optimal sketching (slower but more accurate) or not.
@@ -296,7 +295,7 @@ def fit_rand_reduced_rank_regression(
 # Principal Component Algorithms
 def fit_principal_component_regression(
     kernel_X: np.ndarray,  # Kernel matrix of the input data
-    tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter, can be zero
+    tikhonov_reg: float = 0.0,  # Tikhonov (ridge) regularization parameter, can be zero
     rank: Optional[int] = None,  # Rank of the estimator
     svd_solver: str = "arnoldi",  # Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -323,7 +322,7 @@ def fit_nystroem_principal_component_regression(
     kernel_Y: np.ndarray,  # Kernel matrix of the output inducing points
     kernel_Xnys: np.ndarray,  # Kernel matrix between the input data and the input inducing points
     kernel_Ynys: np.ndarray,  # Kernel matrix between the output data and the output inducing points
-    tikhonov_reg: float = 0.0,  # Tikhonov regularization parameter (can be 0)
+    tikhonov_reg: float = 0.0,  # Tikhonov (ridge) regularization parameter (can be 0)
     rank: Optional[int] = None,  # Rank of the estimator
     svd_solver: str = "arnoldi",  # Solver for the generalized eigenvalue problem. 'arnoldi' or 'full'
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -362,7 +361,7 @@ def fit_nystroem_principal_component_regression(
 
 def fit_rand_principal_component_regression(
     kernel_X: np.ndarray,  # Kernel matrix of the input data
-    tikhonov_reg: float,  # Tikhonov regularization parameter
+    tikhonov_reg: float,  # Tikhonov (ridge) regularization parameter
     rank: int,  # Rank of the estimator
     n_oversamples: int,  # Number of oversamples
     iterated_power: int,  # Number of iterations for the power method

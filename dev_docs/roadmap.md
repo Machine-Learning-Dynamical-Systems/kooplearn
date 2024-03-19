@@ -23,7 +23,7 @@
 
 #### Mar 11, 2024:
 Some notes on the AutoEncoder models:
-1. The signature of `predict` should match `ExtendedDMD.predict` (see how the observables are changed). Same for `modes`, even if it is not implemented.
+1. The signature of `predict` should match `Nonlinear.predict` (see how the observables are changed). Same for `modes`, even if it is not implemented.
 2. `eig` still accepts arrays rather than `ContextWindowDataset`.
 
 In addition: 
@@ -113,7 +113,7 @@ Added branch `in_out` in which I will work on serialization of each model, and m
 
 #### Oct 3, 2023:
 Macro implementations left to do:
-- Nystrom Kernel methods (add a `NystromKernelDMD` model)
+- Nystrom Kernel methods (add a `NystromKernel` model)
 - Test Randomized solvers.
 - Implement `modes` and `eig` for AutoEncoders
 - Implement dictionary learning schemes listed in the note of Sep 12 - 18
@@ -181,7 +181,7 @@ Above, pictorial representation of the context-window based data approach.
 ***
 #### Aug 20, 2023
 ###### Pie:
-For the kernel DMD I have dropped the custom kernel objects defined in `kooplearn._src.kernels` and relied instead on `sklearn.gaussian_processes.kernels`, which better documented, supported and allow for easy HP tuning. Minimal API changing, working to have running tests. Check that `ExtendedDMD` models are working too.
+For the kernel DMD I have dropped the custom kernel objects defined in `kooplearn._src.kernels` and relied instead on `sklearn.gaussian_processes.kernels`, which better documented, supported and allow for easy HP tuning. Minimal API changing, working to have running tests. Check that `Nonlinear` models are working too.
 ***
 #### Jul 18 '23
 ###### Bruno:

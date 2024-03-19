@@ -14,7 +14,7 @@ from kooplearn._src.serialization import pickle_load, pickle_save
 class BaseModel(abc.ABC):
     @abc.abstractmethod
     def fit(self, *a, **kw):
-        """Fit the model to the data. The signature of this function must be specified from the derived class. For example, in :class:`kooplearn.models.ExtendedDMD`, the signature is ``fit(self, data: np.ndarray)``, while in -TODO add AutoEncoder example."""
+        """Fit the model to the data. The signature of this function must be specified from the derived class. For example, in :class:`kooplearn.models.Nonlinear`, the signature is ``fit(self, data: np.ndarray)``, while in -TODO add AutoEncoder example."""
         pass
 
     @abc.abstractmethod
@@ -148,6 +148,7 @@ class ContextWindow(Sequence):
     """
     Class for a single context window, i.e. the :ref:`kooplearn's data paradigm <kooplearn_data_paradigm>`.
     """
+
     def __init__(self, window: Sequence):
         """
         Initializes the context window.
@@ -275,6 +276,7 @@ class ContextWindowDataset(ContextWindow):
     """
     Class for a collection of :obj:`ContextWindow` objects.
     """
+
     def __init__(self, dataset: Iterable[Sequence]):
         """
         Initializes the context window dataset.
