@@ -199,6 +199,7 @@ class PLModule(lightning.LightningModule):
             self.opt_kwargs = _tmp_opt_kwargs
         else:
             self.lr = 1e-3
+            self.opt_kwargs = deepcopy(optimizer_kwargs)
             logger.warning(
                 "No learning rate specified. Using default value of 1e-3. You can specify the learning rate by passing it to the optimizer_kwargs argument."
             )
@@ -218,6 +219,8 @@ class PLModule(lightning.LightningModule):
 
     def training_step(self, train_batch: ContextWindowDataset, batch_idx):
         lookback_len = self._kooplearn_feature_map_weakref().lookback_len
+        if lookback_len < 0:  # Calling training_step without having called fit first.
+            lookback_len = train_batch.context_length - 1
         X, Y = train_batch.lookback(lookback_len), train_batch.lookback(
             lookback_len, slide_by=1
         )
