@@ -10,6 +10,7 @@ class TensorContextDataset(ContextWindowDataset):
     """
     Class for a collection of context windows with tensor features.
     """
+
     def __init__(self, data: ArrayLike, backend: str = "auto", **backend_kw):
         """
         Initializes the TensorContextDataset.
@@ -65,7 +66,7 @@ class TensorContextDataset(ContextWindowDataset):
 
     def __getitem__(self, idx):
         if np.issubdtype(type(idx), np.integer):
-            return TensorContextDataset(self.data[slice(idx, idx + 1)])
+            return TensorContextDataset(self.data[idx][None, ...])
         elif isinstance(idx, slice):
             return TensorContextDataset(self.data[idx])
 
@@ -86,6 +87,7 @@ class TrajectoryContextDataset(TensorContextDataset):
     """
     Class for a collection of context windows with tensor features.
     """
+
     def __init__(
         self,
         trajectory: ArrayLike,
@@ -158,6 +160,7 @@ class TrajectoryContextDataset(TensorContextDataset):
             if torch is not None:
                 if torch.is_tensor(trajectory):
                     from kooplearn.nn.data import _contexts_from_traj_torch
+
                     self.data, self.idx_map = _contexts_from_traj_torch(
                         trajectory, context_length, time_lag
                     )
