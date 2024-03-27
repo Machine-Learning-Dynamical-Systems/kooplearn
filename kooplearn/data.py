@@ -62,7 +62,7 @@ class TensorContextDataset(ContextWindowDataset):
 
     def __getitem__(self, idx):
         if np.issubdtype(type(idx), np.integer):
-            return TensorContextDataset(self.data[slice(idx, idx + 1)])
+            return TensorContextDataset(self.data[idx][None, ...])
         elif isinstance(idx, slice):
             return TensorContextDataset(self.data[idx])
 
