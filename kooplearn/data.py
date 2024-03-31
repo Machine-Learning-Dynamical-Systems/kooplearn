@@ -65,6 +65,11 @@ class TensorContextDataset(ContextWindowDataset):
             return TensorContextDataset(self.data[idx][None, ...])
         elif isinstance(idx, slice):
             return TensorContextDataset(self.data[idx])
+        else:
+            try:
+                return TensorContextDataset(self.data[idx])
+            except Exception as e:
+                raise (e)
 
     def slice(self, slice_obj):
         """Returns a slice of the context windows given a slice object.
