@@ -48,7 +48,7 @@ def evolve_contexts(
 
     X_init = torch.squeeze(
         encoded_contexts_batch.slice(slice(lookback_len - 1, lookback_len))
-    )  # Initial condition
+    )  # Initial condition  # TODO: Seems like a terrible way to access [:, 0] ??
     if X_init.ndim != 2:
         raise ShapeError(
             f"The encoder network must return a 1D vector for each snapshot, while a shape {X_init.shape[1:]} tensor was received."
@@ -114,6 +114,24 @@ def evolve_batch(
     assert batch.shape == batch_evolved.shape
     return TensorContextDataset(batch_evolved)
 
+def multi_matrix_power(matrix: torch.Tensor, context_length: int, spectral=False):
+
+    if matrix.requires_grad and spectral:
+        raise AttributeError("Gradients cannot be reliably computed when using eigendecomposition.")
+    if spectral:
+        raise NotImplementedError("Spectral decomposition to do matrix powers need to be implemented.")
+
+    matrix_powers = []
+    for exp in range(context_length):
+        if exp == 0:
+            matrix_powers.append(torch.eye(matrix.shape[0], device=matrix.device))
+        elif exp == 1:
+            matrix_powers.append(matrix)
+        else:
+            matrix_powers.append(torch.matrix_power(matrix, exp))
+
+    return torch.stack(matrix_powers)
+
 
 def consistency_loss(
     forward_operator: Union[torch.nn.Parameter, torch.Tensor],
@@ -135,3 +153,40 @@ def consistency_loss(
             torch.linalg.matrix_norm(fb) ** 2 + torch.linalg.matrix_norm(bf) ** 2
         )
     return 0.5 * torch.mean(torch.stack(terms))
+
+def flatten_context_data(x: TensorContextDataset) -> torch.Tensor:
+    """ Returns a (batch * time, *feature_dims) view of the context window's data of shape (batch, time, *feature_dims).
+
+    This method guarantees the preservation of temporal sample ordering when reshaping the data.
+    It first ensures that the tensor is contiguous in memory, which safeguards against any disruption of data order
+    during the reshaping process.
+
+    Returns:
+        torch.Tensor: Reshaped view tensor of the data in the shape shape (batch * time, *feature_dims).
+    """
+    batch_size = len(x)
+    context_length = x.context_length
+
+    x.data = x.data.contiguous()  # Needed for reshaping not to mess with the time order, and avoid copying.
+    flat_data = x.data.view(batch_size * context_length, *x.shape[2:])
+    return flat_data
+
+
+def unflatten_context_data(x_reshaped: torch.Tensor, batch_size: int, features_shape: tuple) -> TensorContextDataset:
+    """ Returns a (batch, context_length, *feature_dims) view of the tensor (batch_size * context_length, *feature_dims).
+
+    Args:
+        x_reshaped: Tensor of shape (batch_size * context_length, *feature_dims).
+        batch_size: Integer divisor of the first dimension of `x_reshaped`.
+        features_shape: Shape of the features.
+
+    Returns:
+        TensorContextDataset: Reshaped view tensor of the data in the shape (batch, time, *feature_dims).
+    """
+    total_elements = x_reshaped.shape[0]
+    assert total_elements % batch_size == 0, f"Total elements {total_elements} not divisible by batch size {batch_size}"
+    context_length = total_elements // batch_size
+
+    new_shape = (batch_size, context_length) + features_shape
+    x_original = x_reshaped.view(new_shape)
+    return TensorContextDataset(x_original)

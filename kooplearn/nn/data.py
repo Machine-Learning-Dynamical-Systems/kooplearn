@@ -10,7 +10,7 @@ logger = logging.getLogger("kooplearn")
 
 def collate_context_dataset(batch: list[TensorContextDataset]):
     concat_fn = torch.cat if torch.is_tensor(batch[0].data) else np.concatenate
-    batched_data = torch.tensor(concat_fn([ctx.data for ctx in batch]))
+    batched_data = torch.tensor(concat_fn([ctx.data for ctx in batch])).contiguous()
     return TensorContextDataset(batched_data)
 
 

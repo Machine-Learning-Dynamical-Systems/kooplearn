@@ -84,6 +84,22 @@ class TensorContextDataset(ContextWindowDataset):
         """
         return self.data[:, slice_obj]
 
+    def batched_to_flat_trajectory(self):
+        """ Returns a (batch * time, *feature_dims) view of the data tensor of shape (batch, time, *feature_dims).
+
+        This method guarantees the preservation of temporal sample ordering when reshaping the data.
+        It first ensures that the tensor is contiguous in memory, which safeguards against any disruption of data order
+        during the reshaping process.
+
+        Returns:
+            torch.Tensor: Reshaped view tensor of the data in the shape shape (batch * time, *feature_dims).
+        """
+        batch_size = len(contexts_batch)
+        trail_dims = contexts_batch.shape[2:]
+        x_contiguous = x.contiguous()  # Needed for reshaping not to mess with the time order.
+        x_reshaped = x_contiguous.view(-1, x_contiguous.size(-1))
+        return x_reshaped
+
 
 class TrajectoryContextDataset(TensorContextDataset):
     """Class for a collection of context windows with tensor features."""
