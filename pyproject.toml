@@ -54,3 +54,26 @@ path = "kooplearn/__about__.py"
 [tool.isort]
 # make it compatible with black
 profile = "black"
+
+[tool.ruff]
+line-length = 120
+select = [
+  # pyflakes
+  "F",
+  # pycodestyle
+  "E",
+  "W",
+  # isort
+  "I001",
+  # pydocstyle
+  "D"
+]
+ignore = [
+  "D401",  # good for methods but not for class docstrings
+  "D405",  # British-style section names are also "proper"!
+  "E701",  # short single-line statements are fine
+  "D100",
+]
+
+#[tool.ruff.pydocstyle]
+#convention = "google"  TODO: ?? Should we enforce this ?? which convention are we selecting ??
