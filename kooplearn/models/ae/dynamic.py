@@ -8,8 +8,10 @@ from scipy.linalg import eig
 
 from kooplearn._src.check_deps import check_torch_deps
 from kooplearn._src.utils import check_is_fitted
+from kooplearn._src.linalg import full_rank_lstsq
 from kooplearn.data import TensorContextDataset  # noqa: E402
 from kooplearn.models.base_model import LatentBaseModel, LightningLatentModel
+from kooplearn.models.ae.utils import flatten_context_data, unflatten_context_data
 
 check_torch_deps()
 import lightning  # noqa: E402
@@ -61,6 +63,7 @@ class DynamicAE(LatentBaseModel):
 
         self.encoder = encoder(**encoder_kwargs)
         self.decoder = decoder(**decoder_kwargs)
+        self.lin_decoder = None  # Linear decoder for mode decomp. Fitted after learning the latent representation space
         self.latent_dim = latent_dim
         self.evolution_op_bias = evolution_op_bias
         self.loss_weights = loss_weights
@@ -136,6 +139,33 @@ class DynamicAE(LatentBaseModel):
             datamodule=datamodule,
             ckpt_path=ckpt_path,
             )
+
+        # Fit linear decoder to perform dynamic mode decomposition =====================================================
+        # Denote by φ(x) an eigenfunction of the evolution operator T = VΛV⁻¹, where V is the matrix of eigenvectors
+        # and Λ is the diagonal matrix of eigenvalues. The vector of eigenfunctions is computed as
+        # `φ(x_t)=V⁻¹z_t = V⁻¹Ψ(x_t)`. Where Ψ:X→Z is the encoder/obs_function. If we want to do mode decomposition
+        # we have that z_t+1 = Σ_i V_[i,:] @ (λ_i · φ_i(x_t)). If we apply a non-linear decoder, we loose the
+        # decomposition in modes (Σ_i) as Ψ⁻¹(z_1,t + z_2,t) != Ψ⁻¹(z_1,t) + Ψ⁻¹(z_2,t). Therefore, after learning
+        # the representation space Z, we fit a linear decoder `Ψ⁻¹_lin : Z → X` to perform mode decomposition by
+        # x_t+1 = Ψ⁻¹_lin(Σ_i V_[i,:] @ (λ_i · φ_i(x_t))).
+        # First we collect a dataset of `n_samples` of the encoded states using the train_dataloaders
+        train_dataset = train_dataloaders.dataset if train_dataloaders is not None else datamodule.train_dataset
+        train_dataloader = train_dataloaders if train_dataloaders is not None else datamodule.train_dataloader()
+        # Use the best parameters to compute latent observables to train linear decoder
+        # Lightning sends outputs to CPU by default and will use automatically the best model from the training
+        predict_out = trainer.predict(dataloaders=train_dataloader,
+                                      ckpt_path='best')
+        Z = [out_batch['latent_obs'] for out_batch in predict_out]
+        Z = TensorContextDataset(torch.cat([z.data for z in Z], dim=0))         # (n_samples, context_len, latent_dim)
+        Z_flat = flatten_context_data(Z)                                        # (n_samples * context_len, latent_dim)
+        X_flat = flatten_context_data(train_dataset).to(device=Z_flat.device)   # (n_samples * context_len, state_dim)
+
+        lin_decoder, _ = full_rank_lstsq(X=Z_flat.T, Y=X_flat.T, bias=False)
+        _expected_shape = (np.prod(self.state_features_shape), self.latent_dim)
+        assert lin_decoder.shape == _expected_shape, \
+            f"Expected linear decoder shape {_expected_shape}, got {lin_decoder.shape}"
+        # Define linear_decoder=`Ψ⁻¹_lin` as a non-trainable model Parameter.
+        self.lin_decoder = torch.nn.Parameter(lin_decoder, requires_grad=False)
 
         # Use the learned encoder to compute the final fitted evolution operator
         if self.use_lstsq_for_evolution:
@@ -313,6 +343,7 @@ class DynamicAE(LatentBaseModel):
         r"""Compute the Dynamics Autoencoder loss and metrics.
 
         TODO: Add docstring definition of the loss terms.
+
         Args:
         ----
             state_context: trajectory of states :math:`(x_t)_{t\\in\\mathbb{T}}` in the context window

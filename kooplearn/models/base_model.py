@@ -319,7 +319,8 @@ class LightningLatentModel(lightning.LightningModule):
         return loss
 
     def predict_step(self, batch, batch_idx, **kwargs):
-        return self(batch)
+        with torch.no_grad():
+            return self(batch)
 
     def log_metrics(self, metrics: dict, suffix='', batch_size=None):
         flat_metrics = flatten_dict(metrics)
