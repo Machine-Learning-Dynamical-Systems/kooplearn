@@ -27,4 +27,4 @@ def _contexts_from_traj_torch(trajectory, context_length, time_lag):
 
     data = torch.movedim(data, -1, 1)[:, ::time_lag, ...]
     idx_map = torch.movedim(idx_map, -1, 1)[:, ::time_lag, ...]
-    return data, TensorContextDataset(idx_map)
+    return data, idx_map

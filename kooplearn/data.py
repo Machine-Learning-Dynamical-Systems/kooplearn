@@ -39,11 +39,13 @@ class TensorContextDataset(ContextWindowDataset):
         elif backend == "auto":
             if torch is not None:
                 if torch.is_tensor(data):
-                    pass
+                    backend = "torch"
                 else:
                     data = np.asanyarray(data, **backend_kw)
+                    backend = "numpy"
             else:
                 data = np.asanyarray(data, **backend_kw)
+                backend = "numpy"
 
         # Attributes init
         if data.ndim < 3:
@@ -52,6 +54,7 @@ class TensorContextDataset(ContextWindowDataset):
                 f"context_len, *features]."
                 )
         self.data = data
+        self.backend = backend
         self.dtype = self.data.dtype
         self.shape = self.data.shape
         self.ndim = self.data.ndim
@@ -60,11 +63,17 @@ class TensorContextDataset(ContextWindowDataset):
     def __iter__(self):
         return iter(self.data)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> 'TensorContextDataset':
         if np.issubdtype(type(idx), np.integer):
+            # TODO: The default collect behaviour is to return a list of [type] objects. This additional dimension here
+            # seems to be introduced only for a very specific customm collect_fn.
             return TensorContextDataset(self.data[idx][None, ...])
         elif isinstance(idx, slice):
             return TensorContextDataset(self.data[idx])
+
+    def __getitems__(self, indices: list[int]) -> 'TensorContextDataset':
+        """Called by torch to index batched data directly"""
+        return TensorContextDataset(self.data[indices])
 
     def slice(self, slice_obj):
         """Returns a slice of the context windows given a slice object.
@@ -103,8 +112,8 @@ class TrajectoryContextDataset(TensorContextDataset):
             backend (str, optional): Specifies the backend to be used (``'numpy'``, ``'torch'``). If set to ``'auto'``, will use the same backend of the trajectory. Default to ``'auto'``.
             backend_kw (dict, optional): Keyword arguments to pass to the backend. For example, if ``'torch'``, it is possible to specify the device of the tensor.
         """
-        if context_length < 1:
-            raise ValueError(f"context_length must be >= 1, got {context_length}")
+        if context_length < 1 and not isinstance(context_length, int):
+            raise ValueError(f"context_length must be an interger >= 1, got {context_length}")
 
         if time_lag < 1:
             raise ValueError(f"time_lag must be >= 1, got {time_lag}")
@@ -201,7 +210,7 @@ def _contexts_from_traj_np(trajectory, context_length: int, time_lag: int):
 
     idx_map = np.moveaxis(idx_map, -1, 1)[:, ::time_lag, ...]
     data = np.moveaxis(data, -1, 1)[:, ::time_lag, ...]
-    return data, TensorContextDataset(idx_map)
+    return data, idx_map
 
 def traj_to_contexts(
         trajectory: np.ndarray,
