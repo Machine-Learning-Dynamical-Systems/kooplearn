@@ -187,6 +187,72 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
                     **evolved_out,
                     **decoder_out)
 
+    @torch.no_grad
+    def eig(self,
+            eval_left_on: Optional[TensorContextDataset] = None,
+            eval_right_on: Optional[TensorContextDataset] = None,
+            ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]]:
+        """Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right
+        eigenfunctions.
+
+        TODO: Should make everything default to backend torch. As the entire model is on torch, independent on device
+        TODO: Should improve the documentation of the method.
+
+        Args:
+        ----
+            eval_left_on (TensorContextDataset or None): Dataset of context windows on which the left eigenfunctions
+            are evaluated.
+            eval_right_on (TensorContextDataset or None): Dataset of context windows on which the right
+            eigenfunctions are evaluated.
+
+        Returns:
+        -------
+            Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. If ``eval_left_on`` or ``eval_right_on``
+             are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on``/``eval_right_on``:
+             shape ``(n_samples, rank)``.
+        """
+        if hasattr(self, "_eig_cache"):
+            # TODO: Need to recompute if evolution operator has changed
+            eigvals, eigvecs_l, eigvecs_r = self._eig_cache
+        else:
+            K = self.evolution_operator()
+            K_np = K.detach().cpu().numpy()
+            # K is a square real-valued matrix.
+            eigvals, eigvecs_l, eigvecs_r = scipy.linalg.eig(K_np, left=True, right=True)
+            # Left and right eigenvectors are stored in columns: eigvecs_l/r[:, i] is the i-th left/right eigenvector
+            # This we have that:
+            # K @ eigvecs_r[:, i] = eigvals[i] @ eigvecs_r[:, i]
+            # K^T @ eigvecs_l[:, i] = eigvals[i]^H @ eigvecs_l[:, i]
+            self._eig_cache = eigvals, eigvecs_l, eigvecs_r
+
+        left_eigfn, right_eigfn = None, None
+        if eval_right_on is not None:
+            device = self.evolution_operator().device
+            # Ensure data is on the same device as the model
+            eval_right_on.to(device=self.evolution_operator().device, dtype=self.evolution_operator().dtype)
+            # Compute the latent observables for the data (batch, context_len, latent_dim)
+            z_t = self.encode_contexts(state=eval_right_on).data.detach().cpu().numpy()
+            # Evaluation of eigenfunctions in (batch/n_samples, context_len, latent_dim)
+            right_eigfn = np.einsum("...s,so->...o", z_t, eigvecs_l)
+
+        if eval_left_on is not None:
+            device = self.evolution_operator().device
+            # Ensure data is on the same device as the model
+            eval_left_on.to(device=self.evolution_operator().device, dtype=self.evolution_operator().dtype)
+            # Compute the latent observables for the data (batch, context_len, latent_dim)
+            z_t = self.encode_contexts(state=eval_left_on).data.detach().cpu().numpy()
+            # Evaluation of eigenfunctions in (batch/n_samples, context_len, latent_dim)
+            left_eigfn = np.einsum("...s,so->...o", z_t, eigvecs_r)
+
+        if eval_left_on is None and eval_right_on is None:
+            return eigvals
+        elif eval_left_on is None and eval_right_on is not None:
+            return eigvals, right_eigfn
+        elif eval_left_on is not None and eval_right_on is None:
+            return eigvals, left_eigfn
+        else:
+            return eigvals, left_eigfn, right_eigfn
+
     @abstractmethod
     def compute_loss_and_metrics(self,
                                  state: Optional[TensorContextDataset] = None,

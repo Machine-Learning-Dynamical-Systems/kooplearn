@@ -4,7 +4,7 @@ from math import floor
 from typing import Optional, Union
 
 import numpy as np
-from scipy.linalg import eig
+import scipy
 
 from kooplearn._src.check_deps import check_torch_deps
 from kooplearn._src.utils import check_is_fitted
@@ -58,7 +58,9 @@ class DynamicAE(LatentBaseModel):
                  latent_dim: int,
                  loss_weights: Optional[dict] = None,
                  use_lstsq_for_evolution: bool = False,
-                 evolution_op_bias: bool = False):
+                 evolution_op_bias: bool = False,
+                 evolution_op_init_mode: str = "stable"
+                 ):
         super().__init__()
 
         self.encoder = encoder(**encoder_kwargs)
@@ -75,7 +77,7 @@ class DynamicAE(LatentBaseModel):
             # TODO: Should we add bias to hardcode the constant function modeling the evolution operator?
             # Adding a bias term is analog to enforcing the evolution operator to model the constant function.
             self.linear_dynamics = torch.nn.Linear(latent_dim, latent_dim, bias=evolution_op_bias)
-            self.initialize_evolution_operator(init_mode="stable")
+            self.initialize_evolution_operator(init_mode=evolution_op_init_mode)
 
         self.state_features_shape = None  # Shape of the state/input features
         # Lightning variables populated during fit
@@ -140,6 +142,12 @@ class DynamicAE(LatentBaseModel):
             ckpt_path=ckpt_path,
             )
 
+        train_dataset = train_dataloaders.dataset if train_dataloaders is not None else datamodule.train_dataset
+        train_dataloader = train_dataloaders if train_dataloaders is not None else datamodule.train_dataloader()
+        # Compute the spectral decomposition of the learned evolution operator =========================================
+        sample_batch = next(iter(train_dataloader))
+        eigvals = self.eig(eval_left_on=sample_batch)
+
         # Fit linear decoder to perform dynamic mode decomposition =====================================================
         # Denote by φ(x) an eigenfunction of the evolution operator T = VΛV⁻¹, where V is the matrix of eigenvectors
         # and Λ is the diagonal matrix of eigenvalues. The vector of eigenfunctions is computed as
@@ -148,9 +156,6 @@ class DynamicAE(LatentBaseModel):
         # decomposition in modes (Σ_i) as Ψ⁻¹(z_1,t + z_2,t) != Ψ⁻¹(z_1,t) + Ψ⁻¹(z_2,t). Therefore, after learning
         # the representation space Z, we fit a linear decoder `Ψ⁻¹_lin : Z → X` to perform mode decomposition by
         # x_t+1 = Ψ⁻¹_lin(Σ_i V_[i,:] @ (λ_i · φ_i(x_t))).
-        # First we collect a dataset of `n_samples` of the encoded states using the train_dataloaders
-        train_dataset = train_dataloaders.dataset if train_dataloaders is not None else datamodule.train_dataset
-        train_dataloader = train_dataloaders if train_dataloaders is not None else datamodule.train_dataloader()
         # Use the best parameters to compute latent observables to train linear decoder
         # Lightning sends outputs to CPU by default and will use automatically the best model from the training
         predict_out = trainer.predict(dataloaders=train_dataloader,
@@ -253,86 +258,21 @@ class DynamicAE(LatentBaseModel):
             return results
 
     def modes(self,
-              data: TensorContextDataset,
-              predict_observables: bool = True,
+              state: TensorContextDataset,
+              predict_observables: bool = False,
               ):
+        r"""Compute the modes of the state and/or observables"""
+
+        if predict_observables:
+            raise NotImplementedError("Need to implement the approximation of the outer product / inner products "
+                                      "between each dimension/function of the latent space and observables provided")
+
+        # Check the provided data has
+        eigvals = self.eig()
+
+
+
         raise NotImplementedError()
-
-    def eig(self,
-            eval_left_on: Optional[TensorContextDataset] = None,
-            eval_right_on: Optional[TensorContextDataset] = None,
-            ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]]:
-        """Returns the eigenvalues of the Koopman/Transfer operator and optionally evaluates left and right
-        eigenfunctions.
-
-        Args:
-        ----
-            eval_left_on (TensorContextDataset or None): Dataset of context windows on which the left eigenfunctions
-            are evaluated.
-            eval_right_on (TensorContextDataset or None): Dataset of context windows on which the right
-            eigenfunctions are evaluated.
-
-        Returns:
-        -------
-            Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. If ``eval_left_on`` or ``eval_right_on``
-             are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on``/``eval_right_on``:
-             shape ``(n_samples, rank)``.
-        """
-        if hasattr(self, "_eig_cache"):
-            w, vl, vr = self._eig_cache
-        else:
-            if self.lightning_module.hparams.use_lstsq_for_evolution:
-                raise NotImplementedError(
-                    "Eigenvalues and eigenvectors are not implemented when "
-                    "self.lightning_module.hparams.use_lstsq_for_evolution == True."
-                    )
-            else:
-                K = self.lightning_module.evolution_operator
-                K_np = K.detach().cpu().numpy()
-                w, vl, vr = eig(K_np, left=True, right=True)
-                self._eig_cache = w, vl, vr
-
-        if eval_left_on is None and eval_right_on is None:
-            # (eigenvalues,)
-            return w
-        elif eval_left_on is None and eval_right_on is not None:
-            # (eigenvalues, right eigenfunctions)
-            eval_right_on = self._preprocess_for_eigfun(eval_right_on)
-            with torch.no_grad():
-                phi_Xin = self.lightning_module.encoder(eval_right_on)
-                r_fns = (
-                        phi_Xin @ vl
-                )  # Not a typo: I need the left eigenvectors of K to get the right eigenfunctions of the Koopman
-                # operator
-            return w, r_fns.detach().cpu().numpy()
-        elif eval_left_on is not None and eval_right_on is None:
-            # (eigenvalues, left eigenfunctions)
-            eval_left_on = self._preprocess_for_eigfun(eval_left_on)
-            with torch.no_grad():
-                phi_Xin = self.lightning_module.encoder(eval_left_on)
-                l_fns = (
-                        phi_Xin @ vr
-                )  # Not a typo: I need the right eigenvectors of K to get the left eigenfunctions of the Koopman
-                # operator
-            return w, l_fns.detach().cpu().numpy()
-        elif eval_left_on is not None and eval_right_on is not None:
-            # (eigenvalues, left eigenfunctions, right eigenfunctions)
-            eval_right_on = self._preprocess_for_eigfun(eval_right_on)
-            eval_left_on = self._preprocess_for_eigfun(eval_left_on)
-            with torch.no_grad():
-                phi_Xin_r = self.lightning_module.encoder(eval_right_on)
-                r_fns = (
-                        phi_Xin_r @ vl
-                )  # Not a typo: I need the left eigenvectors of K to get the right eigenfunctions of the Koopman
-                # operator
-
-                phi_Xin_l = self.lightning_module.encoder(eval_left_on)
-                l_fns = (
-                        phi_Xin_l @ vr
-                )  # Not a typo: I need the right eigenvectors of K to get the left eigenfunctions of the Koopman
-                # operator
-
-            return w, l_fns.detach().cpu().numpy(), r_fns.detach().cpu().numpy()
 
     def compute_loss_and_metrics(self,
                                  state: TensorContextDataset,
@@ -420,7 +360,8 @@ class DynamicAE(LatentBaseModel):
                 if self.evolution_op_bias:
                     self.transfer_op.bias.data = torch.zeros(self.latent_dim)
             else:
-                raise NotImplementedError(f"Eival init mode {init_mode} not implemented")
+                logger.warning(f"Eival init mode {init_mode} not implemented")
+                return
             logger.info(f"Trainable evolution operator initialized with mode {init_mode}")
 
     def _check_dataloaders_and_shapes(self, datamodule, train_dataloaders, val_dataloaders):
