@@ -7,7 +7,7 @@ import numpy as np
 import scipy
 
 from kooplearn._src.check_deps import check_torch_deps
-from kooplearn._src.utils import check_is_fitted
+from kooplearn._src.utils import check_is_fitted, parse_cplx_eig
 from kooplearn._src.linalg import full_rank_lstsq
 from kooplearn.data import TensorContextDataset  # noqa: E402
 from kooplearn.models.base_model import LatentBaseModel, LightningLatentModel
@@ -18,36 +18,46 @@ import lightning  # noqa: E402
 import torch  # noqa: E402
 from torch.utils.data import DataLoader
 
-
 logger = logging.getLogger("kooplearn")
 
 
 class DynamicAE(LatentBaseModel):
-    """Dynamic AutoEncoder introduced by :footcite:t:`Lusch2018`. This class also implement the variant introduced by
+    """ Dynamic AutoEncoder introduced by :footcite:t:`Lusch2018`. This class also implements the variant introduced by
     :footcite:t:`Morton2018` in which the linear evolution of the embedded state is given by a least square model.
 
     Args:
-    ----
-        encoder (torch.nn.Module): Encoder network. Will be initialized as ``encoder(**encoder_kwargs)``.
-        decoder (torch.nn.Module): Decoder network. Will be initialized as ``decoder(**decoder_kwargs)``.
-        latent_dim (int): Latent dimension. In must match the dimension of the outputs of ``encoder``, as well the
+       encoder (torch.nn.Module): Encoder network. Will be initialized as ``encoder(**encoder_kwargs)``.
+       decoder (torch.nn.Module): Decoder network. Will be initialized as ``decoder(**decoder_kwargs)``.
+       latent_dim (int): Latent dimension. It must match the dimension of the outputs of ``encoder``, as well as the
         dimensions of the inputs of ``decoder``.
-        optimizer_fn (torch.optim.Optimizer): Any optimizer from :class:`torch.optim.Optimizer`.
-        trainer (lightning.Trainer): An initialized `Lightning Trainer
-        <https://lightning.ai/docs/pytorch/stable/common/trainer.html>`_ object used to train the Consistent
-        AutoEncoder.
-        loss_weights (dict, optional): Weights of the different loss terms. Should be a dictionary containing either
-        some of all the keys ``rec`` (reconstruction loss), ``pred`` (prediction loss) and ``lin`` (linear evolution
-        loss). Defaults to ``{ "rec": 1.0, "pred": 1.0, "lin": 1.0}`` .
-        encoder_kwargs (dict, optional): Dictionary of keyword arguments passed to the encoder network upon
+       loss_weights (dict, optional): Weights of the different loss terms. Should be a dictionary containing either
+        some or all the keys ``rec`` (reconstruction loss), ``pred`` (prediction loss) and ``lin`` (linear evolution
+        loss). Defaults to ``{ "rec": 1.0, "pred": 1.0, "lin": 1.0}``.
+       use_lstsq_for_evolution (bool, optional): If True, the linear evolution of the embedded state is given by a
+       least square model. If ``use_lstsq_for_evolution == False``, this model reduces to
+        :class:`kooplearn.models.DynamicAE`. Defaults to False.
+       evolution_op_bias (bool, optional): If True, adds a bias term to the evolution operator. Adding a bias term is
+        analogous to enforcing the evolution operator to model the constant function. Defaults to False.
+       evolution_op_init_mode (str, optional): The initialization mode for the evolution operator. Defaults to "stable".
+       encoder_kwargs (dict, optional): Dictionary of keyword arguments passed to the encoder network upon
         initialization. Defaults to ``{}``.
-        decoder_kwargs (dict, optional): Dictionary of keyword arguments passed to the decoder network upon
+       decoder_kwargs (dict, optional): Dictionary of keyword arguments passed to the decoder network upon
         initialization. Defaults to ``{}``.
-        optimizer_kwargs (dict, optional): Dictionary of keyword arguments passed to the optimizer at initialization.
-        Defaults to ``{}``.
-        use_lstsq_for_evolution (bool, optional): Number of steps of backward dynamics to perform. If
-        ``backward_steps == 0``, this model reduces to :class:`kooplearn.models.DynamicAE`. Defaults to False.
-        seed (Optional[int], optional): Seed of the internal random number generator. Defaults to None.
+
+    Attributes:
+       encoder (torch.nn.Module): The encoder network.
+       decoder (torch.nn.Module): The decoder network.
+       lin_decoder (torch.nn.Module or None): Linear decoder for mode decomposition. Fitted after learning the latent
+        representation space. Defaults to None.
+       latent_dim (int): The dimension of the latent space.
+       evolution_op_bias (bool): Whether to add a bias term to the evolution operator.
+       loss_weights (dict): Weights of the different loss terms.
+       use_lstsq_for_evolution (bool): Whether to use a least square model for the linear evolution of the embedded
+        state.
+       linear_dynamics (torch.nn.Linear): The linear dynamics of the model.
+       state_features_shape (tuple or None): The shape of the state/input features. Defaults to None.
+       trainer (lightning.Trainer or None): The Lightning Trainer used to train the model. Defaults to None.
+       lightning_model (LightningLatentModel or None): The Lightning model for training. Defaults to None.
     """
 
     def __init__(self,
@@ -79,6 +89,9 @@ class DynamicAE(LatentBaseModel):
             self.linear_dynamics = torch.nn.Linear(latent_dim, latent_dim, bias=evolution_op_bias)
             self.initialize_evolution_operator(init_mode=evolution_op_init_mode)
 
+            if evolution_op_bias:
+                raise NotImplementedError("We have to update eig and modes considering the bias term")
+
         self.state_features_shape = None  # Shape of the state/input features
         # Lightning variables populated during fit
         self.trainer = None
@@ -91,7 +104,7 @@ class DynamicAE(LatentBaseModel):
             val_dataloaders: Optional[Union[DataLoader, list[DataLoader]]] = None,
             datamodule: Optional[lightning.LightningDataModule] = None,
             trainer: Optional[lightning.Trainer] = None,
-            optimizer_fn: Optional[torch.optim.Optimizer] = torch.optim.Adam,
+            optimizer_fn: torch.optim.Optimizer = torch.optim.Adam,
             optimizer_kwargs: Optional[dict] = None,
             ckpt_path: Optional[str] = None,
             ):
@@ -99,7 +112,6 @@ class DynamicAE(LatentBaseModel):
         except for the ``model`` keyword, which is automatically set internally.
 
         Args:
-        ----
             train_dataloaders: An iterable or collection of iterables specifying training samples.
                 Alternatively, a :class:`~lightning.pytorch.core.datamodule.LightningDataModule` that defines
                 the :class:`~lightning.pytorch.core.hooks.DataHooks.train_dataloader` hook.
@@ -144,125 +156,62 @@ class DynamicAE(LatentBaseModel):
 
         train_dataset = train_dataloaders.dataset if train_dataloaders is not None else datamodule.train_dataset
         train_dataloader = train_dataloaders if train_dataloaders is not None else datamodule.train_dataloader()
-        # Compute the spectral decomposition of the learned evolution operator =========================================
-        sample_batch = next(iter(train_dataloader))
-        eigvals = self.eig(eval_left_on=sample_batch)
 
         # Fit linear decoder to perform dynamic mode decomposition =====================================================
         # Denote by φ(x) an eigenfunction of the evolution operator T = VΛV⁻¹, where V is the matrix of eigenvectors
         # and Λ is the diagonal matrix of eigenvalues. The vector of eigenfunctions is computed as
-        # `φ(x_t)=V⁻¹z_t = V⁻¹Ψ(x_t)`. Where Ψ:X→Z is the encoder/obs_function. If we want to do mode decomposition
-        # we have that z_t+1 = Σ_i V_[i,:] @ (λ_i · φ_i(x_t)). If we apply a non-linear decoder, we loose the
-        # decomposition in modes (Σ_i) as Ψ⁻¹(z_1,t + z_2,t) != Ψ⁻¹(z_1,t) + Ψ⁻¹(z_2,t). Therefore, after learning
-        # the representation space Z, we fit a linear decoder `Ψ⁻¹_lin : Z → X` to perform mode decomposition by
-        # x_t+1 = Ψ⁻¹_lin(Σ_i V_[i,:] @ (λ_i · φ_i(x_t))).
-        # Use the best parameters to compute latent observables to train linear decoder
-        # Lightning sends outputs to CPU by default and will use automatically the best model from the training
-        predict_out = trainer.predict(dataloaders=train_dataloader,
-                                      ckpt_path='best')
+        # `Ψ(x_t)=V⁻¹z_t = V⁻¹Ψ(x_t)`. Where Ψ:X→Z is the encoder/obs_function. If we want to do mode decomposition
+        # we have that z_t+1 = Σ_i V_[i,:] @ (λ_i · φ_i(x_t)). Because the learned decoder is non-linear we cannot
+        # transfer the mode decomposition to the state-space as Ψ⁻¹(z_1,t + z_2,t) != Ψ⁻¹(z_1,t) + Ψ⁻¹(z_2,t).
+        # Thus, after learning the representation space Z, we fit a *linear* decoder `Ψ⁻¹_lin : Z → X` to perform mode
+        # decomposition by x_t+1 = Ψ⁻¹_lin(Σ_i V_[i,:] @ (λ_i · Ψ_i(x_t))).
+        predict_out = trainer.predict(dataloaders=train_dataloader, ckpt_path='best')  # Use best model params for pred
         Z = [out_batch['latent_obs'] for out_batch in predict_out]
-        Z = TensorContextDataset(torch.cat([z.data for z in Z], dim=0))         # (n_samples, context_len, latent_dim)
-        Z_flat = flatten_context_data(Z)                                        # (n_samples * context_len, latent_dim)
-        X_flat = flatten_context_data(train_dataset).to(device=Z_flat.device)   # (n_samples * context_len, state_dim)
+        Z = TensorContextDataset(torch.cat([z.data for z in Z], dim=0))  # (n_samples, context_len, latent_dim)
+        Z_flat = flatten_context_data(Z)  # (n_samples * context_len, latent_dim)
+        X_flat = flatten_context_data(train_dataset).to(device=Z_flat.device)  # (n_samples * context_len, state_dim)
 
         lin_decoder, _ = full_rank_lstsq(X=Z_flat.T, Y=X_flat.T, bias=False)
         _expected_shape = (np.prod(self.state_features_shape), self.latent_dim)
         assert lin_decoder.shape == _expected_shape, \
             f"Expected linear decoder shape {_expected_shape}, got {lin_decoder.shape}"
-        # Define linear_decoder=`Ψ⁻¹_lin` as a non-trainable model Parameter.
+        # Store the linear_decoder=`Ψ⁻¹_lin` as a non-trainable model Parameter.
         self.lin_decoder = torch.nn.Parameter(lin_decoder, requires_grad=False)
 
-        # Use the learned encoder to compute the final fitted evolution operator
-        if self.use_lstsq_for_evolution:
-            raise NotImplementedError("use_lstsq_for_evolution = True is not implemented/tested yet.")
-            # train_dataset = self._to_torch(train_dataloaders.dataset)
-            # encoded_train = encode_contexts(train_dataset, self.lightning_module.encoder)
-            # self.lightning_module.evolution_operator = self.lightning_module._lstsq_evolution(encoded_train)
+        # Compute the spectral decomposition of the learned evolution operator =========================================
+        sample_batch = next(iter(train_dataloader))
+        state_modes, latent_modes, modes_magnitude = self.modes(sample_batch)
 
         return lightning_module
-
-    def predict(
-            self,
-            data: TensorContextDataset,
-            t: int = 1,
-            predict_observables: bool = True,
-            reencode_every: int = 0,
-            ):
-        r"""Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]`
-        after ``t`` instants given the initial conditions ``data.lookback(self.lookback_len)`` being the lookback
-        slice of ``data``.
-        If ``data.observables`` is not ``None``, returns the analogue quantity for the observable instead.
-
-        Args:
-        ----
-            data (TensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as
-            the initial condition, see the note above.
-            t (int): Number of steps in the future to predict (returns the last one).
-            predict_observables (bool): Return the prediction for the observables in ``data.observables``,
-            if present. Defaults to ``True``.
-            reencode_every (int): When ``t > 1``, periodically reencode the predictions as described in
-            :footcite:t:`Fathi2023`. Only available when ``predict_observables = False``.
-
-        Returns:
-        -------
-           The predicted (expected) state/observable at time :math:`t`. The result is composed of arrays with shape
-           matching ``data.lookforward(self.lookback_len)`` or the contents of ``data.observables``. If
-           ``predict_observables = True`` and ``data.observables != None``, the returned ``dict``will contain the
-           special key ``__state__`` containing the prediction for the state as well.
-        """
-        check_is_fitted(self, ["_state_trail_dims"])
-        assert tuple(data.shape[2:]) == self._state_trail_dims
-
-        data = self._to_torch(data)
-        if predict_observables and hasattr(data, "observables"):
-            observables = data.observables
-            observables["__state__"] = None
-        else:
-            observables = {"__state__": None}
-
-        results = {}
-        for obs_name, obs in observables.items():
-            if (reencode_every > 0) and (t > reencode_every):
-                if (predict_observables is True) and (observables is not None):
-                    raise ValueError(
-                        "rencode_every only works when forecasting states, not observables. Consider setting "
-                        "predict_observables to False."
-                        )
-                else:
-                    num_reencodings = floor(t / reencode_every)
-                    for k in range(num_reencodings):
-                        raise NotImplementedError
-            else:
-                with torch.no_grad():
-                    evolved_data = evolve_forward(
-                        data,
-                        self.lookback_len,
-                        t,
-                        self.lightning_module.encoder,
-                        self.lightning_module.decoder,
-                        self.lightning_module.evolution_operator,
-                        )
-                    evolved_data = evolved_data.data.detach().cpu().numpy()
-                    if obs is None:
-                        results[obs_name] = evolved_data
-                    elif callable(obs):
-                        results[obs_name] = obs(evolved_data)
-                    else:
-                        raise ValueError(
-                            "Observables must be either None, or callable."
-                            )
-
-        if len(results) == 1:
-            return results["__state__"]
-        else:
-            return results
 
     def modes(self,
               state: TensorContextDataset,
               predict_observables: bool = False,
               ):
-        r"""Compute the modes of the state and/or observables"""
+        r"""Compute the mode decomposition of the state and/or observables
 
+        Informally, if :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer
+        operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
+        :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`. See :footcite:t:`Kostic2022` for more details.
+
+        When applying mode decomposition to the latent observable states :math:`\mathbf{z}_t \in \mathbb{R}^l`,
+        the modes are obtained using the eigenvalues and eigenvectors of the solution operator :math:`T`, as there is no
+        need to approximate the inner product :math:`\\langle \\xi_i, f \\rangle` using a kernel/Data matrix.
+        Consider that the evolution of the latent observable is given by:
+
+        .. math::
+        \mathbf{z}_{t+k} = T^k \mathbf{z}_t = (V \Lambda^k V^H) \mathbf{z}_t = \sum_{i=1}^{l} \lambda_i^k \langle
+        v_i, \mathbf{z}_t \rangle v_i
+
+
+        dd
+        Note: when we compute the modes of the latent observable state, the mode decomposition reduces to a traditional
+        mode decomposition using the eigenvectors and eigenvalues of the solution operator :math:`T`
+
+        """
+
+        assert self.is_fittet, \
+            f"Instance of {self.__class__.__name__} is not fitted. Please call the `fit` method before calling `modes`"
         if predict_observables:
             raise NotImplementedError("Need to implement the approximation of the outer product / inner products "
                                       "between each dimension/function of the latent space and observables provided")
@@ -270,22 +219,64 @@ class DynamicAE(LatentBaseModel):
         # Check the provided data has
         eigvals = self.eig()
 
+        # Encode # TODO: Should use the eig(eval_left_on=state), but fuck, that interface seems super confusing.
+        state.to(device=self.evolution_operator().device, dtype=self.evolution_operator().dtype)
+        # Compute the latent observables for the data (batch, context_len, latent_dim)
+        z_t = self.encode_contexts(state=state).data.detach().cpu().numpy()
 
+        # Left eigenfunctions are the inner products between the latent observables z_t and the right eigenvectors
+        # `v_i` of the evolution operator T @ v_i = λ_i v_i. That is: eigfns[...,t, i] = <v_i, z_t> : i=1,...,l
+        # Thus we have that z_t+dt = Σ_i[v_i * λ_i * <v_i, z_t>]
+        _, _, eigvecs_r = self._eig_cache  # v_i = eigvecs_r[:, i]  for i=1,...,l
 
-        raise NotImplementedError()
+        # We want to compute each z_t+dt_i = v_i * λ_i * <v_i, z_t>. [<v_i, z_t> is the projection to eigenfunction i]
+        # First we project the encoded latent obs state to the eigenbasis: z_t_eig = V^-1 z_t := [<v_1, z_t>, ...]
+        z_t_eig = np.einsum("...il,...l->...i", np.linalg.inv(eigvecs_r), z_t)
+        # Evolve the eigenspaces z_t+dt_eig = Λ (V^-1 z_t)  :  z_t+dt_eig_i = λ_i * (V^-1 z_t)_i
+        z_t_dt_eig = np.einsum("...l,l->...l", z_t_eig, eigvals)
+        # For each eigenvalue λ_i * <v_i, z_t>, project the eigenspace component to the canonical basis, such that
+        # z_t+dt_i = v_i * λ_i * (V^-1 z_t)_i = v_i * λ_i * <v_i, z_t>. The resultant tensor is of shape
+        # (batch, context_length, mode_idx, latent_dim), where mode_idx=[0,...,l-1]
+        z_t_dt_modes = np.einsum("...le,...e->...el", eigvecs_r, z_t_dt_eig)
+
+        # Sanity check. TODO: Should make this a test. This is passing for the current implementation.
+        # z_t_dt_rec = np.sum(z_t_dt_modes, axis=-2).real  # Sum over the modes
+        # K = self.evolution_operator().detach().cpu().numpy()
+        # z_t_dt_true = np.einsum("...le,...e->...l", K, z_t)
+        # assert np.allclose(z_t_dt_rec, z_t_dt_true, atol=1e-6), \
+        #     "Mode decomposition error. Modes no not reconstruct the evolution of the latent observables."
+
+        # Since `z_t ∈ R^l` is real-valued, we will not obtain l modes, considering that for any eigenvector v_i
+        # associated with a complex eigenvalue λ_i ∈ C will have corresponding eigenpair (v_i^*, λ_i^*).
+        # Sort and cluster the eigenvalues by magnitude and field (real, complex)
+        real_eigs, cplx_eigs, real_eigs_indices, cplx_eigs_indices = parse_cplx_eig(eigvals)
+
+        state_modes, latent_modes, modes_magnitude = {}, {}, {}
+        lin_decoder = self.lin_decoder.detach().cpu().numpy()  # Used to project latent modes to state space
+        for eig, mode_idx in zip(real_eigs, real_eigs_indices):
+            latent_modes[eig] = z_t_dt_modes[..., mode_idx, :].real
+            modes_magnitude[eig] = z_t_dt_eig[..., mode_idx].real
+            state_modes[eig] = np.einsum("sl,...l->...s", lin_decoder, latent_modes[eig])
+
+        for eig, mode_idx in zip(cplx_eigs, cplx_eigs_indices):
+            latent_modes[eig] = z_t_dt_modes[..., mode_idx, :].real
+            modes_magnitude[eig] = 2 * z_t_dt_eig[..., mode_idx].real
+            state_modes[eig] = np.einsum("sl,...l->...s", lin_decoder, latent_modes[eig])
+
+        return state_modes, latent_modes, modes_magnitude
 
     def compute_loss_and_metrics(self,
                                  state: TensorContextDataset,
                                  pred_state: TensorContextDataset,
                                  latent_obs: TensorContextDataset,
-                                 pred_latent_obs: TensorContextDataset,
+                                 pred_latent_obs: TensorContextDataset, **kwargs
                                  ) -> dict[str, torch.Tensor]:
         r"""Compute the Dynamics Autoencoder loss and metrics.
 
         TODO: Add docstring definition of the loss terms.
 
         Args:
-        ----
+            **kwargs:
             state_context: trajectory of states :math:`(x_t)_{t\\in\\mathbb{T}}` in the context window
             :math:`\\mathbb{T}`.
             pred_state_context: predicted trajectory of states :math:`(\\hat{x}_t)_{t\\in\\mathbb{T}}`
@@ -294,8 +285,7 @@ class DynamicAE(LatentBaseModel):
             pred_latent_obs_context: predicted trajectory of latent observables :math:`(\\hat{z}_t)_{t\\in\\mathbb{T}}`
             **kwargs:
 
-        Returns:
-        -------
+        Returns:---
             Dictionary containing the key "loss" and other metrics to log.
         """
         lookback_len = self.lookback_len
@@ -422,7 +412,6 @@ class DynamicAE(LatentBaseModel):
             slice(self.lookback_len - 1, self.lookback_len)
             )
         return contexts_for_inference.view(len(data_ondevice), *data_ondevice.shape[2:])
-
 
 
 def _default_lighting_trainer() -> lightning.Trainer:

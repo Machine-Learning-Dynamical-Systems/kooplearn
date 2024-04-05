@@ -5,10 +5,13 @@ from abc import abstractmethod
 from typing import Any, Optional, Union
 
 import lightning
+import numpy as np
+import scipy
 import torch.optim
 
 import kooplearn
 from kooplearn._src.serialization import pickle_load, pickle_save
+from kooplearn._src.utils import check_is_fitted
 from kooplearn.data import TensorContextDataset
 from kooplearn.models.ae.utils import flatten_context_data, multi_matrix_power, unflatten_context_data
 
@@ -53,12 +56,10 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
         r"""Encodes the given state into the latent space using the model's encoder.
 
         Args:
-        ----
             state (TensorContextDataset): The state to be encoded. This should be a trajectory of states
             :math:`(x_t)_{t\\in\\mathbb{T}}` in the context window :math:`\\mathbb{T}`.
 
         Returns:
-        -------
             Either of the following:
             - TensorContextDataset: trajectory of encoded latent observables :math:`z_t`
             - dict: A dictionary containing the key "latent_obs" mapping to a TensorContextDataset
@@ -76,12 +77,10 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
         r"""Decodes the given latent observables back into the original state space using the model's decoder.
 
         Args:
-        ----
             latent_obs (TensorContextDataset): The latent observables to be decoded. This should be a trajectory of
                 latent observables :math:`(z_t)_{t\\in\\mathbb{T}}` in the context window :math:`\\mathbb{T}`.
 
         Returns:
-        -------
             Either of the following:
             - TensorContextDataset: trajectory of decoded states :math:`x_t`
             - dict: A dictionary containing the key "decoded_contexts" mapping to a TensorContextDataset
@@ -102,13 +101,11 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
         r"""Evolves the given latent observables forward in time using the model's evolution operator.
 
         Args:
-        ----
             latent_obs (TensorContextDataset): The latent observables to be evolved forward. This should be a
             trajectory of latent observables
             :math:`(z_t)_{t\\in\\mathbb{T}}` in the context window :math:`\\mathbb{T}`.
 
         Returns:
-        -------
             Either of the following:
             - TensorContextDataset: trajectory of predicted latent observables :math:`\\hat{z}_t`
             - dict: A dictionary containing the key "pred_latent_obs" mapping to a TensorContextDataset
@@ -141,12 +138,10 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
         The method also performs a reconstruction of the original state from the encoded latent state.
 
         Args:
-        ----
             state (TensorContextDataset): The state to be evolved forward. This should be a trajectory of states
             :math:`(x_t)_{t\\in\\mathbb{T}}` in the context window :math:`\\mathbb{T}`.
 
         Returns:
-        -------
             dict: A dictionary containing the following keys:
                 - `latent_obs`: The latent observables, :math:`z_t`. They represent the encoded state in the latent
                 space.
@@ -176,7 +171,8 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
         decoder_out = self.decode_contexts(latent_obs=pred_z_t, **evolved_out)
         pred_x_t = None
         if decoder_out is not None:
-            pred_x_t = decoder_out if isinstance(decoder_out, TensorContextDataset) else decoder_out.pop("decoded_contexts")
+            pred_x_t = decoder_out if isinstance(decoder_out, TensorContextDataset) else decoder_out.pop(
+                "decoded_contexts")
             decoder_out = {} if isinstance(decoder_out, TensorContextDataset) else decoder_out
 
         return dict(latent_obs=z_t,
@@ -199,14 +195,12 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
         TODO: Should improve the documentation of the method.
 
         Args:
-        ----
             eval_left_on (TensorContextDataset or None): Dataset of context windows on which the left eigenfunctions
             are evaluated.
             eval_right_on (TensorContextDataset or None): Dataset of context windows on which the right
             eigenfunctions are evaluated.
 
         Returns:
-        -------
             Eigenvalues of the Koopman/Transfer operator, shape ``(rank,)``. If ``eval_left_on`` or ``eval_right_on``
              are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on``/``eval_right_on``:
              shape ``(n_samples, rank)``.
@@ -221,13 +215,15 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
             eigvals, eigvecs_l, eigvecs_r = scipy.linalg.eig(K_np, left=True, right=True)
             # Left and right eigenvectors are stored in columns: eigvecs_l/r[:, i] is the i-th left/right eigenvector
             # This we have that:
-            # K @ eigvecs_r[:, i] = eigvals[i] @ eigvecs_r[:, i]
-            # K^T @ eigvecs_l[:, i] = eigvals[i]^H @ eigvecs_l[:, i]
+            # K @ eigvecs_r[:, i] = eigvals[i] @ eigvecs_r[:, i] <==>  K = eigvecs_r @ eigvals[i] @ eigvecs_r^-1
+            # assert np.allclose(eigvecs_r @ np.diag(eigvals) @ eigvecs_r.conj().T, K_np, rtol=1e-5, atol=1e-5)
+            # The left eigenvectors are the ones associated to K^T.
+            # K^T @ eigvecs_l[:, i] = eigvals[i]^H @ eigvecs_l[:, i] <==>  K^T = eigvecs_l @ eigvals[i]^H @ eigvecs_l^-1
+            # assert np.allclose(eigvecs_l @ np.diag(eigvals.conj()) @ np.linalg.inv(eigvecs_l), K_np.T, rtol=1e-5)
             self._eig_cache = eigvals, eigvecs_l, eigvecs_r
 
         left_eigfn, right_eigfn = None, None
         if eval_right_on is not None:
-            device = self.evolution_operator().device
             # Ensure data is on the same device as the model
             eval_right_on.to(device=self.evolution_operator().device, dtype=self.evolution_operator().dtype)
             # Compute the latent observables for the data (batch, context_len, latent_dim)
@@ -236,13 +232,24 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
             right_eigfn = np.einsum("...s,so->...o", z_t, eigvecs_l)
 
         if eval_left_on is not None:
-            device = self.evolution_operator().device
             # Ensure data is on the same device as the model
             eval_left_on.to(device=self.evolution_operator().device, dtype=self.evolution_operator().dtype)
             # Compute the latent observables for the data (batch, context_len, latent_dim)
             z_t = self.encode_contexts(state=eval_left_on).data.detach().cpu().numpy()
             # Evaluation of eigenfunctions in (batch/n_samples, context_len, latent_dim)
-            left_eigfn = np.einsum("...s,so->...o", z_t, eigvecs_r)
+            # TODO: Complex inner product requires conjugation of the eigenvectors (?).
+            left_eigfn = np.einsum("...s,so->...o", z_t, eigvecs_r.conj())  # left_eigfn[...,t, i] = <v_i, z_t> : i=1,...,l
+            # left_eigfn2 = np.einsum("...s,so->...o", z_t, eigvecs_r)  # left_eigfn[...,t, i] = <v_i, z_t> : i=1,...,l
+            #
+            # left_eigfn3 = np.einsum("so,...s->...o", eigvecs_r, z_t)
+            # left_eigfn4 = np.einsum("so,...o->...s", np.linalg.inv(eigvecs_r), z_t)
+
+            # Sanity check
+            # z_0 = z_t[:, 0, :]
+            # v_1 = eigvecs_r[:, 1]
+            # dot_z_0_v_1 = np.einsum("...s,s->...", z_0, v_1.conj())
+            # dot_z_0_v_1_rec = left_eigfn[..., 0, 1]
+            # assert np.allclose(dot_z_0_v_1, dot_z_0_v_1_rec, rtol=1e-4, atol=1e-4)
 
         if eval_left_on is None and eval_right_on is None:
             return eigvals
@@ -252,6 +259,82 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
             return eigvals, left_eigfn
         else:
             return eigvals, left_eigfn, right_eigfn
+
+    def predict(
+            self,
+            data: TensorContextDataset,
+            t: int = 1,
+            predict_observables: bool = True,
+            reencode_every: int = 0,
+            ):
+        r"""Predicts the state or, if the system is stochastic, its expected value :math:`\mathbb{E}[X_t | X_0 = X]`
+        after ``t`` instants given the initial conditions ``data.lookback(self.lookback_len)`` being the lookback
+        slice of ``data``.
+        If ``data.observables`` is not ``None``, returns the analogue quantity for the observable instead.
+
+        Args:
+            data (TensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as
+            the initial condition, see the note above.
+            t (int): Number of steps in the future to predict (returns the last one).
+            predict_observables (bool): Return the prediction for the observables in ``data.observables``,
+            if present. Defaults to ``True``.
+            reencode_every (int): When ``t > 1``, periodically reencode the predictions as described in
+            :footcite:t:`Fathi2023`. Only available when ``predict_observables = False``.
+
+        Returns:
+           The predicted (expected) state/observable at time :math:`t`. The result is composed of arrays with shape
+           matching ``data.lookforward(self.lookback_len)`` or the contents of ``data.observables``. If
+           ``predict_observables = True`` and ``data.observables != None``, the returned ``dict``will contain the
+           special key ``__state__`` containing the prediction for the state as well.
+        """
+        # TODO: Requires update
+        raise NotImplementedError("This method is not updated yet.")
+        check_is_fitted(self, ["_state_trail_dims"])
+        assert tuple(data.shape[2:]) == self._state_trail_dims
+
+        data = self._to_torch(data)
+        if predict_observables and hasattr(data, "observables"):
+            observables = data.observables
+            observables["__state__"] = None
+        else:
+            observables = {"__state__": None}
+
+        results = {}
+        for obs_name, obs in observables.items():
+            if (reencode_every > 0) and (t > reencode_every):
+                if (predict_observables is True) and (observables is not None):
+                    raise ValueError(
+                        "rencode_every only works when forecasting states, not observables. Consider setting "
+                        "predict_observables to False."
+                        )
+                else:
+                    num_reencodings = floor(t / reencode_every)
+                    for k in range(num_reencodings):
+                        raise NotImplementedError
+            else:
+                with torch.no_grad():
+                    evolved_data = evolve_forward(
+                        data,
+                        self.lookback_len,
+                        t,
+                        self.lightning_module.encoder,
+                        self.lightning_module.decoder,
+                        self.lightning_module.evolution_operator,
+                        )
+                    evolved_data = evolved_data.data.detach().cpu().numpy()
+                    if obs is None:
+                        results[obs_name] = evolved_data
+                    elif callable(obs):
+                        results[obs_name] = obs(evolved_data)
+                    else:
+                        raise ValueError(
+                            "Observables must be either None, or callable."
+                            )
+
+        if len(results) == 1:
+            return results["__state__"]
+        else:
+            return results
 
     @abstractmethod
     def compute_loss_and_metrics(self,
@@ -264,7 +347,6 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
         r"""Compute the loss and metrics of the model.
 
         Args:
-        ----
             state_context: trajectory of states :math:`(x_t)_{t\\in\\mathbb{T}}` in the context window
             :math:`\\mathbb{T}`.
             pred_state_context: predicted trajectory of states :math:`(\\hat{x}_t)_{t\\in\\mathbb{T}}`
@@ -274,7 +356,6 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
             **kwargs:
 
         Returns:
-        -------
             Dictionary containing the key "loss" and other metrics to log.
         """
         raise NotImplementedError()
@@ -288,7 +369,6 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
         """Serialize the model to a file.
 
         Args:
-        ----
             filename (path-like or file-like): Save the model to file.
         """
         # self.lightning_module._kooplearn_model_weakref = None  ... Why not simply use self reference?
@@ -299,11 +379,9 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
         """Load a serialized model from a file.
 
         Args:
-        ----
             filename (path-like or file-like): Load the model from file.
 
         Returns:
-        -------
             Saved instance of `LatentBaseModel`.
         """
         restored_obj = pickle_load(cls, path)
