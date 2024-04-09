@@ -86,7 +86,7 @@ def parse_cplx_eig(vec: np.ndarray):
     Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
         A tuple containing the sorted real eigenvalues, the sorted complex eigenvalues, the original indices of the
         sorted real eigenvalues, and the original indices of the sorted complex eigenvalues.
-
+        From the complex eigenvalues, only the ones with positive phase are returned.
     Example
     --------
     >>> import numpy as np
