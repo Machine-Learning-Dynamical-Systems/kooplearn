@@ -55,6 +55,8 @@ class TensorContextDataset(ContextWindowDataset):
                 )
         self.data = data
         self.backend = backend
+        # TODO: this attributes should be dynamically collected form the data tensor. if the tensor is modified,
+        #   the instance of this class does not reflect the dtype, shape, ndim changes. -> Tensor wrapper.
         self.dtype = self.data.dtype
         self.shape = self.data.shape
         self.ndim = self.data.ndim
@@ -108,6 +110,15 @@ class TensorContextDataset(ContextWindowDataset):
         x_contiguous = x.contiguous()  # Needed for reshaping not to mess with the time order.
         x_reshaped = x_contiguous.view(-1, x_contiguous.size(-1))
         return x_reshaped
+
+    def to(self, *args, **kwargs):
+        """Wrapper for the `to` method of the underlying tensor"""
+        import torch
+        device, dtype = torch._C._nn._parse_to(*args, **kwargs)[:2]
+        if self.backend == "numpy":
+            raise NotImplementedError("The 'to' method is not implemented for numpy arrays.")
+        self.data = self.data.to(device=device, dtype=dtype)
+        return self
 
 
 class TrajectoryContextDataset(TensorContextDataset):
@@ -265,7 +276,7 @@ def traj_to_contexts(
 
 
 def multi_traj_to_context(
-        trajectories: np.ndarray,
+        trajectories: list[ArrayLike],
         context_window_len: int = 2,
         time_lag: int = 1,
         backend: str = "auto",
