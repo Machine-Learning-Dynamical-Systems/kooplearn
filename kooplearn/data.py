@@ -19,14 +19,30 @@ def concatenate_contexts(contexts: Sequence["TensorContextDataset"]):
             f"All context windows must have the same backend and the same context length. Got backends: {backends}, context shapes {context_shapes}"
         )
     else:
+        for obs in [ctx.observables for ctx in contexts]:
+            if set(obs.keys()) != set(contexts[0].observables.keys()):
+                raise ValueError(
+                    f"Observables must have the same keys for all trajectories. "
+                    f"Got {set(obs.keys())} for the first trajectory, and {set(contexts[0].observables.keys())} for the second."
+                )
         backend = backends.pop()
     torch, backend = parse_backend(backend)
     if backend == "numpy":
         cat_data = np.concatenate([ctx.data for ctx in contexts], axis=0)
-        return TensorContextDataset(cat_data, backend=backend)
+        cat_observables = {}
+        for obs_name in contexts[0].observables.keys():
+            cat_observables[obs_name] = np.concatenate(
+                [ctx.observables[obs_name] for ctx in contexts], axis=0
+            )
+        return TensorContextDataset(cat_data, cat_observables, backend=backend)
     else:
         cat_data = torch.cat([ctx.data for ctx in contexts], dim=0)
-        return TensorContextDataset(cat_data, backend=backend)
+        cat_observables = {}
+        for obs_name in contexts[0].observables.keys():
+            cat_observables[obs_name] = torch.cat(
+                [ctx.observables[obs_name] for ctx in contexts], dim=0
+            )
+        return TensorContextDataset(cat_data, cat_observables, backend=backend)
 
 
 class TensorContextDataset(ContextWindowDataset):

@@ -236,7 +236,7 @@ class Nonlinear(BaseModel):
         Args:
             data (TensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as the initial condition, see the note above.
             t (int): Number of steps in the future to predict (returns the last one).
-            predict_observables (bool): Return the prediction for the observables in ``data.observables``, if present. Default to ``True``.
+            predict_observables (bool): Return the prediction for the observables in ``self.data_fit.observables``, if present. Default to ``True``.
             reencode_every (int): When ``t > 1``, periodically reencode the predictions as described in :footcite:t:`Fathi2023`. Only available when ``predict_observables = False``.
 
         Returns:
@@ -247,8 +247,9 @@ class Nonlinear(BaseModel):
         )
 
         observables = None
-        if predict_observables and hasattr(data, "observables"):
-            observables = data.observables
+        if predict_observables and hasattr(self.data_fit, "observables"):
+            observables = self.data_fit.observables
+
         parsed_obs, expected_shapes, X_inference, X_fit = parse_observables(
             observables, data, self.data_fit
         )
@@ -337,15 +338,16 @@ class Nonlinear(BaseModel):
 
         Args:
             data (TensorContextDataset): Dataset of context windows. The lookback window of ``data`` will be used as the initial condition, see the note above.
-            predict_observables (bool): Return the prediction for the observables in ``data.observables``, if present. Default to ``True``.
+            predict_observables (bool): Return the prediction for the observables in ``self.data_fit.observables``, if present. Default to ``True``.
         Returns:
             (modes, eigenvalues): Modes and corresponding eigenvalues of the system at the states defined by ``data``. The result is composed of arrays with shape matching ``data.lookforward(self.lookback_len)`` or the contents of ``data.observables``. If ``predict_observables = True`` and ``data.observables != None``, the returned ``dict`` will contain the special key ``__state__`` containing the modes for the state as well.
         """
         check_is_fitted(self, ["U", "cov_XY", "data_fit", "lookback_len"])
 
         observables = None
-        if predict_observables and hasattr(data, "observables"):
-            observables = data.observables
+        if predict_observables and hasattr(self.data_fit, "observables"):
+            observables = self.data_fit.observables
+
         parsed_obs, expected_shapes, X_inference, X_fit = parse_observables(
             observables, data, self.data_fit
         )
