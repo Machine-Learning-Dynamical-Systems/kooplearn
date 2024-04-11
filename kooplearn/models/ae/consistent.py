@@ -51,7 +51,13 @@ class ConsistentAE(BaseModel):
         latent_dim: int,
         optimizer_fn: torch.optim.Optimizer,
         trainer: lightning.Trainer,
-        loss_weights: dict = {"rec": 1.0, "pred": 1.0, "bwd_pred": 1.0, "lin": 1.0, "consistency": 1.0},
+        loss_weights: dict = {
+            "rec": 1.0,
+            "pred": 1.0,
+            "bwd_pred": 1.0,
+            "lin": 1.0,
+            "consistency": 1.0,
+        },
         encoder_kwargs: dict = {},
         decoder_kwargs: dict = {},
         optimizer_kwargs: dict = {},
@@ -334,7 +340,13 @@ class ConsistentAEModule(lightning.LightningModule):
         latent_dim: int,
         optimizer_fn: torch.optim.Optimizer,
         optimizer_kwargs: dict,
-        loss_weights: dict = {"rec": 1.0, "pred": 1.0, "bwd_pred": 1.0, "lin": 1.0, "consistency": 1.0},
+        loss_weights: dict = {
+            "rec": 1.0,
+            "pred": 1.0,
+            "bwd_pred": 1.0,
+            "lin": 1.0,
+            "consistency": 1.0,
+        },
         encoder_kwargs: dict = {},
         decoder_kwargs: dict = {},
         kooplearn_model_weakref: weakref.ReferenceType = None,
@@ -370,7 +382,9 @@ class ConsistentAEModule(lightning.LightningModule):
         K = self.evolution_operator
         bwd_K = self.bwd_evolution_operator
 
-        evolved_batch = evolve_contexts(encoded_batch, lookback_len, K, backward_operator=bwd_K)
+        evolved_batch = evolve_contexts(
+            encoded_batch, lookback_len, K, backward_operator=bwd_K
+        )
         decoded_batch = decode_contexts(evolved_batch, self.decoder)
 
         MSE = torch.nn.MSELoss()
@@ -432,8 +446,15 @@ class ConsistentAEModule(lightning.LightningModule):
         evolution_operator = self.evolution_operator
         bwd_evolution_operator = self.bwd_evolution_operator
 
-        Z_evolved = evolve_contexts(Z, lookback_len, evolution_operator, backward_operator=bwd_evolution_operator)
-        X_evol = decode_contexts(Z_evolved, self.decoder)  # Should fail if the shape is wrong
+        Z_evolved = evolve_contexts(
+            Z,
+            lookback_len,
+            evolution_operator,
+            backward_operator=bwd_evolution_operator,
+        )
+        X_evol = decode_contexts(
+            Z_evolved, self.decoder
+        )  # Should fail if the shape is wrong
         assert Z.shape == Z_evolved.shape
 
         if batch.shape != X_evol.shape:

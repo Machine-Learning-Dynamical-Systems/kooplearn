@@ -105,7 +105,8 @@ def fit_reduced_rank_regression(
         # Eigenvector normalization
         kernel_X_vecs = np.dot(np.multiply(kernel_X, n_pts ** (-0.5)), vectors)
         vecs_norms = np.sum(
-            kernel_X_vecs**2 + tikhonov_reg * kernel_X_vecs * vectors * (n_pts**0.5),
+            kernel_X_vecs**2
+            + tikhonov_reg * kernel_X_vecs * vectors * (n_pts**0.5),
             axis=0,
         ) ** (0.5)
         U = vectors / vecs_norms

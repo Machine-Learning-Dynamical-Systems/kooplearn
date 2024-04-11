@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Sequence
 
 import numpy as np
@@ -6,14 +7,10 @@ from numpy.typing import ArrayLike
 from kooplearn._src.check_deps import parse_backend
 from kooplearn._src.utils import ShapeError
 from kooplearn.abc import ContextWindowDataset
-from copy import deepcopy
 
 
-def concatenate_contexts(
-    contexts: Sequence["TensorContextDataset"]
-):
-    """Concatenates a sequence of context windows into a single tensor.
-    """
+def concatenate_contexts(contexts: Sequence["TensorContextDataset"]):
+    """Concatenates a sequence of context windows into a single tensor."""
     backends = set([ctx.backend for ctx in contexts])
     context_shapes = set([tuple(ctx.shape[1:]) for ctx in contexts])
     # Check backends & context lengths are all equal
@@ -30,13 +27,18 @@ def concatenate_contexts(
     else:
         cat_data = torch.cat([ctx.data for ctx in contexts], dim=0)
         return TensorContextDataset(cat_data, backend=backend)
-          
 
 
 class TensorContextDataset(ContextWindowDataset):
     """Class for a collection of context windows with tensor features."""
 
-    def __init__(self, data: ArrayLike, observables: dict[ArrayLike] = {}, backend: str = "auto", **backend_kw):
+    def __init__(
+        self,
+        data: ArrayLike,
+        observables: dict[ArrayLike] = {},
+        backend: str = "auto",
+        **backend_kw,
+    ):
         """Initializes the TensorContextDataset.
 
         Args:
@@ -81,7 +83,6 @@ class TensorContextDataset(ContextWindowDataset):
                 else:
                     obs_data = np.asanyarray(obs_data, **backend_kw)
                     backend = "numpy"
-            
 
             # Attributes init
             if obs_data.ndim < 3:
@@ -95,7 +96,7 @@ class TensorContextDataset(ContextWindowDataset):
                     f"All observables must have the same context length and number of context windows. Got shapes: {observables_shapes}"
                 )
             observables[obs_name] = obs_data
-        
+
         self.data = observables.pop("__state__")
         self.observables = observables
         self.backend = backend
@@ -111,11 +112,19 @@ class TensorContextDataset(ContextWindowDataset):
     def __getitem__(self, idx) -> "TensorContextDataset":
         if np.issubdtype(type(idx), np.integer):
             _data = self.data[idx][None, ...]
-            _obs = {obs_name: obs_data[idx][None, ...] for obs_name, obs_data in self.observables.items()}
+            _obs = {
+                obs_name: obs_data[idx][None, ...]
+                for obs_name, obs_data in self.observables.items()
+            }
         else:
             _data = self.data[idx]
-            _obs = {obs_name: obs_data[idx] for obs_name, obs_data in self.observables.items()}
-        return TensorContextDataset(_data, _obs, backend=self.backend, **self._backend_kw)
+            _obs = {
+                obs_name: obs_data[idx]
+                for obs_name, obs_data in self.observables.items()
+            }
+        return TensorContextDataset(
+            _data, _obs, backend=self.backend, **self._backend_kw
+        )
 
     def __getitems__(self, indices: list[int]) -> "TensorContextDataset":
         """Called by torch to index batched data directly"""
@@ -141,9 +150,9 @@ class TrajectoryContextDataset(TensorContextDataset):
     def __init__(
         self,
         trajectory: ArrayLike,
+        observables: dict[ArrayLike] = {},
         context_length: int = 2,
         time_lag: int = 1,
-        multi_traj: bool = False,
         backend: str = "auto",
         **backend_kw,
     ):
@@ -152,9 +161,9 @@ class TrajectoryContextDataset(TensorContextDataset):
 
         Args:
             trajectory (ArrayLike): A trajectory of shape ``(n_frames, *features_shape)`` or ``(n_trajs, n_frames, *features_shape)`` if `multi_traj` is set to ``True``.
+            observables (dict[ArrayLike], optional): A dictionary of observables. Defaults to ``{}``.
             context_length (int, optional): Length of the context window. Default to ``2``.
             time_lag (int, optional): Time lag, i.e. stride, between successive context windows. Default to ``1``.
-            multi_traj (bool, optional): If set to ``True``, the input trajectory is intepreted as a collection of trajectories. Default to ``False``.
             backend (str, optional): Specifies the backend to be used (``'numpy'``, ``'torch'``). If set to ``'auto'``, will use the same backend of the trajectory. Default to ``'auto'``.
             backend_kw (dict, optional): Keyword arguments to pass to the backend. For example, if ``'torch'``, it is possible to specify the device of the tensor.
         """
@@ -166,57 +175,39 @@ class TrajectoryContextDataset(TensorContextDataset):
         if time_lag < 1:
             raise ValueError(f"time_lag must be >= 1, got {time_lag}")
 
-        if trajectory.ndim < 1:
-            raise ShapeError(
-                f"Invalid trajectory shape {trajectory.shape}. Expected at least 1D."
-            )
-
-        if multi_traj:
-            if trajectory.ndim < 2:
+        _observables = deepcopy(observables)
+        _observables["__state__"] = trajectory
+        observables = {}
+        trajectory_lengths = set()
+        _, backend = parse_backend(backend)
+        for obs_name, obs_data in _observables.items():
+            if obs_data.ndim < 1:
                 raise ShapeError(
-                    f"Invalid trajectory shape {trajectory.shape}. Expected at least (n_trajs, n_frames, *features_shape)"
+                    f"Invalid trajectory for {obs_name} shape {obs_data.shape}. Expected at least 1D."
                 )
-        else:
-            if trajectory.ndim == 1:
-                trajectory = trajectory[
-                    :, None
-                ]  # Add a dummy dimension for 1D features
 
-        torch, backend = parse_backend(backend)
+            if obs_data.ndim == 1:
+                obs_data = obs_data[:, None]  # Add a dummy dimension for 1D features
 
-        if multi_traj:  # Take context of each trajectory independently
-            data_per_traj, idx_map_per_traj = [], []
-            for traj in trajectory:
-                data, idx_map = _contexts_from_traj(
-                    traj,
-                    context_length=context_length,
-                    time_lag=time_lag,
-                    backend=backend,
-                    **backend_kw,
+            trajectory_lengths.add(obs_data.shape[0])
+            if len(trajectory_lengths) != 1:
+                raise ValueError(
+                    f"All observables must have the same number of frames. Got lengths: {trajectory_lengths}"
                 )
-                data_per_traj.append(data)
-                idx_map_per_traj.append(idx_map)
-
-            if isinstance(data_per_traj[0], np.ndarray):
-                self.data = np.concatenate(data_per_traj, axis=0)
-                self.idx_map = np.concatenate(idx_map_per_traj, axis=0)
-            else:
-                self.data = torch.cat(data_per_traj, dim=0)
-                self.idx_map = torch.cat(idx_map_per_traj, dim=0)
-        else:
-            self.data, self.idx_map = _contexts_from_traj(
-                trajectory,
+            ctx_data, idx_map = _contexts_from_traj(
+                obs_data,
                 context_length=context_length,
                 time_lag=time_lag,
                 backend=backend,
                 **backend_kw,
             )
+            observables[obs_name] = ctx_data
+            if "__idxmap__" not in observables:
+                observables["__idxmap__"] = idx_map
 
-        # Store reference to the original data
-        self.multi_traj = multi_traj
-        self.trajectory = trajectory
+        data = observables.pop("__state__")
         self.time_lag = time_lag
-        super().__init__(self.data)
+        super().__init__(data, observables, backend=backend, **backend_kw)
         assert context_length == self.context_length
 
 
@@ -298,7 +289,8 @@ def _contexts_from_traj_np(trajectory, context_length: int, time_lag: int):
 
 
 def traj_to_contexts(
-    trajectory: np.ndarray,
+    trajectory: ArrayLike,
+    observables: dict = {},
     context_window_len: int = 2,
     time_lag: int = 1,
     backend: str = "auto",
@@ -308,7 +300,8 @@ def traj_to_contexts(
 
     Args:
     ----
-        trajectory (np.ndarray): A trajectory of shape ``(n_frames, *features_shape)``.
+        trajectory (ArrayLike): A trajectory of shape ``(n_frames, *features_shape)``.
+        observables (dict[ArrayLike], optional): A dictionary of observables. Defaults to ``{}``.
         context_window_len (int, optional): Length of the context window. Default to ``2``.
         time_lag (int, optional): Time lag, i.e. stride, between successive context windows. Default to ``1``.
         backend (str, optional): Specifies the backend to be used (``'numpy'``, ``'torch'``). If set to ``'auto'``, will use the same backend of the trajectory. Default to ``'auto'``.
@@ -320,6 +313,7 @@ def traj_to_contexts(
     """
     return TrajectoryContextDataset(
         trajectory,
+        observables=observables,
         context_length=context_window_len,
         time_lag=time_lag,
         multi_traj=False,
@@ -329,7 +323,8 @@ def traj_to_contexts(
 
 
 def multi_traj_to_context(
-    trajectories: np.ndarray,
+    trajectories: Sequence[ArrayLike],
+    observables: Sequence[dict] = None,
     context_window_len: int = 2,
     time_lag: int = 1,
     backend: str = "auto",
@@ -339,7 +334,8 @@ def multi_traj_to_context(
 
     Args:
     ----
-        trajectories (np.ndarray): A trajectory of shape ``(n_trajs, n_frames, *features_shape)``.
+        trajectories (np.ndarray): A sequence of trajectories of shape ``(n_frames, *features_shape)``.
+        observables (dict[ArrayLike], optional): A dictionary of observables. Defaults to ``None``. If passed, must be a sequence of dictionaries with the same length as ``trajectories``, and with the same observables for each trajectory.
         context_window_len (int, optional): Length of the context window. Default to ``2``.
         time_lag (int, optional): Time lag, i.e. stride, between successive context windows. Default to ``1``.
         backend (str, optional): Specifies the backend to be used (``'numpy'``, ``'torch'``). If set to ``'auto'``,
@@ -351,12 +347,33 @@ def multi_traj_to_context(
     -------
         TrajectoryContextDataset: A sequence of context windows.
     """
-    return TrajectoryContextDataset(
-        trajectories,
-        context_length=context_window_len,
-        time_lag=time_lag,
-        multi_traj=True,
-        backend=backend,
-        **backend_kwargs,
-    )
-    )
+    if observables is not None:
+        if len(observables) != len(trajectories):
+            raise ValueError(
+                f"The number of observables ({len(observables)}) must be equal to the number of trajectories ({len(trajectories)})."
+            )
+        # Check that each dict has the same keys
+        for obs in observables:
+            if set(obs.keys()) != set(observables[0].keys()):
+                raise ValueError(
+                    f"Observables must have the same keys for all trajectories. "
+                    f"Got {set(obs.keys())} for the first trajectory, and {set(observables[0].keys())} for the second."
+                )
+    else:
+        observables = [{} for _ in range(len(trajectories))]
+
+    ctx_list = []
+    for traj, obs in zip(trajectories, observables):
+        ctx_list.append(
+            TrajectoryContextDataset(
+                traj,
+                observables=obs,
+                context_length=context_window_len,
+                time_lag=time_lag,
+                backend=backend,
+                **backend_kwargs,
+            )
+        )
+    multi_traj = concatenate_contexts(ctx_list)
+    multi_traj.time_lag = time_lag
+    return multi_traj
