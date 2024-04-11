@@ -122,6 +122,7 @@ class DynamicAE(BaseModel):
             for batch in train_dataloaders:
                 assert isinstance(batch, TensorContextDataset)
                 with torch.no_grad():
+                    print(batch.backend)
                     self.lightning_module.dry_run(batch)
                     self._state_trail_dims = tuple(batch.shape[2:])
                 break

@@ -20,8 +20,10 @@ def parse_observables(observables_dict, data: ContextWindow, data_fit: ContextWi
 
     parsed_obs = {}
     expected_shapes = {}
+    observables_dict.pop("__idxmap__", None)
     for obs_name, obs in observables_dict.items():
         if obs.dtype.kind != "f":
+
             raise TypeError(
                 f"Observables should have floating-point values, whereas {obs_name} if of dtype {obs.dtype}"
             )

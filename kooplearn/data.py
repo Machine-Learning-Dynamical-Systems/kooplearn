@@ -9,9 +9,14 @@ from kooplearn._src.utils import ShapeError
 from kooplearn.abc import ContextWindowDataset
 
 
-def concatenate_contexts(contexts: Sequence["TensorContextDataset"]):
+def concatenate_contexts(
+    contexts: Sequence["TensorContextDataset"], backend: str = None
+):
     """Concatenates a sequence of context windows into a single tensor."""
-    backends = set([ctx.backend for ctx in contexts])
+    if backend is None:
+        backends = set([ctx.backend for ctx in contexts])
+    else:
+        backends = set([backend])
     context_shapes = set([tuple(ctx.shape[1:]) for ctx in contexts])
     # Check backends & context lengths are all equal
     if (len(backends) != 1) or (len(context_shapes) != 1):
@@ -36,11 +41,11 @@ def concatenate_contexts(contexts: Sequence["TensorContextDataset"]):
             )
         return TensorContextDataset(cat_data, cat_observables, backend=backend)
     else:
-        cat_data = torch.cat([ctx.data for ctx in contexts], dim=0)
+        cat_data = torch.cat([torch.tensor(ctx.data) for ctx in contexts], dim=0)
         cat_observables = {}
         for obs_name in contexts[0].observables.keys():
             cat_observables[obs_name] = torch.cat(
-                [ctx.observables[obs_name] for ctx in contexts], dim=0
+                [torch.tensor(ctx.observables[obs_name]) for ctx in contexts], dim=0
             )
         return TensorContextDataset(cat_data, cat_observables, backend=backend)
 
@@ -142,10 +147,6 @@ class TensorContextDataset(ContextWindowDataset):
             _data, _obs, backend=self.backend, **self._backend_kw
         )
 
-    def __getitems__(self, indices: list[int]) -> "TensorContextDataset":
-        """Called by torch to index batched data directly"""
-        return self.__getitem__(indices)
-
     def slice(self, slice_obj):
         """Returns a slice of the context windows given a slice object.
 
@@ -176,7 +177,7 @@ class TrajectoryContextDataset(TensorContextDataset):
         Initializes the TrajectoryContextDataset. It takes as input a trajectory and returns a sequence of context windows.
 
         Args:
-            trajectory (ArrayLike): A trajectory of shape ``(n_frames, *features_shape)`` or ``(n_trajs, n_frames, *features_shape)`` if `multi_traj` is set to ``True``.
+            trajectory (ArrayLike): A trajectory of shape ``(n_frames, *features_shape)``.
             observables (dict[ArrayLike], optional): A dictionary of observables. Defaults to ``{}``.
             context_length (int, optional): Length of the context window. Default to ``2``.
             time_lag (int, optional): Time lag, i.e. stride, between successive context windows. Default to ``1``.
@@ -332,7 +333,6 @@ def traj_to_contexts(
         observables=observables,
         context_length=context_window_len,
         time_lag=time_lag,
-        multi_traj=False,
         backend=backend,
         **backend_kwargs,
     )

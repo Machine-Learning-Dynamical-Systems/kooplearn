@@ -132,7 +132,9 @@ class ConsistentAE(BaseModel):
         else:
             assert isinstance(train_dataloaders, torch.utils.data.DataLoader)
             for batch in train_dataloaders:
-                assert isinstance(batch, TensorContextDataset)
+                assert isinstance(
+                    batch, TensorContextDataset
+                ), f"{type(batch)} is not a TensorContextDataset"
                 with torch.no_grad():
                     self.lightning_module.dry_run(batch)
                     self._state_trail_dims = tuple(batch.shape[2:])
