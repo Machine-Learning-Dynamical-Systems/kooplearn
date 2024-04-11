@@ -98,7 +98,7 @@ class DynamicAE(LatentBaseModel):
         # Lightning variables populated during fit
         self.trainer = None
         self.lightning_model = None
-        # self._is_fitted = False  # Automatically determined by looking at self.trainer.status.
+        self._is_fitted = False  # TODO: Automatically determined by looking at self.trainer.status.
 
     def fit(
             self,
@@ -122,6 +122,7 @@ class DynamicAE(LatentBaseModel):
             datamodule: A :class:`~lightning.pytorch.core.datamodule.LightningDataModule` that defines
                 the :class:`~lightning.pytorch.core.hooks.DataHooks.train_dataloader` hook.
         """
+        self._is_fitted = False
         self.trainer = _default_lighting_trainer() if trainer is None else trainer
         assert isinstance(self.trainer, lightning.Trainer)
 
@@ -154,7 +155,9 @@ class DynamicAE(LatentBaseModel):
             best_ckpt = torch.load(best_path)
             lightning_module.eval()
             lightning_module.load_state_dict(best_ckpt['state_dict'], strict=False)
-            self.trainer.state.status = "finished"  # Makes check_is_fitted return True
+            # from lightning.pytorch.trainer.states import TrainerStatus
+            # self.trainer.state.status = TrainerStatus.FINISHED
+            self._is_fitted = True
             logger.info(f"Skipping training. Loaded best model from {best_path}")
         else:
             self.trainer.fit(
@@ -164,6 +167,7 @@ class DynamicAE(LatentBaseModel):
                 datamodule=datamodule,
                 ckpt_path=ckpt_path,
                 )
+            self._is_fitted = self.trainer.state.finished
 
         train_dataset = train_dataloaders.dataset if train_dataloaders is not None else datamodule.train_dataset
         train_dataloader = train_dataloaders if train_dataloaders is not None else datamodule.train_dataloader()
@@ -245,7 +249,8 @@ class DynamicAE(LatentBaseModel):
         # Left eigenfunctions are the inner products between the latent observables z_t and the right eigenvectors
         # `v_i` of the evolution operator T @ v_i = λ_i v_i. That is: eigfns[...,t, i] = <v_i, z_t> : i=1,...,l
         # Thus we have that z_t+dt = Σ_i[v_i * λ_i * <v_i, z_t>], where <v_i, z_t> is the projection to eigenfunction i.
-        _, _, eigvecs_r = self._eig_cache  # v_i = eigvecs_r[:, i] = V[:,i], where K = V Λ V^-1
+        # v_i = eigvecs_r[:, i] = V[:,i], where T = V Λ V^-1
+        eigvecs_r, eigvecs_r_inv = self._eigvecs_r.detach().cpu().numpy(), self._eigvecs_r_inv.detach().cpu().numpy()
 
         # We want to compute each z_t+dt_i = v_i * λ_i * <v_i, z_t>.
         # First we project the encoded latent obs state to the eigenbasis: z_t_eig = V^-1 z_t := [<v_1, z_t>, ...]
@@ -348,10 +353,11 @@ class DynamicAE(LatentBaseModel):
 
     @property
     def is_fitted(self):
-        if self.trainer is None:
-            return False
-        else:
-            return self.trainer.state.status == "finished"
+        # if self.trainer is None:
+        #     return False
+        # else:
+        #     return self.trainer.state.finished
+        return self._is_fitted
 
     def initialize_evolution_operator(self, init_mode: str):
         """Initializes the evolution operator.

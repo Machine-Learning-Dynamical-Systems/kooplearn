@@ -100,6 +100,9 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
     def evolve_contexts(self, latent_obs: TensorContextDataset, **kwargs) -> Union[dict, TensorContextDataset]:
         r"""Evolves the given latent observables forward in time using the model's evolution operator.
 
+        If the model has been fitted to forecast we avoid powering the evolution operator and instead use the
+        eigendecomposition of the operator to compute the evolution of the latent observables.
+
         Args:
             latent_obs (TensorContextDataset): The latent observables to be evolved forward. This should be a
             trajectory of latent observables
@@ -116,15 +119,32 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
             f"Expected latent dimension {self.latent_dim}, got {latent_obs.data.shape[2]}"
 
         context_length = latent_obs.context_length
-        # T : (latent_dim, latent_dim)
-        evolution_operator = self.evolution_operator()
-        # z_0: (..., latent_dim)
+
+        # Initial condition to evolve in time.
         z_0 = latent_obs.lookback(self.lookback_len).squeeze()
-        # Compute the powers of the evolution operator used T_t such that z_t = T_t @ z_0 | t in [0, context_length]
-        # powered_evolution_ops: (context_length, latent_dim, latent_dim) -> [I, T, T^2, ..., T^context_length]
-        powered_evolution_ops = multi_matrix_power(evolution_operator, context_length, spectral=False)
-        # Compute evolved latent observable states z_t | t in [0, context_length] (single parallel operation)
-        z_t = torch.einsum("toi,...i->...to", powered_evolution_ops, z_0)
+
+        if self.is_fitted:
+            if not hasattr(self, "_eigvals"): self.eig()  # Ensure eigendecomposition is in cache
+            # T = V Λ V^-1 : V = eigvecs_r, Λ = eigvals, V^-1 = eigvecs_r_inv
+            eigvals, eigvecs_r, eigvecs_r_inv = self._eigvals, self._eigvecs_r, self._eigvecs_r_inv
+            z_0_eigbasis = torch.einsum("oi,...i->...o", eigvecs_r_inv.data, z_0.to(dtype=eigvecs_r.dtype))
+            # Compute the powers of the eigenvalues used to evolve the latent state z_t | t in [0, context_length]
+            # powered_eigvals: (context_length, latent_dim) -> [1, λ, λ^2, ..., λ^context_length]
+            exponents = torch.arange(context_length, device=z_0.device).unsqueeze(1)
+            powered_eigvals = eigvals.pow(exponents)
+            # Compute z_t_eigbasis[batch, t] = Λ^t V^-1 z_0 | t in [0, context_length]
+            z_t_eigbasis = torch.einsum("to,...o->...to", powered_eigvals, z_0_eigbasis)
+            # Convert back to the original basis z_t[batch,t] = V Λ^t V^-1 z_0 | t in [0, context_length]
+            z_t = torch.einsum("oi,...ti->...to", eigvecs_r.data, z_t_eigbasis).real.to(dtype=z_0.dtype)
+        else:
+            # T : (latent_dim, latent_dim)
+            evolution_operator = self.evolution_operator()
+            # z_0: (..., latent_dim)
+            # Compute the powers of the evolution operator used T_t such that z_t = T_t @ z_0 | t in [0, context_length]
+            # powered_evolution_ops: (context_length, latent_dim, latent_dim) -> [I, T, T^2, ..., T^context_length]
+            powered_evolution_ops = multi_matrix_power(evolution_operator, context_length)
+            # Compute evolved latent observable states z_t | t in [0, context_length] (single parallel operation)
+            z_t = torch.einsum("toi,...i->...to", powered_evolution_ops, z_0)
 
         z_pred_t = TensorContextDataset(z_t)
         return z_pred_t
@@ -205,10 +225,7 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
              are not ``None``, returns the left/right eigenfunctions evaluated at ``eval_left_on``/``eval_right_on``:
              shape ``(n_samples, rank)``.
         """
-        if hasattr(self, "_eig_cache"):
-            # TODO: Need to recompute if evolution operator has changed
-            eigvals, eigvecs_l, eigvecs_r = self._eig_cache
-        else:
+        if not hasattr(self, "_eigvals"):
             K = self.evolution_operator()
             K_np = K.detach().cpu().numpy()
             # K is a square real-valued matrix.
@@ -220,36 +237,45 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
             # The left eigenvectors are the ones associated to K^T.
             # K^T @ eigvecs_l[:, i] = eigvals[i]^H @ eigvecs_l[:, i] <==>  K^T = eigvecs_l @ eigvals[i]^H @ eigvecs_l^-1
             # assert np.allclose(eigvecs_l @ np.diag(eigvals.conj()) @ np.linalg.inv(eigvecs_l), K_np.T, rtol=1e-5)
-            self._eig_cache = eigvals, eigvecs_l, eigvecs_r
+
+            # Store as torch parameters for lighting to manage device automatically. And forecast avoiding matrix power
+            # _dtype = torch.complex32 if K.dtype == torch.float32 else torch.complex64
+            _dtype = None
+            self._eigvals = torch.nn.Parameter(torch.tensor(eigvals, device=K.device, dtype=_dtype),
+                                               requires_grad=False)
+            self._eigvecs_l = torch.nn.Parameter(torch.tensor(eigvecs_l, device=K.device, dtype=_dtype),
+                                                 requires_grad=False)
+            self._eigvecs_r = torch.nn.Parameter(torch.tensor(eigvecs_r, device=K.device, dtype=_dtype),
+                                                 requires_grad=False)
+            eigvecs_r_inv = np.linalg.inv(eigvecs_r)
+            assert np.allclose((eigvecs_r @ np.diag(eigvals) @ eigvecs_r_inv).real, K_np, rtol=1e-6, atol=1e-6)
+            self._eigvecs_r_inv = torch.nn.Parameter(torch.tensor(eigvecs_r_inv, device=K.device, dtype=_dtype),
+                                                     requires_grad=False)
+
+        eigvals, eigvecs_l, eigvecs_r = self._eigvals, self._eigvecs_l, self._eigvecs_r
 
         left_eigfn, right_eigfn = None, None
         if eval_right_on is not None:
             # Ensure data is on the same device as the model
             eval_right_on.to(device=self.evolution_operator().device, dtype=self.evolution_operator().dtype)
             # Compute the latent observables for the data (batch, context_len, latent_dim)
-            z_t = self.encode_contexts(state=eval_right_on).data.detach().cpu().numpy()
+            z_t = self.encode_contexts(state=eval_right_on)
             # Evaluation of eigenfunctions in (batch/n_samples, context_len, latent_dim)
-            right_eigfn = np.einsum("...s,so->...o", z_t, eigvecs_l)
+            right_eigfn = torch.einsum("...s,so->...o", z_t, eigvecs_l)  # TODO: Check this is correct.
 
         if eval_left_on is not None:
             # Ensure data is on the same device as the model
             eval_left_on.to(device=self.evolution_operator().device, dtype=self.evolution_operator().dtype)
             # Compute the latent observables for the data (batch, context_len, latent_dim)
-            z_t = self.encode_contexts(state=eval_left_on).data.detach().cpu().numpy()
+            z_t = self.encode_contexts(state=eval_left_on)
             # Evaluation of eigenfunctions in (batch/n_samples, context_len, latent_dim)
-            # TODO: Complex inner product requires conjugation of the eigenvectors (?).
-            left_eigfn = np.einsum("...s,so->...o", z_t, eigvecs_r.conj())  # left_eigfn[...,t, i] = <v_i, z_t> : i=1,...,l
-            # left_eigfn2 = np.einsum("...s,so->...o", z_t, eigvecs_r)  # left_eigfn[...,t, i] = <v_i, z_t> : i=1,...,l
-            #
-            # left_eigfn3 = np.einsum("so,...s->...o", eigvecs_r, z_t)
-            # left_eigfn4 = np.einsum("so,...o->...s", np.linalg.inv(eigvecs_r), z_t)
+            # left_eigfn[...,t, i] = <v_i, z_t>_C : i=1,...,l
+            left_eigfn = torch.einsum("...il,...l->...i", torch.linalg.inv(eigvecs_r), z_t)
 
-            # Sanity check
-            # z_0 = z_t[:, 0, :]
-            # v_1 = eigvecs_r[:, 1]
-            # dot_z_0_v_1 = np.einsum("...s,s->...", z_0, v_1.conj())
-            # dot_z_0_v_1_rec = left_eigfn[..., 0, 1]
-            # assert np.allclose(dot_z_0_v_1, dot_z_0_v_1_rec, rtol=1e-4, atol=1e-4)
+        # TODO: Does it make sense for DeepLearning based models to return as numpy? ...
+        eigvals = eigvals.detach().cpu().numpy()
+        left_eigfn = left_eigfn.detach().cpu().numpy() if left_eigfn is not None else None
+        right_eigfn = right_eigfn.detach().cpu().numpy() if right_eigfn is not None else None
 
         if eval_left_on is None and eval_right_on is None:
             return eigvals

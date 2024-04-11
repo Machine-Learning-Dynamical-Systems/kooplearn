@@ -72,7 +72,7 @@ class ModesInfo:
     eigvecs_r: np.ndarray
     state_eigenbasis: np.ndarray
     linear_decoder: Optional[np.ndarray] = None
-    sort_by: str = "modulus"
+    sort_by: str = "modulus-amplitude"
 
     def __post_init__(self):
         """Identifies real and complex conjugate pairs of eigenvectors, along with their associated dimensions
@@ -93,8 +93,25 @@ class ModesInfo:
             eigs_indices = np.concatenate((real_eigs_indices, cplx_eigs_indices))
             # Sort the eigenvalues by modulus |λ_i| in descending order.
             sorted_indices = np.flip(np.argsort(eigs_sort_metric))
+        elif self.sort_by == "modulus-amplitude":
+            real_eigs_modulus = np.abs(real_eigs)
+            cplx_eigs_modulus = np.abs(cplx_eigs)
+            real_eigs_amplitude = np.abs(self.state_eigenbasis[0, 0, real_eigs_indices])
+            cplx_eigs_amplitude = np.abs(self.state_eigenbasis[0, 0, cplx_eigs_indices])
+            eigs_sort_metric = np.concatenate((real_eigs_modulus * real_eigs_amplitude,
+                                               2 * cplx_eigs_modulus * cplx_eigs_amplitude))
+            eigs_indices = np.concatenate((real_eigs_indices, cplx_eigs_indices))
+            # Sort the eigenvalues by the product of modulus |λ_i| and amplitude |<v_i, z_k>| in descending order.
+            sorted_indices = np.flip(np.argsort(eigs_sort_metric))
+        elif self.sort_by == "freq":
+            # Sort real-eigvals by modulus (decreasing), and complex eigvals by frequency (increasing)
+            freqs_cplx = np.angle(cplx_eigs) / (2 * np.pi * self.dt)
+            sorted_cplx_indices = cplx_eigs_indices[np.argsort(freqs_cplx)]
+            sorted_real_indices = np.flip(real_eigs_indices[np.argsort(np.abs(real_eigs))])
+            eigs_indices = np.arange(len(self.eigvals))
+            sorted_indices = np.concatenate((sorted_real_indices, sorted_cplx_indices))
         else:
-            raise NotImplementedError(f"Sorting by {self.sort_by} is not implemented yet.")
+            raise NotImplementedError(f"Mode sorting by {self.sort_by} is not implemented yet.")
 
         # Store the sorted indices of eigenspaces by modulus, and the indices of real and complex eigenspaces.
         # Such that self.eigvals[self._sorted_eigs_indices] returns the sorted eigenvalues.
@@ -107,7 +124,7 @@ class ModesInfo:
         self.eigvecs_r = self.eigvecs_r[:, self._sorted_eigs_indices]
         self.state_eigenbasis = self.state_eigenbasis[..., self._sorted_eigs_indices]
         # Utility array to identify if in the new order the modes/eigvals are to be treated as complex or real
-        self._is_complex_mode = [idx in cplx_eigs_indices for idx in self._sorted_eigs_indices]
+        self.is_complex_mode = [idx in cplx_eigs_indices for idx in self._sorted_eigs_indices]
 
         # Compute the real-valued modes associated with the values in `state_eigenbasis` ===============================
         # Change from the spectral/eigen-basis of the evolution operator to its original basis obtaining a tensor of
@@ -115,13 +132,17 @@ class ModesInfo:
         # N_u = n_real_eigvals + 1/2 n_complex_eigvals. The shape cplx_modes: (..., N_u, l)
         self.cplx_modes = np.einsum("...le,...e->...el", self.eigvecs_r, self.state_eigenbasis)
         if len(real_eigs) > 0:  # Check real modes have zero imaginary part
-            _real_eigval_modes = self.cplx_modes[..., np.logical_not(self._is_complex_mode), :]
+            _real_eigval_modes = self.cplx_modes[..., np.logical_not(self.is_complex_mode), :]
             assert np.allclose(_real_eigval_modes.imag, 0, rtol=1e-5, atol=1e-5), \
                 f"Real modes have non-zero imaginary part: {np.max(_real_eigval_modes.imag)}"
 
     @property
     def n_modes(self):
         return len(self.eigvals)
+
+    @property
+    def n_dc_modes(self):
+        return np.sum(np.logical_not(self.is_complex_mode))
 
     @property
     def modes(self):
@@ -137,7 +158,7 @@ class ModesInfo:
             The modes are sorted by the selected metric in `sort_by`.
         """
         real_modes = self.cplx_modes.real
-        real_modes[..., self._is_complex_mode, :] *= 2
+        real_modes[..., self.is_complex_mode, :] *= 2
         if self.linear_decoder is not None:
             real_modes = np.einsum("ol,...l->...o", self.linear_decoder, real_modes)
         return real_modes
@@ -161,14 +182,14 @@ class ModesInfo:
     def modes_amplitude(self):
         # Compute <u_i, z_k>.
         mode_amplitude = np.abs(self.state_eigenbasis)
-        mode_amplitude[..., self._is_complex_mode] *= 2
+        mode_amplitude[..., self.is_complex_mode] *= 2
         return mode_amplitude
 
     @property
     def modes_phase(self):
         mode_phase = np.angle(self.state_eigenbasis)
         # set phase of real modes to zero
-        mode_phase[..., np.logical_not(self._is_complex_mode)] = 0
+        mode_phase[..., np.logical_not(self.is_complex_mode)] = 0
         return mode_phase
 
     @property
@@ -192,3 +213,120 @@ class ModesInfo:
         """
         decay_rates = self.modes_decay_rate()
         return 1 / decay_rates * np.log(90. / 100.)
+
+    def plot_eigfn_dynamics(self, mode_indices: Optional[list[int]] = None):
+        """ Create plotly (n_modes) x 2 subplots to show the eigenfunctions dynamics.
+
+        The first column will plot the eigenfunctions in the complex plane, while the second column will plot the
+        eigenfunctions real part vs time. In the second plot we will show a vertical line for the mode's transient time,
+        if the decay rate is positive.
+
+        Args:
+            mode_indices:
+
+        Returns:
+        """
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
+        if mode_indices is None:
+            mode_indices = range(self.n_modes)
+        n_modes_to_show = len(mode_indices)
+
+        # Fix plot visual parameters ====================================================================================
+        width = 200
+        fig_width = 3 * width  # Assuming the second column and margins approximately take up another 400 pixels.
+        fig_height = width * n_modes_to_show
+        vertical_spacing = width * 0.1 / fig_height
+
+        # Compute the required data for plotting the eigenfunction dynamics ===========================================
+        eigfn = self.state_eigenbasis[0]  # (time_horizon, modes)
+        time_horizon = eigfn.shape[0]
+        eigval_traj = np.asarray([self.eigvals ** t for t in range(time_horizon)])  # λ_i^t for t in [0,time_horizon)
+
+        eigfn_0 = eigfn[0]  # (modes,)
+        eigfn_pred = np.einsum("l,tl->tl", eigfn_0, eigval_traj)  # (time_horizon, modes)
+
+        time = np.linspace(0, time_horizon * self.dt, time_horizon)
+
+        fig = make_subplots(rows=self.n_modes, cols=2, column_widths=[0.33, 0.66],
+                            subplot_titles=[f"Mode {i // 2}" for i in range(2 * n_modes_to_show)],
+                            vertical_spacing=vertical_spacing,
+                            shared_xaxes=True, shared_yaxes=True)
+
+        time_normalized = time / (time_horizon * self.dt)
+        COLOR_SCALE = "Blugrn"
+        for i, mode_idx in enumerate(mode_indices):
+            is_cmplx_mode = self.is_complex_mode[mode_idx]
+            eigfn_re_pred = eigfn_pred[:, mode_idx].real  # Re(λ_i^t * <u_i,z_t>)
+            eigfn_im_pred = eigfn_pred[:, mode_idx].imag  # Im(λ_i^t * <u_i,z_t>)
+
+            eigfn_re = eigfn[:, mode_idx].real
+            eigfn_im = eigfn[:, mode_idx].imag
+
+            # Plot the predicted eigenfunction dynamics in the complex plane with equal aspect ratio
+            fig.add_trace(go.Scatter(x=eigfn_im_pred,
+                                     y=eigfn_re_pred,
+                                     mode='markers',
+                                     marker=dict(color=time_normalized, colorscale=COLOR_SCALE, size=4),
+                                     name=f"Mode {i}",
+                                     legendgroup=f"mode{i}"),
+                          row=i + 1, col=1)
+
+            # Plot the true eigenfunction dynamics in the complex plane
+            fig.add_trace(go.Scatter(x=eigfn_im,
+                                     y=eigfn_re,
+                                     mode='lines',
+                                     line=dict(color='black', width=1),
+                                     name=f"Mode {i}",
+                                     legendgroup=f"mode{i}"),
+                          row=i + 1, col=1)
+
+            # Plot the real part of the eigenfunction dynamics vs time
+            fig.add_trace(go.Scatter(x=time,
+                                     y=eigfn_re_pred * (2 if is_cmplx_mode else 1),
+                                     mode='markers',
+                                     marker=dict(color=time_normalized, colorscale=COLOR_SCALE, size=4),
+                                     name=f"Mode {i}",
+                                     legendgroup=f"mode{i}"),
+                          row=i + 1, col=2)
+
+            # Plot the true real part of the eigenfunction dynamics vs time
+            fig.add_trace(go.Scatter(x=time,
+                                     y=eigfn_re * (2 if is_cmplx_mode else 1),
+                                     mode='lines',
+                                     line=dict(color='black', width=1),
+                                     name=f"Mode {i}",
+                                     legendgroup=f"mode{i}"),
+                          row=i + 1, col=2)
+
+            # Plot the area between the predicted and true real part of the eigenfunction dynamics
+            fig.add_trace(go.Scatter(x=np.concatenate((time, time[::-1])),
+                                     y=np.concatenate((eigfn_re_pred * (2 if is_cmplx_mode else 1),
+                                                       eigfn_re[::-1] * (2 if is_cmplx_mode else 1))),
+                                     fill='toself',
+                                     fillcolor='rgba(0,0,0,0.1)',
+                                     line=dict(color='rgba(0,0,0,0)'),
+                                     name=f"Mode {i}",
+                                     legendgroup=f"mode{i}"),
+                          row=i + 1, col=2)
+
+
+        # Set the overall layout size. Adjust the width to accommodate your 200px wide first column.
+        # This width calculation is an approximation and might need tweaking based on your actual layout and margins.
+        fig.update_layout(
+            autosize=False,
+            width=fig_width,
+            height=fig_height,
+            showlegend=False,  # Hide the legend
+            )
+
+        # Update y-axes of the first column only to have a fixed range for a square aspect ratio
+        # This is a workaround since direct width control per subplot isn't supported.
+        # You might need to adjust the range based on your data for a square appearance.
+        for i in range(n_modes_to_show):
+            fig.update_yaxes(row=i + 1, col=1, scaleanchor="x", scaleratio=1, )
+
+        fig.update_xaxes(rangeslider=dict(visible=False))
+        fig.show()
+        print("")
