@@ -3,15 +3,13 @@ import logging
 import numpy as np
 import torch
 
-from kooplearn.data import TensorContextDataset
+from kooplearn.data import TensorContextDataset, concatenate_contexts
 
 logger = logging.getLogger("kooplearn")
 
 
 def collate_context_dataset(batch: list[TensorContextDataset]):
-    concat_fn = torch.cat if torch.is_tensor(batch[0].data) else np.concatenate
-    batched_data = torch.tensor(concat_fn([ctx.data for ctx in batch]))
-    return TensorContextDataset(batched_data)
+    return concatenate_contexts(batch, backend="torch")
 
 
 def _contexts_from_traj_torch(trajectory, context_length, time_lag):
@@ -27,4 +25,4 @@ def _contexts_from_traj_torch(trajectory, context_length, time_lag):
 
     data = torch.movedim(data, -1, 1)[:, ::time_lag, ...]
     idx_map = torch.movedim(idx_map, -1, 1)[:, ::time_lag, ...]
-    return data, TensorContextDataset(idx_map)
+    return data, idx_map

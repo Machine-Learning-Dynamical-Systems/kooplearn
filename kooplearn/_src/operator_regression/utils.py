@@ -11,35 +11,23 @@ def parse_observables(observables_dict, data: ContextWindow, data_fit: ContextWi
         )
     lookback_len = data.context_length - 1
     X_inference = data.lookback(lookback_len)
-    X_fit, Y_fit = data_fit.lookback(lookback_len), data_fit.lookforward(lookback_len)
+    X_fit = data_fit.lookback(lookback_len)
 
     if observables_dict is None:
-        observables_dict = {"__state__": Y_fit}
+        observables_dict = {"__state__": data_fit.data}
     else:
-        observables_dict["__state__"] = Y_fit
+        observables_dict["__state__"] = data_fit.data
 
     parsed_obs = {}
     expected_shapes = {}
+    observables_dict.pop("__idxmap__", None)
     for obs_name, obs in observables_dict.items():
-        try:
-            obs = np.asanyarray(obs)
-        except Exception as e:
-            raise ValueError(
-                f"Observables must be convertible to a Numpy Array, while the following exception has been raised {e}"
-            )
-
         if obs.dtype.kind != "f":
+
             raise TypeError(
                 f"Observables should have floating-point values, whereas {obs_name} if of dtype {obs.dtype}"
             )
-        if obs.shape[0] != observables_dict["__state__"].shape[0]:
-            raise ShapeError(
-                f"The observable {obs_name} was evaluated for {obs.shape[0]}, while the fitting data have {observables_dict['__state__'].shape[0]} examples."
-            )
-        # Reshape the observables to 2D arrays
-        if obs.ndim == 1:
-            obs = obs[:, None]
-
+        obs = obs[:, -1]
         # If the observables are multidimensional, flatten them and save the shape for the final reshape
         trailing_dims = obs.shape[1:]
         expected_shape = (X_inference.shape[0],) + trailing_dims

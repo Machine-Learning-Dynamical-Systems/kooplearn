@@ -122,6 +122,7 @@ class DynamicAE(BaseModel):
             for batch in train_dataloaders:
                 assert isinstance(batch, TensorContextDataset)
                 with torch.no_grad():
+                    print(batch.backend)
                     self.lightning_module.dry_run(batch)
                     self._state_trail_dims = tuple(batch.shape[2:])
                 break
@@ -136,8 +137,12 @@ class DynamicAE(BaseModel):
 
         if self.lightning_module.hparams.use_lstsq_for_evolution:
             train_dataset = self._to_torch(train_dataloaders.dataset)
-            encoded_train = encode_contexts(train_dataset, self.lightning_module.encoder)
-            self.lightning_module.evolution_operator = self.lightning_module._lstsq_evolution(encoded_train)
+            encoded_train = encode_contexts(
+                train_dataset, self.lightning_module.encoder
+            )
+            self.lightning_module.evolution_operator = (
+                self.lightning_module._lstsq_evolution(encoded_train)
+            )
 
         self._is_fitted = True
 

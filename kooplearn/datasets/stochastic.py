@@ -98,7 +98,6 @@ class CosineDistribution:
 
 
 class LogisticMap(DiscreteTimeDynamics):
-
     def __init__(
         self, r: float = 4.0, N: Optional[int] = None, rng_seed: Optional[int] = None
     ):

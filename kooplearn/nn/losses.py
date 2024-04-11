@@ -9,7 +9,7 @@ import kooplearn.nn.functional as F  # noqa: E402
 __all__ = ["VAMPLoss", "DPLoss"]
 
 
-class VAMPLoss():
+class VAMPLoss:
     def __init__(self, schatten_norm: int = 2, center_covariances: bool = True):
         """Initializes the Variational Approach for learning Markov Processes (VAMP) loss by :footcite:t:`Wu2019`.
 
@@ -41,9 +41,12 @@ class VAMPLoss():
         )
 
 
-class DPLoss():
+class DPLoss:
     def __init__(
-        self, relaxed: bool = True, metric_deformation: float = 1.0, center_covariances: bool = True
+        self,
+        relaxed: bool = True,
+        metric_deformation: float = 1.0,
+        center_covariances: bool = True,
     ):
         """Initializes the (Relaxed) Deep Projection loss by :footcite:t:`Kostic2023DPNets`.
 
