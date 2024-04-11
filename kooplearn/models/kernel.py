@@ -250,8 +250,8 @@ class Kernel(BaseModel, RegressorMixin):
             ["U", "V", "kernel_X", "kernel_Y", "kernel_YX", "data_fit", "lookback_len"],
         )
         observables = None
-        if predict_observables and hasattr(data, "observables"):
-            observables = data.observables
+        if predict_observables and hasattr(self.data_fit, "observables"):
+            observables = self.data_fit.observables
 
         parsed_obs, expected_shapes, X_inference, X_fit = parse_observables(
             observables, data, self.data_fit
