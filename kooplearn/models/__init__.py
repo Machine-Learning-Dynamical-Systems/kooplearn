@@ -8,5 +8,6 @@ try:
     check_torch_deps()
     from kooplearn.models.ae.consistent import ConsistentAE
     from kooplearn.models.ae.dynamic import DynamicAE
+    from kooplearn.models.base_model import LatentBaseModel
 except ImportError:
     pass

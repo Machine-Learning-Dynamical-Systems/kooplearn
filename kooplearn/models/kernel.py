@@ -311,9 +311,7 @@ class Kernel(BaseModel, RegressorMixin):
             )
             self._eig_cache = (w, vl, vr)
 
-        X_fit, Y_fit = self.data_fit.lookback(
-            self.lookback_len
-        ), self.data_fit.lookback(self.lookback_len, slide_by=1)
+        X_fit, Y_fit = self.data_fit.lookback(self.lookback_len), self.data_fit.lookback(self.lookback_len, slide_by=1)
         if eval_left_on is None and eval_right_on is None:
             # (eigenvalues,)
             return w

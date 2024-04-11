@@ -35,6 +35,12 @@ Kooplearn's deep learning components are implemented using `pytorch lightning <h
 
 Kooplearn, in turn will handle the creation of a :code:`lightning.LightningModule` internally. Models are then fitted by calling the :code:`fit` method, which has roughly the same signature of :code:`lightning.Trainer().fit`, and accepts both `torch dataloaders <https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader>`_ and `lightning datamodules <https://lightning.ai/docs/pytorch/stable/data/datamodule.html>`_.
 
+Latent Base Model
+~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: LatentBaseModel
+    :members:
+
 Dynamical Autoencoder
 ~~~~~~~~~~~~~~~~~~~~~
 

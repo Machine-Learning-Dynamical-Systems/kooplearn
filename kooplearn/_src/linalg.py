@@ -1,8 +1,9 @@
 import logging
-from typing import Optional
+from typing import Optional, Union
 from warnings import warn
 
 import numpy as np
+import torch
 from sklearn.utils import check_array
 
 from kooplearn._src.utils import topk
@@ -258,3 +259,40 @@ def cov(X: np.ndarray, Y: Optional[np.ndarray] = None):
         Y = Y * rnorm
         c = X.T @ Y
     return c
+
+def full_rank_lstsq(
+        X: torch.Tensor, Y: torch.Tensor, driver='gelsd', bias=True
+        ) -> [torch.Tensor, Union[torch.Tensor, None]]:
+    """Compute the least squares solution of the linear system `Y = A·X + B`. Assuming full rank X and A.
+    Args:<
+        X: torch.Tensor of shape (|x|, n_samples) Data matrix of the initial states.
+        Y: torch.Tensor of shape (|y|, n_samples) Data matrix of the next states.
+    Returns:
+        A: (|y|, |x|) Least squares solution of the linear system `X' = A·X`.
+        B: Bias vector of dimension (|y|, 1). Set to None if bias=False.
+    """
+    assert (
+            X.ndim == 2 and Y.ndim == 2 and X.shape[1] == Y.shape[1]
+    ), f"X: {X.shape}, Y: {Y.shape}. Expected (|x|, n_samples) and (|y|, n_samples) respectively."
+
+    if bias:
+        # In order to solve for the bias in the same least squares problem we need to augment the data matrix X, with an
+        # additional dimension of ones. This is equivalent to switching to Homogenous coordinates
+        X_aug = torch.cat([X, torch.ones((1, X.shape[1]), device=X.device, dtype=X.dtype)], dim=0)
+    else:
+        X_aug = X
+
+    # Torch convention uses Y:(n_samples, |y|) and X:(n_samples, |x|) to solve the least squares
+    # problem for `Y = X·A`, instead of our convention `Y = A·X`. So we have to do the appropriate transpose.
+    result = torch.linalg.lstsq(X_aug.T.detach().cpu().to(dtype=torch.double),
+                                Y.T.detach().cpu().to(dtype=torch.double), rcond=None, driver=driver)
+    A_sol = result.solution.T.to(device=X.device, dtype=X.dtype)
+    if bias:
+        assert A_sol.shape == (Y.shape[0], X.shape[0] + 1)
+        # Extract the matrix A and the bias vector B
+        A, B = A_sol[:, :-1], A_sol[:, [-1]]
+        return A.to(dtype=X.dtype, device=X.device), B.to(dtype=X.dtype, device=X.device)
+    else:
+        assert A_sol.shape == (Y.shape[0], X.shape[0])
+        A, B = A_sol, None
+        return A.to(dtype=X.dtype, device=X.device), B

@@ -22,8 +22,9 @@ def check_is_fitted(obj: object, attr_list: list[str]):
     for attr in attr_list:
         if not hasattr(obj, attr):
             raise NotFittedError(
-                f"Attribute \"{attr}\" not found. {obj.__class__.__name__} is not fitted. Please call the 'fit' method first."
-            )
+                f"Attribute \"{attr}\" not found. {obj.__class__.__name__} is not fitted. Please call the 'fit' "
+                f"method first."
+                )
 
 
 # Sorting and parsing
@@ -44,7 +45,7 @@ def topk(vec: np.ndarray, k: int):
 def fuzzy_parse_complex(vec: np.ndarray, tol: float = 10.0):
     assert issubclass(
         vec.dtype.type, np.complexfloating
-    ), "The input element should be complex"
+        ), "The input element should be complex"
     rcond = tol * np.finfo(vec.dtype).eps
     pdist_real_part = pdist(vec.real[:, None])
     # Set the same element whenever pdist is smaller than eps*tol
@@ -64,28 +65,104 @@ def fuzzy_parse_complex(vec: np.ndarray, tol: float = 10.0):
 def row_col_from_condensed_index(d, index):
     # Credits to: https://stackoverflow.com/a/14839010
     b = 1 - (2 * d)
-    i = (-b - math.sqrt(b**2 - 8 * index)) // 2
+    i = (-b - math.sqrt(b ** 2 - 8 * index)) // 2
     j = index + i * (b + i + 2) // 2 + 1
     return (int(i), int(j))
 
 
 def parse_cplx_eig(vec: np.ndarray):
+    """ Parse and sort complex and real eigenvalues from an array.
+
+    This function separates real and complex eigenvalues from the input array, sorts them, and returns the sorted
+    eigenvalues along with their original indices in the input array.
+
+    Parameters
+    ----------
+    vec : np.ndarray
+        An array of complex numbers that includes real and complex eigenvalues.
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        A tuple containing the sorted real eigenvalues, the sorted complex eigenvalues, the original indices of the
+        sorted real eigenvalues, and the original indices of the sorted complex eigenvalues.
+        From the complex eigenvalues, only the ones with positive phase are returned.
+    Example
+    --------
+    >>> import numpy as np
+    >>> vec = np.array([4, 1, 0.1 + 1j, 0.1 - 1j, 1 + 1j, 1 - 1j])
+    >>> real_eigs, cplx_eigs, real_idx, cplx_idx = parse_cplx_eig(vec)
+    >>> real_eigs
+    array([1., 4.])
+    >>> real_idx
+    array([1, 0])
+    >>> cplx_eigs
+    array([0.1+1.j, 1. +1.j])
+    >>> cplx_idx
+    array([2, 4])
+    """
     _real_eigs_mask = np.abs(vec.imag) <= np.finfo(vec.dtype).eps
     real_eigs = vec[_real_eigs_mask].real
+    real_eigs_indices = np.where(_real_eigs_mask)[0]  # track original indices for real eigenvalues
+
     _cplx_eigs_mask = np.logical_not(_real_eigs_mask)
     cplx_eigs = vec[_cplx_eigs_mask]
-    cplx_conj_pairs_idxs = _parse_cplx_conj_pairs(cplx_eigs)
-    return np.concatenate(
-        [np.sort(real_eigs), np.sort(cplx_eigs[cplx_conj_pairs_idxs])]
-    )
+    cplx_eigs_indices = np.where(_cplx_eigs_mask)[0]  # track original indices for complex eigenvalues
 
+    cplx_conj_pairs_idxs = idx_of_positive_phase_complex_pairs(cplx_eigs)
 
-def _parse_cplx_conj_pairs(cplx_conj_vec: np.ndarray):
+    # Get the indices that would sort the real and complex eigenvalues
+    real_eigs_sort_idxs = np.argsort(real_eigs)
+    cplx_eigs_sort_idxs = np.argsort(cplx_eigs[cplx_conj_pairs_idxs])
+
+    # Use the indices to get the sorted eigenvalues
+    real_eigs = real_eigs[real_eigs_sort_idxs]
+    cplx_eigs = cplx_eigs[cplx_conj_pairs_idxs][cplx_eigs_sort_idxs]
+
+    # Get the original indices of the sorted eigenvalues
+    real_eigs_indices = real_eigs_indices[real_eigs_sort_idxs]
+    cplx_eigs_indices = cplx_eigs_indices[cplx_conj_pairs_idxs][cplx_eigs_sort_idxs]
+
+    # Get the original indices of the sorted eigenvalues
+    return real_eigs, cplx_eigs, real_eigs_indices, cplx_eigs_indices
+
+def idx_of_positive_phase_complex_pairs(cplx_conj_vec: np.ndarray):
+    """Identify the indices of the elements with positive phase in an array of complex conjugate pairs.
+
+    This function takes an array of complex numbers that are expected to be in conjugate pairs. It checks if the array
+    consists of complex conjugate pairs and if the array length is even (as it should be for pairs). It then sorts the
+    array and returns the indices of the elements with positive phase.
+
+    Parameters
+    ----------
+    cplx_conj_vec : np.ndarray
+        An array of complex numbers that are expected to be in conjugate pairs.
+
+    Returns
+    -------
+    np.ndarray
+        An array of indices of the elements with positive phase.
+
+    Raises
+    ------
+    ValueError
+        If the array does not consist of complex conjugate pairs or if its length is odd.
+
+    Example
+    --------
+    >>> import numpy as np
+    >>> cplx_conj_vec = np.array([1+2j, 1-2j, 2+3j, 5+0.1j, 2-3j, 5-0.1j])
+    >>> indices = idx_of_positive_phase_complex_pairs(cplx_conj_vec)
+    >>> indices
+    array([0, 2, 3])
+    >>> cplx_conj_vec[indices]
+    array([1.+2.j , 2.+3.j , 5.+0.1j])
+    """
     if not cplx_conj_vec.shape[0] % 2 == 0:
         raise ValueError(
             f"The array must consist in a set of complex conjugate pairs, but its shape ({cplx_conj_vec.shape[0]}"
             f" is odd)."
-        )
+            )
     _v_sort = np.argsort(cplx_conj_vec)
     _v_cj_sort = np.argsort(cplx_conj_vec.conj())
 
@@ -93,7 +170,7 @@ def _parse_cplx_conj_pairs(cplx_conj_vec: np.ndarray):
     if not np.allclose(_diff, np.zeros_like(_diff)):
         raise ValueError(
             "The provided array does not consists of complex conjugate pairs"
-        )
+            )
 
     _v = cplx_conj_vec[_v_sort]
 
