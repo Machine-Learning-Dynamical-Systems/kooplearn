@@ -19,7 +19,7 @@ import lightning  # noqa: E402
 import torch  # noqa: E402
 from torch.utils.data import DataLoader
 
-logger = logging.getLogger("kooplearn")
+logger = logging.getLogger(__name__)
 
 
 class DynamicAE(LatentBaseModel):
@@ -72,7 +72,7 @@ class DynamicAE(LatentBaseModel):
                  evolution_op_bias: bool = False,
                  evolution_op_init_mode: str = "stable"
                  ):
-        super().__init__()
+        super().__init__()  # Initialize torch.nn.Module
 
         self.encoder = encoder(**encoder_kwargs)
         self.decoder = decoder(**decoder_kwargs)
@@ -88,11 +88,8 @@ class DynamicAE(LatentBaseModel):
         else:
             # TODO: Should we add bias to hardcode the constant function modeling the evolution operator?
             # Adding a bias term is analog to enforcing the evolution operator to model the constant function.
-            self.linear_dynamics = torch.nn.Linear(latent_dim, latent_dim, bias=evolution_op_bias)
+            self.linear_dynamics = self.get_linear_dynamics_model(enforce_constant_fn=evolution_op_bias)
             self.initialize_evolution_operator(init_mode=evolution_op_init_mode)
-
-            if evolution_op_bias:
-                raise NotImplementedError("We have to update eig and modes considering the bias term")
 
         self.state_features_shape = None  # Shape of the state/input features
         # Lightning variables populated during fit
@@ -169,6 +166,7 @@ class DynamicAE(LatentBaseModel):
                 )
             self._is_fitted = self.trainer.state.finished
 
+        logger.info(f"Fitting linear decoder for mode decomposition")
         train_dataset = train_dataloaders.dataset if train_dataloaders is not None else datamodule.train_dataset
         train_dataloader = train_dataloaders if train_dataloaders is not None else datamodule.train_dataloader()
 
@@ -187,23 +185,10 @@ class DynamicAE(LatentBaseModel):
         Z_flat = flatten_context_data(Z)  # (n_samples * context_len, latent_dim)
         X_flat = flatten_context_data(train_dataset).to(device=Z_flat.device)  # (n_samples * context_len, state_dim)
 
-        lin_decoder, _ = full_rank_lstsq(X=Z_flat.T, Y=X_flat.T, bias=False)
-        _expected_shape = (np.prod(self.state_features_shape), self.latent_dim)
-        assert lin_decoder.shape == _expected_shape, \
-            f"Expected linear decoder shape {_expected_shape}, got {lin_decoder.shape}"
+        lin_decoder = self.fit_linear_decoder(states=X_flat.T, latent_states=Z_flat.T)
 
-        # # Compute the linear decoder error and log it to trainer logger. This is useful to check if the linear decoder
-        # # is well fitted to the latent space, or if we pay a high-price in fidelity for the mode decomposition.
-        # X_flat_pred = torch.mm(lin_decoder, Z_flat.T).T
-        # lin_decoder_error = torch.nn.MSELoss()(X_flat_pred, X_flat).item()
-        #
-        # lightning_module. log("re", torch.mean(vector), prog_bar=False, batch_size=batch_size)
-        # Store the linear_decoder=`Ψ⁻¹_lin` as a non-trainable model Parameter.
+        # Store the linear_decoder=`Ψ⁻¹_lin: Z -> X` as a non-trainable model Parameter.
         self.lin_decoder = torch.nn.Parameter(lin_decoder, requires_grad=False)
-
-        # # Compute the spectral decomposition of the learned evolution operator =========================================
-        # sample_batch = next(iter(train_dataloader))
-        # state_modes, latent_modes, modes_magnitude = self.modes(sample_batch)
 
         return lightning_module
 
@@ -242,7 +227,7 @@ class DynamicAE(LatentBaseModel):
         eigvals = self.eig()
 
         # Encode # TODO: Should use the eig(eval_left_on=state), but fuck, that interface seems super confusing.
-        state.to(device=self.evolution_operator().device, dtype=self.evolution_operator().dtype)
+        state.to(device=self.evolution_operator.device, dtype=self.evolution_operator.dtype)
         # Compute the latent observables for the data (batch, context_len, latent_dim)
         z_t = self.encode_contexts(state=state).data.detach().cpu().numpy()
 
@@ -341,23 +326,18 @@ class DynamicAE(LatentBaseModel):
         metrics["loss"] = loss
         return metrics
 
-    def evolution_operator(self):
-        if self.use_lstsq_for_evolution:
-            raise NotImplementedError("use_lstsq_for_evolution = True is not implemented/tested yet.")
-        else:
-            return self.linear_dynamics.weight
+    def get_linear_dynamics_model(self, enforce_constant_fn: bool = False) -> torch.nn.Module:
+        if enforce_constant_fn:
+            raise NotImplementedError("Need to handle bias term in evolution and eigdecomposition")
+        return torch.nn.Linear(self.latent_dim, self.latent_dim, bias=enforce_constant_fn)
 
-    @property
-    def lookback_len(self) -> int:
-        return 1
-
-    @property
-    def is_fitted(self):
-        # if self.trainer is None:
-        #     return False
-        # else:
-        #     return self.trainer.state.finished
-        return self._is_fitted
+    def fit_linear_decoder(self, latent_states: torch.Tensor, states: torch.Tensor):
+        """Fit a linear decoder mapping the latent state space Z to the state space X."""
+        lin_decoder, _ = full_rank_lstsq(X=latent_states, Y=states, bias=False)
+        _expected_shape = (np.prod(self.state_features_shape), self.latent_dim)
+        assert lin_decoder.shape == _expected_shape, \
+            f"Expected linear decoder shape {_expected_shape}, got {lin_decoder.shape}"
+        return lin_decoder
 
     def initialize_evolution_operator(self, init_mode: str):
         """Initializes the evolution operator.
@@ -382,6 +362,25 @@ class DynamicAE(LatentBaseModel):
                 logger.warning(f"Evolution operator init mode {init_mode} not implemented")
                 return
             logger.info(f"Trainable evolution operator initialized with mode {init_mode}")
+
+    @property
+    def evolution_operator(self):
+        if self.use_lstsq_for_evolution:
+            raise NotImplementedError("use_lstsq_for_evolution = True is not implemented/tested yet.")
+        else:
+            return self.linear_dynamics.weight
+
+    @property
+    def lookback_len(self) -> int:
+        return 1
+
+    @property
+    def is_fitted(self):
+        # if self.trainer is None:
+        #     return False
+        # else:
+        #     return self.trainer.state.finished
+        return self._is_fitted
 
     def _check_dataloaders_and_shapes(self, datamodule, train_dataloaders, val_dataloaders):
         """Check dataloaders and the shape of the first batch to determine state features shape."""

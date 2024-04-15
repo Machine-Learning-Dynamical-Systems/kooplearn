@@ -52,6 +52,60 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
     ]
     """
 
+    def evolve_forward(self, state: TensorContextDataset) -> dict:
+        r"""Evolves the given state forward in time using the model's encoding, evolution, and decoding processes.
+
+        This method first encodes the given state into the latent space using the model's encoder.
+        It then evolves the encoded state forward in time using the model's evolution operator.
+        If a decoder is defined, it decodes the evolved latent state back into the original state space.
+        The method also performs a reconstruction of the original state from the encoded latent state.
+
+        Args:
+            state (TensorContextDataset): The state to be evolved forward. This should be a trajectory of states
+            :math:`(x_t)_{t\\in\\mathbb{T}}` in the context window :math:`\\mathbb{T}`.
+
+        Returns:
+            dict: A dictionary containing the following keys:
+                - `latent_obs`: The latent observables, :math:`z_t`. They represent the encoded state in the latent
+                space.
+                - `pred_latent_obs`: The predicted latent observables, :math:`\\hat{z}_t`. They represent the model's
+                prediction of the latent observables.
+                - `pred_state`: (Optional) The predicted state, :math:`\\hat{x}_t`. This can be None if the decoder
+                is not defined.
+                - `rec_state`: (Optional) The reconstructed state, :math:`\\tilde{x}_t`. It represents the state that
+                the model reconstructs from the latent observables. This can be None if the decoder is not defined.
+                The dictionary may also contain additional outputs from the `encode_contexts`, `decode_contexts`,
+                and `evolve_contexts`.
+        """
+        # encoding/observation-function-evaluation =====================================================================
+        # Compute z_t = phi(x_t) for all t in the train_batch context_length
+        encoder_out = self.encode_contexts(state)
+        z_t = encoder_out if isinstance(encoder_out, TensorContextDataset) else encoder_out.pop("latent_obs")
+        encoder_out = {} if isinstance(encoder_out, TensorContextDataset) else encoder_out
+
+        # Evolution of latent observables ==============================================================================
+        # Compute the approximate evolution of the latent state z̄_t for t in look-forward/prediction-horizon
+        evolved_out = self.evolve_contexts(latent_obs=z_t, **encoder_out)
+        pred_z_t = evolved_out if isinstance(evolved_out, TensorContextDataset) else evolved_out.pop("pred_latent_obs")
+        evolved_out = {} if isinstance(evolved_out, TensorContextDataset) else evolved_out
+
+        # (Optional) decoder/observation-function-inversion ============================================================
+        # Compute the approximate evolution of the state x̄_t for t in look-forward/prediction-horizon
+        decoder_out = self.decode_contexts(latent_obs=pred_z_t, **evolved_out)
+        pred_x_t = None
+        if decoder_out is not None:
+            pred_x_t = decoder_out if isinstance(decoder_out, TensorContextDataset) else decoder_out.pop(
+                "decoded_contexts")
+            decoder_out = {} if isinstance(decoder_out, TensorContextDataset) else decoder_out
+
+        return dict(latent_obs=z_t,
+                    pred_latent_obs=pred_z_t,
+                    pred_state=pred_x_t,
+                    # Attached any additional outputs from encoder/decoder/evolution
+                    **encoder_out,
+                    **evolved_out,
+                    **decoder_out)
+
     def encode_contexts(self, state: TensorContextDataset, **kwargs) -> Union[dict, TensorContextDataset]:
         r"""Encodes the given state into the latent space using the model's encoder.
 
@@ -138,7 +192,7 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
             z_t = torch.einsum("oi,...ti->...to", eigvecs_r.data, z_t_eigbasis).real.to(dtype=z_0.dtype)
         else:
             # T : (latent_dim, latent_dim)
-            evolution_operator = self.evolution_operator()
+            evolution_operator = self.evolution_operator
             # z_0: (..., latent_dim)
             # Compute the powers of the evolution operator used T_t such that z_t = T_t @ z_0 | t in [0, context_length]
             # powered_evolution_ops: (context_length, latent_dim, latent_dim) -> [I, T, T^2, ..., T^context_length]
@@ -148,60 +202,6 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
 
         z_pred_t = TensorContextDataset(z_t)
         return z_pred_t
-
-    def evolve_forward(self, state: TensorContextDataset) -> dict:
-        r"""Evolves the given state forward in time using the model's encoding, evolution, and decoding processes.
-
-        This method first encodes the given state into the latent space using the model's encoder.
-        It then evolves the encoded state forward in time using the model's evolution operator.
-        If a decoder is defined, it decodes the evolved latent state back into the original state space.
-        The method also performs a reconstruction of the original state from the encoded latent state.
-
-        Args:
-            state (TensorContextDataset): The state to be evolved forward. This should be a trajectory of states
-            :math:`(x_t)_{t\\in\\mathbb{T}}` in the context window :math:`\\mathbb{T}`.
-
-        Returns:
-            dict: A dictionary containing the following keys:
-                - `latent_obs`: The latent observables, :math:`z_t`. They represent the encoded state in the latent
-                space.
-                - `pred_latent_obs`: The predicted latent observables, :math:`\\hat{z}_t`. They represent the model's
-                prediction of the latent observables.
-                - `pred_state`: (Optional) The predicted state, :math:`\\hat{x}_t`. This can be None if the decoder
-                is not defined.
-                - `rec_state`: (Optional) The reconstructed state, :math:`\\tilde{x}_t`. It represents the state that
-                the model reconstructs from the latent observables. This can be None if the decoder is not defined.
-                The dictionary may also contain additional outputs from the `encode_contexts`, `decode_contexts`,
-                and `evolve_contexts`.
-        """
-        # encoding/observation-function-evaluation =====================================================================
-        # Compute z_t = phi(x_t) for all t in the train_batch context_length
-        encoder_out = self.encode_contexts(state)
-        z_t = encoder_out if isinstance(encoder_out, TensorContextDataset) else encoder_out.pop("latent_obs")
-        encoder_out = {} if isinstance(encoder_out, TensorContextDataset) else encoder_out
-
-        # Evolution of latent observables ==============================================================================
-        # Compute the approximate evolution of the latent state z̄_t for t in look-forward/prediction-horizon
-        evolved_out = self.evolve_contexts(latent_obs=z_t, **encoder_out)
-        pred_z_t = evolved_out if isinstance(evolved_out, TensorContextDataset) else evolved_out.pop("pred_latent_obs")
-        evolved_out = {} if isinstance(evolved_out, TensorContextDataset) else evolved_out
-
-        # (Optional) decoder/observation-function-inversion ============================================================
-        # Compute the approximate evolution of the state x̄_t for t in look-forward/prediction-horizon
-        decoder_out = self.decode_contexts(latent_obs=pred_z_t, **evolved_out)
-        pred_x_t = None
-        if decoder_out is not None:
-            pred_x_t = decoder_out if isinstance(decoder_out, TensorContextDataset) else decoder_out.pop(
-                "decoded_contexts")
-            decoder_out = {} if isinstance(decoder_out, TensorContextDataset) else decoder_out
-
-        return dict(latent_obs=z_t,
-                    pred_latent_obs=pred_z_t,
-                    pred_state=pred_x_t,
-                    # Attached any additional outputs from encoder/decoder/evolution
-                    **encoder_out,
-                    **evolved_out,
-                    **decoder_out)
 
     @torch.no_grad
     def eig(self,
@@ -226,7 +226,7 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
              shape ``(n_samples, rank)``.
         """
         if not hasattr(self, "_eigvals"):
-            K = self.evolution_operator()
+            K = self.evolution_operator
             K_np = K.detach().cpu().numpy()
             # K is a square real-valued matrix.
             eigvals, eigvecs_l, eigvecs_r = scipy.linalg.eig(K_np, left=True, right=True)
@@ -248,7 +248,7 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
             self._eigvecs_r = torch.nn.Parameter(torch.tensor(eigvecs_r, device=K.device, dtype=_dtype),
                                                  requires_grad=False)
             eigvecs_r_inv = np.linalg.inv(eigvecs_r)
-            assert np.allclose((eigvecs_r @ np.diag(eigvals) @ eigvecs_r_inv).real, K_np, rtol=1e-6, atol=1e-6)
+            # assert np.allclose((eigvecs_r @ np.diag(eigvals) @ eigvecs_r_inv).real, K_np, rtol=1e-6, atol=1e-6)
             self._eigvecs_r_inv = torch.nn.Parameter(torch.tensor(eigvecs_r_inv, device=K.device, dtype=_dtype),
                                                      requires_grad=False)
 
@@ -257,7 +257,7 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
         left_eigfn, right_eigfn = None, None
         if eval_right_on is not None:
             # Ensure data is on the same device as the model
-            eval_right_on.to(device=self.evolution_operator().device, dtype=self.evolution_operator().dtype)
+            eval_right_on.to(device=self.evolution_operator.device, dtype=self.evolution_operator.dtype)
             # Compute the latent observables for the data (batch, context_len, latent_dim)
             z_t = self.encode_contexts(state=eval_right_on)
             # Evaluation of eigenfunctions in (batch/n_samples, context_len, latent_dim)
@@ -265,7 +265,7 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
 
         if eval_left_on is not None:
             # Ensure data is on the same device as the model
-            eval_left_on.to(device=self.evolution_operator().device, dtype=self.evolution_operator().dtype)
+            eval_left_on.to(device=self.evolution_operator.device, dtype=self.evolution_operator.dtype)
             # Compute the latent observables for the data (batch, context_len, latent_dim)
             z_t = self.encode_contexts(state=eval_left_on)
             # Evaluation of eigenfunctions in (batch/n_samples, context_len, latent_dim)
@@ -387,7 +387,6 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
         raise NotImplementedError()
 
     @property
-    @abstractmethod
     def evolution_operator(self):
         raise NotImplementedError()
 

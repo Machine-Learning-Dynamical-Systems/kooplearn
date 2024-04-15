@@ -72,7 +72,7 @@ class ModesInfo:
     eigvecs_r: np.ndarray
     state_eigenbasis: np.ndarray
     linear_decoder: Optional[np.ndarray] = None
-    sort_by: str = "modulus-amplitude"
+    sort_by: str = "modulus"
 
     def __post_init__(self):
         """Identifies real and complex conjugate pairs of eigenvectors, along with their associated dimensions
@@ -126,11 +126,22 @@ class ModesInfo:
         # Utility array to identify if in the new order the modes/eigvals are to be treated as complex or real
         self.is_complex_mode = [idx in cplx_eigs_indices for idx in self._sorted_eigs_indices]
 
+        # If the input state_eigenbasis is a trajectory of states in time of shape (..., context_window, l),
+        # we compute the predicted state_eigenbasis by applying the linear dynamics of each eigenspace to the
+        # initial state_eigenbasis a.k.a the eigenfunctions evaluated at time 0.
+        context_window = self.state_eigenbasis.shape[-2]
+        eigfn_0 = self.state_eigenbasis[..., 0,:]
+        eigval_t = np.asarray([self.eigvals ** t for t in range(context_window)])  # λ_i^t for t in [0,time_horizon)
+        eigfn_pred = np.einsum("...l,tl->...tl", eigfn_0, eigval_t)  # (...,context_window, l)
+        assert self.state_eigenbasis.shape == eigfn_pred.shape
+        self.pred_state_eigenbasis = eigfn_pred
+
         # Compute the real-valued modes associated with the values in `state_eigenbasis` ===============================
         # Change from the spectral/eigen-basis of the evolution operator to its original basis obtaining a tensor of
         # This process will generate N_u complex-valued mode vectors z_k^(i) ∈ C^l, where
         # N_u = n_real_eigvals + 1/2 n_complex_eigvals. The shape cplx_modes: (..., N_u, l)
         self.cplx_modes = np.einsum("...le,...e->...el", self.eigvecs_r, self.state_eigenbasis)
+        self.cplx_modes_pred = np.einsum("...le,...e->...el", self.eigvecs_r, self.pred_state_eigenbasis)
         if len(real_eigs) > 0:  # Check real modes have zero imaginary part
             _real_eigval_modes = self.cplx_modes[..., np.logical_not(self.is_complex_mode), :]
             assert np.allclose(_real_eigval_modes.imag, 0, rtol=1e-5, atol=1e-5), \
@@ -157,7 +168,7 @@ class ModesInfo:
             `self.state_eigenbasis` of shape (..., l). Where s=l if `linear_decoder` is None, otherwise s=o.
             The modes are sorted by the selected metric in `sort_by`.
         """
-        real_modes = self.cplx_modes.real
+        real_modes = self.cplx_modes_pred.real
         real_modes[..., self.is_complex_mode, :] *= 2
         if self.linear_decoder is not None:
             real_modes = np.einsum("ol,...l->...o", self.linear_decoder, real_modes)
@@ -211,7 +222,7 @@ class ModesInfo:
             Time in seconds until which the initial condition of the mode decays to 10% of its initial value
             (if decay rate is positive).
         """
-        decay_rates = self.modes_decay_rate()
+        decay_rates = self.modes_decay_rate
         return 1 / decay_rates * np.log(90. / 100.)
 
     def plot_eigfn_dynamics(self, mode_indices: Optional[list[int]] = None):
@@ -241,17 +252,15 @@ class ModesInfo:
 
         # Compute the required data for plotting the eigenfunction dynamics ===========================================
         eigfn = self.state_eigenbasis[0]  # (time_horizon, modes)
+        eigfn_pred = self.pred_state_eigenbasis[0]  # (time_horizon, modes)
         time_horizon = eigfn.shape[0]
         eigval_traj = np.asarray([self.eigvals ** t for t in range(time_horizon)])  # λ_i^t for t in [0,time_horizon)
-
-        eigfn_0 = eigfn[0]  # (modes,)
-        eigfn_pred = np.einsum("l,tl->tl", eigfn_0, eigval_traj)  # (time_horizon, modes)
 
         time = np.linspace(0, time_horizon * self.dt, time_horizon)
 
         fig = make_subplots(rows=self.n_modes, cols=2, column_widths=[0.33, 0.66],
                             subplot_titles=[f"Mode {i // 2}" for i in range(2 * n_modes_to_show)],
-                            vertical_spacing=vertical_spacing,
+                            # vertical_spacing=vertical_spacing,
                             shared_xaxes=True, shared_yaxes=True)
 
         time_normalized = time / (time_horizon * self.dt)
@@ -315,7 +324,7 @@ class ModesInfo:
         # Set the overall layout size. Adjust the width to accommodate your 200px wide first column.
         # This width calculation is an approximation and might need tweaking based on your actual layout and margins.
         fig.update_layout(
-            autosize=False,
+            autosize=True,
             width=fig_width,
             height=fig_height,
             showlegend=False,  # Hide the legend
@@ -326,7 +335,124 @@ class ModesInfo:
         # You might need to adjust the range based on your data for a square appearance.
         for i in range(n_modes_to_show):
             fig.update_yaxes(row=i + 1, col=1, scaleanchor="x", scaleratio=1, )
-
         fig.update_xaxes(rangeslider=dict(visible=False))
-        fig.show()
-        print("")
+        return fig
+
+
+    def visual_mode_selection(self):
+        from dash import Dash, dcc, html, Input, Output, callback
+        import pandas as pd
+        import plotly.express as px
+
+        external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
+
+        app = Dash(__name__, external_stylesheets=external_stylesheets)
+
+        modes_info = self
+        # Assuming `modes_info` is an instance of `ModesInfo` class
+        df = pd.DataFrame({
+            "modes_idx":            range(modes_info.n_modes),
+            "modes_frequencies":    modes_info.modes_frequency,
+            "modes_modulus":        modes_info.modes_modulus,
+            "modes_decay_rate":     modes_info.modes_decay_rate,
+            "modes_transient_time": modes_info.modes_transient_time
+            })
+
+        app.layout = html.Div(
+            [
+                html.Div(
+                    dcc.Graph(id="g1", config={"displayModeBar": False}),
+                    className="four columns",
+                    ),
+                html.Div(
+                    dcc.Graph(id="g2", config={"displayModeBar": False}),
+                    className="four columns",
+                    ),
+                html.Div(
+                    dcc.Graph(id="g3", config={"displayModeBar": False}),
+                    className="four columns",
+                    ),
+                ],
+            className="row",
+            )
+
+        def get_figure(df, y_col, selectedpoints, selectedpoints_local):
+            # similar to the original get_figure function, but x_col is always "modes_idx"
+            x_col = "modes_idx"
+            # rest of the function remains the same
+
+            if selectedpoints_local and selectedpoints_local["range"]:
+                ranges = selectedpoints_local["range"]
+                selection_bounds = {
+                    "x0": ranges["x"][0],
+                    "x1": ranges["x"][1],
+                    "y0": ranges["y"][0],
+                    "y1": ranges["y"][1],
+                    }
+            else:
+                selection_bounds = {
+                    "x0": np.min(df[x_col]),
+                    "x1": np.max(df[x_col]),
+                    "y0": np.min(df[y_col]),
+                    "y1": np.max(df[y_col]),
+                    }
+
+            # set which points are selected with the `selectedpoints` property
+            # and style those points with the `selected` and `unselected`
+            # attribute. see
+            # https://medium.com/@plotlygraphs/notes-from-the-latest-plotly-js-release-b035a5b43e21
+            # for an explanation
+            fig = px.scatter(df, x=df[x_col], y=df[y_col], text=df.index)
+
+            fig.update_traces(
+                selectedpoints=selectedpoints,
+                customdata=df.index,
+                mode="markers+text",
+                marker={"color": "rgba(0, 116, 217, 0.7)", "size": 20},
+                unselected={
+                    "marker":   {"opacity": 0.3},
+                    "textfont": {"color": "rgba(0, 0, 0, 0)"},
+                    },
+                )
+
+            fig.update_layout(
+                margin={"l": 20, "r": 0, "b": 15, "t": 5},
+                dragmode="select",
+                hovermode=False,
+                newselection_mode="gradual",
+                )
+
+            fig.add_shape(
+                dict(
+                    {"type": "rect", "line": {"width": 1, "dash": "dot", "color": "darkgrey"}},
+                    **selection_bounds
+                    )
+                )
+            return fig
+
+
+        @callback(
+            Output("g1", "figure"),
+            Output("g2", "figure"),
+            Output("g3", "figure"),
+            Input("g1", "selectedData"),
+            Input("g2", "selectedData"),
+            Input("g3", "selectedData"),
+            )
+        def callback(selection1, selection2, selection3):
+            selectedpoints = df.index
+            for selected_data in [selection1, selection2, selection3]:
+                if selected_data and selected_data["points"]:
+                    selectedpoints = np.intersect1d(
+                        selectedpoints, [p["customdata"] for p in selected_data["points"]]
+                        )
+
+            return [
+                get_figure(df, "modes_modulus", selectedpoints, selection1),
+                get_figure(df, "modes_frequencies", selectedpoints, selection2),
+                get_figure(df, "modes_decay_rate", selectedpoints, selection3),
+                ]
+
+        app.run_server(debug=False)
+
+
