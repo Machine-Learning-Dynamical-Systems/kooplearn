@@ -135,14 +135,15 @@ class DynamicAE(LatentBaseModel):
         self._check_dataloaders_and_shapes(datamodule, train_dataloaders, val_dataloaders)
 
         if self.loss_weights is None:  # Automatically set the loss weights if not provided
-            # Weight evenly a delta error in state space as a delta error in latent observable space
-            # A λ error in each dimension of the state/observable space leads to a mean square error:
-            # err_state = λ * sqrt(input_dim)
-            # err_latent = λ * sqrt(latent_dim)
-            # To balance the errors, we need to weight the latent error by the ratio sqrt(input_dim / latent_dim)
-            input_dim = np.prod(self.state_features_shape)
-            obs_dim_state_dim_ratio = math.sqrt(input_dim / self.latent_dim)
-            self.loss_weights = dict(rec=1.0, pred=1.0, lin=1.0 * obs_dim_state_dim_ratio)
+            self.loss_weights = dict(rec=1.0, pred=1.0, lin=2.0)
+
+        # Weight evenly a delta error in state space as a delta error in latent observable space
+        # A λ error in each dimension of the state/observable space leads to a mean square error:
+        # err_state = λ * sqrt(input_dim)       ---             err_latent = λ * sqrt(latent_dim)
+        # To balance the errors, we need to weight the latent error by the ratio sqrt(input_dim / latent_dim)
+        input_dim = np.prod(self.state_features_shape)
+        obs_dim_state_dim_ratio = math.sqrt(input_dim / self.latent_dim)
+        self.loss_weights["lin"] *= obs_dim_state_dim_ratio
 
         # Fit the encoder, decoder and (optionally) the evolution operator =============================================
         ckpt_call = self.trainer.checkpoint_callback  # Get trainer checkpoint callback if any
@@ -167,8 +168,24 @@ class DynamicAE(LatentBaseModel):
             self._is_fitted = self.trainer.state.finished
 
         logger.info(f"Fitting linear decoder for mode decomposition")
+        # TODO: remove from here, this seems to be experiment specific.
+        if datamodule is not None and hasattr(datamodule, "augment"):
+            datamodule.augment = False
+
+        # Get latent observables of training dataset
         train_dataset = train_dataloaders.dataset if train_dataloaders is not None else datamodule.train_dataset
         train_dataloader = train_dataloaders if train_dataloaders is not None else datamodule.train_dataloader()
+        predict_out = trainer.predict(model=lightning_module, dataloaders=train_dataloader, ckpt_path=best_path)
+        Z = [out_batch['latent_obs'] for out_batch in predict_out]
+        Z = TensorContextDataset(torch.cat([z.data for z in Z], dim=0))  # (n_samples, context_len, latent_dim)
+
+        # # Fit the evolution operator using least squares =============================================================
+        # Z_0 = Z.data[:, 0, :]
+        # Z_1 = Z.data[:, 1, :]
+        # evol_op, _ = full_rank_lstsq(X=Z_0.T, Y=Z_1.T, bias=False)
+        # # Reset the evolution operator to the fitted one
+        # self.linear_dynamics.weight.data = evol_op
+        # print("\n ------------------- \n Fitted evolution operator: \n")
 
         # Fit linear decoder to perform dynamic mode decomposition =====================================================
         # TODO: add to checkpoint after training. Avoid recomputing this if already fitted.
@@ -179,9 +196,7 @@ class DynamicAE(LatentBaseModel):
         # transfer the mode decomposition to the state-space as Ψ⁻¹(z_1,t + z_2,t) != Ψ⁻¹(z_1,t) + Ψ⁻¹(z_2,t).
         # Thus, after learning the representation space Z, we fit a *linear* decoder `Ψ⁻¹_lin : Z → X` to perform mode
         # decomposition by x_t+1 = Ψ⁻¹_lin(Σ_i V_[i,:] @ (λ_i · Ψ_i(x_t))).
-        predict_out = trainer.predict(model=lightning_module, dataloaders=train_dataloader, ckpt_path=best_path)
-        Z = [out_batch['latent_obs'] for out_batch in predict_out]
-        Z = TensorContextDataset(torch.cat([z.data for z in Z], dim=0))  # (n_samples, context_len, latent_dim)
+
         Z_flat = flatten_context_data(Z)  # (n_samples * context_len, latent_dim)
         X_flat = flatten_context_data(train_dataset).to(device=Z_flat.device)  # (n_samples * context_len, state_dim)
 
@@ -354,10 +369,48 @@ class DynamicAE(LatentBaseModel):
         if self.use_lstsq_for_evolution:
             raise NotImplementedError("use_lstsq_for_evolution = True is not implemented/tested yet.")
         else:
-            if init_mode == "stable":
-                self.linear_dynamics.weight.data = torch.eye(self.latent_dim)
-                if self.evolution_op_bias:
-                    self.transfer_op.bias.data = torch.zeros(self.latent_dim)
+            if self.evolution_op_bias:  # Set bias to zero
+                self.transfer_op.bias.data = torch.zeros(self.latent_dim)
+
+            if init_mode == "stable":   # This bias the modeling of slow eigfunctions.
+                T = torch.eye(self.latent_dim)
+                T += 0.001 * torch.randn(self.latent_dim, self.latent_dim)
+                # Perform singular value decomposition, ensure that the singular values are all less than 1
+                # T = U @ torch.diag(S / S.max()) @ V.T
+                self.linear_dynamics.weight.data = T
+            elif init_mode == "unit_circle":
+                # Initialize the evolution operator with eigenvalues sampled uniformly on the unit circle.
+                # As the z_t are real, the eigenvalues and their corresponding eigenvectors are complex conjugates.
+                # TODO: This bias the system to model spurious yerky modes with super high frequency. It seems the
+                #  best initialization would be to identify a maximum frequency of oscilation and pass it as a parameter
+                #  of the initialization mode. E.g. unit_circle_T=30 where T=30[STEPS] is the minimum-period/max_freq.
+                blocks = []
+                remaining_dims = self.latent_dim
+                if self.latent_dim % 2 == 1:
+                    blocks.append(np.array([[1.0]]))  # 1x1 block for the real eigenvalue
+                    remaining_dims -= 1
+
+                # Sample the angle of the complex eigenvalues uniformly on the unit circle
+                theta = np.linspace(0, np.pi/6, remaining_dims // 2, endpoint=False)
+                blocks += [np.array([[np.cos(t), -np.sin(t)], [np.sin(t), np.cos(t)]]) for t in theta]
+
+                # Block diagonal matrix D
+                D = scipy.linalg.block_diag(*blocks)
+                # Add some white noise to the matrix D, to all off-block-diagonal elements
+                # block_diag_mask = scipy.linalg.block_diag(*[np.ones_like(b) for b in blocks]).astype(bool)
+                D += 0.001 * np.random.randn(self.latent_dim, self.latent_dim) #* np.logical_not(block_diag_mask)
+                A = D
+                # Set the initial value of the evolution operator
+                self.linear_dynamics.weight.data = torch.tensor(A, dtype=torch.float32)
+
+                eigenvalues = np.linalg.eigvals(A)
+                modulus = np.abs(eigenvalues)
+                angle = np.angle(eigenvalues) * 180 / np.pi
+                # Check if A is real
+                is_real = np.isreal(A).all()
+                # Check if all eigenvalues are on the unit circle
+                # on_unit_circle = np.allclose(np.abs(eigenvalues), 1)
+                # assert is_real and on_unit_circle, f"Real evol op {is_real}, unit circle {on_unit_circle}"
             else:
                 logger.warning(f"Evolution operator init mode {init_mode} not implemented")
                 return

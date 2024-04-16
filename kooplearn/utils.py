@@ -261,7 +261,9 @@ class ModesInfo:
         fig = make_subplots(rows=self.n_modes, cols=2, column_widths=[0.33, 0.66],
                             subplot_titles=[f"Mode {i // 2}" for i in range(2 * n_modes_to_show)],
                             # vertical_spacing=vertical_spacing,
-                            shared_xaxes=True, shared_yaxes=True)
+                            shared_xaxes=True,
+                            # shared_yaxes='rows'
+                            )
 
         time_normalized = time / (time_horizon * self.dt)
         COLOR_SCALE = "Blugrn"
