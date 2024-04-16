@@ -1,8 +1,9 @@
 import pathlib
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
+import torch.nn
 from lightning.pytorch.callbacks import ModelCheckpoint
 
 
@@ -71,7 +72,7 @@ class ModesInfo:
     eigvals: np.ndarray
     eigvecs_r: np.ndarray
     state_eigenbasis: np.ndarray
-    linear_decoder: Optional[np.ndarray] = None
+    linear_decoder: Optional[Union[np.ndarray, torch.nn.Linear]] = None
     sort_by: str = "modulus"
 
     def __post_init__(self):
@@ -171,7 +172,14 @@ class ModesInfo:
         real_modes = self.cplx_modes_pred.real
         real_modes[..., self.is_complex_mode, :] *= 2
         if self.linear_decoder is not None:
-            real_modes = np.einsum("ol,...l->...o", self.linear_decoder, real_modes)
+            if isinstance(self.linear_decoder, torch.nn.Linear):
+                device, dtype = self.linear_decoder.weight.device, self.linear_decoder.weight.dtype
+                real_modes = self.linear_decoder(torch.tensor(real_modes, device=device, dtype=dtype)).detach().numpy()
+            elif isinstance(self.linear_decoder, np.ndarray):
+                real_modes = np.einsum("ol,...l->...o", self.linear_decoder, real_modes)
+            else:
+                raise ValueError("linear_decoder must be `None`, `torch.nn.Linear` or `np.ndarray`.")
+
         return real_modes
 
     @property

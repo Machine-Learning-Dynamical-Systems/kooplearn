@@ -1,17 +1,16 @@
 import logging
 import math
-from math import floor
+from functools import wraps
 from typing import Optional, Union
 
 import numpy as np
 import scipy
 
 from kooplearn._src.check_deps import check_torch_deps
-from kooplearn._src.utils import check_is_fitted, parse_cplx_eig
 from kooplearn._src.linalg import full_rank_lstsq
 from kooplearn.data import TensorContextDataset  # noqa: E402
+from kooplearn.models.ae.utils import flatten_context_data
 from kooplearn.models.base_model import LatentBaseModel, LightningLatentModel
-from kooplearn.models.ae.utils import flatten_context_data, unflatten_context_data
 from kooplearn.utils import ModesInfo, check_if_resume_experiment
 
 check_torch_deps()
@@ -200,12 +199,24 @@ class DynamicAE(LatentBaseModel):
         Z_flat = flatten_context_data(Z)  # (n_samples * context_len, latent_dim)
         X_flat = flatten_context_data(train_dataset).to(device=Z_flat.device)  # (n_samples * context_len, state_dim)
 
-        lin_decoder = self.fit_linear_decoder(states=X_flat.T, latent_states=Z_flat.T)
+        # Store the linear_decoder=`Ψ⁻¹_lin: Z -> X` as a non-trainable `torch.nn.Linear` Module.
+        self.lin_decoder = self.fit_linear_decoder(states=X_flat.T, latent_states=Z_flat.T)
 
-        # Store the linear_decoder=`Ψ⁻¹_lin: Z -> X` as a non-trainable model Parameter.
-        self.lin_decoder = torch.nn.Parameter(lin_decoder, requires_grad=False)
-
+        # TODO: update best model checkpoint to include the linear decoder and eigdecomposition cache.
         return lightning_module
+
+    @wraps(LatentBaseModel.evolve_forward)
+    def evolve_forward(self, state: TensorContextDataset) -> dict:
+        # Evolve using LatentBaseModel implementation
+        output = super().evolve_forward(state)
+
+        # After fitted, additionally compute the predictions using the linear decoder.
+        if self.is_fitted and self.lin_decoder is not None:
+            pred_latent_obs = output["pred_latent_obs"]
+            pred_state_lin_decoded = self.decode_contexts(latent_obs=pred_latent_obs, decoder=self.lin_decoder)
+            output["pred_state_lin_decoded"] = pred_state_lin_decoded
+
+        return output
 
     def modes(self,
               state: TensorContextDataset,
@@ -244,7 +255,7 @@ class DynamicAE(LatentBaseModel):
         # Encode # TODO: Should use the eig(eval_left_on=state), but fuck, that interface seems super confusing.
         state.to(device=self.evolution_operator.device, dtype=self.evolution_operator.dtype)
         # Compute the latent observables for the data (batch, context_len, latent_dim)
-        z_t = self.encode_contexts(state=state).data.detach().cpu().numpy()
+        z_t = self.encode_contexts(state=state, encoder=self.encoder).data.detach().cpu().numpy()
 
         # Left eigenfunctions are the inner products between the latent observables z_t and the right eigenvectors
         # `v_i` of the evolution operator T @ v_i = λ_i v_i. That is: eigfns[...,t, i] = <v_i, z_t> : i=1,...,l
@@ -265,7 +276,7 @@ class DynamicAE(LatentBaseModel):
                                eigvals=eigvals,
                                eigvecs_r=eigvecs_r,
                                state_eigenbasis=z_t_eig,
-                               linear_decoder=self.lin_decoder.detach().cpu().numpy()
+                               linear_decoder=self.lin_decoder
                                )
         # modes = modes_info.modes
 
@@ -281,7 +292,8 @@ class DynamicAE(LatentBaseModel):
                                  pred_state: TensorContextDataset = None,
                                  latent_obs: TensorContextDataset = None,
                                  pred_latent_obs: TensorContextDataset = None,
-                                 **kwargs
+                                 pred_state_lin_decoded: TensorContextDataset = None,
+                                 # **kwargs
                                  ) -> dict[str, torch.Tensor]:
         """ Computes the loss and metrics for the DynamicAE model.
 
@@ -311,6 +323,7 @@ class DynamicAE(LatentBaseModel):
             pred_latent_obs (TensorContextDataset): The predicted latent observables. This should be a trajectory of
             latent observables
                 :math:`(\hat{\mathbf{z}}_t)_{t\\in\\mathbb{T}}` in the context window :math:`\\mathbb{T}`.
+            pred_state_lin_decoded:
             **kwargs: Additional keyword arguments.
 
         Returns:
@@ -328,6 +341,12 @@ class DynamicAE(LatentBaseModel):
 
         metrics = dict(reconstruction_loss=rec_loss.item(), prediction_loss=pred_loss.item())
 
+        if pred_state_lin_decoded is not None:  # If predictions are computed with linear decoder compute metrics.
+            rec_lin_loss = MSE(state.lookback(lookback_len), pred_state_lin_decoded.lookback(lookback_len))
+            pred_lin_loss = MSE(state.lookforward(lookback_len), pred_state_lin_decoded.lookforward(lookback_len))
+            metrics["reconstruction_lin_dec_loss"] = rec_lin_loss.item()
+            metrics["prediction_lin_dec_loss"] = pred_lin_loss.item()
+
         loss = alpha_rec * rec_loss + alpha_pred * pred_loss
 
         if self.use_lstsq_for_evolution:
@@ -336,7 +355,7 @@ class DynamicAE(LatentBaseModel):
             lin_loss = MSE(latent_obs.data, pred_latent_obs.data)
             loss += alpha_lin * lin_loss
 
-            metrics["linear_loss"] = lin_loss.item()
+            metrics["linear_dynamics_loss"] = lin_loss.item()
 
         metrics["loss"] = loss
         return metrics
@@ -346,13 +365,31 @@ class DynamicAE(LatentBaseModel):
             raise NotImplementedError("Need to handle bias term in evolution and eigdecomposition")
         return torch.nn.Linear(self.latent_dim, self.latent_dim, bias=enforce_constant_fn)
 
-    def fit_linear_decoder(self, latent_states: torch.Tensor, states: torch.Tensor):
+    def fit_linear_decoder(self, latent_states: torch.Tensor, states: torch.Tensor) -> torch.nn.Module:
         """Fit a linear decoder mapping the latent state space Z to the state space X."""
-        lin_decoder, _ = full_rank_lstsq(X=latent_states, Y=states, bias=False)
+        use_bias = False  # TODO: Unsure if to enable. This can be another hyperparameter, or set to true by default.
+
+        # Solve the least squares problem to find the linear decoder matrix and bias
+        D, bias = full_rank_lstsq(X=latent_states, Y=states, bias=use_bias)
+
+        # Check shape
         _expected_shape = (np.prod(self.state_features_shape), self.latent_dim)
-        assert lin_decoder.shape == _expected_shape, \
-            f"Expected linear decoder shape {_expected_shape}, got {lin_decoder.shape}"
-        return lin_decoder
+        assert D.shape == _expected_shape, \
+            f"Expected linear decoder shape {_expected_shape}, got {D.shape}"
+
+        # Create a non-trainable linear layer to store the linear decoder matrix and bias term
+        lin_decoder = torch.nn.Linear(in_features=self.latent_dim,
+                                      out_features=np.prod(self.state_features_shape),
+                                      bias=use_bias,
+                                      dtype=self.evolution_operator.dtype)
+        lin_decoder.weight.data = torch.tensor(D, dtype=torch.float32)
+        lin_decoder.weight.requires_grad = False
+
+        if use_bias:
+            lin_decoder.bias.data = torch.tensor(bias, dtype=torch.float32)
+            lin_decoder.bias.requires_grad = False
+
+        return lin_decoder.to(device=self.evolution_operator.device)
 
     def initialize_evolution_operator(self, init_mode: str):
         """Initializes the evolution operator.
@@ -371,8 +408,9 @@ class DynamicAE(LatentBaseModel):
         else:
             if self.evolution_op_bias:  # Set bias to zero
                 self.transfer_op.bias.data = torch.zeros(self.latent_dim)
+                self.transfer_op.bias.data = torch.zeros(self.latent_dim)
 
-            if init_mode == "stable":   # This bias the modeling of slow eigfunctions.
+            if init_mode == "stable":  # This bias the modeling of slow eigfunctions.
                 T = torch.eye(self.latent_dim)
                 T += 0.001 * torch.randn(self.latent_dim, self.latent_dim)
                 # Perform singular value decomposition, ensure that the singular values are all less than 1
@@ -391,14 +429,14 @@ class DynamicAE(LatentBaseModel):
                     remaining_dims -= 1
 
                 # Sample the angle of the complex eigenvalues uniformly on the unit circle
-                theta = np.linspace(0, np.pi/6, remaining_dims // 2, endpoint=False)
+                theta = np.linspace(0, np.pi / 6, remaining_dims // 2, endpoint=False)
                 blocks += [np.array([[np.cos(t), -np.sin(t)], [np.sin(t), np.cos(t)]]) for t in theta]
 
                 # Block diagonal matrix D
                 D = scipy.linalg.block_diag(*blocks)
                 # Add some white noise to the matrix D, to all off-block-diagonal elements
                 # block_diag_mask = scipy.linalg.block_diag(*[np.ones_like(b) for b in blocks]).astype(bool)
-                D += 0.001 * np.random.randn(self.latent_dim, self.latent_dim) #* np.logical_not(block_diag_mask)
+                D += 0.001 * np.random.randn(self.latent_dim, self.latent_dim)  # * np.logical_not(block_diag_mask)
                 A = D
                 # Set the initial value of the evolution operator
                 self.linear_dynamics.weight.data = torch.tensor(A, dtype=torch.float32)

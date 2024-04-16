@@ -77,9 +77,9 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
                 The dictionary may also contain additional outputs from the `encode_contexts`, `decode_contexts`,
                 and `evolve_contexts`.
         """
+        assert hasattr(self, "encoder"), f"Model {self.__class__.__name__} does not have an `encoder` torch Module."
         # encoding/observation-function-evaluation =====================================================================
-        # Compute z_t = phi(x_t) for all t in the train_batch context_length
-        encoder_out = self.encode_contexts(state)
+        encoder_out = self.encode_contexts(state, encoder=self.encoder)
         z_t = encoder_out if isinstance(encoder_out, TensorContextDataset) else encoder_out.pop("latent_obs")
         encoder_out = {} if isinstance(encoder_out, TensorContextDataset) else encoder_out
 
@@ -91,11 +91,10 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
 
         # (Optional) decoder/observation-function-inversion ============================================================
         # Compute the approximate evolution of the state x̄_t for t in look-forward/prediction-horizon
-        decoder_out = self.decode_contexts(latent_obs=pred_z_t, **evolved_out)
-        pred_x_t = None
-        if decoder_out is not None:
-            pred_x_t = decoder_out if isinstance(decoder_out, TensorContextDataset) else decoder_out.pop(
-                "decoded_contexts")
+        pred_x_t, decoder_out = None, {}
+        if hasattr(self, "decoder") and isinstance(self.decoder, torch.nn.Module):
+            decoder_out = self.decode_contexts(latent_obs=pred_z_t, decoder=self.decoder, **evolved_out)
+            pred_x_t = decoder_out.pop("decoded_contexts") if isinstance(decoder_out, dict) else decoder_out
             decoder_out = {} if isinstance(decoder_out, TensorContextDataset) else decoder_out
 
         return dict(latent_obs=z_t,
@@ -106,19 +105,21 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
                     **evolved_out,
                     **decoder_out)
 
-    def encode_contexts(self, state: TensorContextDataset, **kwargs) -> Union[dict, TensorContextDataset]:
+    def encode_contexts(
+            self, state: TensorContextDataset, encoder: torch.nn.Module, **kwargs
+            ) -> Union[dict, TensorContextDataset]:
         r"""Encodes the given state into the latent space using the model's encoder.
 
         Args:
             state (TensorContextDataset): The state to be encoded. This should be a trajectory of states
-            :math:`(x_t)_{t\\in\\mathbb{T}}` in the context window :math:`\\mathbb{T}`.
-
+             :math:`(x_t)_{t\\in\\mathbb{T}} : x_t \\in \\mathcal{X}` in the context window :math:`\\mathbb{T}`.
+            encoder (torch.nn.Module): A torch module parameterizing the map between the state space
+             :math:`\\mathcal{X}` and the latent space :math:`\\mathcal{Z}`.
         Returns:
             Either of the following:
             - TensorContextDataset: trajectory of encoded latent observables :math:`z_t`
             - dict: A dictionary containing the key "latent_obs" mapping to a TensorContextDataset
         """
-        encoder = self.encoder
         # From (batch, context_length, *features_shape) to (batch * context_length, *features_shape)
         flat_encoded_contexts = encoder(flatten_context_data(state))
         # From (batch * context_length, latent_dim) to (batch, context_length, latent_dim)
@@ -127,29 +128,28 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
                                                      features_shape=(self.latent_dim,))
         return latent_obs_contexts
 
-    def decode_contexts(self, latent_obs: TensorContextDataset, **kwargs) -> Union[dict, TensorContextDataset]:
+    def decode_contexts(
+            self, latent_obs: TensorContextDataset, decoder: torch.nn.Module, **kwargs
+            ) -> Union[dict, TensorContextDataset]:
         r"""Decodes the given latent observables back into the original state space using the model's decoder.
 
         Args:
             latent_obs (TensorContextDataset): The latent observables to be decoded. This should be a trajectory of
                 latent observables :math:`(z_t)_{t\\in\\mathbb{T}}` in the context window :math:`\\mathbb{T}`.
-
+            decoder (torch.nn.Module): A torch module parameterizing the map between the latent space
+                :math:`\\mathcal{Z}` and the state space :math:`\\mathcal{X}`.
         Returns:
             Either of the following:
             - TensorContextDataset: trajectory of decoded states :math:`x_t`
             - dict: A dictionary containing the key "decoded_contexts" mapping to a TensorContextDataset
         """
-        if self.decoder is not None:
-            decoder = self.decoder
-            # From (batch, context_length, latent_dim) to (batch * context_length, latent_dim)
-            flat_decoded_contexts = decoder(flatten_context_data(latent_obs))
-            # From (batch * context_length, *features_shape) to (batch, context_length, *features_shape)
-            decoded_contexts = unflatten_context_data(flat_decoded_contexts,
-                                                      batch_size=len(latent_obs),
-                                                      features_shape=self.state_features_shape)
-            return decoded_contexts
-        else:
-            return None
+        # From (batch, context_length, latent_dim) to (batch * context_length, latent_dim)
+        flat_decoded_contexts = decoder(flatten_context_data(latent_obs))
+        # From (batch * context_length, *features_shape) to (batch, context_length, *features_shape)
+        decoded_contexts = unflatten_context_data(flat_decoded_contexts,
+                                                  batch_size=len(latent_obs),
+                                                  features_shape=self.state_features_shape)
+        return decoded_contexts
 
     def evolve_contexts(self, latent_obs: TensorContextDataset, **kwargs) -> Union[dict, TensorContextDataset]:
         r"""Evolves the given latent observables forward in time using the model's evolution operator.

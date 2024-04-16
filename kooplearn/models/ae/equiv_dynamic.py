@@ -1,14 +1,11 @@
 import logging
-import math
 from functools import wraps
 from typing import Optional, Union
 
 import escnn.nn
 import numpy as np
 import torch
-from escnn.group import Representation
 from escnn.nn import FieldType
-from morpho_symm.utils.abstract_harmonics_analysis import isotypic_basis
 
 from kooplearn._src.linalg import full_rank_equivariant_lstsq
 from kooplearn.data import TensorContextDataset
@@ -30,10 +27,9 @@ class EquivDynamicAE(DynamicAE):
                  evolution_op_bias: bool = False,
                  evolution_op_init_mode: str = "stable"
                  ):
-
         # TODO: Dunno why not pass the instance of module instead of encoder(**encoder_kwargs).
-        self.state_type = encoder_kwargs['in_type']
-        self.latent_state_type = decoder_kwargs['in_type']
+        self.state_type: FieldType = encoder_kwargs['in_type']
+        self.latent_state_type: FieldType = decoder_kwargs['in_type']
         self.use_lstsq_for_evolution = use_lstsq_for_evolution
 
         super(EquivDynamicAE, self).__init__(encoder,
@@ -58,15 +54,20 @@ class EquivDynamicAE(DynamicAE):
         return latent_obs_contexts
 
     @wraps(DynamicAE.decode_contexts)  # Copies docstring from parent implementation
-    def decode_contexts(self, latent_obs: TensorContextDataset, **kwargs) -> Union[dict, TensorContextDataset]:
-        # Since decoder receives as input a escnn.nn.GeometricTensor, we need to mildly modify decode_contexts
-        decoder = self.decoder
-        # From (batch, context_length, latent_dim) to (batch * context_length, latent_dim)
-        flat_decoded_contexts = decoder(self.latent_state_type(flatten_context_data(latent_obs)))
-        # From (batch * context_length, *features_shape) to (batch, context_length, *features_shape)
-        decoded_contexts = unflatten_context_data(flat_decoded_contexts.tensor,
-                                                  batch_size=len(latent_obs),
-                                                  features_shape=self.state_features_shape)
+    def decode_contexts(
+            self, latent_obs: TensorContextDataset, decoder: torch.nn.Module, **kwargs
+            ) -> Union[dict, TensorContextDataset]:
+        # Since an Equivariant decoder receives as input a escnn.nn.GeometricTensor, we need to:
+        if isinstance(decoder, escnn.nn.EquivariantModule):
+            # From (batch, context_length, latent_dim) to GeometricTensor(batch * context_length, latent_dim)
+            flat_decoded_contexts = decoder(self.latent_state_type(flatten_context_data(latent_obs)))
+            # From  GeometricTensor(batch * context_length, *features_shape) to (batch, context_length, *features_shape)
+            decoded_contexts = unflatten_context_data(flat_decoded_contexts.tensor,
+                                                      batch_size=len(latent_obs),
+                                                      features_shape=self.state_features_shape)
+        else:
+            decoded_contexts = super(EquivDynamicAE, self).decode_contexts(latent_obs, decoder, **kwargs)
+
         return decoded_contexts
 
     @wraps(DynamicAE.get_linear_dynamics_model)  # Copies docstring from parent implementation
@@ -77,19 +78,36 @@ class EquivDynamicAE(DynamicAE):
 
     @wraps(DynamicAE.fit_linear_decoder)  # Copies docstring from parent implementation
     def fit_linear_decoder(self, latent_states: torch.Tensor, states: torch.Tensor):
-        lin_decoder, _ = full_rank_equivariant_lstsq(X=latent_states,
-                                                     Y=states,
-                                                     rep_X=self.latent_state_type.representation,
-                                                     rep_Y=self.state_type.representation,
-                                                     bias=False)
+        use_bias = False  # TODO: Unsure if to enable. This can be another hyperparameter, or set to true by default.
+
+        D, bias = full_rank_equivariant_lstsq(X=latent_states,
+                                              Y=states,
+                                              # rep_X=self.latent_state_type.representation,
+                                              # rep_Y=self.state_type.representation,
+                                              bias=use_bias)
+
         _expected_shape = (np.prod(self.state_features_shape), self.latent_dim)
-        assert lin_decoder.shape == _expected_shape, \
-            f"Expected linear decoder shape {_expected_shape}, got {lin_decoder.shape}"
-        return lin_decoder
+        assert D.shape == _expected_shape, \
+            f"Expected linear decoder shape {_expected_shape}, got {D.shape}"
+
+        # Create a non-trainable linear layer to store the linear decoder matrix and bias term
+        # TODO: project learn matrix to the basis of equivariant linear maps and instanciate an escnn.nn.Linear module
+        #
+        lin_decoder = torch.nn.Linear(in_features=self.latent_dim,
+                                      out_features=np.prod(self.state_features_shape),
+                                      bias=use_bias,
+                                      dtype=self.evolution_operator.dtype)
+        lin_decoder.weight.data = torch.tensor(D, dtype=torch.float32)
+        lin_decoder.weight.requires_grad = False
+
+        if use_bias:
+            lin_decoder.bias.data = torch.tensor(bias, dtype=torch.float32).T
+            lin_decoder.bias.requires_grad = False
+
+        return lin_decoder.to(device=self.evolution_operator.device)
 
     @wraps(DynamicAE.initialize_evolution_operator)  # Copies docstring from parent implementation
     def initialize_evolution_operator(self, init_mode: str):
-
         from escnn.nn.modules.basismanager import BasisManager
         basis_expansion: BasisManager = self.linear_dynamics.basisexpansion
         identity_coefficients = torch.zeros((basis_expansion.dimension(),))
@@ -107,7 +125,7 @@ class EquivDynamicAE(DynamicAE):
                 end_coeff = basis_expansion._weights_ranges[io_pair][1]
                 # expand the current subset of basis vectors and set the result in the appropriate place in the filter
 
-                # Basis Matrices spawing the space of equivariant linear maps of this block
+                # Basis Matrices spawning the space of equivariant linear maps of this block
                 basis_set_linear_map = block_expansion.sampled_basis.detach().cpu().numpy()[:, :, :, 0]
                 # We want to find the coefficients of this basis responsible for the identity matrix. These are the
                 # elements of the basis having no effect on off-diagonal elements of the block.
@@ -120,7 +138,9 @@ class EquivDynamicAE(DynamicAE):
                     is_singular_value = np.allclose(basis_matrix, np.diag(np.diag(basis_matrix)), rtol=1e-4, atol=1e-4)
                     if is_singular_value:
                         singlar_value_dimensions.append(element_num)
-                coefficients = torch.zeros((basis_dimension,))
+                # Add small perturbation to the off-diagonal elements
+                coefficients = 0.001 * torch.randn((basis_dimension,))
+                # coefficients = torch.zeros((basis_dimension,))
                 coefficients[singlar_value_dimensions] = 1
 
                 # retrieve the linear coefficients for the basis expansion
@@ -131,9 +151,9 @@ class EquivDynamicAE(DynamicAE):
             eigvals = torch.linalg.eigvals(matrix)
             eigvals_real = eigvals.real.detach().cpu().numpy()
             eigvals_imag = eigvals.imag.detach().cpu().numpy()
-            assert np.allclose(np.abs(eigvals_real), np.ones_like(eigvals_real), rtol=1e-4, atol=1e-4), \
+            assert np.allclose(np.abs(eigvals_real), np.ones_like(eigvals_real), rtol=1e-2, atol=1e-2), \
                 f"Eigenvalues with real part different from 1: {eigvals_real}"
-            assert np.allclose(eigvals_imag, np.zeros_like(eigvals_imag), rtol=1e-4, atol=1e-4), \
+            assert np.allclose(eigvals_imag, np.zeros_like(eigvals_imag), rtol=1e-2, atol=1e-2), \
                 f"Eigenvalues with imaginary part: {eigvals_imag}"
 
         else:
