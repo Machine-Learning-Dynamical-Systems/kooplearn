@@ -1,11 +1,14 @@
 import logging
+import math
 from functools import wraps
 from typing import Optional, Union
 
 import escnn.nn
 import numpy as np
+import scipy.sparse
 import torch
 from escnn.nn import FieldType
+from morpho_symm.utils.abstract_harmonics_analysis import isotypic_basis
 
 from kooplearn._src.linalg import full_rank_equivariant_lstsq
 from kooplearn.data import TensorContextDataset
@@ -22,15 +25,35 @@ class EquivDynamicAE(DynamicAE):
                  decoder: type[escnn.nn.EquivariantModule],
                  encoder_kwargs: dict[str, any],
                  decoder_kwargs: dict[str, any],
+                 latent_dim: int,
                  loss_weights: Optional[dict] = None,
                  use_lstsq_for_evolution: bool = False,
                  evolution_op_bias: bool = False,
                  evolution_op_init_mode: str = "stable"
                  ):
+        assert 'out_type' not in encoder_kwargs.keys() and 'in_type' not in decoder_kwargs.keys(), \
+            f"Encoder `out_type` (and decoder `in_type`) is automatically defined by {self.__class__.__name__}."
         # TODO: Dunno why not pass the instance of module instead of encoder(**encoder_kwargs).
         self.state_type: FieldType = encoder_kwargs['in_type']
-        self.latent_state_type: FieldType = decoder_kwargs['in_type']
-        self.use_lstsq_for_evolution = use_lstsq_for_evolution
+
+        # Define the group representation of the latent observable space, as multiple copies of the group representation
+        # in the original state space. This latent group rep is defined in the `isotypic basis`.
+        multiplicity = math.ceil(latent_dim / self.state_type.size)
+        # Define the observation space representation in the isotypic basis. This function returns two `OrderedDict`
+        # mapping iso-space ids (str) to `escnn.group.Representation` and dimensions (Slice) in the latent space.
+        self.latent_iso_reps, self.latent_iso_dims = isotypic_basis(representation=self.state_type.representation,
+                                                                    multiplicity=multiplicity,
+                                                                    prefix='LatentState')
+        # Thus, if you want the observables of the `isoX` latent subspace (isoX in self.latent_iso_reps.keys(), do:
+        # z_isoX = z[..., self.latent_iso_dims[isoX]]  : where z is a vector of shape (..., latent_dim)
+        # Similarly to apply the symmetry transformation to this vector-value observable field, do
+        # g ▹ z_isoX = rep_IsoX(g) @ z_isoX     :    rep_IsoX = self.latent_iso_reps[isoX]
+        # Define the latent group representation as a direct sum of the representations of each isotypic subspace.
+        self.latent_state_type = FieldType(self.state_type.gspace,
+                                           [rep_iso for rep_iso in self.latent_iso_reps.values()])
+
+        encoder_kwargs['out_type'] = self.latent_state_type
+        decoder_kwargs['in_type'] = self.latent_state_type
 
         super(EquivDynamicAE, self).__init__(encoder,
                                              decoder,
@@ -39,7 +62,10 @@ class EquivDynamicAE(DynamicAE):
                                              latent_dim=self.latent_state_type.size,
                                              loss_weights=loss_weights,
                                              evolution_op_bias=evolution_op_bias,
-                                             evolution_op_init_mode=evolution_op_init_mode)
+                                             evolution_op_init_mode=evolution_op_init_mode,
+                                             use_lstsq_for_evolution=use_lstsq_for_evolution)
+
+        logger.debug(f"Initialized Equivariant Dynamic Autoencoder with encoder {encoder} and decoder {decoder}.")
 
     @wraps(DynamicAE.encode_contexts)  # Copies docstring from parent implementation
     def encode_contexts(self, state: TensorContextDataset, **kwargs) -> Union[dict, TensorContextDataset]:
@@ -70,6 +96,60 @@ class EquivDynamicAE(DynamicAE):
 
         return decoded_contexts
 
+    @wraps(DynamicAE.eig)
+    def eig(self,
+            eval_left_on: Optional[TensorContextDataset] = None,
+            eval_right_on: Optional[TensorContextDataset] = None,
+            ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]]:
+        # Considering the block-diagonal structure of the evolution operator, we can compute the eigendecomposition
+        # by block, and concatenate the eigenvalues and eigenvectors of each isotypic subspace.
+        if not hasattr(self, "_eigvals"):
+            # Check the latent space group representation is defined in the isotypic basis._____________________________
+            from scipy.sparse import coo_matrix
+            Q: coo_matrix = self.latent_state_type.change_of_basis
+            # Check that all entries are on the diagonal and close to 1
+            on_diagonal = Q.row == Q.col
+            diagonal_values = np.allclose(Q.data[on_diagonal], 1, rtol=1e-5, atol=1e-5)
+            # Ensure there are no off-diagonal entries
+            no_off_diagonal_entries = np.allclose(Q.data[~on_diagonal], 0, rtol=1e-5, atol=1e-5)
+            is_close_to_identity = diagonal_values and no_off_diagonal_entries
+            assert is_close_to_identity, \
+                f"We assume the latent group representation is defined on the isotypic basis. {Q.toarray()}"  # ________
+
+            # T is a square real-valued matrix of shape (latent_dim, latent_dim) representing the evolution operator.
+            T = self.evolution_operator
+            T_np = T.detach().cpu().numpy()
+            # Get evolution operators per isotypic subspace T_iso_k : Z_k -> Z_k
+            T_iso_spaces = {iso_id: T_np[np.ix_(idx, idx)] for iso_id, idx in self.latent_iso_dims.items()}
+
+            # Compute eigendecomposition of each isotypic subspace
+            eivals_iso, eigvecs_l_iso, eigvecs_r_iso = [], [], []
+            for iso_id, T_iso in T_iso_spaces.items():
+                iso_eigvals, iso_eigvecs_l, iso_eigvecs_r = scipy.linalg.eig(T_iso, left=True, right=True)
+                eivals_iso.append(iso_eigvals)
+                eigvecs_l_iso.append(iso_eigvecs_l)
+                eigvecs_r_iso.append(iso_eigvecs_r)
+
+            # Concatenate the eigenvalues and eigenvectors of each isotypic subspace
+            eigvals = np.concatenate(eivals_iso)
+            eigvecs_r = scipy.linalg.block_diag(*eigvecs_r_iso)
+            eigvecs_r_inv = np.linalg.inv(eigvecs_r)
+            eigvecs_l = scipy.linalg.block_diag(*eigvecs_l_iso)
+            eigvecs_l_inv = np.linalg.inv(eigvecs_l)
+
+            # Check the eigendecomposition is correct. Fails for non-diagonalizable matrices.
+            # T_rec = eigvecs_r @ np.diag(eigvals) @ np.linalg.inv(eigvecs_r)
+            # assert np.allclose(T_np, T_rec, rtol=1e-5, atol=1e-5)
+
+            self._eigvals = torch.nn.Parameter(torch.tensor(eigvals, device=T.device), requires_grad=False)
+            self._eigvecs_l = torch.nn.Parameter(torch.tensor(eigvecs_l, device=T.device), requires_grad=False)
+            self._eigvecs_l_inv = torch.nn.Parameter(torch.tensor(eigvecs_l_inv, device=T.device), requires_grad=False)
+            self._eigvecs_r = torch.nn.Parameter(torch.tensor(eigvecs_r, device=T.device), requires_grad=False)
+            self._eigvecs_r_inv = torch.nn.Parameter(torch.tensor(eigvecs_r_inv, device=T.device), requires_grad=False)
+
+        # Having computed the eigendecomposition using the block-diagonal structure, default to parent implementation
+        return super(EquivDynamicAE, self).eig(eval_left_on, eval_right_on)
+
     @wraps(DynamicAE.get_linear_dynamics_model)  # Copies docstring from parent implementation
     def get_linear_dynamics_model(self, enforce_constant_fn: bool = False) -> torch.nn.Module:
         if enforce_constant_fn:
@@ -82,7 +162,7 @@ class EquivDynamicAE(DynamicAE):
 
         D, bias = full_rank_equivariant_lstsq(X=latent_states,
                                               Y=states,
-                                              # rep_X=self.latent_state_type.representation,
+                                              # rep_X=self.latent_state_type.representation, # TODO: Fix this.
                                               # rep_Y=self.state_type.representation,
                                               bias=use_bias)
 
@@ -92,7 +172,6 @@ class EquivDynamicAE(DynamicAE):
 
         # Create a non-trainable linear layer to store the linear decoder matrix and bias term
         # TODO: project learn matrix to the basis of equivariant linear maps and instanciate an escnn.nn.Linear module
-        #
         lin_decoder = torch.nn.Linear(in_features=self.latent_dim,
                                       out_features=np.prod(self.state_features_shape),
                                       bias=use_bias,

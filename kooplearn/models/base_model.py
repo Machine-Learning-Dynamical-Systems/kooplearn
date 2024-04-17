@@ -226,31 +226,23 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
              shape ``(n_samples, rank)``.
         """
         if not hasattr(self, "_eigvals"):
-            K = self.evolution_operator
-            K_np = K.detach().cpu().numpy()
-            # K is a square real-valued matrix.
-            eigvals, eigvecs_l, eigvecs_r = scipy.linalg.eig(K_np, left=True, right=True)
+            T = self.evolution_operator
+            T_np = T.detach().cpu().numpy()
+            # T is a square real-valued matrix.
+            eigvals, eigvecs_l, eigvecs_r = scipy.linalg.eig(T_np, left=True, right=True)
+            eigvecs_r_inv = np.linalg.inv(eigvecs_r)
+            eigvecs_l_inv = np.linalg.inv(eigvecs_l)
+
             # Left and right eigenvectors are stored in columns: eigvecs_l/r[:, i] is the i-th left/right eigenvector
-            # This we have that:
-            # K @ eigvecs_r[:, i] = eigvals[i] @ eigvecs_r[:, i] <==>  K = eigvecs_r @ eigvals[i] @ eigvecs_r^-1
-            # assert np.allclose(eigvecs_r @ np.diag(eigvals) @ eigvecs_r.conj().T, K_np, rtol=1e-5, atol=1e-5)
-            # The left eigenvectors are the ones associated to K^T.
-            # K^T @ eigvecs_l[:, i] = eigvals[i]^H @ eigvecs_l[:, i] <==>  K^T = eigvecs_l @ eigvals[i]^H @ eigvecs_l^-1
-            # assert np.allclose(eigvecs_l @ np.diag(eigvals.conj()) @ np.linalg.inv(eigvecs_l), K_np.T, rtol=1e-5)
+            # T @ eigvecs_r[:, i] = eigvals[i] @ eigvecs_r[:, i] <==>  T = eigvecs_r @ eigvals[i] @ eigvecs_r^-1
+            # assert np.allclose(eigvecs_r @ np.diag(eigvals) @ eigvecs_r.conj().T, T_np, rtol=1e-5, atol=1e-5)
 
             # Store as torch parameters for lighting to manage device automatically. And forecast avoiding matrix power
-            # _dtype = torch.complex32 if K.dtype == torch.float32 else torch.complex64
-            _dtype = None
-            self._eigvals = torch.nn.Parameter(torch.tensor(eigvals, device=K.device, dtype=_dtype),
-                                               requires_grad=False)
-            self._eigvecs_l = torch.nn.Parameter(torch.tensor(eigvecs_l, device=K.device, dtype=_dtype),
-                                                 requires_grad=False)
-            self._eigvecs_r = torch.nn.Parameter(torch.tensor(eigvecs_r, device=K.device, dtype=_dtype),
-                                                 requires_grad=False)
-            eigvecs_r_inv = np.linalg.inv(eigvecs_r)
-            # assert np.allclose((eigvecs_r @ np.diag(eigvals) @ eigvecs_r_inv).real, K_np, rtol=1e-6, atol=1e-6)
-            self._eigvecs_r_inv = torch.nn.Parameter(torch.tensor(eigvecs_r_inv, device=K.device, dtype=_dtype),
-                                                     requires_grad=False)
+            self._eigvals = torch.nn.Parameter(torch.tensor(eigvals, device=T.device), requires_grad=False)
+            self._eigvecs_l = torch.nn.Parameter(torch.tensor(eigvecs_l, device=T.device), requires_grad=False)
+            self._eigvecs_r = torch.nn.Parameter(torch.tensor(eigvecs_r, device=T.device), requires_grad=False)
+            self._eigvecs_r_inv = torch.nn.Parameter(torch.tensor(eigvecs_r_inv, device=T.device), requires_grad=False)
+            self._eigvecs_l_inv = torch.nn.Parameter(torch.tensor(eigvecs_l_inv, device=T.device), requires_grad=False)
 
         eigvals, eigvecs_l, eigvecs_r = self._eigvals, self._eigvecs_l, self._eigvecs_r
 
