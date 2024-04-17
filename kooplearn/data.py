@@ -316,7 +316,9 @@ class MultiTrajectoryContextDataset(TensorContextDataset):
         self.time_lag = time_lag
         self.__idxmap__ = [ctx.__idxmap__ for ctx in ctx_list]
         self.__ctx_lengths__ = [len(ctx) for ctx in ctx_list]
-        super().__init__(cat_data, cat_observables, backend=backend, **backend_kwargs)
+        super().__init__(
+            cat_data, observables=cat_observables, backend=backend, **backend_kwargs
+        )
 
     def unstack(self):
         raise NotImplementedError()

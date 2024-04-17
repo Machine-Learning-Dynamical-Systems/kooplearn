@@ -9,9 +9,8 @@ logger = logging.getLogger("kooplearn")
 
 
 def collate_context_dataset(batch: list[TensorContextDataset]):
-    return TensorContextDataset(
-        *_concatenate_contexts(batch, backend="torch"), backend="torch"
-    )
+    cat_data, cat_observables = _concatenate_contexts(batch)
+    return TensorContextDataset(cat_data, observables=cat_observables, backend="torch")
 
 
 def _contexts_from_traj_torch(trajectory, context_length, time_lag):
