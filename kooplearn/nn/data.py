@@ -3,13 +3,15 @@ import logging
 import numpy as np
 import torch
 
-from kooplearn.data import TensorContextDataset, concatenate_contexts
+from kooplearn.data import TensorContextDataset, _concatenate_contexts
 
 logger = logging.getLogger("kooplearn")
 
 
 def collate_context_dataset(batch: list[TensorContextDataset]):
-    return concatenate_contexts(batch, backend="torch")
+    return TensorContextDataset(
+        *_concatenate_contexts(batch, backend="torch"), backend="torch"
+    )
 
 
 def _contexts_from_traj_torch(trajectory, context_length, time_lag):
