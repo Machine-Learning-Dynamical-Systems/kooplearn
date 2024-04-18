@@ -150,22 +150,36 @@ def deepprojection_score(
 def eym_score_Ustat(
     X: torch.Tensor,
     Y: torch.Tensor,
+    metric_deformation: float = 1.0,
     center: bool = True,
 ):
     if center:
         X = X - X.mean(0, keepdim=True)
         Y = Y - Y.mean(0, keepdim=True)
+
     joint_measure_score = 2 * ((X * Y).sum(dim=-1)).mean()
     product_measure_score = torch.square_(X @ Y.T)
     product_measure_score.diagonal().zero_()  # Zeroing out the diagonal in place
     b = X.shape[0]
     product_measure_score = b * product_measure_score.mean() / (b - 1)
-    return joint_measure_score - product_measure_score
+    score = joint_measure_score - product_measure_score
+    if metric_deformation > 0:
+        cov_X, cov_Y, cov_XY = (
+            covariance(X, center=center),
+            covariance(Y, center=center),
+            covariance(X, Y, center=center),
+        )
+        R_X = log_fro_metric_deformation_loss(cov_X)
+        R_Y = log_fro_metric_deformation_loss(cov_Y)
+        return score - 0.5 * metric_deformation * (R_X + R_Y)
+    else:
+        return score
 
 
 def eym_score_split(
     X: torch.Tensor,
     Y: torch.Tensor,
+    metric_deformation: float = 1.0,
 ):
     if X.shape[0] // 2 != 0:
         X = X[:-1]
@@ -193,23 +207,52 @@ def eym_score_split(
         - torch.trace(cov_U1V1)
         - torch.trace(cov_U2V2)
     )
+    if score > 0:
+        d = U1.shape[-1]
+        U1_mean = U1.mean(axis=0, keepdims=True)
+        U2_mean = U2.mean(axis=0, keepdims=True)
+        V1_mean = V1.mean(axis=0, keepdims=True)
+        V2_mean = V2.mean(axis=0, keepdims=True)
 
-    return score
+        # uncentered covariance matrices
+        uc_cov_U1 = cov_U1 + U1_mean @ U1_mean.T
+        uc_cov_U2 = cov_U2 + U2_mean @ U2_mean.T
+        uc_cov_V1 = cov_V1 + V1_mean @ V1_mean.T
+        uc_cov_V2 = cov_V2 + V2_mean @ V2_mean.T
+
+        loss_on = (
+            0.5
+            * (
+                torch.trace(uc_cov_U1 @ uc_cov_U2)
+                - torch.trace(uc_cov_U1)
+                - torch.trace(uc_cov_U2)
+                + torch.trace(uc_cov_V1 @ uc_cov_V2)
+                - torch.trace(uc_cov_V1)
+                - torch.trace(uc_cov_V2)
+            )
+            + d
+        )
+        return score - metric_deformation * loss_on
+    else:
+        return score
 
 
 def eym_score(
     X: torch.Tensor,
     Y: torch.Tensor,
     mode: str = "split",
+    metric_deformation: float = 1.0,
     center: bool = True,
 ):
     available_modes = ["split", "U_stat"]
     if mode not in available_modes:
         raise ValueError(f"Unknown mode {mode}. Available modes are {available_modes}")
     if mode == "split":
-        return eym_score_split(X, Y)
+        return eym_score_split(X, Y, metric_deformation=metric_deformation)
     else:
-        return eym_score_Ustat(X, Y, center)
+        return eym_score_Ustat(
+            X, Y, metric_deformation=metric_deformation, center=center
+        )
 
 
 def log_fro_metric_deformation_loss(cov: torch.tensor):

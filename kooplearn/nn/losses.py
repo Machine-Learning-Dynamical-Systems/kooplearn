@@ -80,16 +80,19 @@ class EYMLoss:
     def __init__(
         self,
         mode: str = "split",
+        metric_deformation: float = 1.0,
         center: bool = True,
     ):
         """Initializes the Eckart-Young-Mirsky loss loss by [unpublished].
 
         Args:
+            metric_deformation (float, optional): Strength of the metric metric deformation loss: Defaults to 1.0.
             center (bool, optional): Use centered covariates to compute the Eckart-Young-Mirsky loss. Defaults to True.
 
         """
         self.mode = mode
         self.center = center
+        self.metric_deformation = metric_deformation
 
     def __call__(self, X: torch.Tensor, Y: torch.Tensor):
         """Compute the Deep Projection loss function
@@ -102,5 +105,6 @@ class EYMLoss:
             X,
             Y,
             mode=self.mode,
+            metric_deformation=self.metric_deformation,
             center=self.center,
         )
