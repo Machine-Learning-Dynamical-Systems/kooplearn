@@ -156,7 +156,7 @@ def eym_score_Ustat(
         X = X - X.mean(0, keepdim=True)
         Y = Y - Y.mean(0, keepdim=True)
     joint_measure_score = 2 * ((X * Y).sum(dim=-1)).mean()
-    product_measure_score = torch.square(X @ Y.T)
+    product_measure_score = torch.square_(X @ Y.T)
     product_measure_score.diagonal().zero_()  # Zeroing out the diagonal in place
     b = X.shape[0]
     product_measure_score = b * product_measure_score.mean() / (b - 1)
