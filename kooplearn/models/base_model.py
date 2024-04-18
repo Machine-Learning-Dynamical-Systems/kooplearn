@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import Any, Optional, Union
 
 import lightning
@@ -11,15 +11,16 @@ import torch.optim
 
 import kooplearn
 from kooplearn._src.serialization import pickle_load, pickle_save
-from kooplearn._src.utils import check_is_fitted
+from kooplearn._src.utils import check_is_fitted, flatten_dict
 from kooplearn.data import TensorContextDataset
 from kooplearn.models.ae.utils import flatten_context_data, multi_matrix_power, unflatten_context_data
+from kooplearn.utils import ModesInfo
 
 logger = logging.getLogger("kooplearn")
 
 
-class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
-    r"""Base class for latent models of Markov processes.
+class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module, ABC):
+    r"""Abstract base class for latent models of Markov processes.
 
     This class defines the interface for discrete-time latent models of Markov processes :math:`(\mathbf{x}_t)_{
     t\\in\\mathbb{T}}`, where :math:`\mathbf{x}_t` is the system state vector-valued observables at time :math:`t`
@@ -52,6 +53,22 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
     ]
     """
 
+    def __init__(self):
+        super().__init__()  # Initialize torch.nn.Module
+
+        # Parameters populated during fit _____________________________________________________________________________
+        # Linear decoder for mode decomposition. Fitted after learning the latent representation space
+        self.lin_decoder: Union[torch.nn.Linear, None] = None
+        self.state_features_shape: Union[tuple, None] = None  # Shape of the state/input features
+        # Lightning parameters
+        self.trainer: Union[lightning.Trainer, None] = None
+        # TODO: circular reference triggers infinite search of model parameters. need to handle
+        # self.lightning_model: Union[LightningLatentModel, None] = None
+        # TODO: Automatically determined by looking at self.trainer.status. Handle loading from checkpoint
+        self._is_fitted = False
+        # _____________________________________________________________________________________________________________
+
+
     def evolve_forward(self, state: TensorContextDataset) -> dict:
         r"""Evolves the given state forward in time using the model's encoding, evolution, and decoding processes.
 
@@ -65,7 +82,7 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
             :math:`(x_t)_{t\\in\\mathbb{T}}` in the context window :math:`\\mathbb{T}`.
 
         Returns:
-            dict: A dictionary containing the following keys:
+            dict: A dictionary containing the following keys:  # TODO: Change to NamedTuple
                 - `latent_obs`: The latent observables, :math:`z_t`. They represent the encoded state in the latent
                 space.
                 - `pred_latent_obs`: The predicted latent observables, :math:`\\hat{z}_t`. They represent the model's
@@ -203,7 +220,7 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
         z_pred_t = TensorContextDataset(z_t)
         return z_pred_t
 
-    @torch.no_grad
+    # @torch.no_grad
     def eig(self,
             eval_left_on: Optional[TensorContextDataset] = None,
             eval_right_on: Optional[TensorContextDataset] = None,
@@ -245,24 +262,33 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
             self._eigvecs_l_inv = torch.nn.Parameter(torch.tensor(eigvecs_l_inv, device=T.device), requires_grad=False)
 
         eigvals, eigvecs_l, eigvecs_r = self._eigvals, self._eigvecs_l, self._eigvecs_r
+        eigvecs_r_inv, eigvecs_l_inv = self._eigvecs_r_inv, self._eigvecs_l_inv
 
         left_eigfn, right_eigfn = None, None
         if eval_right_on is not None:
             # Ensure data is on the same device as the model
             eval_right_on.to(device=self.evolution_operator.device, dtype=self.evolution_operator.dtype)
             # Compute the latent observables for the data (batch, context_len, latent_dim)
-            z_t = self.encode_contexts(state=eval_right_on)
+            z_t = self.encode_contexts(state=eval_right_on, encoder=self.encoder)
             # Evaluation of eigenfunctions in (batch/n_samples, context_len, latent_dim)
-            right_eigfn = torch.einsum("...s,so->...o", z_t, eigvecs_l)  # TODO: Check this is correct.
+            # TODO: This is the batch form equivalent of primal.evaluate_eigenfunction with the additional feature of
+            #  performing the operation on the selected device (cpu or gpu)
+            right_eigfn = torch.einsum(
+                "...il,...l->...i", eigvecs_l_inv.data, z_t.data.to(dtype=eigvecs_l_inv.dtype)
+                )
 
         if eval_left_on is not None:
             # Ensure data is on the same device as the model
             eval_left_on.to(device=self.evolution_operator.device, dtype=self.evolution_operator.dtype)
             # Compute the latent observables for the data (batch, context_len, latent_dim)
-            z_t = self.encode_contexts(state=eval_left_on)
-            # Evaluation of eigenfunctions in (batch/n_samples, context_len, latent_dim)
+            z_t = self.encode_contexts(state=eval_left_on, encoder=self.encoder)
+            # Evaluation of eigenfunctions in parallel batch form (..., context_len, latent_dim)
             # left_eigfn[...,t, i] = <v_i, z_t>_C : i=1,...,l
-            left_eigfn = torch.einsum("...il,...l->...i", torch.linalg.inv(eigvecs_r), z_t)
+            # TODO: This is the batch form equivalent of primal.evaluate_eigenfunction with the additional feature of
+            #  performing the operation on the selected device (cpu or gpu)
+            left_eigfn = torch.einsum(
+                "...il,...l->...i", eigvecs_r_inv.data, z_t.data.to(dtype=eigvecs_r_inv.dtype)
+                )
 
         # TODO: Does it make sense for DeepLearning based models to return as numpy? ...
         eigvals = eigvals.detach().cpu().numpy()
@@ -277,6 +303,48 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
             return eigvals, left_eigfn
         else:
             return eigvals, left_eigfn, right_eigfn
+
+    def modes(self,
+              state: TensorContextDataset,
+              predict_observables: bool = False,
+              ):
+        r"""Compute the mode decomposition of the state and/or observables
+
+        Informally, if :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer
+        operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
+        :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`. See :footcite:t:`Kostic2022` for more details.
+
+        When applying mode decomposition to the latent observable states :math:`\mathbf{z}_t \in \mathbb{R}^l`,
+        the modes are obtained using the eigenvalues and eigenvectors of the solution operator :math:`T`, as there is no
+        need to approximate the inner product :math:`\\langle \\xi_i, f \\rangle` using a kernel/Data matrix.
+        Consider that the evolution of the latent observable is given by:
+
+        .. math::
+        \mathbf{z}_{t+k} = T^k \mathbf{z}_t = (V \Lambda^k V^H) \mathbf{z}_t = \sum_{i=1}^{l} \lambda_i^k \langle
+        v_i, \mathbf{z}_t \rangle v_i
+
+
+        dd
+        Note: when we compute the modes of the latent observable state, the mode decomposition reduces to a traditional
+        mode decomposition using the eigenvectors and eigenvalues of the solution operator :math:`T`
+
+        """
+
+        assert self.is_fitted, \
+            f"Instance of {self.__class__.__name__} is not fitted. Please call the `fit` method before calling `modes`"
+        if predict_observables:
+            raise NotImplementedError("Need to implement the approximation of the outer product / inner products "
+                                      "between each dimension/function of the latent space and observables provided")
+
+        # Left eigenfunctions are the inner products between the latent observables z_t and the right eigenvectors
+        # `v_i` of the evolution operator T @ v_i = λ_i v_i. wWhere <v_i, z_t> is the value of eigenfunction i.
+        # That is: z_t_eig := V^-1 z_t = [<v_i, z_t>, ..., ]_{i=1,...,l}
+        eigvals, z_t_eig = self.eig(eval_left_on=state)
+
+        return ModesInfo(dt=1.0,
+                         eigvals=eigvals,
+                         eigvecs_r=self._eigvecs_r.detach().cpu().numpy(),
+                         state_eigenbasis=z_t_eig)
 
     def predict(
             self,
@@ -433,8 +501,9 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module):
 class LightningLatentModel(lightning.LightningModule):
     """Base `LightningModule` class to define the common codes for training instances of `LatentBaseModels`.
 
-    For most Latent Models, this class should suffice to train the model. User should inherit this class in case he/she
-    wants to modify some of the lighting hooks/callbacks or the basic generic pipeline defined in this class.
+    For most Latent Models, this class should suffice to train the both AE based and DPNet's Latent Models.
+    User should inherit this class in case he/she wants to modify some of the lighting hooks/callbacks, logging or the
+    basic  generic pipeline defined in this class.
 
     DAE, and DPNets models should be trained by this same class instance. So the class should cover the common pipeline
     between Autoencoder based models and representation-learning-then-operator-regression based models.
@@ -507,18 +576,7 @@ class LightningLatentModel(lightning.LightningModule):
                 f"You can specify the learning rate by passing it to the optimizer_kwargs initialization argument.")
         return self._optimizer_fn(self.parameters(), **self._optimizer_kwargs)
 
-    def transfer_batch_to_device(self, batch, device, dataloader_idx):
-        batch.data = batch.data.to(device)
-        return batch
-
-
-# TODO: Should move to appropriate file
-def flatten_dict(d: dict, prefix=''):
-    """Flatten a nested dictionary."""
-    a = {}
-    for k, v in d.items():
-        if isinstance(v, dict):
-            a.update(flatten_dict(v, prefix=f"{k}/"))
-        else:
-            a[f"{prefix}{k}"] = v
-    return a
+    # @deprecated("ContextWindow Tensors should implement the .to method, making this unnecessary.")
+    # def transfer_batch_to_device(self, batch, device, dataloader_idx):
+    #     batch.data = batch.data.to(device)
+    #     return batch

@@ -43,9 +43,7 @@ def topk(vec: np.ndarray, k: int):
 
 
 def fuzzy_parse_complex(vec: np.ndarray, tol: float = 10.0):
-    assert issubclass(
-        vec.dtype.type, np.complexfloating
-        ), "The input element should be complex"
+    assert issubclass(vec.dtype.type, np.complexfloating), "The input element should be complex"
     rcond = tol * np.finfo(vec.dtype).eps
     pdist_real_part = pdist(vec.real[:, None])
     # Set the same element whenever pdist is smaller than eps*tol
@@ -189,3 +187,14 @@ def idx_of_positive_phase_complex_pairs(cplx_conj_vec: np.ndarray):
                 idx_list.append(_idx_tuple_r)
     _pos_phase_idxs = [i[0] for i in idx_list]
     return np.asarray(_pos_phase_idxs, dtype=int)
+
+
+def flatten_dict(d: dict, prefix=''):
+    """Flatten a nested dictionary."""
+    a = {}
+    for k, v in d.items():
+        if isinstance(v, dict):
+            a.update(flatten_dict(v, prefix=f"{k}/"))
+        else:
+            a[f"{prefix}{k}"] = v
+    return a

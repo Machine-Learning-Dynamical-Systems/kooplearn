@@ -65,6 +65,10 @@ class EquivDynamicAE(DynamicAE):
                                              evolution_op_init_mode=evolution_op_init_mode,
                                              use_lstsq_for_evolution=use_lstsq_for_evolution)
 
+        # If the user passed a trainable Linear layer as decoder, use this for mode decomposition.
+        if isinstance(self.decoder, escnn.nn.Linear):
+            self.lin_decoder = self.decoder
+
         logger.debug(f"Initialized Equivariant Dynamic Autoencoder with encoder {encoder} and decoder {decoder}.")
 
     @wraps(DynamicAE.encode_contexts)  # Copies docstring from parent implementation
