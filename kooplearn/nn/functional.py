@@ -44,6 +44,33 @@ def covariance(X: torch.Tensor, Y: Optional[torch.Tensor] = None, center: bool =
         return torch.mm(_X.T, _Y)
 
 
+def cross_covariance(A, B, rowvar=True, bias=False, centered=True):
+    """Cross covariance of two matrices.
+
+    Args:
+        A (np.ndarray or torch.Tensor): Matrix of size (n, p).
+        B (np.ndarray or torch.Tensor): Matrix of size (n, q).
+        rowvar (bool, optional): Whether to calculate the covariance along the rows. Defaults to False.
+
+    Returns:
+        np.ndarray or torch.Tensor: Matrix of size (p, q) containing the cross covariance of A and B.
+    """
+    if rowvar is False:
+        A = A.T
+        B = B.T
+
+    if centered:
+        A = A - A.mean(axis=1, keepdims=True)
+        B = B - B.mean(axis=1, keepdims=True)
+
+    C = A @ B.T
+
+    if bias:
+        return C / A.shape[1]
+    else:
+        return C / (A.shape[1] - 1)
+
+
 def vamp_score(X, Y, schatten_norm: int = 2, center_covariances: bool = True):
     """Variational Approach for learning Markov Processes (VAMP) score by :footcite:t:`Wu2019`.
 
@@ -118,6 +145,71 @@ def deepprojection_score(
         M_Y = torch.linalg.lstsq(cov_Y, cov_XY.T).solution
         S = torch.trace(M_X @ M_Y)
     return S - 0.5 * metric_deformation * (R_X + R_Y)
+
+
+def eym_score_Ustat(
+    X: torch.Tensor,
+    Y: torch.Tensor,
+    center: bool = True,
+):
+    if center:
+        X = X - X.mean(0, keepdim=True)
+        Y = Y - Y.mean(0, keepdim=True)
+    joint_measure_score = 2 * ((X * Y).sum(dim=-1)).mean()
+    product_measure_score = torch.square(X @ Y.T)
+    product_measure_score.diagonal().zero_()  # Zeroing out the diagonal in place
+    b = X.shape[0]
+    product_measure_score = b * product_measure_score.mean() / (b - 1)
+    return joint_measure_score - product_measure_score
+
+
+def eym_score_split(
+    X: torch.Tensor,
+    Y: torch.Tensor,
+):
+    if X.shape[0] // 2 != 0:
+        X = X[:-1]
+        Y = Y[:-1]
+    batch_size = X.shape[0]
+    # Randomly splitting in half
+    idxs = torch.randperm(batch_size)
+    U1 = X[idxs[: batch_size // 2]]
+    U2 = X[idxs[batch_size // 2 :]]
+
+    V1 = Y[idxs[: batch_size // 2]]
+    V2 = Y[idxs[batch_size // 2 :]]
+
+    # centered covariance matrices
+    cov_U1 = torch.cov(U1.T)
+    cov_U2 = torch.cov(U2.T)
+    cov_V1 = torch.cov(V1.T)
+    cov_V2 = torch.cov(V2.T)
+
+    cov_U1V1 = cross_covariance(U1.T, V1.T, centered=True)
+    cov_U2V2 = cross_covariance(U2.T, V2.T, centered=True)
+
+    score = -1 * (
+        0.5 * (torch.trace(cov_U1 @ cov_V2) + torch.trace(cov_U2 @ cov_V1))
+        - torch.trace(cov_U1V1)
+        - torch.trace(cov_U2V2)
+    )
+
+    return score
+
+
+def eym_score(
+    X: torch.Tensor,
+    Y: torch.Tensor,
+    mode: str = "split",
+    center: bool = True,
+):
+    available_modes = ["split", "U_stat"]
+    if mode not in available_modes:
+        raise ValueError(f"Unknown mode {mode}. Available modes are {available_modes}")
+    if mode == "split":
+        return eym_score_split(X, Y)
+    else:
+        return eym_score_Ustat(X, Y, center)
 
 
 def log_fro_metric_deformation_loss(cov: torch.tensor):

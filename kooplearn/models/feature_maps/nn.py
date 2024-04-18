@@ -235,7 +235,7 @@ class PLModule(lightning.LightningModule):
         return batch
 
     def forward(self, X: torch.Tensor, lagged: bool = False) -> torch.Tensor:
-        # Caution: this method is designed only for internal calling by the DPNet feature map.
+        # Caution: this method is designed only for internal calling feature map.
         lookback_len = X.shape[1]
         batch_size = X.shape[0]
         trail_dims = X.shape[2:]

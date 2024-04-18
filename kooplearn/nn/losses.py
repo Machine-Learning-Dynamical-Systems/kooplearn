@@ -6,7 +6,7 @@ import torch  # noqa: E402
 
 import kooplearn.nn.functional as F  # noqa: E402
 
-__all__ = ["VAMPLoss", "DPLoss"]
+__all__ = ["VAMPLoss", "DPLoss", "EYMLoss"]
 
 
 class VAMPLoss:
@@ -15,7 +15,7 @@ class VAMPLoss:
 
         Args:
             schatten_norm (int, optional): Computes the VAMP-p score with ``p = schatten_norm``. Defaults to 2.
-            center_covariances (bool, optional): Use centered covariances to compute the VAMP score. Defaults to True.
+            center_covariances (bool, optional): Use centered covariances to compute the VAMP loss. Defaults to True.
 
         Raises:
             NotImplementedError: If ``schatten_norm`` is not 1 or 2.
@@ -53,7 +53,7 @@ class DPLoss:
         Args:
             relaxed (bool, optional): Whether to use the relaxed (more numerically stable) or the full deep-projection loss. Defaults to True.
             metric_deformation (float, optional): Strength of the metric metric deformation loss: Defaults to 1.0.
-            center_covariances (bool, optional): Use centered covariances to compute the VAMP score. Defaults to True.
+            center_covariances (bool, optional): Use centered covariances to compute the DPNets loss. Defaults to True.
 
         """
         self.relaxed = relaxed
@@ -73,4 +73,34 @@ class DPLoss:
             relaxed=self.relaxed,
             metric_deformation=self.metric_deformation,
             center_covariances=self.center_covariances,
+        )
+
+
+class EYMLoss:
+    def __init__(
+        self,
+        mode: str = "split",
+        center: bool = True,
+    ):
+        """Initializes the Eckart-Young-Mirsky loss loss by [unpublished].
+
+        Args:
+            center (bool, optional): Use centered covariates to compute the Eckart-Young-Mirsky loss. Defaults to True.
+
+        """
+        self.mode = mode
+        self.center = center
+
+    def __call__(self, X: torch.Tensor, Y: torch.Tensor):
+        """Compute the Deep Projection loss function
+
+        Args:
+            X (torch.Tensor): Covariates for the initial time steps.
+            Y (torch.Tensor): Covariates for the evolved time steps.
+        """
+        return -F.eym_score(
+            X,
+            Y,
+            mode=self.mode,
+            center=self.center,
         )
