@@ -7,6 +7,7 @@ from typing import Any, Optional, Union
 import lightning
 import numpy as np
 import scipy
+import torch
 import torch.optim
 
 import kooplearn
@@ -58,6 +59,7 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module, ABC):
 
         # Parameters populated during fit _____________________________________________________________________________
         # Linear decoder for mode decomposition. Fitted after learning the latent representation space
+        self.linear_dynamics: Union[torch.nn.Linear, None] = None
         self.lin_decoder: Union[torch.nn.Linear, None] = None
         self.state_features_shape: Union[tuple, None] = None  # Shape of the state/input features
         # Lightning parameters
@@ -68,6 +70,16 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module, ABC):
         self._is_fitted = False
         # _____________________________________________________________________________________________________________
 
+    def forward(self, state_contexts: TensorContextDataset) -> any:
+        r"""Forward pass of the torch.nn.Module. By default this method calls the `evolve_forward` method.
+
+        Args:
+            state_contexts (TensorContextDataset): The state to be evolved forward. This should be a trajectory of states
+            :math:`(x_t)_{t\\in\\mathbb{T}}` in the context window :math:`\\mathbb{T}`.
+        Returns:
+            Any: The output of the forward pass.
+        """
+        return self.evolve_forward(state_contexts)
 
     def evolve_forward(self, state: TensorContextDataset) -> dict:
         r"""Evolves the given state forward in time using the model's encoding, evolution, and decoding processes.
@@ -432,22 +444,41 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module, ABC):
                                  ) -> dict[str, torch.Tensor]:
         r"""Compute the loss and metrics of the model.
 
+        The implementation of this method for the abstract LatentModel class computes only the reconstruction and
+        prediction loss TODO: Add more details
+
         Args:
-            state_context: trajectory of states :math:`(x_t)_{t\\in\\mathbb{T}}` in the context window
+            state: trajectory of states :math:`(x_t)_{t\\in\\mathbb{T}}` in the context window
             :math:`\\mathbb{T}`.
-            pred_state_context: predicted trajectory of states :math:`(\\hat{x}_t)_{t\\in\\mathbb{T}}`
-            latent_obs_context: trajectory of latent observables :math:`(z_t)_{t\\in\\mathbb{T}}` in the context window
+            pred_state: predicted trajectory of states :math:`(\\hat{x}_t)_{t\\in\\mathbb{T}}`
+            latent_obs: trajectory of latent observables :math:`(z_t)_{t\\in\\mathbb{T}}` in the context window
             :math:`\\mathbb{T}`.
-            pred_latent_obs_context: predicted trajectory of latent observables :math:`(\\hat{z}_t)_{t\\in\\mathbb{T}}`
+            pred_latent_obs: predicted trajectory of latent observables :math:`(\\hat{z}_t)_{t\\in\\mathbb{T}}`
             **kwargs:
 
         Returns:
             Dictionary containing the key "loss" and other metrics to log.
         """
-        raise NotImplementedError()
+        metrics = {}
+        lookback_len = self.lookback_len
+
+        MSE = torch.nn.MSELoss()
+
+        if state is not None and pred_state is not None:
+            # Reconstruction + prediction loss
+            rec_loss = MSE(state.lookback(lookback_len), pred_state.lookback(lookback_len))
+            pred_loss = MSE(state.lookforward(lookback_len), pred_state.lookforward(lookback_len))
+            metrics.update(reconstruction_loss=rec_loss.item(), prediction_loss=pred_loss.item())
+
+        if latent_obs is not None and pred_latent_obs is not None:
+            # Latent space prediction loss
+            latent_obs_pred_loss = MSE(latent_obs.lookforward(lookback_len), pred_latent_obs.lookforward(lookback_len))
+            metrics.update(linear_dynamics_loss=latent_obs_pred_loss.item())
+
+        return metrics
 
     @property
-    def evolution_operator(self):
+    def evolution_operator(self) -> torch.Tensor:
         raise NotImplementedError()
 
     def save(self, filename: os.PathLike):
@@ -476,6 +507,32 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module, ABC):
         #     )
         return restored_obj
 
+    def fit_linear_decoder(self, latent_states: torch.Tensor, states: torch.Tensor) -> torch.nn.Module:
+        """Fit a linear decoder mapping the latent state space Z to the state space X. use for mode decomp."""
+        use_bias = False  # TODO: Unsure if to enable. This can be another hyperparameter, or set to true by default.
+
+        # Solve the least squares problem to find the linear decoder matrix and bias
+        from kooplearn._src.linalg import full_rank_lstsq
+        D, bias = full_rank_lstsq(X=latent_states, Y=states, bias=use_bias)
+
+        # Check shape
+        _expected_shape = (np.prod(self.state_features_shape), self.latent_dim)
+        assert D.shape == _expected_shape, \
+            f"Expected linear decoder shape {_expected_shape}, got {D.shape}"
+
+        # Create a non-trainable linear layer to store the linear decoder matrix and bias term
+        lin_decoder = torch.nn.Linear(in_features=self.latent_dim,
+                                      out_features=np.prod(self.state_features_shape),
+                                      bias=use_bias)
+        lin_decoder.weight.data = D
+        lin_decoder.weight.requires_grad = False
+
+        if use_bias:
+            lin_decoder.bias.data = torch.tensor(bias, dtype=torch.float32)
+            lin_decoder.bias.requires_grad = False
+
+        return lin_decoder
+
     def _dry_run(self, state: TensorContextDataset):
         class_name = self.__class__.__name__
 
@@ -496,6 +553,53 @@ class LatentBaseModel(kooplearn.abc.BaseModel, torch.nn.Module, ABC):
         if pred_x_t is not None:
             assert pred_x_t.shape == x_t.shape, \
                 f"Evolved latent context shape {pred_x_t.shape} different from input shape {x_t.shape}"
+
+    def _check_dataloaders_and_shapes(self, datamodule, train_dataloaders, val_dataloaders):
+        """Check dataloaders and the shape of the first batch to determine state features shape."""
+        # TODO: Should we add a features_shape attribute to the Context class, and avoid all this?
+
+        # If you supply a datamodule you can't supply train_dataloader or val_dataloaders
+        # TODO: Lightning has checks this before each train starts. Is this necessary?
+        # if (train_dataloaders is not None or val_dataloaders is not None) and datamodule is not None:
+        #     raise ValueError(
+        #         f"You cannot pass `train_dataloader` or `val_dataloaders` to `{self.__class__.__name__}.fit(
+        #         datamodule=...)`")
+
+        # Get the shape of the first batch to determine the lookback_len
+        # TODO: lookback_len is model-fixed and all this process is unnecessary if we know the `state_obs_shape`
+        if train_dataloaders is None:
+            assert isinstance(datamodule, lightning.LightningDataModule)
+            for batch in datamodule.train_dataloader():
+                assert isinstance(batch, TensorContextDataset)
+                with torch.no_grad():
+                    self.state_features_shape = tuple(batch.shape[2:])
+                    self._dry_run(batch)
+                break
+        else:
+            assert isinstance(train_dataloaders, torch.utils.data.DataLoader)
+            for batch in train_dataloaders:
+                assert isinstance(batch, TensorContextDataset)
+                with torch.no_grad():
+                    self.state_features_shape = tuple(batch.shape[2:])
+                    self._dry_run(batch)
+                break
+        # Get the shape of the first batch to determine the lookback_len and state features shape
+        if train_dataloaders is None:
+            assert isinstance(datamodule, lightning.LightningDataModule)
+            for batch in datamodule.train_dataloader():
+                assert isinstance(batch, TensorContextDataset)
+                with torch.no_grad():
+                    self._state_observables_shape = tuple(batch.shape[2:])
+                    self._dry_run(batch)
+                break
+        else:
+            assert isinstance(train_dataloaders, torch.utils.data.DataLoader)
+            for batch in train_dataloaders:
+                assert isinstance(batch, TensorContextDataset)
+                with torch.no_grad():
+                    self._state_observables_shape = tuple(batch.shape[2:])
+                    self._dry_run(batch)
+                break
 
 
 class LightningLatentModel(lightning.LightningModule):
@@ -521,7 +625,7 @@ class LightningLatentModel(lightning.LightningModule):
         # TODO: Deal with with latent_model hparams if needed.
 
     def forward(self, state_contexts: TensorContextDataset) -> Any:
-        out = self.latent_model.evolve_forward(state_contexts)
+        out = self.latent_model.forward(state_contexts)
         return out
 
     def training_step(self, train_contexts: TensorContextDataset, batch_idx):
@@ -556,7 +660,7 @@ class LightningLatentModel(lightning.LightningModule):
         flat_metrics = flatten_dict(metrics)
         for k, v in flat_metrics.items():
             name = f"{k}/{suffix}"
-            self.log(name, v, prog_bar=False, batch_size=batch_size)
+            self.log(name, v, prog_bar=(k == "loss"), batch_size=batch_size)
 
     def on_train_epoch_start(self) -> None:
         self._epoch_start_time = time.time()
@@ -580,3 +684,12 @@ class LightningLatentModel(lightning.LightningModule):
     # def transfer_batch_to_device(self, batch, device, dataloader_idx):
     #     batch.data = batch.data.to(device)
     #     return batch
+
+
+def _default_lighting_trainer() -> lightning.Trainer:
+    return lightning.Trainer(accelerator='cuda' if torch.cuda.is_available() else 'cpu',
+                             devices='auto',
+                             logger=None,
+                             log_every_n_steps=1,
+                             max_epochs=100,
+                             enable_progress_bar=True)

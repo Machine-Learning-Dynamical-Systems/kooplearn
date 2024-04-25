@@ -10,7 +10,7 @@ from kooplearn._src.check_deps import check_torch_deps
 from kooplearn._src.linalg import full_rank_lstsq
 from kooplearn.data import TensorContextDataset  # noqa: E402
 from kooplearn.models.ae.utils import flatten_context_data
-from kooplearn.models.base_model import LatentBaseModel, LightningLatentModel
+from kooplearn.models.base_model import LatentBaseModel, LightningLatentModel, _default_lighting_trainer
 from kooplearn.utils import check_if_resume_experiment
 
 check_torch_deps()
@@ -196,11 +196,20 @@ class DynamicAE(LatentBaseModel):
             # Thus, after learning the representation space Z, we fit a *linear* decoder `Ψ⁻¹_lin : Z → X` to perform mode
             # decomposition by x_t+1 = Ψ⁻¹_lin(Σ_i V_[i,:] @ (λ_i · Ψ_i(x_t))).
 
-            Z_flat = flatten_context_data(Z)  # (n_samples * context_len, latent_dim)
-            X_flat = flatten_context_data(train_dataset).to(device=Z_flat.device)  # (n_samples * context_len, state_dim)
+            # (n_samples * context_len, latent_dim)
+            Z_flat = flatten_context_data(Z)
+            # (n_samples * context_len, state_dim)
+            X_flat = flatten_context_data(train_dataset).to(device=Z_flat.device)
 
             # Store the linear_decoder=`Ψ⁻¹_lin: Z -> X` as a non-trainable `torch.nn.Linear` Module.
-            self.lin_decoder = self.fit_linear_decoder(states=X_flat.T, latent_states=Z_flat.T)
+            lin_decoder = self.fit_linear_decoder(states=X_flat.T, latent_states=Z_flat.T)
+            self.lin_decoder = lin_decoder.to(device=self.evolution_operator.device)
+
+            # Update the checkpoint file with the fitted linear decoder and evolution operator
+            ckpt = torch.load(best_path)
+            ckpt['state_dict'].update(**lightning_module.state_dict())
+            torch.save(ckpt, best_path)
+
         # TODO: update best model checkpoint to include the linear decoder and eigdecomposition cache.
         return lightning_module
 
@@ -304,32 +313,6 @@ class DynamicAE(LatentBaseModel):
             raise NotImplementedError("Need to handle bias term in evolution and eigdecomposition")
         return torch.nn.Linear(self.latent_dim, self.latent_dim, bias=enforce_constant_fn)
 
-    def fit_linear_decoder(self, latent_states: torch.Tensor, states: torch.Tensor) -> torch.nn.Module:
-        """Fit a linear decoder mapping the latent state space Z to the state space X."""
-        use_bias = False  # TODO: Unsure if to enable. This can be another hyperparameter, or set to true by default.
-
-        # Solve the least squares problem to find the linear decoder matrix and bias
-        D, bias = full_rank_lstsq(X=latent_states, Y=states, bias=use_bias)
-
-        # Check shape
-        _expected_shape = (np.prod(self.state_features_shape), self.latent_dim)
-        assert D.shape == _expected_shape, \
-            f"Expected linear decoder shape {_expected_shape}, got {D.shape}"
-
-        # Create a non-trainable linear layer to store the linear decoder matrix and bias term
-        lin_decoder = torch.nn.Linear(in_features=self.latent_dim,
-                                      out_features=np.prod(self.state_features_shape),
-                                      bias=use_bias,
-                                      dtype=self.evolution_operator.dtype)
-        lin_decoder.weight.data = torch.tensor(D, dtype=torch.float32)
-        lin_decoder.weight.requires_grad = False
-
-        if use_bias:
-            lin_decoder.bias.data = torch.tensor(bias, dtype=torch.float32)
-            lin_decoder.bias.requires_grad = False
-
-        return lin_decoder.to(device=self.evolution_operator.device)
-
     def initialize_evolution_operator(self, init_mode: str):
         """Initializes the evolution operator.
 
@@ -412,58 +395,4 @@ class DynamicAE(LatentBaseModel):
         #     return self.trainer.state.finished
         return self._is_fitted
 
-    def _check_dataloaders_and_shapes(self, datamodule, train_dataloaders, val_dataloaders):
-        """Check dataloaders and the shape of the first batch to determine state features shape."""
-        # TODO: Should we add a features_shape attribute to the Context class, and avoid all this?
 
-        # If you supply a datamodule you can't supply train_dataloader or val_dataloaders
-        # TODO: Lightning has checks this before each train starts. Is this necessary?
-        # if (train_dataloaders is not None or val_dataloaders is not None) and datamodule is not None:
-        #     raise ValueError(
-        #         f"You cannot pass `train_dataloader` or `val_dataloaders` to `{self.__class__.__name__}.fit(
-        #         datamodule=...)`")
-
-        # Get the shape of the first batch to determine the lookback_len
-        # TODO: lookback_len is model-fixed and all this process is unnecessary if we know the `state_obs_shape`
-        if train_dataloaders is None:
-            assert isinstance(datamodule, lightning.LightningDataModule)
-            for batch in datamodule.train_dataloader():
-                assert isinstance(batch, TensorContextDataset)
-                with torch.no_grad():
-                    self.state_features_shape = tuple(batch.shape[2:])
-                    self._dry_run(batch)
-                break
-        else:
-            assert isinstance(train_dataloaders, torch.utils.data.DataLoader)
-            for batch in train_dataloaders:
-                assert isinstance(batch, TensorContextDataset)
-                with torch.no_grad():
-                    self.state_features_shape = tuple(batch.shape[2:])
-                    self._dry_run(batch)
-                break
-        # Get the shape of the first batch to determine the lookback_len and state features shape
-        if train_dataloaders is None:
-            assert isinstance(datamodule, lightning.LightningDataModule)
-            for batch in datamodule.train_dataloader():
-                assert isinstance(batch, TensorContextDataset)
-                with torch.no_grad():
-                    self._state_observables_shape = tuple(batch.shape[2:])
-                    self._dry_run(batch)
-                break
-        else:
-            assert isinstance(train_dataloaders, torch.utils.data.DataLoader)
-            for batch in train_dataloaders:
-                assert isinstance(batch, TensorContextDataset)
-                with torch.no_grad():
-                    self._state_observables_shape = tuple(batch.shape[2:])
-                    self._dry_run(batch)
-                break
-
-
-def _default_lighting_trainer() -> lightning.Trainer:
-    return lightning.Trainer(accelerator='cuda' if torch.cuda.is_available() else 'cpu',
-                             devices='auto',
-                             logger=None,
-                             log_every_n_steps=1,
-                             max_epochs=100,
-                             enable_progress_bar=True)

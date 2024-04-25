@@ -63,12 +63,9 @@ class Nonlinear(BaseModel):
     ):
         # Check whether the provided feature map is trainable
         if hasattr(feature_map, "fit"):
-            if not feature_map.is_fitted:
+            if not feature_map.is_fitted:  # FeatureMap class does not define is_fitted.
                 raise NotFittedError(
-                    """
-                    The provided feature map is not fitted. Please call the fit method before initializing the Nonlinear model.
-                    """
-                )
+                    "The provided feature map is not fitted. Call the fit method before initializing the Nonlinear model.")
 
         # Perform checks on the input arguments:
         if svd_solver not in ["full", "arnoldi", "randomized"]:
@@ -96,9 +93,7 @@ class Nonlinear(BaseModel):
     @property
     def lookback_len(self) -> int:
         if self._lookback_len < 0:
-            raise NotFittedError(
-                "The lookback_len attribute is defined upon fitting the model."
-            )
+            raise NotFittedError("The lookback_len attribute is defined upon fitting the model.")
         return self._lookback_len
 
     @property
@@ -109,7 +104,8 @@ class Nonlinear(BaseModel):
         X = np.asanyarray(X)
         if X.shape[1] != self.lookback_len:
             raise ShapeError(
-                f"The provided data have a context of ({X.shape[1]}), while it should match the lookback length of the model ({self.lookback_len=})"
+                f"The provided data have a context of ({X.shape[1]}), "
+                f"while it should match the lookback length of the model ({self.lookback_len=})"
             )
         _trail_dims = X.shape[2:]
         _n_samples = X.shape[0]
@@ -346,20 +342,17 @@ class Nonlinear(BaseModel):
         observables = None
         if predict_observables and hasattr(data, "observables"):
             observables = data.observables
-        parsed_obs, expected_shapes, X_inference, X_fit = parse_observables(
-            observables, data, self.data_fit
-        )
+        parsed_obs, expected_shapes, X_inference, X_fit = parse_observables(observables, data, self.data_fit)
 
         phi_Xin = self.feature_map(X_inference)
-        phi_X = self.feature_map(X_fit)
+        phi_X = self.feature_map(X_fit)   # TODO: Should this be recomputed every time I call modes?
         _gamma, _eigs = primal.estimator_modes(self.U, self.cov_XY, phi_X, phi_Xin)
 
         results = {}
         for obs_name, obs in parsed_obs.items():
             expected_shape = (self.rank,) + expected_shapes[obs_name]
-            res = np.tensordot(_gamma, obs, axes=1).reshape(
-                expected_shape
-            )  # [rank, num_initial_conditions, ...]
+            # [rank, num_initial_conditions, ...]
+            res = np.tensordot(_gamma, obs, axes=1).reshape(expected_shape)
             results[obs_name] = res
 
         if len(results) == 1:
