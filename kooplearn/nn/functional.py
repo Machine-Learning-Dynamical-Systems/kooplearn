@@ -160,7 +160,9 @@ def eym_score_Ustat(
         _X = X
         _Y = Y
 
-    joint_measure_score = 2 * ((_X * _Y).sum(dim=-1)).mean()
+    joint_measure_score = ((_X * _X).sum(dim=-1)).mean() + (
+        (_Y * _Y).sum(dim=-1)
+    ).mean()
     product_measure_score = torch.square_(_X @ _Y.T)
     product_measure_score = product_measure_score.fill_diagonal_(
         0
