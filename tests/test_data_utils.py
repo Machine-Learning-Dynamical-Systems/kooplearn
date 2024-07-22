@@ -51,7 +51,9 @@ def test_traj_to_contexts(
             )
         return
 
-    res = traj_to_contexts(trj, context_window_len, time_lag)
+    res = traj_to_contexts(
+        trj, context_window_len=context_window_len, time_lag=time_lag
+    )
     assert res.shape == (trj_len - _C + 1, context_window_len) + (1,) * n_feature_axes
     if n_feature_axes == 1:
         for i in range(res.shape[1]):

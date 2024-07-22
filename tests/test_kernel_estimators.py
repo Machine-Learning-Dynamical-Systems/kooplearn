@@ -49,7 +49,7 @@ def test_Kernel_fit_predict_eig_modes_save_load(
 ):
     dataset = make_linear_system()
     _Z = dataset.sample(np.zeros(DIM), NUM_SAMPLES)
-    data = traj_to_contexts(_Z, lookback_len + 1)
+    data = traj_to_contexts(_Z, context_window_len=lookback_len + 1)
     if solver not in ["full", "arnoldi"]:
         with pytest.raises(ValueError):
             model = Kernel(
