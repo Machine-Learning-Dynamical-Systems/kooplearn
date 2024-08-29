@@ -49,6 +49,21 @@ We appreciate your contributions and will review your pull request as soon as po
 
 This project is licensed under the [MIT License](LICENSE).
 
+## Main contributors
+
+`kooplearn` is an joint effort between teams at the Italian Institute of Technology in Genoa and the École polytechnique in Paris. The main contributors to the project are (in alphabetical order):
+   - Vladimir Kostic
+   - Karim Lounici
+   - Giacomo Meanti
+   - Erfan Mirzaei
+   - Pietro Novelli
+   - Daniel Ordonez
+   - Grégoire Pacreau
+   - Massimiliano Pontil
+   - Giacomo Turri
+   
+The mantainer of this repo is Pietro Novelli.
+
 ---
 
 We hope you find `kooplearn` useful for your dynamical systems analysis. If you encounter any issues or have suggestions for improvements, please don't hesitate to [raise an issue](https://github.com/Machine-Learning-Dynamical-Systems/kooplearn/issues). Happy coding!
