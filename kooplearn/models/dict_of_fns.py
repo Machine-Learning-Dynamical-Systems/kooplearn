@@ -246,12 +246,8 @@ class Nonlinear(BaseModel):
             self, ["U", "cov_XY", "cov_X", "cov_Y", "data_fit", "lookback_len"]
         )
 
-        observables = None
-        if predict_observables and hasattr(self.data_fit, "observables"):
-            observables = self.data_fit.observables
-
         parsed_obs, expected_shapes, X_inference, X_fit = parse_observables(
-            observables, data, self.data_fit
+            data, self.data_fit
         )
 
         phi_Xin = self.feature_map(X_inference)
@@ -259,23 +255,27 @@ class Nonlinear(BaseModel):
 
         results = {}
         for obs_name, obs in parsed_obs.items():
-            if (reencode_every > 0) and (t > reencode_every):
-                if (predict_observables is True) and (observables is not None):
-                    raise ValueError(
-                        "rencode_every only works when forecasting states, not observables. Consider setting predict_observables to False."
-                    )
+            if predict_observables or obs_name == "__state__":
+                if (reencode_every > 0) and (t > reencode_every):
+                    if predict_observables is True:
+                        raise ValueError(
+                            "rencode_every only works when forecasting states, not observables. Consider setting predict_observables to False."
+                        )
+                    else:
+                        num_reencodings = floor(t / reencode_every)
+                        for k in range(num_reencodings):
+                            raise NotImplementedError
                 else:
-                    num_reencodings = floor(t / reencode_every)
-                    for k in range(num_reencodings):
-                        raise NotImplementedError
-            else:
-                obs_pred = primal.predict(t, self.U, self.cov_XY, phi_Xin, phi_X, obs)
-                obs_pred = obs_pred.reshape(expected_shapes[obs_name])
-                results[obs_name] = obs_pred
-        if len(results) == 1:
-            return results["__state__"]
+                    obs_pred = primal.predict(
+                        t, self.U, self.cov_XY, phi_Xin, phi_X, obs
+                    )
+                    obs_pred = obs_pred.reshape(expected_shapes[obs_name])
+                    results[obs_name] = obs_pred
+        state_pred = results.pop("__state__")
+        if len(results) > 0:
+            return state_pred, results
         else:
-            return results
+            return state_pred
 
     def eig(
         self,
@@ -344,12 +344,8 @@ class Nonlinear(BaseModel):
         """
         check_is_fitted(self, ["U", "cov_XY", "data_fit", "lookback_len"])
 
-        observables = None
-        if predict_observables and hasattr(self.data_fit, "observables"):
-            observables = self.data_fit.observables
-
-        parsed_obs, expected_shapes, X_inference, X_fit = parse_observables(
-            observables, data, self.data_fit
+        parsed_observables, expected_shapes, X_inference, X_fit = parse_observables(
+            data, self.data_fit
         )
 
         phi_Xin = self.feature_map(X_inference)
@@ -357,17 +353,19 @@ class Nonlinear(BaseModel):
         _gamma, _eigs = primal.estimator_modes(self.U, self.cov_XY, phi_X, phi_Xin)
 
         results = {}
-        for obs_name, obs in parsed_obs.items():
-            expected_shape = (self.rank,) + expected_shapes[obs_name]
-            res = np.tensordot(_gamma, obs, axes=1).reshape(
-                expected_shape
-            )  # [rank, num_initial_conditions, ...]
-            results[obs_name] = res
-
-        if len(results) == 1:
-            return results["__state__"], _eigs
-        else:
-            return results, _eigs
+        for obs_name, obs in parsed_observables.items():
+            if predict_observables or obs_name == "__state__":
+                expected_shape = (self.rank,) + expected_shapes[obs_name]
+                res = np.tensordot(_gamma, obs, axes=1).reshape(
+                    expected_shape
+                )  # [rank, num_initial_conditions, ...]
+                results[obs_name] = res
+        # Return a more structured object.
+        raise NotImplementedError
+        # if len(results) == 1:
+        #     return results["__state__"], _eigs
+        # else:
+        #     return results, _eigs
 
     def svals(self) -> np.ndarray:
         """Singular values of the Koopman/Transfer operator.

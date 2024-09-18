@@ -71,11 +71,11 @@ class TensorContextDataset(ContextWindowDataset):
         # Backend selection
         torch, backend = parse_backend(backend)
 
-        _observables = deepcopy(observables)
-        _observables["__state__"] = data
-        observables = {}
+        _observables_tmp = deepcopy(observables)
+        _observables_tmp["__state__"] = data
+        _observables_data = {}
         observables_shapes = set()
-        for obs_name, obs_data in _observables.items():
+        for obs_name, obs_data in _observables_tmp.items():
             if backend == "numpy":
                 if torch is not None:
                     if torch.is_tensor(obs_data):
@@ -116,10 +116,10 @@ class TensorContextDataset(ContextWindowDataset):
                 raise ValueError(
                     f"All observables must have the same context length and number of context windows. Got shapes: {observables_shapes}"
                 )
-            observables[obs_name] = obs_data
+            _observables_data[obs_name] = obs_data
 
-        self.data = observables.pop("__state__")
-        self.observables = observables
+        self.data = _observables_data.pop("__state__")
+        self._observables_data = _observables_data
         self.backend = backend
         self.dtype = self.data.dtype
         self.shape = self.data.shape
@@ -127,22 +127,45 @@ class TensorContextDataset(ContextWindowDataset):
         self._backend_kw = backend_kw
         self._context_length = self.shape[1]
 
+    @property
+    def observables(self):
+        if len(self._observables_data) == 0:
+            print("No observables")
+        else:
+            for k, v in self._observables_data.items():
+                print(f"{k} with features of shape {tuple(v.shape[2:])}")
+
     def __iter__(self):
-        return iter(self.data)
+        self._iter_idx = 0
+        return self
+
+    def __next__(self):
+        if self._iter_idx < len(self):
+            ctx = self[self._iter_idx]
+            self._iter_idx += 1
+            return ctx
+        else:
+            del self._iter_idx
+            raise StopIteration
 
     def __getitem__(self, idx) -> "TensorContextDataset":
         if np.issubdtype(type(idx), np.integer):
             _data = self.data[idx][None, ...]
             _obs = {
                 obs_name: obs_data[idx][None, ...]
-                for obs_name, obs_data in self.observables.items()
+                for obs_name, obs_data in self._observables_data.items()
             }
-        else:
+        elif isinstance(idx, slice):
             _data = self.data[idx]
             _obs = {
                 obs_name: obs_data[idx]
-                for obs_name, obs_data in self.observables.items()
+                for obs_name, obs_data in self._observables_data.items()
             }
+        else:
+            raise ValueError(
+                f"Invalid index {idx}. Allowed indices are integers or slices, while {type(idx)} was given."
+            )
+
         return TensorContextDataset(
             _data, _obs, backend=self.backend, **self._backend_kw
         )

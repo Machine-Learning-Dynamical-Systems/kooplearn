@@ -1,29 +1,30 @@
+from copy import deepcopy
+
 import numpy as np
 
 from kooplearn._src.utils import ShapeError
-from kooplearn.abc import ContextWindow
+from kooplearn.data import TensorContextDataset
 
 
-def parse_observables(observables_dict, data: ContextWindow, data_fit: ContextWindow):
-    if data.context_length != data_fit.context_length:
+def parse_observables(
+    inference_data: TensorContextDataset, data_fit: TensorContextDataset
+):
+    if inference_data.context_length != data_fit.context_length:
         raise ShapeError(
-            f"The  context length ({data.context_length}) of the validation data does not match the context length of the training data ({data_fit.context_length})."
+            f"The  context length ({inference_data.context_length}) of the inference data does not match the context length of the training data ({data_fit.context_length})."
         )
-    lookback_len = data.context_length - 1
-    X_inference = data.lookback(lookback_len)
+    lookback_len = inference_data.context_length - 1
+    X_inference = inference_data.lookback(lookback_len)
     X_fit = data_fit.lookback(lookback_len)
 
-    if observables_dict is None:
-        observables_dict = {"__state__": data_fit.data}
-    else:
-        observables_dict["__state__"] = data_fit.data
+    observables_dict = deepcopy(data_fit._observables_data)
+    observables_dict["__state__"] = data_fit.data
 
-    parsed_obs = {}
-    expected_shapes = {}
-    observables_dict.pop("__idxmap__", None)
+    parsed_observables = {}
+    observables_shapes = {}
+
     for obs_name, obs in observables_dict.items():
         if obs.dtype.kind != "f":
-
             raise TypeError(
                 f"Observables should have floating-point values, whereas {obs_name} if of dtype {obs.dtype}"
             )
@@ -35,10 +36,10 @@ def parse_observables(observables_dict, data: ContextWindow, data_fit: ContextWi
             obs = obs.reshape(
                 obs.shape[0], -1
             )  # Flatten out everything for proper broadcasting
-        parsed_obs[obs_name] = obs
-        expected_shapes[obs_name] = expected_shape
+        parsed_observables[obs_name] = obs
+        observables_shapes[obs_name] = expected_shape
 
-    return parsed_obs, expected_shapes, X_inference, X_fit
+    return parsed_observables, observables_shapes, X_inference, X_fit
 
 
 # !! Possibly to deprecate

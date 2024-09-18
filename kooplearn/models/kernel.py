@@ -249,36 +249,37 @@ class Kernel(BaseModel, RegressorMixin):
             self,
             ["U", "V", "kernel_X", "kernel_Y", "kernel_YX", "data_fit", "lookback_len"],
         )
-        observables = None
-        if predict_observables and hasattr(self.data_fit, "observables"):
-            observables = self.data_fit.observables
 
         parsed_obs, expected_shapes, X_inference, X_fit = parse_observables(
-            observables, data, self.data_fit
+            data, self.data_fit
         )
 
         K_Xin_X = self.kernel(X_inference, X_fit)
 
         results = {}
         for obs_name, obs in parsed_obs.items():
-            if (reencode_every > 0) and (t > reencode_every):
-                if (predict_observables is True) and (observables is not None):
-                    raise ValueError(
-                        "rencode_every only works when forecasting states, not observables. Consider setting predict_observables to False."
-                    )
+            if predict_observables or obs_name == "__state__":
+                if (reencode_every > 0) and (t > reencode_every):
+                    if predict_observables is True:
+                        raise ValueError(
+                            "rencode_every only works when forecasting states, not observables. Consider setting predict_observables to False."
+                        )
+                    else:
+                        num_reencodings = floor(t / reencode_every)
+                        for k in range(num_reencodings):
+                            raise NotImplementedError
                 else:
-                    num_reencodings = floor(t / reencode_every)
-                    for k in range(num_reencodings):
-                        raise NotImplementedError
-            else:
-                obs_pred = dual.predict(t, self.U, self.V, self.kernel_YX, K_Xin_X, obs)
-                obs_pred = obs_pred.reshape(expected_shapes[obs_name])
-                results[obs_name] = obs_pred
-        if len(results) == 1:
-            return results["__state__"]
+                    obs_pred = dual.predict(
+                        t, self.U, self.V, self.kernel_YX, K_Xin_X, obs
+                    )
+                    obs_pred = obs_pred.reshape(expected_shapes[obs_name])
+                    results[obs_name] = obs_pred
+
+        state_pred = results.pop("__state__")
+        if len(results) > 0:
+            return state_pred, results
         else:
-            __state__ = results.pop("__state__")
-            return __state__, results
+            return state_pred
 
     def eig(
         self,
@@ -365,12 +366,8 @@ class Kernel(BaseModel, RegressorMixin):
             self, ["U", "V", "kernel_X", "kernel_YX", "lookback_len", "data_fit"]
         )
 
-        observables = None
-        if predict_observables and hasattr(self.data_fit, "observables"):
-            observables = self.data_fit.observables
-
-        parsed_obs, expected_shapes, X_inference, X_fit = parse_observables(
-            observables, data, self.data_fit
+        parsed_observables, expected_shapes, X_inference, X_fit = parse_observables(
+            data, self.data_fit
         )
 
         if hasattr(self, "_eig_cache"):
@@ -384,17 +381,20 @@ class Kernel(BaseModel, RegressorMixin):
         _gamma = dual.estimator_modes(K_Xin_X, rv, lv)
 
         results = {}
-        for obs_name, obs in parsed_obs.items():
-            expected_shape = (self.rank,) + expected_shapes[obs_name]
-            res = np.tensordot(_gamma, obs, axes=1).reshape(
-                expected_shape
-            )  # [rank, num_initial_conditions, ...]
-            results[obs_name] = res
+        for obs_name, obs in parsed_observables.items():
+            if predict_observables or obs_name == "__state__":
+                expected_shape = (self.rank,) + expected_shapes[obs_name]
+                res = np.tensordot(_gamma, obs, axes=1).reshape(
+                    expected_shape
+                )  # [rank, num_initial_conditions, ...]
+                results[obs_name] = res
 
-        if len(results) == 1:
-            return results["__state__"], _eigs
-        else:
-            return results, _eigs
+        # Return a more structured object.
+        raise NotImplementedError
+        # if len(results) == 1:
+        #     return results["__state__"], _eigs
+        # else:
+        #     return results, _eigs
 
     def svals(self):
         """Singular values of the Koopman/Transfer operator.
