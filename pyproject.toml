@@ -12,10 +12,10 @@ readme = "README.md"
 requires-python = ">=3.9"
 
 authors = [
-  {name = "Pietro Novelli", email = "pietronvll@gmail.com" },
+  {name = "kooplearn team", email = "pietronvll@gmail.com" },
 ]
 dependencies = [
-  "numpy=1.26.4", #Sliding window view
+  "numpy==1.26.4",
   "scipy",
   "scikit-learn",
   "tqdm"

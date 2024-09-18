@@ -165,8 +165,7 @@ class NNFeatureMap(TrainableFeatureMap):
             embedded_X = self.lightning_module.encoder(
                 X.to(self.lightning_module.device)
             )
-            embedded_X = embedded_X.detach().cpu().numpy()
-        return embedded_X
+        return embedded_X.numpy(force=True)
 
 
 class PLModule(lightning.LightningModule):
