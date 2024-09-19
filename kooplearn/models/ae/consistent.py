@@ -212,7 +212,7 @@ class ConsistentAE(BaseModel):
                         self.lightning_module.decoder,
                         self.lightning_module.evolution_operator,
                     )
-                    evolved_data = evolved_data.data.detach().cpu().numpy()
+                    evolved_data = evolved_data.data.numpy(force=True)
                     if obs is None:
                         results[obs_name] = evolved_data
                     elif callable(obs):
@@ -257,7 +257,7 @@ class ConsistentAE(BaseModel):
             w, vl, vr = self._eig_cache
         else:
             K = self.lightning_module.evolution_operator
-            K_np = K.detach().cpu().numpy()
+            K_np = K.numpy(force=True)
             w, vl, vr = eig(K_np, left=True, right=True)
             self._eig_cache = w, vl, vr
 
@@ -272,7 +272,7 @@ class ConsistentAE(BaseModel):
                 r_fns = (
                     phi_Xin @ vl
                 )  # Not a typo: I need the left eigenvectors of K to get the right eigenfunctions of the Koopman operator
-            return w, r_fns.detach().cpu().numpy()
+            return w, r_fns.numpy(force=True)
         elif eval_left_on is not None and eval_right_on is None:
             # (eigenvalues, left eigenfunctions)
             eval_left_on = self._preprocess_for_eigfun(eval_left_on)
@@ -281,7 +281,7 @@ class ConsistentAE(BaseModel):
                 l_fns = (
                     phi_Xin @ vr
                 )  # Not a typo: I need the right eigenvectors of K to get the left eigenfunctions of the Koopman operator
-            return w, l_fns.detach().cpu().numpy()
+            return w, l_fns.numpy(force=True)
         elif eval_left_on is not None and eval_right_on is not None:
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
             eval_right_on = self._preprocess_for_eigfun(eval_right_on)
@@ -297,7 +297,7 @@ class ConsistentAE(BaseModel):
                     phi_Xin_l @ vr
                 )  # Not a typo: I need the right eigenvectors of K to get the left eigenfunctions of the Koopman operator
 
-            return w, l_fns.detach().cpu().numpy(), r_fns.detach().cpu().numpy()
+            return w, l_fns.numpy(force=True), r_fns.numpy(force=True)
 
     def save(self, filename):
         """Serialize the model to a file.
