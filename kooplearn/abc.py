@@ -357,7 +357,7 @@ class BaseContext:
     Base class for context windows. Refer to the :ref:`kooplearn's data paradigm <kooplearn_data_paradigm>`.
     """
 
-    storage: TensorType
+    data: TensorType
     context_length: int
 
     @abc.abstractmethod

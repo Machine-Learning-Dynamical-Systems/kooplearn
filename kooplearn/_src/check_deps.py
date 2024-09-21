@@ -1,3 +1,6 @@
+from typing import Literal
+
+
 def check_torch_deps():
     try:
         import lightning
@@ -7,7 +10,7 @@ def check_torch_deps():
         )
 
 
-def parse_backend(backend: str):
+def parse_backend(backend: Literal["auto", "numpy", "torch"]):
     if backend not in ["auto", "numpy", "torch"]:
         raise ValueError(
             f"Invalid backend {backend}. Accepted values are 'auto', 'numpy', or 'torch'."
@@ -17,6 +20,7 @@ def parse_backend(backend: str):
         import torch
     except ImportError:
         torch = None
+
     return torch, backend
 
 
