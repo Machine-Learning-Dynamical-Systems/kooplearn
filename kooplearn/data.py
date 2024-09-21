@@ -1,12 +1,12 @@
 from copy import deepcopy
-from typing import Sequence
+from typing import Literal, Mapping, Sequence
 
 import numpy as np
 from numpy.typing import ArrayLike
 
 from kooplearn._src.check_deps import parse_backend
 from kooplearn._src.utils import ShapeError
-from kooplearn.abc import ContextWindowDataset
+from kooplearn.abc import BaseContext, ContextWindowDataset, TensorType
 
 
 def _concatenate_contexts(
@@ -535,3 +535,193 @@ def multi_traj_to_context(
         backend=backend,
         **backend_kwargs,
     )
+
+
+class TensorContext(BaseContext):
+    """Class for a collection of context windows with tensor features."""
+
+    def __init__(
+        self,
+        storage: TensorType,
+        context_length: int,
+        observables: Mapping | None = None,
+        batch_dim: int = 0,
+        context_dim: int = 1,
+        backend: Literal["auto", "numpy", "torch"] = "auto",
+        **backend_kw,
+    ):
+        """Initializes the TensorContextDataset.
+
+        Args:
+            data (ArrayLike): A collection of context windows.
+            observables (dict[ArrayLike], optional): A dictionary of observables. Defaults to ``{}``.
+            backend (str, optional): Specifies the backend to be used (``'numpy'``, ``'torch'``). If set to ``'auto'``, will use the same backend of data. Defaults to ``'auto'``.
+            **backend_kw (dict, optional): Keyword arguments to pass to the backend. For example, if ``'torch'``, it is possible to specify the device of the tensor.
+        """
+        try:
+            import torch
+
+            torch_is_available = True
+            if torch.is_tensor(storage):
+                auto_backend = "torch"
+        except ImportError:
+            torch_is_available = False
+            auto_backend = "numpy"
+        if backend == "auto":
+            backend = auto_backend
+
+        super().__init__(storage, context_length)
+        # Backend selection
+        torch, backend = parse_backend(backend)
+
+        _observables_tmp = deepcopy(observables)
+        _observables_tmp["__state__"] = data
+        _observables_data = {}
+        observables_shapes = set()
+        for obs_name, obs_data in _observables_tmp.items():
+            if backend == "numpy":
+                if torch is not None:
+                    if torch.is_tensor(obs_data):
+                        obs_data = obs_data.numpy(force=True)
+                    else:
+                        obs_data = np.asanyarray(obs_data, **backend_kw)
+                else:
+                    obs_data = np.asanyarray(obs_data, **backend_kw)
+            elif backend == "torch":
+                if torch is None:
+                    raise ImportError(
+                        "You selected the 'torch' backend, but kooplearn wasn't able to import it."
+                    )
+                else:
+                    if torch.is_tensor(obs_data):
+                        pass
+                    else:
+                        obs_data = torch.tensor(obs_data, **backend_kw)
+            elif backend == "auto":
+                if torch is not None:
+                    if torch.is_tensor(obs_data):
+                        backend = "torch"
+                    else:
+                        obs_data = np.asanyarray(obs_data, **backend_kw)
+                        backend = "numpy"
+                else:
+                    obs_data = np.asanyarray(obs_data, **backend_kw)
+                    backend = "numpy"
+
+            # Attributes init
+            if obs_data.ndim < 3:
+                raise ShapeError(
+                    f"Invalid shape for {obs_name}: {obs_data.shape}. The data must have be at least three dimensional [batch_size, "
+                    f"context_len, *features]."
+                )
+            observables_shapes.add(obs_data.shape[:2])
+            if len(observables_shapes) != 1:
+                raise ValueError(
+                    f"All observables must have the same context length and number of context windows. Got shapes: {observables_shapes}"
+                )
+            _observables_data[obs_name] = obs_data
+
+        self.data = _observables_data.pop("__state__")
+        self._observables_data = _observables_data
+        self.backend = backend
+        self.dtype = self.data.dtype
+        self.shape = self.data.shape
+        self.ndim = self.data.ndim
+        self._backend_kw = backend_kw
+        self._context_length = self.shape[1]
+
+    @property
+    def observables(self):
+        if len(self._observables_data) == 0:
+            print("No observables")
+        else:
+            for k, v in self._observables_data.items():
+                print(f"{k} with features of shape {tuple(v.shape[2:])}")
+
+    def __iter__(self):
+        self._iter_idx = 0
+        return self
+
+    def __next__(self):
+        if self._iter_idx < len(self):
+            ctx = self[self._iter_idx]
+            self._iter_idx += 1
+            return ctx
+        else:
+            del self._iter_idx
+            raise StopIteration
+
+    def __getitem__(self, idx) -> "TensorContextDataset":
+        if np.issubdtype(type(idx), np.integer):
+            _data = self.data[idx][None, ...]
+            _obs = {
+                obs_name: obs_data[idx][None, ...]
+                for obs_name, obs_data in self._observables_data.items()
+            }
+        elif isinstance(idx, slice):
+            _data = self.data[idx]
+            _obs = {
+                obs_name: obs_data[idx]
+                for obs_name, obs_data in self._observables_data.items()
+            }
+        else:
+            raise ValueError(
+                f"Invalid index {idx}. Allowed indices are integers or slices, while {type(idx)} was given."
+            )
+
+        return TensorContextDataset(
+            _data, _obs, backend=self.backend, **self._backend_kw
+        )
+
+    def slice(self, slice_obj):
+        """Returns a slice of the context windows given a slice object.
+
+        Args:
+        ----
+            slice_obj (slice): The python slice object.
+
+        Returns:
+        -------
+            Slice of the context windows.
+        """
+        return self.data[:, slice_obj]
+
+    def register_storage(
+        self,
+        storage: TensorType,
+        backend: Literal["numpy", "torch"],
+        storage_name: str = "",
+        batch_dim=0,
+        context_dim=1,
+        **backend_kw,
+    ) -> TensorType:
+        # 1. Cast the storage to the appropriate backend (torch or numpy)
+        if backend == "torch":
+            if not torch.is_tensor(storage):
+                storage = torch.tensor(storage, **backend_kw)
+        elif backend == "numpy":
+            if not isinstance(storage, np.ndarray):
+                storage = np.array(storage, **backend_kw)
+        else:
+            raise ValueError(f"Unsupported backend: {backend}")
+
+        if len(storage.shape) < 3:
+            raise ShapeError(
+                f"Invalid shape. The data {storage_name} must have be at least three dimensional."
+            )
+
+        dim_perm = [batch_dim, context_dim] + [
+            d for d in range(storage.ndim) if d not in {batch_dim, context_dim}
+        ]
+
+        if backend == "torch":
+            storage = storage.permute(*dim_perm)
+        elif backend == "numpy":
+            storage = storage.transpose(dim_perm)
+
+        if storage.shape[1] != self.context_length:
+            raise ValueError(
+                f"All tensors must have the same context length. Got {storage.shape[1]} instead of {self.context_length}"
+            )
+
+        return storage

@@ -3,11 +3,14 @@ from __future__ import annotations
 import abc
 import os
 from collections.abc import Iterable, Sequence
-from typing import Optional
+from dataclasses import dataclass
+from typing import Optional, TypeVar
 
 import numpy as np
 
 from kooplearn._src.serialization import pickle_load, pickle_save
+
+TensorType = TypeVar("Tensor")
 
 
 # Abstract base classes defining the interface to implement when extending kooplearn
@@ -346,3 +349,95 @@ class ContextWindowDataset(ContextWindow):
             Slice of the context window dataset.
         """
         return [ctx[slice_obj] for ctx in self.data]
+
+
+@dataclass(frozen=True)
+class BaseContext:
+    """
+    Base class for context windows. Refer to the :ref:`kooplearn's data paradigm <kooplearn_data_paradigm>`.
+    """
+
+    storage: TensorType
+    context_length: int
+
+    @abc.abstractmethod
+    def _slice(self, slice_obj: slice) -> TensorType:
+        """
+        Returns a slice of the context window given a slice object.
+
+        Args:
+            slice_obj (slice): The python slice function.
+
+        Returns:
+            Slice of the context window.
+        """
+        pass
+
+    def lookback(self, lookback_length: int, slide_by: int = 0):
+        """
+        Returns the lookback window of the context window.
+
+        Args:
+            lookback_length (int):  Length of the lookback window.
+            slide_by (int, optional): Number of slides along the context window. Default to ``0``.
+
+        Returns:
+            Lookback window of the context window.
+        """
+        self._check_lb_len(lookback_length)
+        max_slide = self._context_length - lookback_length
+        if slide_by > max_slide:
+            raise ValueError(
+                f"Invalid slide_by = {slide_by} for lookback_length = {lookback_length} and Context of length = {self._context_length}. It should be 0 <= slide_by <= context_length - lookback_length"
+            )
+
+        lb_window = self._slice(slice(slide_by, lookback_length + slide_by))
+        return lb_window
+
+    def lookforward(self, lookback_length: int):
+        """
+        Returns the lookforward window of the context window.
+
+        Args:
+            lookback_length (int): Length of the lookback window.
+
+        Returns:
+            Lookforward window of the context window.
+        """
+        self._check_lb_len(lookback_length)
+        lf_window = self._slice(slice(lookback_length, None))
+        return lf_window
+
+    def _check_lb_len(self, lookback_length: int):
+        """
+        Checks the validity of the lookback length.
+
+        Args:
+            lookback_length (int): Length of the lookback window.
+        """
+        if (lookback_length > self.context_length) or (lookback_length < 1):
+            raise ValueError(
+                f"Invalid lookback_length = {lookback_length} for ContextWindow of length = {self.context_length}. It should be 1 <= lookback_length <= context_length."
+            )
+
+    def save(self, path: os.PathLike):
+        """
+        Saves the current context window to the given path.
+
+        Args:
+            path (path-like): Save the context window to path.
+        """
+        pickle_save(self, path)
+
+    @classmethod
+    def load(cls, filename):
+        """
+        Loads the context window from the given filename.
+
+        Args:
+            filename: Load the context window from the given filename.
+
+        Returns:
+            The context window object.
+        """
+        return pickle_load(cls, filename)

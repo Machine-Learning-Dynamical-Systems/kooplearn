@@ -9,7 +9,7 @@ dynamic = [
 ]  
 description = "A package to learn Koopman operators" 
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 authors = [
   {name = "kooplearn team", email = "pietronvll@gmail.com" },
