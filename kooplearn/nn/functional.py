@@ -1,9 +1,7 @@
-from kooplearn._src.check_deps import check_torch_deps
-
-check_torch_deps()
-from typing import Optional  # noqa: E402
-
 import torch  # noqa: E402
+from typing import Optional  # noqa: E402
+from kooplearn._src.check_deps import check_torch_deps
+check_torch_deps()
 
 
 def sqrtmh(A: torch.Tensor):
@@ -44,7 +42,7 @@ def covariance(X: torch.Tensor, Y: Optional[torch.Tensor] = None, center: bool =
         return torch.mm(_X.T, _Y)
 
 
-def cross_covariance(A, B, rowvar=True, bias=False, centered=True):
+def cross_covariance(A: torch.Tensor, B: torch.Tensor, rowvar: bool = False, bias: bool = False, center: bool = True):
     """Cross covariance of two matrices.
 
     Args:
@@ -59,7 +57,7 @@ def cross_covariance(A, B, rowvar=True, bias=False, centered=True):
         A = A.T
         B = B.T
 
-    if centered:
+    if center:
         A = A - A.mean(axis=1, keepdims=True)
         B = B - B.mean(axis=1, keepdims=True)
 
@@ -177,39 +175,57 @@ def eym_score_split(
     X: torch.Tensor,
     Y: torch.Tensor,
     metric_deformation: float = 1.0,
+    center: bool = True,
 ):
-    if X.shape[0] // 2 != 0:
-        X = X[:-1]
-        Y = Y[:-1]
-    batch_size = X.shape[0]
-    # Randomly splitting in half
-    idxs = torch.randperm(batch_size)
-    U1 = X[idxs[: batch_size // 2]]
-    U2 = X[idxs[batch_size // 2 :]]
+    if center:
+        X = X - X.mean(0, keepdim=True)
+        Y = Y - Y.mean(0, keepdim=True)
 
-    V1 = Y[idxs[: batch_size // 2]]
-    V2 = Y[idxs[batch_size // 2 :]]
+    U1, U2, V1, V2 = random_split(X, Y, 2)
 
-    # centered covariance matrices
-    cov_U1 = torch.cov(U1.T)
-    cov_U2 = torch.cov(U2.T)
-    cov_V1 = torch.cov(V1.T)
-    cov_V2 = torch.cov(V2.T)
+    l1 = 0.5 * (U1 * V2).sum(dim=1) ** 2
+    l2 = 0.5 * (U2 * V1).sum(dim=1) ** 2
+    l3 = ((U1 - U2) * (V1 - V2)).sum(dim=1)
 
-    cov_U1V1 = cross_covariance(U1.T, V1.T, centered=True)
-    cov_U2V2 = cross_covariance(U2.T, V2.T, centered=True)
+    score = torch.mean(l1 + l2 - l3)
+    
+    if metric_deformation > 0:
+        r1 = (U1 * U2).sum(dim=1)**2
+        r2 = ((U1 - U2)**2).sum(dim=1)
+        r3 = (V1 * V2).sum(dim=1)**2
+        r4 = ((V1 - V2)**2).sum(dim=1)
+        r5 = 2*U1.shape[1]
 
-    score = -1 * (
-        0.5 * (torch.trace(cov_U1 @ cov_V2) + torch.trace(cov_U2 @ cov_V1))
-        - torch.trace(cov_U1V1)
-        - torch.trace(cov_U2V2)
-    )
-    if score > 0:
-        d = U1.shape[-1]
+        R = torch.mean(r1 - r2 + r3 - r4 + r5)
+
+        return  -1 * (score + metric_deformation * R)
+    else:
+        return -1 * score
+    
+def eym_score_split_cov(
+    X: torch.Tensor,
+    Y: torch.Tensor,
+    metric_deformation: float = 1.0,
+    center_covariances: bool = True,
+):
+    U1, U2, V1, V2 = random_split(X, Y, 2)
+
+    cov_U1 = covariance(U1, center=center_covariances)
+    cov_U2 = covariance(U2, center=center_covariances)
+    cov_V1 = covariance(V1, center=center_covariances)
+    cov_V2 = covariance(V2, center=center_covariances)
+
+    cov_U1V1 = cross_covariance(U1, V1, rowvar=False, center=center_covariances)
+    cov_U2V2 = cross_covariance(U2, V2, rowvar=False, center=center_covariances)
+
+    score = 0.5 * (torch.sum(cov_U1*cov_V2) + torch.sum(cov_U2*cov_V1)) - torch.trace(cov_U1V1) - torch.trace(cov_U2V2)
+    
+    if metric_deformation > 0:
         U1_mean = U1.mean(axis=0, keepdims=True)
         U2_mean = U2.mean(axis=0, keepdims=True)
         V1_mean = V1.mean(axis=0, keepdims=True)
         V2_mean = V2.mean(axis=0, keepdims=True)
+        d = U1.shape[-1]
 
         # uncentered covariance matrices
         uc_cov_U1 = cov_U1 + U1_mean @ U1_mean.T
@@ -220,19 +236,19 @@ def eym_score_split(
         loss_on = (
             0.5
             * (
-                torch.trace(uc_cov_U1 @ uc_cov_U2)
+                torch.sum(uc_cov_U1 @ uc_cov_U2)
                 - torch.trace(uc_cov_U1)
                 - torch.trace(uc_cov_U2)
-                + torch.trace(uc_cov_V1 @ uc_cov_V2)
+                + torch.sum(uc_cov_V1 @ uc_cov_V2)
                 - torch.trace(uc_cov_V1)
                 - torch.trace(uc_cov_V2)
             )
             + d
         )
-        return score - metric_deformation * loss_on
+        return -1 * (score + metric_deformation * loss_on)
     else:
-        return score
-
+        return -1 * score
+    
 
 def eym_score(
     X: torch.Tensor,
@@ -240,16 +256,18 @@ def eym_score(
     mode: str = "split",
     metric_deformation: float = 1.0,
     center: bool = True,
+    cov: bool = True,
 ):
-    available_modes = ["split", "U_stat"]
+    available_modes = ["split", "Ustat"]
     if mode not in available_modes:
         raise ValueError(f"Unknown mode {mode}. Available modes are {available_modes}")
     if mode == "split":
-        return eym_score_split(X, Y, metric_deformation=metric_deformation)
-    else:
-        return eym_score_Ustat(
-            X, Y, metric_deformation=metric_deformation, center=center
-        )
+        if cov:
+            return eym_score_split_cov(X, Y, metric_deformation=metric_deformation, center_covariances=center)
+        else:
+            return eym_score_split(X, Y, metric_deformation=metric_deformation, center=center)
+    elif mode == "Ustat":
+        return eym_score_Ustat(X, Y, metric_deformation=metric_deformation, center=center)
 
 
 def log_fro_metric_deformation_loss(cov: torch.tensor):
@@ -266,3 +284,33 @@ def log_fro_metric_deformation_loss(cov: torch.tensor):
     vals_x = torch.where(vals_x > eps, vals_x, eps)
     loss = torch.mean(-torch.log(vals_x) + vals_x * (vals_x - 1.0))
     return loss
+
+def random_split(X, Y, n):
+    """
+    Randomly splits the data X into n partitions with equal size.
+
+    Parameters:
+        X (array-like): The input data.
+        n (int): The number of random splits.
+
+    Returns:
+        list: List of partitions.
+    """
+    res = (X.shape[0] % n)
+    if res != 0:
+        X = X[:-res]
+        Y = Y[:-res]
+    batch_size = X.shape[0]
+    idxs = torch.randperm(batch_size) # Randomly shuffle the indices
+    X, Y = X[idxs], Y[idxs] # Shuffle the data
+
+    batch_size = X.shape[0]
+    split_size = batch_size // n # Size of each split
+
+    splits_X = [X[idxs[i*split_size:(i+1)*split_size]] for i in range(n - 1)]  # Create n splits
+    splits_X.append(X[idxs[(n-1)*split_size:]])  # Add the last split with the remaining elements
+
+    splits_Y = [Y[idxs[i * split_size:(i + 1) * split_size]] for i in range(n - 1)]  # Create n splits
+    splits_Y.append(Y[idxs[(n - 1) * split_size:]])  # Add the last split with the remaining elements
+
+    return tuple(splits_X) + tuple(splits_Y)

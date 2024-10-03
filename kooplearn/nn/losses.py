@@ -81,6 +81,7 @@ class EYMLoss:
         self,
         mode: str = "split",
         metric_deformation: float = 1.0,
+        cov: bool = True,
         center: bool = True,
     ):
         """Initializes the Eckart-Young-Mirsky loss loss by [unpublished].
@@ -92,6 +93,7 @@ class EYMLoss:
         """
         self.mode = mode
         self.center = center
+        self.cov = cov
         self.metric_deformation = metric_deformation
 
     def __call__(self, X: torch.Tensor, Y: torch.Tensor):
@@ -107,4 +109,5 @@ class EYMLoss:
             mode=self.mode,
             metric_deformation=self.metric_deformation,
             center=self.center,
+            cov=self.cov,
         )
