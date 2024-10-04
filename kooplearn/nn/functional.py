@@ -1,7 +1,7 @@
-import torch  # noqa: E402
-from typing import Optional  # noqa: E402
 from kooplearn._src.check_deps import check_torch_deps
 check_torch_deps()
+import torch  # noqa: E402
+from typing import Optional  # noqa: E402
 
 
 def sqrtmh(A: torch.Tensor):
