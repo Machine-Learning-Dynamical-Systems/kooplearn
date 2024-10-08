@@ -229,6 +229,17 @@ class PLModule(lightning.LightningModule):
         self.log_dict(metrics, on_step=True, prog_bar=True, logger=True)
         return loss
 
+    def validation_step(self, batch, batch_idx):
+        lookback_len = self._kooplearn_feature_map_weakref().lookback_len
+        X, Y = batch.lookback(lookback_len), batch.lookback(
+            lookback_len, slide_by=1
+        )
+        encoded_X, encoded_Y = self.forward(X), self.forward(Y, lagged=True)
+        loss = self._loss(encoded_X, encoded_Y)
+        metrics = {f"val_loss": loss.item()}
+        self.log_dict(metrics, on_step=False, prog_bar=True, logger=True)
+        return loss
+
     def transfer_batch_to_device(self, batch, device, dataloader_idx):
         batch.data = batch.data.to(device)
         return batch
