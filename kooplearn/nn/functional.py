@@ -81,6 +81,8 @@ def vamp_score(X, Y, schatten_norm: int = 2, center_covariances: bool = True):
     Raises:
         NotImplementedError: If ``schatten_norm`` is not 1 or 2.
 
+    Returns:
+        torch.Tensor: VAMP score
     """
     cov_X, cov_Y, cov_XY = (
         covariance(X, center=center_covariances),
@@ -121,8 +123,10 @@ def deepprojection_score(
         Y (torch.Tensor): Covariates for the evolved time steps.
         relaxed (bool, optional): Whether to use the relaxed (more numerically stable) or the full deep-projection loss. Defaults to True.
         metric_deformation (float, optional): Strength of the metric metric deformation loss: Defaults to 1.0.
-        center_covariances (bool, optional): Use centered covariances to compute the VAMP score. Defaults to True.
+        center_covariances (bool, optional): Use centered covariances to compute the Deep Projection score. Defaults to True.
 
+    Returns:
+        torch.Tensor: Deep Projection score
     """
     cov_X, cov_Y, cov_XY = (
         covariance(X, center=center_covariances),
@@ -144,70 +148,24 @@ def deepprojection_score(
         S = torch.trace(M_X @ M_Y)
     return S - 0.5 * metric_deformation * (R_X + R_Y)
 
-
-def eym_score_Ustat(
-    X: torch.Tensor,
-    Y: torch.Tensor,
-    metric_deformation: float = 1.0,
-    center: bool = True,
-):
-    if center:
-        _X = X - X.mean(0, keepdim=True)
-        _Y = Y - Y.mean(0, keepdim=True)
-    else:
-        _X = X
-        _Y = Y
-
-    joint_measure_score = ((_X * _X).sum(dim=-1)).mean() + (
-        (_Y * _Y).sum(dim=-1)
-    ).mean()
-    product_measure_score = torch.square_(_X @ _Y.T)
-    product_measure_score = product_measure_score.fill_diagonal_(
-        0
-    )  # Zeroing out the diagonal in place
-    b = X.shape[0]
-    product_measure_score = b * product_measure_score.mean() / (b - 1)
-    score = joint_measure_score - product_measure_score
-    return score
-
-
-def eym_score_split(
-    X: torch.Tensor,
-    Y: torch.Tensor,
-    metric_deformation: float = 1.0,
-    center: bool = True,
-):
-    if center:
-        X = X - X.mean(0, keepdim=True)
-        Y = Y - Y.mean(0, keepdim=True)
-
-    U1, U2, V1, V2 = random_split(X, Y, 2)
-
-    l1 = 0.5 * (U1 * V2).sum(dim=1) ** 2
-    l2 = 0.5 * (U2 * V1).sum(dim=1) ** 2
-    l3 = ((U1 - U2) * (V1 - V2)).sum(dim=1)
-
-    score = torch.mean(l1 + l2 - l3)
     
-    if metric_deformation > 0:
-        r1 = (U1 * U2).sum(dim=1)**2
-        r2 = ((U1 - U2)**2).sum(dim=1)
-        r3 = (V1 * V2).sum(dim=1)**2
-        r4 = ((V1 - V2)**2).sum(dim=1)
-        r5 = 2*U1.shape[1]
-
-        R = torch.mean(r1 - r2 + r3 - r4 + r5)
-
-        return  -1 * (score + metric_deformation * R)
-    else:
-        return -1 * score
-    
-def eym_score_split_cov(
+def eym_score(
     X: torch.Tensor,
     Y: torch.Tensor,
-    metric_deformation: float = 1.0,
+    metric_deformation: float = 0.0,
     center_covariances: bool = True,
 ):
+    """Eckart-Young-Mirsky (EYM) score by [unpublished].
+
+    Args:
+        X (torch.Tensor): Covariates for the initial time steps.
+        Y (torch.Tensor): Covariates for the evolved time steps.
+        metric_deformation (float, optional): Strength of the metric metric deformation loss: Defaults to 0.0.
+        center_covariances (bool, optional): Use centered covariances to compute the EYM score. Defaults to True.
+
+    Returns:
+        torch.Tensor: EYM score
+    """
     U1, U2, V1, V2 = random_split(X, Y, 2)
 
     cov_U1 = covariance(U1, center=center_covariances)
@@ -248,26 +206,6 @@ def eym_score_split_cov(
         return -1 * (score + metric_deformation * loss_on)
     else:
         return -1 * score
-    
-
-def eym_score(
-    X: torch.Tensor,
-    Y: torch.Tensor,
-    mode: str = "split",
-    metric_deformation: float = 1.0,
-    center: bool = True,
-    cov: bool = True,
-):
-    available_modes = ["split", "Ustat"]
-    if mode not in available_modes:
-        raise ValueError(f"Unknown mode {mode}. Available modes are {available_modes}")
-    if mode == "split":
-        if cov:
-            return eym_score_split_cov(X, Y, metric_deformation=metric_deformation, center_covariances=center)
-        else:
-            return eym_score_split(X, Y, metric_deformation=metric_deformation, center=center)
-    elif mode == "Ustat":
-        return eym_score_Ustat(X, Y, metric_deformation=metric_deformation, center=center)
 
 
 def log_fro_metric_deformation_loss(cov: torch.tensor):
@@ -287,10 +225,11 @@ def log_fro_metric_deformation_loss(cov: torch.tensor):
 
 def random_split(X, Y, n):
     """
-    Randomly splits the data X into n partitions with equal size.
+    Randomly splits data (X,Y) into n partitions with equal size.
 
     Parameters:
         X (array-like): The input data.
+        Y (array-like): The output data.
         n (int): The number of random splits.
 
     Returns:
