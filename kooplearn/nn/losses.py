@@ -82,7 +82,7 @@ class EYMLoss:
         metric_deformation: float = 0.0,
         center_covariances: bool = True,
     ):
-        """Initializes the Eckart-Young-Mirsky (EYM) loss by [unpublished].
+        """Initializes the Eckart-Young-Mirsky (EYM) loss by :footcite:t:`Chapman2023CCA`, and :footcite:t:`Kostic2024NCP` .
 
         Args:
             metric_deformation (float, optional): Strength of the metric deformation loss: Defaults to 0.0.

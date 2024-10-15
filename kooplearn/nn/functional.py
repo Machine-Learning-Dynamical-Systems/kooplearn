@@ -1,7 +1,9 @@
 from kooplearn._src.check_deps import check_torch_deps
+
 check_torch_deps()
-import torch  # noqa: E402
 from typing import Optional  # noqa: E402
+
+import torch  # noqa: E402
 
 
 def sqrtmh(A: torch.Tensor):
@@ -42,7 +44,13 @@ def covariance(X: torch.Tensor, Y: Optional[torch.Tensor] = None, center: bool =
         return torch.mm(_X.T, _Y)
 
 
-def cross_covariance(A: torch.Tensor, B: torch.Tensor, rowvar: bool = False, bias: bool = False, center: bool = True):
+def cross_covariance(
+    A: torch.Tensor,
+    B: torch.Tensor,
+    rowvar: bool = False,
+    bias: bool = False,
+    center: bool = True,
+):
     """Cross covariance of two matrices.
 
     Args:
@@ -137,10 +145,8 @@ def deepprojection_score(
     R_Y = log_fro_metric_deformation_loss(cov_Y)
     if relaxed:
         S = (torch.linalg.matrix_norm(cov_XY, ord="fro") ** 2) / (
-            (
-                torch.linalg.matrix_norm(cov_X, ord=2)
-                * torch.linalg.matrix_norm(cov_Y, ord=2)
-            )
+            torch.linalg.matrix_norm(cov_X, ord=2)
+            * torch.linalg.matrix_norm(cov_Y, ord=2)
         )
     else:
         M_X = torch.linalg.lstsq(cov_X, cov_XY).solution
@@ -148,14 +154,14 @@ def deepprojection_score(
         S = torch.trace(M_X @ M_Y)
     return S - 0.5 * metric_deformation * (R_X + R_Y)
 
-    
+
 def eym_score(
     X: torch.Tensor,
     Y: torch.Tensor,
     metric_deformation: float = 0.0,
     center_covariances: bool = True,
 ):
-    """Eckart-Young-Mirsky (EYM) score by [unpublished].
+    """Eckart-Young-Mirsky (EYM) score by :footcite:t:`Chapman2023CCA`, and :footcite:t:`Kostic2024NCP`.
 
     Args:
         X (torch.Tensor): Covariates for the initial time steps.
@@ -176,8 +182,12 @@ def eym_score(
     cov_U1V1 = cross_covariance(U1, V1, rowvar=False, center=center_covariances)
     cov_U2V2 = cross_covariance(U2, V2, rowvar=False, center=center_covariances)
 
-    score = 0.5 * (torch.sum(cov_U1*cov_V2) + torch.sum(cov_U2*cov_V1)) - torch.trace(cov_U1V1) - torch.trace(cov_U2V2)
-    
+    score = (
+        0.5 * (torch.sum(cov_U1 * cov_V2) + torch.sum(cov_U2 * cov_V1))
+        - torch.trace(cov_U1V1)
+        - torch.trace(cov_U2V2)
+    )
+
     if metric_deformation > 0:
         U1_mean = U1.mean(axis=0, keepdims=True)
         U2_mean = U2.mean(axis=0, keepdims=True)
@@ -223,6 +233,7 @@ def log_fro_metric_deformation_loss(cov: torch.tensor):
     loss = torch.mean(-torch.log(vals_x) + vals_x * (vals_x - 1.0))
     return loss
 
+
 def random_split(X, Y, n):
     """
     Randomly splits data (X,Y) into n partitions with equal size.
@@ -235,21 +246,29 @@ def random_split(X, Y, n):
     Returns:
         list: List of partitions.
     """
-    res = (X.shape[0] % n)
+    res = X.shape[0] % n
     if res != 0:
         X = X[:-res]
         Y = Y[:-res]
     batch_size = X.shape[0]
-    idxs = torch.randperm(batch_size) # Randomly shuffle the indices
-    X, Y = X[idxs], Y[idxs] # Shuffle the data
+    idxs = torch.randperm(batch_size)  # Randomly shuffle the indices
+    X, Y = X[idxs], Y[idxs]  # Shuffle the data
 
     batch_size = X.shape[0]
-    split_size = batch_size // n # Size of each split
+    split_size = batch_size // n  # Size of each split
 
-    splits_X = [X[idxs[i*split_size:(i+1)*split_size]] for i in range(n - 1)]  # Create n splits
-    splits_X.append(X[idxs[(n-1)*split_size:]])  # Add the last split with the remaining elements
+    splits_X = [
+        X[idxs[i * split_size : (i + 1) * split_size]] for i in range(n - 1)
+    ]  # Create n splits
+    splits_X.append(
+        X[idxs[(n - 1) * split_size :]]
+    )  # Add the last split with the remaining elements
 
-    splits_Y = [Y[idxs[i * split_size:(i + 1) * split_size]] for i in range(n - 1)]  # Create n splits
-    splits_Y.append(Y[idxs[(n - 1) * split_size:]])  # Add the last split with the remaining elements
+    splits_Y = [
+        Y[idxs[i * split_size : (i + 1) * split_size]] for i in range(n - 1)
+    ]  # Create n splits
+    splits_Y.append(
+        Y[idxs[(n - 1) * split_size :]]
+    )  # Add the last split with the remaining elements
 
     return tuple(splits_X) + tuple(splits_Y)
