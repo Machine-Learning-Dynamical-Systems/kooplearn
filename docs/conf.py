@@ -54,6 +54,15 @@ html_theme_options = {
 }
 
 html_favicon = "favicon.png"
+nb_execution_mode = "cache"
+
+autodoc_class_signature = "separated"
+autoclass_content = "class"
+
+autodoc_typehints = "signature"
+autodoc_member_order = "groupwise"
+napoleon_preprocess_types = True
+napoleon_use_rtype = False
 
 bibtex_bibfiles = ["bibliography.bib"]
 

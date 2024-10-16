@@ -1,13 +1,16 @@
-Neural networks :code:`kooplearn.nn`
-================================================
+Neural networks
+===============
 
 .. currentmodule:: kooplearn.nn
 
-Main module: :code:`kooplearn.nn`
---------------------------------
+Main module
+-----------
 
-Score functions
+Loss functions
 ~~~~~~~~~~~~~~~
+
+.. autoclass:: kooplearn.nn.EYMLoss
+    :members:
 
 .. autoclass:: kooplearn.nn.DPLoss
     :members:
@@ -16,11 +19,13 @@ Score functions
     :members:
 
 
-Functional: :code:`kooplearn.nn.functional`
--------------------------------------------
+Functional components
+---------------------
 
 Score & loss functions
 ~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: kooplearn.nn.functional.eym_score
 
 .. autofunction:: kooplearn.nn.functional.vamp_score
 
