@@ -52,7 +52,7 @@ class DPLoss:
 
         Args:
             relaxed (bool, optional): Whether to use the relaxed (more numerically stable) or the full deep-projection loss. Defaults to True.
-            metric_deformation (float, optional): Strength of the metric metric deformation loss: Defaults to 1.0.
+            metric_deformation (float, optional): Strength of the metric deformation loss: Defaults to 1.0.
             center_covariances (bool, optional): Use centered covariances to compute the DPNets loss. Defaults to True.
 
         """
@@ -79,23 +79,21 @@ class DPLoss:
 class EYMLoss:
     def __init__(
         self,
-        mode: str = "split",
-        metric_deformation: float = 1.0,
-        center: bool = True,
+        metric_deformation: float = 0.0,
+        center_covariances: bool = True,
     ):
-        """Initializes the Eckart-Young-Mirsky loss loss by [unpublished].
+        """Initializes the Eckart-Young-Mirsky (EYM) loss by :footcite:t:`Chapman2023CCA`, and :footcite:t:`Kostic2024NCP` .
 
         Args:
-            metric_deformation (float, optional): Strength of the metric metric deformation loss: Defaults to 1.0.
-            center (bool, optional): Use centered covariates to compute the Eckart-Young-Mirsky loss. Defaults to True.
+            metric_deformation (float, optional): Strength of the metric deformation loss: Defaults to 0.0.
+            center (bool, optional): Use centered covariates to compute the EYM loss. Defaults to True.
 
         """
-        self.mode = mode
-        self.center = center
         self.metric_deformation = metric_deformation
+        self.center_covariances = center_covariances
 
     def __call__(self, X: torch.Tensor, Y: torch.Tensor):
-        """Compute the Deep Projection loss function
+        """Compute the EYM loss function
 
         Args:
             X (torch.Tensor): Covariates for the initial time steps.
@@ -104,7 +102,6 @@ class EYMLoss:
         return -F.eym_score(
             X,
             Y,
-            mode=self.mode,
             metric_deformation=self.metric_deformation,
-            center=self.center,
+            center_covariances=self.center_covariances,
         )

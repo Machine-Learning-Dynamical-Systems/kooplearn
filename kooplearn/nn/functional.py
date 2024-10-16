@@ -44,7 +44,13 @@ def covariance(X: torch.Tensor, Y: Optional[torch.Tensor] = None, center: bool =
         return torch.mm(_X.T, _Y)
 
 
-def cross_covariance(A, B, rowvar=True, bias=False, centered=True):
+def cross_covariance(
+    A: torch.Tensor,
+    B: torch.Tensor,
+    rowvar: bool = False,
+    bias: bool = False,
+    center: bool = True,
+):
     """Cross covariance of two matrices.
 
     Args:
@@ -59,7 +65,7 @@ def cross_covariance(A, B, rowvar=True, bias=False, centered=True):
         A = A.T
         B = B.T
 
-    if centered:
+    if center:
         A = A - A.mean(axis=1, keepdims=True)
         B = B - B.mean(axis=1, keepdims=True)
 
@@ -83,6 +89,8 @@ def vamp_score(X, Y, schatten_norm: int = 2, center_covariances: bool = True):
     Raises:
         NotImplementedError: If ``schatten_norm`` is not 1 or 2.
 
+    Returns:
+        torch.Tensor: VAMP score
     """
     cov_X, cov_Y, cov_XY = (
         covariance(X, center=center_covariances),
@@ -123,8 +131,10 @@ def deepprojection_score(
         Y (torch.Tensor): Covariates for the evolved time steps.
         relaxed (bool, optional): Whether to use the relaxed (more numerically stable) or the full deep-projection loss. Defaults to True.
         metric_deformation (float, optional): Strength of the metric metric deformation loss: Defaults to 1.0.
-        center_covariances (bool, optional): Use centered covariances to compute the VAMP score. Defaults to True.
+        center_covariances (bool, optional): Use centered covariances to compute the Deep Projection score. Defaults to True.
 
+    Returns:
+        torch.Tensor: Deep Projection score
     """
     cov_X, cov_Y, cov_XY = (
         covariance(X, center=center_covariances),
@@ -135,10 +145,8 @@ def deepprojection_score(
     R_Y = log_fro_metric_deformation_loss(cov_Y)
     if relaxed:
         S = (torch.linalg.matrix_norm(cov_XY, ord="fro") ** 2) / (
-            (
-                torch.linalg.matrix_norm(cov_X, ord=2)
-                * torch.linalg.matrix_norm(cov_Y, ord=2)
-            )
+            torch.linalg.matrix_norm(cov_X, ord=2)
+            * torch.linalg.matrix_norm(cov_Y, ord=2)
         )
     else:
         M_X = torch.linalg.lstsq(cov_X, cov_XY).solution
@@ -147,69 +155,45 @@ def deepprojection_score(
     return S - 0.5 * metric_deformation * (R_X + R_Y)
 
 
-def eym_score_Ustat(
+def eym_score(
     X: torch.Tensor,
     Y: torch.Tensor,
-    metric_deformation: float = 1.0,
-    center: bool = True,
+    metric_deformation: float = 0.0,
+    center_covariances: bool = True,
 ):
-    if center:
-        _X = X - X.mean(0, keepdim=True)
-        _Y = Y - Y.mean(0, keepdim=True)
-    else:
-        _X = X
-        _Y = Y
+    """Eckart-Young-Mirsky (EYM) score by :footcite:t:`Chapman2023CCA`, and :footcite:t:`Kostic2024NCP`.
 
-    joint_measure_score = ((_X * _X).sum(dim=-1)).mean() + (
-        (_Y * _Y).sum(dim=-1)
-    ).mean()
-    product_measure_score = torch.square_(_X @ _Y.T)
-    product_measure_score = product_measure_score.fill_diagonal_(
-        0
-    )  # Zeroing out the diagonal in place
-    b = X.shape[0]
-    product_measure_score = b * product_measure_score.mean() / (b - 1)
-    score = joint_measure_score - product_measure_score
-    return score
+    Args:
+        X (torch.Tensor): Covariates for the initial time steps.
+        Y (torch.Tensor): Covariates for the evolved time steps.
+        metric_deformation (float, optional): Strength of the metric metric deformation loss: Defaults to 0.0.
+        center_covariances (bool, optional): Use centered covariances to compute the EYM score. Defaults to True.
 
+    Returns:
+        torch.Tensor: EYM score
+    """
+    U1, U2, V1, V2 = random_split(X, Y, 2)
 
-def eym_score_split(
-    X: torch.Tensor,
-    Y: torch.Tensor,
-    metric_deformation: float = 1.0,
-):
-    if X.shape[0] // 2 != 0:
-        X = X[:-1]
-        Y = Y[:-1]
-    batch_size = X.shape[0]
-    # Randomly splitting in half
-    idxs = torch.randperm(batch_size)
-    U1 = X[idxs[: batch_size // 2]]
-    U2 = X[idxs[batch_size // 2 :]]
+    cov_U1 = covariance(U1, center=center_covariances)
+    cov_U2 = covariance(U2, center=center_covariances)
+    cov_V1 = covariance(V1, center=center_covariances)
+    cov_V2 = covariance(V2, center=center_covariances)
 
-    V1 = Y[idxs[: batch_size // 2]]
-    V2 = Y[idxs[batch_size // 2 :]]
+    cov_U1V1 = cross_covariance(U1, V1, rowvar=False, center=center_covariances)
+    cov_U2V2 = cross_covariance(U2, V2, rowvar=False, center=center_covariances)
 
-    # centered covariance matrices
-    cov_U1 = torch.cov(U1.T)
-    cov_U2 = torch.cov(U2.T)
-    cov_V1 = torch.cov(V1.T)
-    cov_V2 = torch.cov(V2.T)
-
-    cov_U1V1 = cross_covariance(U1.T, V1.T, centered=True)
-    cov_U2V2 = cross_covariance(U2.T, V2.T, centered=True)
-
-    score = -1 * (
-        0.5 * (torch.trace(cov_U1 @ cov_V2) + torch.trace(cov_U2 @ cov_V1))
+    loss = (
+        0.5 * (torch.sum(cov_U1 * cov_V2) + torch.sum(cov_U2 * cov_V1))
         - torch.trace(cov_U1V1)
         - torch.trace(cov_U2V2)
     )
-    if score > 0:
-        d = U1.shape[-1]
+
+    if metric_deformation > 0:
         U1_mean = U1.mean(axis=0, keepdims=True)
         U2_mean = U2.mean(axis=0, keepdims=True)
         V1_mean = V1.mean(axis=0, keepdims=True)
         V2_mean = V2.mean(axis=0, keepdims=True)
+        d = U1.shape[-1]
 
         # uncentered covariance matrices
         uc_cov_U1 = cov_U1 + U1_mean @ U1_mean.T
@@ -220,36 +204,18 @@ def eym_score_split(
         loss_on = (
             0.5
             * (
-                torch.trace(uc_cov_U1 @ uc_cov_U2)
+                torch.sum(uc_cov_U1 @ uc_cov_U2)
                 - torch.trace(uc_cov_U1)
                 - torch.trace(uc_cov_U2)
-                + torch.trace(uc_cov_V1 @ uc_cov_V2)
+                + torch.sum(uc_cov_V1 @ uc_cov_V2)
                 - torch.trace(uc_cov_V1)
                 - torch.trace(uc_cov_V2)
             )
             + d
         )
-        return score - metric_deformation * loss_on
+        return -1 * (loss + metric_deformation * loss_on)
     else:
-        return score
-
-
-def eym_score(
-    X: torch.Tensor,
-    Y: torch.Tensor,
-    mode: str = "split",
-    metric_deformation: float = 1.0,
-    center: bool = True,
-):
-    available_modes = ["split", "U_stat"]
-    if mode not in available_modes:
-        raise ValueError(f"Unknown mode {mode}. Available modes are {available_modes}")
-    if mode == "split":
-        return eym_score_split(X, Y, metric_deformation=metric_deformation)
-    else:
-        return eym_score_Ustat(
-            X, Y, metric_deformation=metric_deformation, center=center
-        )
+        return -1 * loss
 
 
 def log_fro_metric_deformation_loss(cov: torch.tensor):
@@ -266,3 +232,43 @@ def log_fro_metric_deformation_loss(cov: torch.tensor):
     vals_x = torch.where(vals_x > eps, vals_x, eps)
     loss = torch.mean(-torch.log(vals_x) + vals_x * (vals_x - 1.0))
     return loss
+
+
+def random_split(X, Y, n):
+    """
+    Randomly splits data (X,Y) into n partitions with equal size.
+
+    Parameters:
+        X (array-like): The input data.
+        Y (array-like): The output data.
+        n (int): The number of random splits.
+
+    Returns:
+        list: List of partitions.
+    """
+    res = X.shape[0] % n
+    if res != 0:
+        X = X[:-res]
+        Y = Y[:-res]
+    batch_size = X.shape[0]
+    idxs = torch.randperm(batch_size)  # Randomly shuffle the indices
+    X, Y = X[idxs], Y[idxs]  # Shuffle the data
+
+    batch_size = X.shape[0]
+    split_size = batch_size // n  # Size of each split
+
+    splits_X = [
+        X[idxs[i * split_size : (i + 1) * split_size]] for i in range(n - 1)
+    ]  # Create n splits
+    splits_X.append(
+        X[idxs[(n - 1) * split_size :]]
+    )  # Add the last split with the remaining elements
+
+    splits_Y = [
+        Y[idxs[i * split_size : (i + 1) * split_size]] for i in range(n - 1)
+    ]  # Create n splits
+    splits_Y.append(
+        Y[idxs[(n - 1) * split_size :]]
+    )  # Add the last split with the remaining elements
+
+    return tuple(splits_X) + tuple(splits_Y)
