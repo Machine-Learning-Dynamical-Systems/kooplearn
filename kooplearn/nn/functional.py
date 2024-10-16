@@ -182,7 +182,7 @@ def eym_score(
     cov_U1V1 = cross_covariance(U1, V1, rowvar=False, center=center_covariances)
     cov_U2V2 = cross_covariance(U2, V2, rowvar=False, center=center_covariances)
 
-    score = (
+    loss = (
         0.5 * (torch.sum(cov_U1 * cov_V2) + torch.sum(cov_U2 * cov_V1))
         - torch.trace(cov_U1V1)
         - torch.trace(cov_U2V2)
@@ -213,9 +213,9 @@ def eym_score(
             )
             + d
         )
-        return -1 * (score + metric_deformation * loss_on)
+        return -1 * (loss + metric_deformation * loss_on)
     else:
-        return -1 * score
+        return -1 * loss
 
 
 def log_fro_metric_deformation_loss(cov: torch.tensor):
