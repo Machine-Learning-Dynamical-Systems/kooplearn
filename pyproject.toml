@@ -1,56 +1,23 @@
+[project]
+name = "kooplearn"
+version = "2.0.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Giacomo Turri", email = "turri.giacomo@gmail.com" }
+]
+requires-python = ">=3.9"
+dependencies = [
+    "scikit-learn>=1.6.1",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[project]
-name = "kooplearn"
-dynamic = [
-  "version"
-]  
-description = "A package to learn Koopman operators" 
-readme = "README.md"
-requires-python = ">=3.9"
-
-authors = [
-  {name = "kooplearn team", email = "pietronvll@gmail.com" },
-]
-dependencies = [
-  "numpy==1.26.4",
-  "scipy",
-  "scikit-learn",
-  "tqdm"
-]
-
-[project.optional-dependencies]
-torch = [
-  "torch>=2.0",
-  "lightning",
-]
-docs = [
-  "sphinx",
-  "sphinx-book-theme",
-  "sphinx-design",
-  "sphinxcontrib-bibtex",
-  "sphinx-autobuild",
-  "myst-nb"
-]
+[dependency-groups]
 dev = [
-  "kooplearn[torch]",
-  "kooplearn[docs]",
-  "pytest",
-  "black",
-  "isort",
+    "pytest>=8.4.2",
+    "ruff>=0.13.2",
+    "ty>=0.0.1a21",
 ]
-full = [
-  "kooplearn[torch]",
-]
-
-[project.urls]  # Optional
-"Homepage" = "https://github.com/Machine-Learning-Dynamical-Systems/kooplearn"
-
-[tool.hatch.version]
-path = "kooplearn/__about__.py"
-
-[tool.isort]
-# make it compatible with black
-profile = "black"
