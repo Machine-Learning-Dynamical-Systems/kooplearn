@@ -1,4 +1,4 @@
-from kooplearn.kernel import Kernel
+from kooplearn.kernel._base import Kernel
 from sklearn.utils.estimator_checks import parametrize_with_checks
 
 @parametrize_with_checks([Kernel()])
