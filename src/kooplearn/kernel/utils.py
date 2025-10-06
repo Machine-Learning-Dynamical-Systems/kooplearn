@@ -7,22 +7,7 @@ from numpy import ndarray
 from scipy.spatial.distance import pdist
 
 
-def topk(vec: ndarray, k: int):
-    """Get the top k values from a Numpy array.
 
-    Args:
-        vec (ndarray): A 1D numpy array
-        k (int): Number of elements to keep
-
-    Returns:
-        values, indices: top k values and their indices
-    """
-    assert np.ndim(vec) == 1, "'vec' must be a 1D array"
-    assert k > 0, "k should be greater than 0"
-    sort_perm = np.flip(np.argsort(vec))  # descending order
-    indices = sort_perm[:k]
-    values = vec[indices]
-    return values, indices
 
 
 def sanitize_complex_conjugates(vec: ndarray, tol: float = 10.0):

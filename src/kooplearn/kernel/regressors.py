@@ -30,6 +30,35 @@ __all__ = [
 ]
 
 
+def estimator_risk(
+    fit_result: FitResult,
+    kernel_Yv: np.ndarray,  # Kernel matrix of the output validation data
+    kernel_Y: np.ndarray,  # Kernel matrix of the output training data
+    kernel_XXv: np.ndarray,  # Cross-Kernel matrix of the input train/validation data
+    kernel_YYv: np.ndarray,  # Cross-Kernel matrix of the output train/validation data
+):
+    U = fit_result["U"]
+    V = fit_result["V"]
+    rdim_train = (kernel_Y.shape[0]) ** (-1)
+    rdim_val = (kernel_Yv.shape[0]) ** (-1)
+
+    r_Y = rdim_val * np.trace(kernel_Yv)
+    r_XY = (
+        -2
+        * rdim_val
+        * rdim_train
+        * np.trace(np.linalg.multi_dot([kernel_YYv.T, V, U.T, kernel_XXv]))
+    )
+    r_X = (
+        rdim_val
+        * (rdim_train**2)
+        * np.trace(
+            np.linalg.multi_dot([kernel_XXv.T, U, V.T, kernel_Y, V, U.T, kernel_XXv])
+        )
+    )
+    return r_Y + r_XY + r_X
+
+
 def eig(
     fit_result: FitResult,
     K_X: ndarray,  # Kernel matrix of the input data
@@ -107,6 +136,19 @@ def evaluate_eigenfunction(
     vr_or_vl = eig_result[which]
     rsqrt_dim = (K_Xin_X_or_Y.shape[1]) ** (-0.5)
     return np.linalg.multi_dot([rsqrt_dim * K_Xin_X_or_Y, vr_or_vl])
+
+
+# def estimator_modes(K_Xin_X: np.ndarray, rv: np.ndarray, lv: np.ndarray):
+def estimator_modes(
+            eig_result: EigResult,
+            K_Xin_X: np.ndarray):
+    lv = eig_result["left"]
+    r_dim = lv.shape[0] ** -0.5
+    rv_in = evaluate_eigenfunction(eig_result, 'right', K_Xin_X).T  # [rank, num_initial_conditions]
+    lv_obs = r_dim * lv.T  # [rank, num_observations]
+    return (
+        rv_in[:, :, None] * lv_obs[:, None, :]
+    )  # [rank, num_init_conditions, num_training_points]
 
 
 def predict(

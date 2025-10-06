@@ -5,7 +5,7 @@ from warnings import warn
 import numpy as np
 from numpy import ndarray
 
-from kooplearn.kernel.utils import topk
+from kooplearn.utils import topk
 
 
 def add_diagonal_(M: ndarray, alpha: float):
