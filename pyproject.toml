@@ -8,7 +8,9 @@ authors = [
 ]
 requires-python = ">=3.9"
 dependencies = [
+    "matplotlib>=3.9.4",
     "scikit-learn>=1.6.1",
+    "tqdm>=4.67.1",
 ]
 
 [build-system]
@@ -22,3 +24,39 @@ dev = [
     "ruff>=0.13.2",
     "ty>=0.0.1a21",
 ]
+
+[tool.ruff]
+line-length = 79
+target-version = "py37"
+
+exclude = [
+    ".git",
+    "__pycache__",
+    "dist",
+    "sklearn/externals",
+    "doc/_build",
+    "doc/auto_examples",
+    "doc/tutorial",
+    "build",
+]
+
+[tool.ruff.lint]
+# Explicitly enable the E (pycodestyle) family to include E501
+select = ["E", "F"]
+ignore = [
+    "E203",  # whitespace before ':'
+    "E226",  # missing whitespace around arithmetic operator
+    "E731",  # do not assign a lambda expression
+    "E741",  # ambiguous variable name
+]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/*" = ["E402"]
+"doc/conf.py" = ["E402"]
+
+[tool.ruff.format]
+line-ending = "auto"
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+docstring-code-format = true
