@@ -26,37 +26,88 @@ dev = [
 ]
 
 [tool.ruff]
-line-length = 79
-target-version = "py37"
-
-exclude = [
+line-length = 88
+exclude=[
+    ".eggs",
     ".git",
+    ".mypy_cache",
+    ".vscode",
     "__pycache__",
+    "build",
     "dist",
     "sklearn/externals",
     "doc/_build",
     "doc/auto_examples",
-    "doc/tutorial",
-    "build",
+    "asv_benchmarks/env",
+    "asv_benchmarks/html",
+    "asv_benchmarks/results",
+    "asv_benchmarks/benchmarks/cache",
 ]
 
 [tool.ruff.lint]
-# Explicitly enable the E (pycodestyle) family to include E501
-select = ["E", "F"]
-ignore = [
-    "E203",  # whitespace before ':'
-    "E226",  # missing whitespace around arithmetic operator
-    "E731",  # do not assign a lambda expression
-    "E741",  # ambiguous variable name
+# This enables us to use CPY001: copyright header check
+preview = true
+# This enables us to use the explicit preview rules that we want only
+explicit-preview-rules = true
+# all rules can be found here: https://docs.astral.sh/ruff/rules/
+extend-select = ["E501", "W", "I", "CPY001", "PGH", "RUF", "TID252"]
+ignore=[
+    # do not assign a lambda expression, use a def
+    "E731",
+    # do not use variables named 'l', 'O', or 'I'
+    "E741",
+    # E721 gives many false positives.
+    # Use `is` and `is not` for type comparisons, or `isinstance()` for
+    # isinstance checks
+    "E721",
+    # We don't care much about F841.
+    # Local variable ... is assigned to but never used
+    "F841",
+    # some RUF rules trigger too many changes
+    "RUF002",
+    "RUF003",
+    "RUF005",
+    "RUF012",
+    "RUF015",
+    "RUF021",
+    # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
 ]
 
-[tool.ruff.lint.per-file-ignores]
-"examples/*" = ["E402"]
-"doc/conf.py" = ["E402"]
+[tool.ruff.lint.flake8-copyright]
+notice-rgx = "\\#\\ Authors:\\ The\\ scikit\\-learn\\ developers\\\r?\\\n\\#\\ SPDX\\-License\\-Identifier:\\ BSD\\-3\\-Clause"
 
-[tool.ruff.format]
-line-ending = "auto"
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
-docstring-code-format = true
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+# It's fine not to put the import at the top of the file in the examples
+# folder.
+"examples/*"=["E402"]
+"doc/conf.py"=["E402"]
+"**/tests/*"=["CPY001"]
+"asv_benchmarks/*"=["CPY001", "TID252"]
+"benchmarks/*"=["CPY001"]
+"doc/*"=["CPY001"]
+"build_tools/*"=["CPY001"]
+"sklearn/_build_utils/*"=["CPY001"]
+"maint_tools/*"=["CPY001"]
+".spin/*"=["CPY001"]
+".github/*"=["CPY001"]
+# __doc__ is too long (>4096 chars) and therefore false positive on copyright check
+"examples/model_selection/plot_precision_recall.py"=["CPY001"]
+"examples/svm/plot_rbf_parameters.py"=["CPY001"]
+# __all__ has un-imported names
+"sklearn/__init__.py"=["F822"]
+"sklearn/utils/_metadata_requests.py"=["CPY001"]
