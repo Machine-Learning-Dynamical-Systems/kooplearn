@@ -1,4 +1,4 @@
-"""Kernel methods for Koopman/Transfer operator learning."""
+"""Nystroem-accelerated Kernel model for Koopman/Transfer operator learning."""
 
 # Authors: The kooplearn developers
 # SPDX-License-Identifier: MIT
@@ -17,13 +17,13 @@ from kooplearn.kernel import _regressors
 logger = logging.getLogger("kooplearn")
 
 
-class Kernel(BaseEstimator):
-    r"""Kernel model minimizing the :math:`L^{2}` loss.
+class NystroemKernel(BaseEstimator):
+    r"""Nystroem-accelerated Kernel model minimizing the :math:`L^{2}` loss.
     Implements a model approximating the Koopman (deterministic systems) or
     Transfer (stochastic systems) operator by lifting the state with a
     *infinite-dimensional nonlinear* feature map associated to a kernel
     :math:`k` and then minimizing the :math:`L^{2}` loss in the embedded space
-    as described in :footcite:t:`Kostic2022`.
+    as described in :footcite:t:`Meanti2023`.
 
     .. tip::
         The dynamical modes obtained by calling
@@ -65,7 +65,7 @@ class Kernel(BaseEstimator):
         ``tikhonov_reg = 0``, and internally calls specialized stable
         algorithms to deal with this specific case.
 
-    eigen_solver : {'auto', 'dense', 'arpack', 'randomized'}, default='auto'
+    eigen_solver : {'auto', 'dense', 'arpack'}, default='auto'
         Solver used to perform the internal SVD calcuations. If `n_components`
         is much less than the number of training samples, randomized (or
         arpack  to a smaller extent) may be more efficient than the dense
@@ -87,8 +87,6 @@ class Kernel(BaseEstimator):
             run SVD truncated to n_components calling ARPACK solver using
             `scipy.sparse.linalg.eigsh`. It requires strictly
             0 < n_components < n_samples
-        randomized :
-            run randomized SVD as described in :footcite:t:`Turri2023`.
 
     tol : float, default=0
         Convergence tolerance for arpack.
@@ -98,21 +96,13 @@ class Kernel(BaseEstimator):
         Maximum number of iterations for arpack.
         If None, optimal value will be chosen by arpack.
 
-    iterated_power : {'auto'} or int, default='auto'
-        Number of iterations for the power method computed by
-        svd_solver == 'randomized'. When 'auto', it is set to 7 when
-        `n_components < 0.1 * min(X.shape)`, other it is set to 4.
-
-    n_oversamples : int, default=5
-        Number of oversamples when using a randomized algorithm
-        (``svd_solver == 'randomized'``).
-
-    optimal_sketching : bool, default=False
-        Sketching strategy for the randomized solver. If `True` performs
-        optimal sketching (computaitonally expensive but more accurate).
+    n_centers: int or float, default=0.1
+        Number of centers to select. If ``n_centers < 1``, selects
+        ``int(n_centers * n_samples)`` centers. If ``n_centers >= 1``,
+        selects ``int(n_centers)`` centers. Defaults to ``0.1``.
 
     random_state : int, RandomState instance or None, default=None
-        Used when ``eigen_solver`` == 'arpack' or 'randomized'. Pass an int
+        Used when ``eigen_solver`` == 'arpack'. Pass an int
         for reproducible results across multiple function calls.
         See :term:`Glossary <random_state>`.
 
@@ -138,6 +128,8 @@ class Kernel(BaseEstimator):
         Kernel coefficient for rbf, poly and sigmoid kernels. When `gamma`
         is explicitly provided, this is just the same as `gamma`. When `gamma`
         is `None`, this is the actual value of kernel coefficient.
+
+    nystroem_centers_idxs_ : Indices of the selected centers.
 
     kernel_X_ : Kernel matrix evaluated at the initial states, that is
         ``self.data_fit[:, :self.lookback_len, ...]`.
@@ -187,18 +179,14 @@ class Kernel(BaseEstimator):
         "alpha": [
             [Interval(Real, 0, None, closed="left")],
             None,
-            ],        "eigen_solver": [StrOptions({"auto", "dense", "arpack", "randomized"})],
+            ],
+        "eigen_solver": [StrOptions({"auto", "dense", "arpack"})],
         "tol": [Interval(Real, 0, None, closed="left")],
         "max_iter": [
             Interval(Integral, 1, None, closed="left"),
             None,
         ],
-        "iterated_power": [
-            Interval(Integral, 0, None, closed="left"),
-            StrOptions({"auto"}),
-        ],
-        "n_oversamples": [Interval(Integral, 1, None, closed="left")],
-        "optimal_sketching": ["boolean"],
+        "n_centers": [Interval(Real, 0, None, closed="left")],
         "random_state": ["random_state"],
         "copy_X": ["boolean"],
         "n_jobs": [None, Integral],
@@ -218,9 +206,7 @@ class Kernel(BaseEstimator):
         eigen_solver="auto",
         tol=0,
         max_iter=None,
-        iterated_power="auto",
-        n_oversamples=5,
-        optimal_sketching=False,
+        n_centers=0.1,
         random_state=None,
         copy_X=True,
         n_jobs=None,
@@ -236,17 +222,13 @@ class Kernel(BaseEstimator):
         self.eigen_solver = eigen_solver
         self.tol = tol
         self.max_iter = max_iter
-        self.iterated_power = iterated_power
-        self.n_oversamples = n_oversamples
-        self.optimal_sketching = optimal_sketching
+        self.n_centers = n_centers
         self.random_state = random_state
         self.n_jobs = n_jobs
         self.copy_X = copy_X
 
     def fit(self, X, y=None):
-        """Fits the Kernel model using either a randomized or a non-randomized
-        algorithm, and either a full rank or a reduced rank algorithm,
-        depending on the parameters of the model.
+        """Fits the Nystroem Kernel model.
 
         Parameters
         ----------
@@ -262,13 +244,25 @@ class Kernel(BaseEstimator):
         self : object
             Returns the instance itself.
         """
-        self._pre_fit_checks(X)
+        kernel_Xnys, kernel_Ynys = self._pre_fit_checks(X)
 
         # Adjust number of components
         if self.n_components is None:
             n_components = self.kernel_X_.shape[0]
         else:
-            n_components = min(self.kernel_X_.shape[0], self.n_components)
+            if self.n_components > self.kernel_X_.shape[0]:
+                raise ValueError(
+                    f"'n_components' should be at most the number of samples"
+                    f" ({self.kernel_X_.shape[0]}), but got "
+                    f"{self.n_components}.")
+            else:
+                n_components = self.n_components
+
+        # Adjust regularization parameter
+        if self.alpha is None:
+            alpha = 0.0
+        else:
+            alpha = self.alpha
 
         # Choose eigen solver
         if self.eigen_solver == "auto":
@@ -279,65 +273,27 @@ class Kernel(BaseEstimator):
         else:
             eigen_solver = self.eigen_solver
 
-        # Adjust regularization parameter
-        if self.alpha is None:
-            alpha = 0.0
-        else:
-            alpha = self.alpha
-
-        # Set iterated power
-        if self.iterated_power == "auto":
-            iterated_power = 7 if n_components < 0.1 * min(X.shape) else 4
-        else:
-            iterated_power = self.iterated_power
-
         # Compute regression
         if self.reduced_rank:
-            if eigen_solver == "randomized":
-                if alpha == 0.0:
-                    raise ValueError(
-                        "Tikhonov regularization must be specified when "
-                        "solver is randomized."
-                    )
-                fit_result = _regressors.rand_reduced_rank(
-                    self.kernel_X_,
-                    self.kernel_Y_,
-                    alpha,
-                    n_components,
-                    self.n_oversamples,
-                    self.optimal_sketching,
-                    iterated_power,
-                    rng_seed=self.random_state,
-                )
-            else:
-                fit_result = _regressors.reduced_rank(
-                    self.kernel_X_,
-                    self.kernel_Y_,
-                    alpha,
-                    n_components,
-                    eigen_solver,
-                    self.tol,
-                    self.max_iter,
-                )
+            fit_result = _regressors.nystroem_reduced_rank(
+                self.kernel_X_,
+                self.kernel_Y_,
+                kernel_Xnys,
+                kernel_Ynys,
+                alpha,
+                n_components,
+                eigen_solver,
+            )
         else:
-            if eigen_solver == "randomized":
-                fit_result = _regressors.rand_pcr(
-                    self.kernel_X_,
-                    alpha,
-                    n_components,
-                    self.n_oversamples,
-                    iterated_power,
-                    rng_seed=self.random_state,
-                )
-            else:
-                fit_result = _regressors.pcr(
-                    self.kernel_X_,
-                    self.alpha, 
-                    n_components, 
-                    eigen_solver, 
-                    self.tol, 
-                    self.max_iter,
-                )
+            fit_result = _regressors.nystroem_pcr(
+                self.kernel_X_,
+                self.kernel_Y_,
+                kernel_Xnys,
+                kernel_Ynys,
+                alpha,
+                n_components,
+                eigen_solver,
+            )
 
         self._fit_result = fit_result
         self.U_, self.V_, self._spectral_biases = fit_result.values()
@@ -371,6 +327,7 @@ class Kernel(BaseEstimator):
         check_is_fitted(self)
         X = validate_data(self, X, reset=False, copy=self.copy_X)
         X_fit, _ = self._split_trajectory(self.X_fit_)
+        X_fit = X_fit[self.nys_centers_idxs_]
         K_Xin_X = self._get_kernel(X, X_fit)
         state_pred = _regressors.predict(
             n_steps, self._fit_result, self.kernel_YX_, K_Xin_X, X_fit
@@ -390,7 +347,7 @@ class Kernel(BaseEstimator):
                 self._fit_result,
                 self.kernel_YX_,
                 K_Xin_X,
-                observable_fit,
+                observable_fit[self.nys_centers_idxs_],
             )
         return state_pred
 
@@ -413,14 +370,15 @@ class Kernel(BaseEstimator):
             X = validate_data(self, X, reset=False, copy=self.copy_X)
             if X.shape[0] < 1 + self.lag_time_:
                 raise ValueError(
-                    f"X has only {X.shape[0]} samples, but at least" 
+                    f"X has only {X.shape[0]} samples, but at least "
                     f"{1 + self.lag_time_} are required."
                 )
             X_val, Y_val = self._split_trajectory(X)
             X_train, Y_train = self._split_trajectory(self.X_fit_)
-            kernel_Yv = self.kernel(Y_val)
-            kernel_XXv = self.kernel(X_train, X_val)
-            kernel_YYv = self.kernel(Y_train, Y_val)
+            X_train, Y_train = X_train[self.nys_centers_idxs_], Y_train[self.nys_centers_idxs_]
+            kernel_Yv = self._get_kernel(Y_val)
+            kernel_XXv = self._get_kernel(X_train, X_val)
+            kernel_YYv = self._get_kernel(Y_train, Y_val)
         else:
             kernel_Yv = self.kernel_Y_
             kernel_XXv = self.kernel_X_
@@ -439,42 +397,37 @@ class Kernel(BaseEstimator):
             Dictionary containing eigenvalues and eigenvectors.
         """
         check_is_fitted(self)
-        eig_result = _regressors.eig(
-            self._fit_result, self.kernel_X_, self.kernel_YX_
-        )
+        eig_result = _regressors.eig(self._fit_result, self.kernel_X_, self.kernel_YX_)
 
         X_fit, Y_fit = self._split_trajectory(self.X_fit_)
+        X_fit, Y_fit = X_fit[self.nys_centers_idxs_], Y_fit[self.nys_centers_idxs_]
         if eval_left_on is None and eval_right_on is None:
             # (eigenvalues,)
             return eig_result["values"]
         elif eval_left_on is None and eval_right_on is not None:
             # (eigenvalues, right eigenfunctions)
-            kernel_Xin_X_or_Y = self._get_kernel(
-                eval_right_on, X_fit
-            )
+            kernel_Xin_X_or_Y = self._get_kernel(eval_right_on, X_fit)
             return eig_result["values"], _regressors.evaluate_eigenfunction(
-                eig_result, 'right', kernel_Xin_X_or_Y)
+                eig_result, "right", kernel_Xin_X_or_Y
+            )
         elif eval_left_on is not None and eval_right_on is None:
             # (eigenvalues, left eigenfunctions)
-            kernel_Xin_X_or_Y = self._get_kernel(
-                eval_left_on, Y_fit
-            )
+            kernel_Xin_X_or_Y = self._get_kernel(eval_left_on, Y_fit)
             return eig_result["values"], _regressors.evaluate_eigenfunction(
-                eig_result, 'left', kernel_Xin_X_or_Y)
+                eig_result, "left", kernel_Xin_X_or_Y
+            )
         elif eval_left_on is not None and eval_right_on is not None:
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
-            kernel_Xin_X_or_Y_left = self._get_kernel(
-                eval_left_on, Y_fit
-            )
-            kernel_Xin_X_or_Y_right = self._get_kernel(
-                eval_right_on, X_fit
-            )
+            kernel_Xin_X_or_Y_left = self._get_kernel(eval_left_on, Y_fit)
+            kernel_Xin_X_or_Y_right = self._get_kernel(eval_right_on, X_fit)
             return (
                 eig_result["values"],
                 _regressors.evaluate_eigenfunction(
-                eig_result, 'left', kernel_Xin_X_or_Y_left),
+                    eig_result, "left", kernel_Xin_X_or_Y_left
+                ),
                 _regressors.evaluate_eigenfunction(
-                eig_result, 'right', kernel_Xin_X_or_Y_right),
+                    eig_result, "right", kernel_Xin_X_or_Y_right
+                ),
             )
 
     def modes(self, X, observable=None):
@@ -511,11 +464,10 @@ class Kernel(BaseEstimator):
                 f"{1 + self.lag_time_} are required."
             )
 
-        eig_result = _regressors.eig(
-            self._fit_result, self.kernel_X_, self.kernel_YX_
-        )
+        eig_result = _regressors.eig(self._fit_result, self.kernel_X_, self.kernel_YX_)
         X_fit, _ = self._split_trajectory(self.X_fit_)
-        K_Xin_X = self.kernel(X, X_fit)
+        X_fit = X_fit[self.nys_centers_idxs_]
+        K_Xin_X = self._get_kernel(X, X_fit)
         _gamma = _regressors.estimator_modes(eig_result, K_Xin_X)
 
         if observable is not None:
@@ -526,8 +478,12 @@ class Kernel(BaseEstimator):
                     f"{observable.shape[0]}"
                 )
             observable_fit, _ = self._split_trajectory(observable)
-            return np.tensordot(_gamma, observable_fit, axes=1), eig_result
-        return np.tensordot(_gamma, X_fit, axes=1), eig_result
+            observable_fit = observable_fit[self.nys_centers_idxs_]
+            return (
+                np.tensordot(_gamma, observable_fit, axes=1),
+                eig_result,
+            )
+        return (np.tensordot(_gamma, X_fit, axes=1), eig_result)
 
     def _get_kernel(self, X, Y=None):
         """Compute the pairwise kernel matrix."""
@@ -566,9 +522,40 @@ class Kernel(BaseEstimator):
             )
         self.gamma_ = 1 / X.shape[1] if self.gamma is None else self.gamma
         X_fit, Y_fit = self._split_trajectory(X)
+
+        # Perform random center selection
+        self.nys_centers_idxs_ = self._center_selection(X_fit.shape[0])
+        X_nys = X_fit[self.nys_centers_idxs_]
+        Y_nys = Y_fit[self.nys_centers_idxs_]
+
         self.kernel_X_, self.kernel_Y_, self.kernel_YX_ = self._init_kernels(
-            X_fit, Y_fit
+            X_nys, Y_nys
         )
+        kernel_Xnys, kernel_Ynys = self._init_nys_kernels(X_fit, Y_fit, X_nys, Y_nys)
+
+        return (
+            kernel_Xnys,
+            kernel_Ynys,
+        )  # Don't need to store them; they only serve the purpose of fitting.
+
+    def _init_nys_kernels(
+        self, X: np.ndarray, Y: np.ndarray, X_nys: np.ndarray, Y_nys: np.ndarray
+    ):
+        K_X = self._get_kernel(X, X_nys)
+        K_Y = self._get_kernel(Y, Y_nys)
+        return K_X, K_Y
+
+    def _center_selection(self, num_pts: int):
+        if self.n_centers < 1:
+            n_centers = int(np.ceil(self.n_centers * num_pts))
+        else:
+            n_centers = int(self.n_centers)
+
+        n_centers = min(n_centers, num_pts)
+
+        rng = np.random.default_rng(self.random_state)
+        rand_indices = rng.choice(num_pts, n_centers)
+        return rand_indices
 
     def _split_trajectory(self, X):
         """Split a trajectory into context and target pairs."""

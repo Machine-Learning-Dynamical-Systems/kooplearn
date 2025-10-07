@@ -1,5 +1,6 @@
 """Kernel-based regressors for linear operators."""
 
+
 from math import sqrt
 from typing import Literal
 from warnings import warn
@@ -10,37 +11,54 @@ from numpy import ndarray
 from scipy.sparse.linalg import eigs, eigsh
 from sklearn.utils.extmath import randomized_svd
 
-from kooplearn.kernel.linalg import (
-    add_diagonal_,
-    stable_topk,
-    weighted_norm,
-)
+from kooplearn.kernel.linalg import add_diagonal_, stable_topk, weighted_norm
 from kooplearn.kernel.structs import EigResult, FitResult
 from kooplearn.kernel.utils import sanitize_complex_conjugates
 
 __all__ = [
-    "predict",
     "eig",
     "evaluate_eigenfunction",
-    "pcr",
     "nystroem_pcr",
-    "reduced_rank",
     "nystroem_reduced_rank",
+    "pcr",
+    "predict",
     "rand_reduced_rank",
+    "reduced_rank",
 ]
 
 
 def estimator_risk(
     fit_result: FitResult,
-    kernel_Yv: np.ndarray,  # Kernel matrix of the output validation data
-    kernel_Y: np.ndarray,  # Kernel matrix of the output training data
-    kernel_XXv: np.ndarray,  # Cross-Kernel matrix of the input train/validation data
-    kernel_YYv: np.ndarray,  # Cross-Kernel matrix of the output train/validation data
-):
+    kernel_Yv: np.ndarray,
+    kernel_Y: np.ndarray,
+    kernel_XXv: np.ndarray,
+    kernel_YYv: np.ndarray,
+    ) -> float:
+    """
+    Estimate the validation risk of a fitted kernel regressor.
+
+    Parameters
+    ----------
+    fit_result : FitResult
+        Fitted model containing matrices ``U`` and ``V``.
+    kernel_Yv : ndarray of shape (N_val, N_val)
+        Kernel matrix of the output validation data.
+    kernel_Y : ndarray of shape (N_train, N_train)
+        Kernel matrix of the output training data.
+    kernel_XXv : ndarray of shape (N_train, N_val)
+        Cross-kernel matrix between input train and validation data.
+    kernel_YYv : ndarray of shape (N_train, N_val)
+        Cross-kernel matrix between output train and validation data.
+
+    Returns
+    -------
+    risk : float
+        Estimated validation risk.
+    """
     U = fit_result["U"]
     V = fit_result["V"]
-    rdim_train = (kernel_Y.shape[0]) ** (-1)
-    rdim_val = (kernel_Yv.shape[0]) ** (-1)
+    rdim_train = kernel_Y.shape[0] ** (-1)
+    rdim_val = kernel_Yv.shape[0] ** (-1)
 
     r_Y = rdim_val * np.trace(kernel_Yv)
     r_XY = (
@@ -60,30 +78,34 @@ def estimator_risk(
 
 
 def eig(
-    fit_result: FitResult,
-    K_X: ndarray,  # Kernel matrix of the input data
-    K_YX: ndarray,  # Kernel matrix between the output data and the input data
-) -> EigResult:
-    """Computes the eigendecomposition of a regressor.
+        fit_result: FitResult,
+        K_X: ndarray, 
+        K_YX: ndarray
+        ) -> EigResult:
+    """
+    Compute the eigendecomposition of a fitted kernel regressor.
 
-    Args:
-        fit_result (FitResult): Fit result as defined in ``linear_operator_learning.kernel.structs``.
-        K_X (ndarray): Kernel matrix of the input data.
-        K_YX (ndarray): Kernel matrix between the output data and the input data.
+    Parameters
+    ----------
+    fit_result : FitResult
+        Fit result containing matrices ``U`` and ``V``.
+    K_X : ndarray of shape (N, N)
+        Kernel matrix of the input data.
+    K_YX : ndarray of shape (N, N)
+        Cross-kernel matrix between the output and input data.
 
-
-    Shape:
-        ``K_X``: :math:`(N, N)`, where :math:`N` is the sample size.
-
-        ``K_YX``: :math:`(N, N)`, where :math:`N` is the sample size.
-
-        Output: ``U, V`` of shape :math:`(N, R)`, ``svals`` of shape :math:`R`
-        where :math:`N` is the sample size and  :math:`R` is the rank of the regressor.
+    Returns
+    -------
+    EigResult
+        Dictionary containing:
+        - ``values`` : Eigenvalues of the operator.
+        - ``left`` : Left eigenfunctions (N, R).
+        - ``right`` : Right eigenfunctions (N, R).
     """
     # SUV.TZ -> V.T K_YX U (right ev = SUvr, left ev = ZVvl)
     U = fit_result["U"]
     V = fit_result["V"]
-    r_dim = (K_X.shape[0]) ** (-1)
+    r_dim = K_X.shape[0] ** (-1)
 
     W_YX = np.linalg.multi_dot([V.T, r_dim * K_YX, U])
     W_X = np.linalg.multi_dot([U.T, r_dim * K_X, U])
@@ -115,36 +137,51 @@ def evaluate_eigenfunction(
     which: Literal["left", "right"],
     K_Xin_X_or_Y: ndarray,
 ):
-    """Evaluates left or right eigenfunctions of a regressor.
+    """
+    Evaluate left or right eigenfunctions on new data.
 
-    Args:
-        eig_result: EigResult object containing eigendecomposition results
-        which: String indicating "left" or "right" eigenfunctions
-        K_Xin_X_or_Y: Kernel matrix between initial conditions and input data (for right
-            eigenfunctions) or output data (for left eigenfunctions)
+    Parameters
+    ----------
+    eig_result : EigResult
+        Dictionary containing eigenvalues and eigenfunctions.
+    which : {'left', 'right'}
+        Which set of eigenfunctions to evaluate.
+    K_Xin_X_or_Y : ndarray of shape (N_eval, N_train)
+        Kernel matrix between evaluation points and training data.
 
-
-    Shape:
-        ``eig_result``: ``U, V`` of shape :math:`(N, R)`, ``svals`` of shape :math:`R`
-        where :math:`N` is the sample size and  :math:`R` is the rank of the regressor.
-
-        ``K_Xin_X_or_Y``: :math:`(N_0, N)`, where :math:`N_0` is the number of inputs to
-        predict and :math:`N` is the sample size.
-
-        Output: :math:`(N_0, R)`
+    Returns
+    -------
+    ndarray of shape (N_eval, R)
+        Evaluated eigenfunctions.
     """
     vr_or_vl = eig_result[which]
     rsqrt_dim = (K_Xin_X_or_Y.shape[1]) ** (-0.5)
     return np.linalg.multi_dot([rsqrt_dim * K_Xin_X_or_Y, vr_or_vl])
 
 
-# def estimator_modes(K_Xin_X: np.ndarray, rv: np.ndarray, lv: np.ndarray):
 def estimator_modes(
             eig_result: EigResult,
             K_Xin_X: np.ndarray):
+    """
+    Compute dynamic modes associated with eigenfunctions.
+
+    Parameters
+    ----------
+    eig_result : EigResult
+        Dictionary containing left and right eigenfunctions.
+    K_Xin_X : ndarray of shape (N_eval, N_train)
+        Kernel matrix between evaluation and training data.
+
+    Returns
+    -------
+    ndarray of shape (R, N_eval, N_train)
+        Outer product of left and right eigenfunctions (dynamic modes).
+    """
     lv = eig_result["left"]
     r_dim = lv.shape[0] ** -0.5
-    rv_in = evaluate_eigenfunction(eig_result, 'right', K_Xin_X).T  # [rank, num_initial_conditions]
+    rv_in = evaluate_eigenfunction(
+        eig_result, 'right', K_Xin_X
+        ).T  # [rank, num_initial_conditions]
     lv_obs = r_dim * lv.T  # [rank, num_observations]
     return (
         rv_in[:, :, None] * lv_obs[:, None, :]
@@ -153,35 +190,37 @@ def estimator_modes(
 
 def predict(
     num_steps: int,
-    # fit_result: FitResult,
-    U: ndarray,
-    V: ndarray,
+    fit_result: FitResult,
     kernel_YX: ndarray,
     kernel_Xin_X: ndarray,
     obs_train_Y: ndarray,
 ) -> ndarray:
-    """Predicts future states given initial values using a fitted regressor.
+    """
+    Predicts future states given initial values using a fitted regressor.
 
-    Args:
-        num_steps (int): Number of steps to predict forward (returns the last prediction)
-        fit_result (FitResult): FitResult object containing fitted U and V matrices
-        kernel_YX (ndarray): Kernel matrix between output data and input data (or inducing points for Nystroem)
-        kernel_Xin_X (ndarray): Kernel matrix between initial conditions and input data (or inducing points for Nystroem)
-        obs_train_Y (ndarray): Observable evaluated on output training data (or inducing points for Nystroem)
+    Parameters
+    ----------
+    num_steps : int
+        Number of prediction steps forward (returns the last
+        prediction).
+    fit_result : FitResult
+        Dictionary containing matrices ``U`` and ``V``.
+    kernel_YX : ndarray of shape (N, N)
+        Kernel matrix between output and input data (or inducing points for Nystroem).
+    kernel_Xin_X : ndarray of shape (N_eval, N)
+        Kernel matrix between evaluation and input data (or inducing points for Nystroem).
+    obs_train_Y : ndarray of shape (N, *)
+        Observables on training output data (or inducing points for Nystroem).
 
-    Shape:
-        ``kernel_YX``: :math:`(N, N)`, where :math:`N` is the number of training data, or inducing points for Nystroem.
-
-        ``kernel_Xin_X``: :math:`(N_0, N)`, where :math:`N_0` is the number of inputs to predict.
-
-        ``obs_train_Y``: :math:`(N, *)`, where :math:`*` is the shape of the observable.
-
-        Output: :math:`(N, *)`.
+    Returns
+    -------
+    ndarray
+        Predicted observable values after ``num_steps``.
     """
     # G = S UV.T Z
     # G^n = (SU)(V.T K_YX U)^(n-1)(V.T Z)
-    # U = fit_result["U"]
-    # V = fit_result["V"]
+    U = fit_result["U"]
+    V = fit_result["V"]
     npts = U.shape[0]
     K_dot_U = kernel_Xin_X @ U / sqrt(npts)
     V_dot_obs = V.T @ obs_train_Y / sqrt(npts)
@@ -195,15 +234,24 @@ def pcr(
     tikhonov_reg: float = 0.0,
     rank: int | None = None,
     svd_solver: Literal["arpack", "dense"] = "arpack",
+    tol: float = 0,
+    max_iter: int | None = None,
 ) -> FitResult:
     """Fits the Principal Components estimator.
 
     Args:
         kernel_X (ndarray): Kernel matrix of the input data.
-        tikhonov_reg (float, optional): Tikhonov (ridge) regularization parameter. Defaults to 0.0.
+        tikhonov_reg (float, optional): Tikhonov (ridge) regularization parameter.
+        Defaults to 0.0.
         rank (int | None, optional): Rank of the estimator. Defaults to None.
-        svd_solver (Literal[ &quot;arpack&quot;, &quot;dense&quot; ], optional): Solver for the generalized eigenvalue problem. Defaults to "arpack".
-
+        svd_solver (Literal[ &quot;arpack&quot;, &quot;dense&quot; ], optional):
+        Solver for the generalized eigenvalue problem. Defaults to "arpack".
+        tol : float, default=0
+        Convergence tolerance for arpack.
+        If 0, optimal value will be chosen by arpack.
+        max_iter : int, default=None
+        Maximum number of iterations for arpack.
+        If None, optimal value will be chosen by arpack.
     Shape:
         ``kernel_X``: :math:`(N, N)`, where :math:`N` is the number of training data.
     """
@@ -211,7 +259,7 @@ def pcr(
     add_diagonal_(kernel_X, npts * tikhonov_reg)
     if svd_solver == "arpack":
         _num_arpack_eigs = min(rank + 5, kernel_X.shape[0])
-        values, vectors = eigsh(kernel_X, k=_num_arpack_eigs)
+        values, vectors = eigsh(kernel_X, k=_num_arpack_eigs, maxiter=max_iter, tol=tol)
     elif svd_solver == "dense":
         values, vectors = scipy.linalg.eigh(kernel_X)
     else:
@@ -227,31 +275,45 @@ def pcr(
 
 
 def nystroem_pcr(
-    kernel_X: ndarray,  # Kernel matrix of the input inducing points
-    kernel_Y: ndarray,  # Kernel matrix of the output inducing points
-    kernel_Xnys: ndarray,  # Kernel matrix between the input data and the input inducing points
-    kernel_Ynys: ndarray,  # Kernel matrix between the output data and the output inducing points
-    tikhonov_reg: float = 0.0,  # Tikhonov (ridge) regularization parameter (can be 0)
-    rank: int | None = None,  # Rank of the estimator
+    kernel_X: ndarray,
+    kernel_Y: ndarray,
+    kernel_Xnys: ndarray,
+    kernel_Ynys: ndarray,
+    tikhonov_reg: float = 0.0,
+    rank: int | None = None,
     svd_solver: Literal["arpack", "dense"] = "arpack",
+    tol: float = 0,
+    max_iter: int | None = None,
 ) -> FitResult:
-    """Fits the Principal Components estimator using the Nyström method from :footcite:t:`Meanti2023`.
+    """Fits the Principal Components estimator using the Nyström method
+    from :footcite:t:`Meanti2023`.
 
     Args:
         kernel_X (ndarray): Kernel matrix of the input inducing points.
         kernel_Y (ndarray): Kernel matrix of the output inducing points.
-        kernel_Xnys (ndarray): Kernel matrix between the input data and the input inducing points.
-        kernel_Ynys (ndarray): Kernel matrix between the output data and the output inducing points.
-        tikhonov_reg (float, optional): Tikhonov (ridge) regularization parameter. Defaults to 0.0.
+        kernel_Xnys (ndarray): Kernel matrix between the input data and the
+        input inducing points.
+        kernel_Ynys (ndarray): Kernel matrix between the output data and the
+        output inducing points.
+        tikhonov_reg (float, optional): Tikhonov (ridge) regularization parameter.
+        Defaults to 0.0.
         rank (int | None, optional): Rank of the estimator. Defaults to None.
-        svd_solver (Literal[ "arpack", "dense" ], optional): Solver for the generalized eigenvalue problem. Defaults to "arpack".
-
+        svd_solver (Literal[ "arpack", "dense" ], optional): Solver for the
+        generalized eigenvalue problem. Defaults to "arpack".
+        tol : float, default=0
+        Convergence tolerance for arpack.
+        If 0, optimal value will be chosen by arpack.
+        max_iter : int, default=None
+        Maximum number of iterations for arpack.
+        If None, optimal value will be chosen by arpack.
     Shape:
-        ``kernel_X``: :math:`(N, N)`, where :math:`N` is the number of training data.
+        ``kernel_X``: :math:`(N, N)`, where :math:`N` is the number of
+        training data.
 
         ``kernel_Y``: :math:`(N, N)`.
 
-        ``kernel_Xnys``: :math:`(N, M)`, where :math:`M` is the number of Nystroem centers (inducing points).
+        ``kernel_Xnys``: :math:`(N, M)`, where :math:`M` is the number of
+        Nystroem centers (inducing points).
 
         ``kernel_Ynys``: :math:`(N, M)`.
     """
@@ -273,6 +335,8 @@ def nystroem_pcr(
             M=kernel_X,
             k=_num_arpack_eigs,
             which="LM",
+            maxiter=max_iter,
+            tol=tol,
         )
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
@@ -324,6 +388,8 @@ def reduced_rank(
     tikhonov_reg: float,  # Tikhonov (ridge) regularization parameter, can be 0
     rank: int,  # Rank of the estimator
     svd_solver: Literal["arpack", "dense"] = "arpack",
+    tol: float = 0,
+    max_iter: int | None = None,
 ) -> FitResult:
     """Fits the Reduced Rank estimator from :footcite:t:`Kostic2022`.
 
@@ -332,10 +398,18 @@ def reduced_rank(
         kernel_Y (ndarray): Kernel matrix of the output data.
         tikhonov_reg (float): Tikhonov (ridge) regularization parameter.
         rank (int): Rank of the estimator.
-        svd_solver (Literal[ "arpack", "dense" ], optional): Solver for the generalized eigenvalue problem. Defaults to "arpack".
+        svd_solver (Literal[ "arpack", "dense" ], optional): Solver for the
+        generalized eigenvalue problem. Defaults to "arpack".
+        tol : float, default=0
+        Convergence tolerance for arpack.
+        If 0, optimal value will be chosen by arpack.
+        max_iter : int, default=None
+        Maximum number of iterations for arpack.
+        If None, optimal value will be chosen by arpack.
 
     Shape:
-        ``kernel_X``: :math:`(N, N)`, where :math:`N` is the number of training data.
+        ``kernel_X``: :math:`(N, N)`, where :math:`N` is the number of training
+        data.
 
         ``kernel_Y``: :math:`(N, N)`.
     """
@@ -346,14 +420,19 @@ def reduced_rank(
 
     A = (kernel_Y / sqrt(npts)) @ (kernel_X / sqrt(npts))
     add_diagonal_(kernel_X, penalty)
-    # Find U via Generalized eigenvalue problem equivalent to the SVD. If K is ill-conditioned might be slow.
-    # Prefer svd_solver == 'randomized' in such a case.
+    # Find U via Generalized eigenvalue problem equivalent to the SVD. If K is
+    # ill-conditioned might be slow. Prefer svd_solver == 'randomized' in
+    # such a case.
     if svd_solver == "arpack":
         # Adding a small buffer to the arpack-computed eigenvalues.
         num_arpack_eigs = min(rank + 5, npts)
-        values, vectors = eigs(A, k=num_arpack_eigs, M=kernel_X)
+        values, vectors = eigs(
+            A, k=num_arpack_eigs, M=kernel_X, maxiter=max_iter, tol=tol
+            )
     elif svd_solver == "dense":  # 'dense'
-        values, vectors = scipy.linalg.eig(A, kernel_X, overwrite_a=True, overwrite_b=True)
+        values, vectors = scipy.linalg.eig(
+            A, kernel_X, overwrite_a=True, overwrite_b=True
+            )
     else:
         raise ValueError(f"Unknown svd_solver: {svd_solver}")
     # Remove the penalty from kernel_X (inplace)
@@ -361,10 +440,15 @@ def reduced_rank(
 
     values, stable_values_idxs = stable_topk(values, rank, ignore_warnings=False)
     vectors = vectors[:, stable_values_idxs]
-    # Compare the filtered eigenvalues with the regularization strength, and warn if there are any eigenvalues that are smaller than the regularization strength.
+    # Compare the filtered eigenvalues with the regularization strength,
+    # and warn if there are any eigenvalues that are smaller than the
+    # regularization strength.
     if not np.all(np.abs(values) >= tikhonov_reg):
         warn(
-            f"Warning: {(np.abs(values) < tikhonov_reg).sum()} out of the {len(values)} squared singular values are smaller than the regularization strength {tikhonov_reg:.2e}. Consider redudcing the regularization strength to avoid overfitting."
+            f"Warning: {(np.abs(values) < tikhonov_reg).sum()} out of the "
+            f"{len(values)} squared singular values are smaller than the "
+            f"regularization strength {tikhonov_reg:.2e}. Consider reducing "
+            "the regularization strength to avoid overfitting."
         )
 
     # Eigenvector normalization
@@ -388,31 +472,44 @@ def reduced_rank(
 
 
 def nystroem_reduced_rank(
-    kernel_X: ndarray,  # Kernel matrix of the input inducing points
-    kernel_Y: ndarray,  # Kernel matrix of the output inducing points
-    kernel_Xnys: ndarray,  # Kernel matrix between the input data and the input inducing points
-    kernel_Ynys: ndarray,  # Kernel matrix between the output data and the output inducing points
-    tikhonov_reg: float,  # Tikhonov (ridge) regularization parameter
-    rank: int,  # Rank of the estimator
+    kernel_X: ndarray,
+    kernel_Y: ndarray,
+    kernel_Xnys: ndarray,
+    kernel_Ynys: ndarray,
+    tikhonov_reg: float,
+    rank: int,
     svd_solver: Literal["arpack", "dense"] = "arpack",
+    tol: float = 0,
+    max_iter: int | None = None,
 ) -> FitResult:
     """Fits the Nyström Reduced Rank estimator from :footcite:t:`Meanti2023`.
 
     Args:
         kernel_X (ndarray): Kernel matrix of the input inducing points.
         kernel_Y (ndarray): Kernel matrix of the output inducing points.
-        kernel_Xnys (ndarray): Kernel matrix between the input data and the input inducing points.
-        kernel_Ynys (ndarray): Kernel matrix between the output data and the output inducing points.
+        kernel_Xnys (ndarray): Kernel matrix between the input data and the
+        input inducing points.
+        kernel_Ynys (ndarray): Kernel matrix between the output data and the
+        output inducing points.
         tikhonov_reg (float): Tikhonov (ridge) regularization parameter.
         rank (int): Rank of the estimator.
-        svd_solver (Literal[ "arpack", "dense" ], optional): Solver for the generalized eigenvalue problem. Defaults to "arpack".
+        svd_solver (Literal[ "arpack", "dense" ], optional): Solver for the
+        generalized eigenvalue problem. Defaults to "arpack".
+        tol : float, default=0
+        Convergence tolerance for arpack.
+        If 0, optimal value will be chosen by arpack.
+        max_iter : int, default=None
+        Maximum number of iterations for arpack.
+        If None, optimal value will be chosen by arpack.
 
     Shape:
-        ``kernel_X``: :math:`(N, N)`, where :math:`N` is the number of training data.
+        ``kernel_X``: :math:`(N, N)`, where :math:`N` is the number of training
+        data.
 
         ``kernel_Y``: :math:`(N, N)`.
 
-        ``kernel_Xnys``: :math:`(N, M)`, where :math:`M` is the number of Nystroem centers (inducing points).
+        ``kernel_Xnys``: :math:`(N, M)`, where :math:`M` is the number of
+        Nystroem centers (inducing points).
 
         ``kernel_Ynys``: :math:`(N, M)`.
     """
@@ -430,9 +527,8 @@ def nystroem_reduced_rank(
     kernel_XYX = kernel_YX_nys.T @ _tmp_YX
 
     # RHS of the generalized eigenvalue problem
-    kernel_Xnys_sq = (kernel_Xnys.T / sqrt_Mn) @ (kernel_Xnys / sqrt_Mn) + reg * kernel_X * (
-        num_centers**-1
-    )
+    kernel_Xnys_sq = (kernel_Xnys.T / sqrt_Mn) @ (kernel_Xnys / sqrt_Mn)
+    + reg * kernel_X * (num_centers**-1)
 
     add_diagonal_(kernel_Xnys_sq, eps)
     A = scipy.linalg.lstsq(kernel_Xnys_sq, kernel_XYX)[0]
@@ -443,17 +539,27 @@ def nystroem_reduced_rank(
     elif svd_solver == "arpack":
         _oversampling = max(10, 4 * int(np.sqrt(rank)))
         _num_arpack_eigs = min(rank + _oversampling, num_centers)
-        values, vectors = eigs(kernel_XYX, k=_num_arpack_eigs, M=kernel_Xnys_sq)
+        values, vectors = eigs(
+            kernel_XYX,
+            k=_num_arpack_eigs,
+            M=kernel_Xnys_sq,
+            maxiter=max_iter,
+            tol=tol
+            )
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
     add_diagonal_(kernel_Xnys_sq, -eps)
 
     values, stable_values_idxs = stable_topk(values, rank, ignore_warnings=False)
     vectors = vectors[:, stable_values_idxs]
-    # Compare the filtered eigenvalues with the regularization strength, and warn if there are any eigenvalues that are smaller than the regularization strength.
+    # Compare the filtered eigenvalues with the regularization strength, and warn
+    # if there are any eigenvalues that are smaller than the regularization strength.
     if not np.all(np.abs(values) >= tikhonov_reg):
         warn(
-            f"Warning: {(np.abs(values) < tikhonov_reg).sum()} out of the {len(values)} squared singular values are smaller than the regularization strength {tikhonov_reg:.2e}. Consider redudcing the regularization strength to avoid overfitting."
+            f"Warning: {(np.abs(values) < tikhonov_reg).sum()} out of the "
+            f"{len(values)} squared singular values are smaller than the "
+            f"regularization strength {tikhonov_reg:.2e}. Consider reducing the "
+            "regularization strength to avoid overfitting."
         )
     # Eigenvector normalization
     vecs_norm = np.sqrt(np.abs(np.sum(vectors.conj() * (kernel_XYX @ vectors), axis=0)))
@@ -486,10 +592,15 @@ def rand_reduced_rank(
         tikhonov_reg (float): Tikhonov (ridge) regularization parameter
         rank (int): Rank of the estimator
         n_oversamples (int, optional): Number of Oversamples. Defaults to 5.
-        optimal_sketching (bool, optional): Whether to use optimal sketching (slower but more accurate) or not.. Defaults to False.
-        iterated_power (int, optional): Number of iterations of the power method. Defaults to 1.
-        rng_seed (int | None, optional): Random Number Generators seed. Defaults to None.
-        precomputed_cholesky (optional): Precomputed Cholesky decomposition. Should be the output of cho_factor evaluated on the regularized kernel matrix.. Defaults to None.
+        optimal_sketching (bool, optional): Whether to use optimal sketching
+        (slower but more accurate) or not. Defaults to False.
+        iterated_power (int, optional): Number of iterations of the power method.
+        Defaults to 1.
+        rng_seed (int | None, optional): Random Number Generators seed. Defaults
+        to None.
+        precomputed_cholesky (optional): Precomputed Cholesky decomposition.
+        Should be the output of cho_factor evaluated on the regularized kernel
+        matrix. Defaults to None.
 
     Shape:
         ``kernel_X``: :math:`(N, N)`, where :math:`N` is the number of training data.
@@ -537,7 +648,8 @@ def rand_reduced_rank(
 
     # Remove elements in the kernel of F_0
     relative_norm_sq = np.abs(
-        np.sum(vectors.conj() * (F_0 @ vectors), axis=0) / np.linalg.norm(vectors, axis=0) ** 2
+        np.sum(vectors.conj() * (F_0 @ vectors), axis=0)
+        / np.linalg.norm(vectors, axis=0) ** 2
     )
     norm_rcond = 1000.0 * np.finfo(values.dtype).eps
     values, stable_values_idxs = stable_topk(relative_norm_sq, rank, rcond=norm_rcond)
