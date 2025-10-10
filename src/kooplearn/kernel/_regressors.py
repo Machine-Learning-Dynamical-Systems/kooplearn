@@ -229,6 +229,20 @@ def predict(
     return np.linalg.multi_dot([K_dot_U, M, V_dot_obs])
 
 
+def svdvals(fit_result, K_X, K_Y):
+    U = fit_result["U"]
+    V = fit_result["V"]
+    # Inefficient implementation
+    rdim = (K_X.shape[0]) ** (-1)
+    A = np.linalg.multi_dot([V.T, rdim * K_Y, V])
+    B = np.linalg.multi_dot([U.T, rdim * K_X, U])
+    v = eig(A @ B, left=False, right=False)
+    # Clip the negative values
+    v = v.real
+    v[v < 0] = 0
+    return np.sqrt(v)
+
+
 def pcr(
     kernel_X: ndarray,
     tikhonov_reg: float = 0.0,
@@ -580,7 +594,7 @@ def rand_reduced_rank(
     rank: int,
     n_oversamples: int = 5,
     optimal_sketching: bool = False,
-    iterated_power: Literal["auto"] | int = "auto",
+    iterated_power: int = 1,
     rng_seed: int | None = None,
     precomputed_cholesky=None,
 ) -> FitResult:

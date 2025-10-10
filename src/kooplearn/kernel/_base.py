@@ -187,7 +187,8 @@ class Kernel(BaseEstimator):
         "alpha": [
             [Interval(Real, 0, None, closed="left")],
             None,
-            ],        "eigen_solver": [StrOptions({"auto", "dense", "arpack", "randomized"})],
+            ],        
+        "eigen_solver": [StrOptions({"auto", "dense", "arpack", "randomized"})],
         "tol": [Interval(Real, 0, None, closed="left")],
         "max_iter": [
             Interval(Integral, 1, None, closed="left"),
@@ -341,7 +342,6 @@ class Kernel(BaseEstimator):
 
         self._fit_result = fit_result
         self.U_, self.V_, self._spectral_biases = fit_result.values()
-        self.X_fit_ = X
 
         logger.info(f"Fitted {self.__class__.__name__} model.")
         return self
@@ -372,9 +372,6 @@ class Kernel(BaseEstimator):
         X = validate_data(self, X, reset=False, copy=self.copy_X)
         X_fit, _ = self._split_trajectory(self.X_fit_)
         K_Xin_X = self._get_kernel(X, X_fit)
-        state_pred = _regressors.predict(
-            n_steps, self._fit_result, self.kernel_YX_, K_Xin_X, X_fit
-        )
 
         if observable is not None:
             observable = validate_data(self, observable, reset=False, copy=self.copy_X)
@@ -385,14 +382,16 @@ class Kernel(BaseEstimator):
                     f"{observable.shape[0]}"
                 )
             observable_fit, _ = self._split_trajectory(observable)
-            return _regressors.predict(
-                n_steps,
-                self._fit_result,
-                self.kernel_YX_,
-                K_Xin_X,
-                observable_fit,
-            )
-        return state_pred
+        else:
+            observable_fit = X_fit
+        pred = _regressors.predict(
+            n_steps,
+            self._fit_result,
+            self.kernel_YX_,
+            K_Xin_X,
+            observable_fit,
+        )
+        return pred
 
     def risk(self, X=None):
         """Compute the estimator risk.
@@ -418,16 +417,16 @@ class Kernel(BaseEstimator):
                 )
             X_val, Y_val = self._split_trajectory(X)
             X_train, Y_train = self._split_trajectory(self.X_fit_)
-            kernel_Yv = self.kernel(Y_val)
-            kernel_XXv = self.kernel(X_train, X_val)
-            kernel_YYv = self.kernel(Y_train, Y_val)
+            kernel_Yv = self._get_kernel(Y_val)
+            kernel_XXv = self._get_kernel(X_train, X_val)
+            kernel_YYv = self._get_kernel(Y_train, Y_val)
         else:
             kernel_Yv = self.kernel_Y_
             kernel_XXv = self.kernel_X_
             kernel_YYv = self.kernel_Y_
 
         return _regressors.estimator_risk(
-            kernel_Yv, self.kernel_Y_, kernel_XXv, kernel_YYv, self.U_, self.V_
+            self._fit_result, kernel_Yv, self.kernel_Y_, kernel_XXv, kernel_YYv,
         )
 
     def eig(self, eval_left_on=None, eval_right_on=None):
@@ -515,10 +514,11 @@ class Kernel(BaseEstimator):
             self._fit_result, self.kernel_X_, self.kernel_YX_
         )
         X_fit, _ = self._split_trajectory(self.X_fit_)
-        K_Xin_X = self.kernel(X, X_fit)
+        K_Xin_X = self._get_kernel(X, X_fit)
         _gamma = _regressors.estimator_modes(eig_result, K_Xin_X)
 
         if observable is not None:
+            observable = validate_data(self, observable, reset=False, copy=self.copy_X)
             if observable.shape[0] != self.X_fit_.shape[0]:
                 raise ValueError(
                     "'observable' should have the same number of samples "
@@ -526,8 +526,18 @@ class Kernel(BaseEstimator):
                     f"{observable.shape[0]}"
                 )
             observable_fit, _ = self._split_trajectory(observable)
-            return np.tensordot(_gamma, observable_fit, axes=1), eig_result
-        return np.tensordot(_gamma, X_fit, axes=1), eig_result
+        else:
+            observable_fit = X_fit
+        return np.tensordot(_gamma, observable_fit, axes=1), eig_result
+
+    def svals(self):
+        """Singular values of the Koopman/Transfer operator.
+
+        Returns:
+            The estimated singular values of the Koopman/Transfer operator. Array of shape `(n_components,)`.
+        """
+        check_is_fitted(self)
+        return _regressors.svdvals(self._fit_result, self.kernel_X_, self.kernel_Y_)
 
     def _get_kernel(self, X, Y=None):
         """Compute the pairwise kernel matrix."""
@@ -539,6 +549,8 @@ class Kernel(BaseEstimator):
                 "degree": self.degree,
                 "coef0": self.coef0,
             }
+        if Y is None:
+            Y = X
         return pairwise_kernels(
             X,
             Y,
@@ -565,6 +577,7 @@ class Kernel(BaseEstimator):
                 f"{1 + self.lag_time_} are required."
             )
         self.gamma_ = 1 / X.shape[1] if self.gamma is None else self.gamma
+        self.X_fit_ = X
         X_fit, Y_fit = self._split_trajectory(X)
         self.kernel_X_, self.kernel_Y_, self.kernel_YX_ = self._init_kernels(
             X_fit, Y_fit
