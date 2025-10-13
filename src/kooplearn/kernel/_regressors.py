@@ -6,7 +6,7 @@ from typing import Literal
 from warnings import warn
 
 import numpy as np
-import scipy.linalg
+import scipy
 from numpy import ndarray
 from scipy.sparse.linalg import eigs, eigsh
 from sklearn.utils.extmath import randomized_svd
@@ -223,10 +223,14 @@ def predict(
     V = fit_result["V"]
     npts = U.shape[0]
     K_dot_U = kernel_Xin_X @ U / sqrt(npts)
-    V_dot_obs = V.T @ obs_train_Y / sqrt(npts)
-    V_K_YX_U = np.linalg.multi_dot([V.T, kernel_YX, U]) / npts
-    M = np.linalg.matrix_power(V_K_YX_U, num_steps - 1)
-    return np.linalg.multi_dot([K_dot_U, M, V_dot_obs])
+    obs_shape = obs_train_Y.shape[1:]           # e.g. (npts, 1, 2, 3, 4)
+    obs_flat = obs_train_Y.reshape(npts, -1)  # (npts, n_features)
+    V_dot_obs_flat = (V.T @ obs_flat) / sqrt(npts)  # (n_components, n_features)
+    V_K_YX_U = np.linalg.multi_dot([V.T, kernel_YX, U]) / npts  # (n_components, n_components)
+    M = np.linalg.matrix_power(V_K_YX_U, num_steps - 1)  # (n_components, n_components)
+    propagated_flat = K_dot_U @ M @ V_dot_obs_flat  # (npts, n_features)
+    propagated = propagated_flat.reshape((K_dot_U.shape[0],)+ obs_shape)
+    return propagated
 
 
 def svdvals(fit_result, K_X, K_Y):
@@ -236,7 +240,7 @@ def svdvals(fit_result, K_X, K_Y):
     rdim = (K_X.shape[0]) ** (-1)
     A = np.linalg.multi_dot([V.T, rdim * K_Y, V])
     B = np.linalg.multi_dot([U.T, rdim * K_X, U])
-    v = eig(A @ B, left=False, right=False)
+    v = scipy.linalg.eig(A @ B, left=False, right=False)
     # Clip the negative values
     v = v.real
     v[v < 0] = 0

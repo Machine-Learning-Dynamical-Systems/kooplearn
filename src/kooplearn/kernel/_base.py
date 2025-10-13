@@ -41,7 +41,7 @@ class Kernel(BaseEstimator):
         :footcite:t:`Kostic2022`. If ``False``, initializes the classical
         principal component estimator.
 
-    kernel : {'linear', 'poly', 'rbf', 'sigmoid', 'cosine', 'precomputed'} \
+    kernel : {'linear', 'poly', 'rbf', 'sigmoid', 'cosine'} \
             or callable, default='linear'
         Kernel function to use, or a callable that returns a Gram matrix.
 
@@ -174,7 +174,7 @@ class Kernel(BaseEstimator):
         ],
         "reduced_rank": ["boolean"],
         "kernel": [
-            StrOptions({"linear", "poly", "rbf", "sigmoid", "cosine", "precomputed"}),
+            StrOptions({"linear", "poly", "rbf", "sigmoid", "cosine"}),
             callable,
         ],
         "gamma": [
@@ -215,7 +215,7 @@ class Kernel(BaseEstimator):
         degree=3,
         coef0=1,
         kernel_params=None,
-        alpha=1.0,
+        alpha=0.0,
         eigen_solver="auto",
         tol=0,
         max_iter=None,
@@ -333,7 +333,7 @@ class Kernel(BaseEstimator):
             else:
                 fit_result = _regressors.pcr(
                     self.kernel_X_,
-                    self.alpha, 
+                    alpha, 
                     n_components, 
                     eigen_solver, 
                     self.tol, 
@@ -342,6 +342,7 @@ class Kernel(BaseEstimator):
 
         self._fit_result = fit_result
         self.U_, self.V_, self._spectral_biases = fit_result.values()
+        self.rank_ = self.U_.shape[1]
 
         logger.info(f"Fitted {self.__class__.__name__} model.")
         return self
@@ -374,7 +375,7 @@ class Kernel(BaseEstimator):
         K_Xin_X = self._get_kernel(X, X_fit)
 
         if observable is not None:
-            observable = validate_data(self, observable, reset=False, copy=self.copy_X)
+            # observable = validate_data(self, observable, reset=False, copy=self.copy_X)
             if observable.shape[0] != self.X_fit_.shape[0]:
                 raise ValueError(
                     "'observable' should have the same number of samples "
@@ -518,7 +519,7 @@ class Kernel(BaseEstimator):
         _gamma = _regressors.estimator_modes(eig_result, K_Xin_X)
 
         if observable is not None:
-            observable = validate_data(self, observable, reset=False, copy=self.copy_X)
+            # observable = validate_data(self, observable, reset=False, copy=self.copy_X)
             if observable.shape[0] != self.X_fit_.shape[0]:
                 raise ValueError(
                     "'observable' should have the same number of samples "
@@ -591,6 +592,5 @@ class Kernel(BaseEstimator):
         tags = super().__sklearn_tags__()
         tags.target_tags.required = False
         tags.requires_fit = True
-        tags.input_tags.pairwise = self.kernel == "precomputed"
         tags.non_deterministic = self.eigen_solver == "randomized"
         return tags

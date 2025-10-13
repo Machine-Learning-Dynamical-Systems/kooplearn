@@ -41,7 +41,7 @@ class NystroemKernel(BaseEstimator):
         :footcite:t:`Kostic2022`. If ``False``, initializes the classical
         principal component estimator.
 
-    kernel : {'linear', 'poly', 'rbf', 'sigmoid', 'cosine', 'precomputed'} \
+    kernel : {'linear', 'poly', 'rbf', 'sigmoid', 'cosine'} \
             or callable, default='linear'
         Kernel function to use, or a callable that returns a Gram matrix.
 
@@ -60,7 +60,7 @@ class NystroemKernel(BaseEstimator):
         Parameters (keyword arguments) and values for kernel passed as
         callable object. Ignored by other kernels.
 
-    alpha : float, default=1.0
+    alpha : float, default=0.0
         Tikhonov (ridge) regularization coefficient. ``None`` is equivalent to
         ``tikhonov_reg = 0``, and internally calls specialized stable
         algorithms to deal with this specific case.
@@ -166,7 +166,7 @@ class NystroemKernel(BaseEstimator):
         ],
         "reduced_rank": ["boolean"],
         "kernel": [
-            StrOptions({"linear", "poly", "rbf", "sigmoid", "cosine", "precomputed"}),
+            StrOptions({"linear", "poly", "rbf", "sigmoid", "cosine"}),
             callable,
         ],
         "gamma": [
@@ -202,7 +202,7 @@ class NystroemKernel(BaseEstimator):
         degree=3,
         coef0=1,
         kernel_params=None,
-        alpha=1.0,
+        alpha=0.0,
         eigen_solver="auto",
         tol=0,
         max_iter=None,
@@ -250,13 +250,7 @@ class NystroemKernel(BaseEstimator):
         if self.n_components is None:
             n_components = self.kernel_X_.shape[0]
         else:
-            if self.n_components > self.kernel_X_.shape[0]:
-                raise ValueError(
-                    f"'n_components' should be at most the number of samples"
-                    f" ({self.kernel_X_.shape[0]}), but got "
-                    f"{self.n_components}.")
-            else:
-                n_components = self.n_components
+            n_components = min(self.kernel_X_.shape[0], self.n_components)
 
         # Adjust regularization parameter
         if self.alpha is None:
@@ -297,6 +291,7 @@ class NystroemKernel(BaseEstimator):
 
         self._fit_result = fit_result
         self.U_, self.V_, self._spectral_biases = fit_result.values()
+        self.rank_ = self.U_.shape[1]
 
         logger.info(f"Fitted {self.__class__.__name__} model.")
         return self
@@ -330,7 +325,7 @@ class NystroemKernel(BaseEstimator):
         K_Xin_X = self._get_kernel(X, X_fit)
 
         if observable is not None:
-            observable = validate_data(self, observable, reset=False, copy=self.copy_X)
+            # observable = validate_data(self, observable, reset=False, copy=self.copy_X)
             if observable.shape[0] != self.X_fit_.shape[0]:
                 raise ValueError(
                     "'observable' should have the same number of samples "
@@ -384,7 +379,7 @@ class NystroemKernel(BaseEstimator):
             kernel_YYv = self.kernel_Y_
 
         return _regressors.estimator_risk(
-            kernel_Yv, self.kernel_Y_, kernel_XXv, kernel_YYv, self.U_, self.V_
+            self._fit_result, kernel_Yv, self.kernel_Y_, kernel_XXv, kernel_YYv,
         )
 
     def eig(self, eval_left_on=None, eval_right_on=None):
@@ -576,6 +571,5 @@ class NystroemKernel(BaseEstimator):
         tags = super().__sklearn_tags__()
         tags.target_tags.required = False
         tags.requires_fit = True
-        tags.input_tags.pairwise = self.kernel == "precomputed"
         tags.non_deterministic = self.eigen_solver == "randomized"
         return tags
