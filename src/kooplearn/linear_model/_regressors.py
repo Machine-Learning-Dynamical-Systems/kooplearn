@@ -1,16 +1,14 @@
 from math import sqrt
-from typing import Optional, Literal
-from warnings import warn
+from typing import Literal
 
 import numpy as np
 import scipy.linalg
-from scipy.sparse.linalg import eigs, eigsh
+from scipy.sparse.linalg import eigsh
 from scipy.linalg import eigh
 from sklearn.utils.extmath import randomized_svd
 
 from kooplearn.kernel.linalg import add_diagonal_, stable_topk, weighted_norm
 from kooplearn.kernel.structs import FitResult, EigResult
-from kooplearn.kernel.utils import sanitize_complex_conjugates
 from kooplearn.utils import fuzzy_parse_complex, topk, spd_neg_pow
 
 __all__ = [
@@ -64,9 +62,7 @@ def eig(
     U = fit_result["U"]
     M = np.linalg.multi_dot([U.T, C_XY, U])
     values, lv, rv = scipy.linalg.eig(M, left=True, right=True)
-
     values = fuzzy_parse_complex(values)
-
     r_perm = np.argsort(values)
     l_perm = np.argsort(values.conj())
     values = values[r_perm]
@@ -94,44 +90,115 @@ def evaluate_eigenfunction(
     return phi_Xin @ lv_or_rv
 
 
+# def estimator_modes(
+#         eig_result: EigResult,
+#         fit_result: FitResult,
+#         phi_X: np.ndarray,  # Feature map evaluated on the training input data
+#         phi_Xin: np.ndarray,  # Feature map evaluated on the initial conditions
+# ):
+#     lv = eig_result["left"]
+#     rv = eig_result["right"]
+#     U = fit_result["U"]
+#     r_dim = phi_X.shape[0] ** -1.0
+
+#     # Initial conditions
+#     rv_in = evaluate_eigenfunction(eig_result, "right", phi_Xin).T  # [rank, num_init_conditions]
+#     rv_in = (phi_Xin @ rv).T  # [rank, num_init_conditions]
+#     # This should be multiplied on the right by the observable evaluated at the output training data
+#     lv_obs = np.linalg.multi_dot([r_dim * phi_X, U, lv]).T
+#     return (
+#         rv_in[:, :, None] * lv_obs[:, None, :],
+#     )  # [rank, num_init_conditions, num_training_points]
+
+
 def estimator_modes(
         eig_result: EigResult,
         fit_result: FitResult,
         phi_X: np.ndarray,  # Feature map evaluated on the training input data
         phi_Xin: np.ndarray,  # Feature map evaluated on the initial conditions
+        C_XY,
 ):
-    lv = eig_result["left"]
-    rv = eig_result["right"]
     U = fit_result["U"]
+    M = np.linalg.multi_dot([U.T, C_XY, U])
+    values, lv, rv = scipy.linalg.eig(M, left=True, right=True)
+    values = fuzzy_parse_complex(values)
+    r_perm = np.argsort(values)
+    l_perm = np.argsort(values.conj())
+    # values = values[r_perm]
+
+    # Normalization in RKHS norm
+    rv = U @ rv
+    rv = rv[:, r_perm]
+    rv = rv / np.linalg.norm(rv, axis=0)
+    # Biorthogonalization
+    lv_full = np.linalg.multi_dot([C_XY.T, U, lv])
+    lv_full = lv_full[:, l_perm]
+    lv = lv[:, l_perm]
+    l_norm = np.sum(lv_full * rv, axis=0)
+    lv = lv / l_norm
     r_dim = phi_X.shape[0] ** -1.0
 
     # Initial conditions
-    rv_in = evaluate_eigenfunction(eig_result, "right", phi_Xin).T  # [rank, num_init_conditions]
     rv_in = (phi_Xin @ rv).T  # [rank, num_init_conditions]
     # This should be multiplied on the right by the observable evaluated at the output training data
     lv_obs = np.linalg.multi_dot([r_dim * phi_X, U, lv]).T
-    return (
-        rv_in[:, :, None] * lv_obs[:, None, :],
-    )  # [rank, num_init_conditions, num_training_points]
+    return rv_in[:, :, None] * lv_obs[:, None, :]
+         # [rank, num_init_conditions, num_training_points]
 
 
 def predict(
     num_steps: int,
     fit_result: FitResult,
-    C_XY: np.ndarray,  # Cross-covariance matrix
-    phi_Xin: np.ndarray,  # Feature map evaluated on the initial conditions
-    phi_X: np.ndarray,  # Feature map evaluated on the training input data
-    obs_train_Y: np.ndarray,  # Observable to be predicted evaluated on the output training data
-):
+    C_XY: np.ndarray,
+    phi_Xin: np.ndarray,
+    phi_X: np.ndarray,
+    obs_train_Y: np.ndarray,
+) -> np.ndarray:
+    """
+    Predicts future observables using the primal form of the fitted operator.
+
+    Parameters
+    ----------
+    num_steps : int
+        Number of forward steps.
+    fit_result : dict
+        Dictionary containing basis matrix 'U' (eigenfunctions in feature space).
+    C_XY : ndarray of shape (N_train, N_train)
+        Cross-covariance matrix between input and output feature maps.
+    phi_Xin : ndarray of shape (N_eval, d)
+        Feature map evaluated on the initial conditions.
+    phi_X : ndarray of shape (N_train, d)
+        Feature map evaluated on the training input data.
+    obs_train_Y : ndarray of shape (N_train, *obs_shape)
+        Observables evaluated on the output training data.
+
+    Returns
+    -------
+    ndarray of shape (N_eval, *obs_shape)
+        Predicted observables after `num_steps` steps.
+    """
     # G = U U.T C_XY
     # G^n = (U)(U.T C_XY U)^(n-1)(U.T C_XY)
     U = fit_result["U"]
     num_train = phi_X.shape[0]
-    phi_Xin_dot_U = phi_Xin @ U
-    U_C_XY_U = np.linalg.multi_dot([U.T, C_XY, U])
-    U_phi_X_obs_Y = np.linalg.multi_dot([U.T, phi_X.T, obs_train_Y]) * (num_train**-1)
-    M = np.linalg.matrix_power(U_C_XY_U, num_steps - 1)
-    return np.linalg.multi_dot([phi_Xin_dot_U, M, U_phi_X_obs_Y])
+
+    # Flatten observables but remember shape
+    obs_shape = obs_train_Y.shape[1:]
+    obs_flat = obs_train_Y.reshape(num_train, -1)  # (N_train, n_features)
+
+    # Core components
+    phi_Xin_dot_U = phi_Xin @ U                                 # (N_eval, r)
+    U_C_XY_U = np.linalg.multi_dot([U.T, C_XY, U])              # (r, r)
+    U_phi_X_obs_Y = (np.linalg.multi_dot([U.T, phi_X.T, obs_flat]) 
+                     * (num_train**-1))                         # (r, n_features)
+
+    # Koopman propagation
+    M = np.linalg.matrix_power(U_C_XY_U, num_steps - 1)      # (r, r)
+    predictions = np.linalg.multi_dot([phi_Xin_dot_U, M, U_phi_X_obs_Y])      # (N_eval, n_features)
+
+    # Restore observable shape
+    predictions = predictions.reshape((phi_Xin.shape[0],) + obs_shape)
+    return predictions
 
 
 def svdvals(
@@ -155,7 +222,8 @@ def pcr(
     assert rank <= dim, f"Rank too high. The maximum value for this problem is {dim}"
     add_diagonal_(C_X, tikhonov_reg)
     if svd_solver == "arpack":
-        values, vectors = eigsh(C_X, k=rank, which="LM", maxiter=max_iter, tol=tol)
+        num_arpack_eigs = min(rank + 5, C_X.shape[0]-1)
+        values, vectors = eigsh(C_X, k=num_arpack_eigs, which="LM", maxiter=max_iter, tol=tol)
     elif svd_solver == "dense":
         values, vectors = eigh(C_X)
     else:
@@ -166,6 +234,8 @@ def pcr(
     rsqrt_vals = (np.sqrt(values)) ** -1
     vectors = vectors[:, stable_values_idxs]
     vectors = vectors @ np.diag(rsqrt_vals)
+    # vectors, _, rsqrt_evals = eigh_rank_reveal(values, vectors, rank)
+    # vectors =  vectors @ np.diag(rsqrt_evals)
     result: FitResult = {"U": vectors, "V": vectors, "svals": values}
     return result
 
@@ -209,7 +279,7 @@ def _reduced_rank_noreg(
     _crcov = B @ B.T
     if svd_solver == "arpack":
         # Adding a small buffer to the Arnoldi-computed eigenvalues.
-        num_arpack_eigs = min(rank + 5, C_X.shape[0])
+        num_arpack_eigs = min(rank + 5, C_X.shape[0]-1)
         values, vectors = eigsh(_crcov, num_arpack_eigs)
     elif svd_solver == "dense":  # 'dense'
         values, vectors = eigh(_crcov)
@@ -219,8 +289,9 @@ def _reduced_rank_noreg(
     rsqrt_vals = (np.sqrt(values)) ** -1
     vectors = vectors[:, stable_values_idxs]
     vectors = vectors @ np.diag(rsqrt_vals)
-    return rsqrt_C_X @ vectors
-
+    vectors = rsqrt_C_X @ vectors
+    result: FitResult = {"U": vectors, "V": vectors, "svals": values}
+    return result
 
 def reduced_rank(
     C_X: np.ndarray,  # Input covariance matrix
@@ -236,7 +307,7 @@ def reduced_rank(
         _crcov = C_XY @ C_XY.T
         if svd_solver == "arpack":
             # Adding a small buffer to the Arnoldi-computed eigenvalues.
-            num_arpack_eigs = min(rank + 5, C_X.shape[0])
+            num_arpack_eigs = min(rank + 5, C_X.shape[0]-1)
             values, vectors = eigsh(_crcov, num_arpack_eigs, M=C_X)
         elif svd_solver == "dense":  # 'dense'
             values, vectors = eigh(_crcov, C_X)
@@ -259,22 +330,27 @@ def rand_reduced_rank(
     n_oversamples: int = 5,
     iterated_power: int = 1,
     rng_seed: int | None = None,
+    precomputed_cholesky=None,
 ):
     rng = np.random.default_rng(rng_seed)
-    add_diagonal_(C_X, tikhonov_reg)
     _crcov = C_XY @ C_XY.T
     rng = np.random.default_rng(rng_seed)
     sketch = rng.standard_normal(
         size=(C_X.shape[0], rank + n_oversamples)
     )
 
-    for _ in range(iterated_power):
-        _tmp_sketch = scipy.linalg.solve(C_X, sketch, assume_a="pos")
-        sketch = _crcov @ _tmp_sketch
-        # TODO add power iteration QR normalization.
-
-    sketch_p = scipy.linalg.solve(C_X, sketch, assume_a="pos")
+    add_diagonal_(C_X, tikhonov_reg)
+    if precomputed_cholesky is None:
+        cholesky_decomposition = scipy.linalg.cho_factor(C_X)
+    else:
+        cholesky_decomposition = precomputed_cholesky
     add_diagonal_(C_X, -tikhonov_reg)
+    for _ in range(iterated_power):
+        _tmp_sketch = scipy.linalg.cho_solve(cholesky_decomposition, sketch)
+        sketch = _crcov @ _tmp_sketch
+        sketch, _ = scipy.linalg.qr(sketch, mode="economic")  # QR re-orthogonalization
+
+    sketch_p = scipy.linalg.cho_solve(cholesky_decomposition, sketch)
 
     F_0 = sketch_p.T @ sketch
     F_1 = sketch_p.T @ _crcov @ sketch_p

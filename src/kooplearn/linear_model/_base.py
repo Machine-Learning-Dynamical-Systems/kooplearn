@@ -36,7 +36,7 @@ class Ridge(BaseEstimator):
         :footcite:t:`Kostic2022`. If ``False``, initializes the classical
         principal component estimator.
 
-    alpha : float, default=1.0
+    alpha : float, default=0.0
         Tikhonov (ridge) regularization coefficient. ``None`` is equivalent to
         ``tikhonov_reg = 0``, and internally calls specialized stable
         algorithms to deal with this specific case.
@@ -157,7 +157,7 @@ class Ridge(BaseEstimator):
         n_components=None,
         *,
         reduced_rank=True,
-        alpha=1.0,
+        alpha=0.0,
         eigen_solver="auto",
         tol=0,
         max_iter=None,
@@ -227,6 +227,11 @@ class Ridge(BaseEstimator):
 
         if self.reduced_rank:
             if eigen_solver == "randomized":
+                if alpha == 0.0:
+                    raise ValueError(
+                        "Tikhonov regularization must be specified when "
+                        "solver is randomized."
+                    )
                 fit_result = _regressors.rand_reduced_rank(
                     self.cov_X_,
                     self.cov_XY_,
@@ -263,6 +268,7 @@ class Ridge(BaseEstimator):
 
         self._fit_result = fit_result
         self.U_, _, self._spectral_biases = fit_result.values()
+        self.rank_ = self.U_.shape[1]
 
 
         assert self.U_.shape[1] <= n_components
@@ -270,7 +276,7 @@ class Ridge(BaseEstimator):
             logger.warning(
                 f"Warning: The fitting algorithm discarded {n_components - self.U_.shape[1]} dimensions of the {n_components} requested out of numerical instabilities.\nThe rank attribute has been updated to {self.U_.shape[1]}.\nConsider decreasing the rank parameter."
             )
-            n_components = self.U.shape[1]
+            n_components = self.U_.shape[1]
 
         logger.info(f"Fitted {self.__class__.__name__} model.")
 
@@ -303,7 +309,7 @@ class Ridge(BaseEstimator):
         X_fit, _ = self._split_trajectory(self.X_fit_)
 
         if observable is not None:
-            observable = validate_data(self, observable, reset=False, copy=self.copy_X)
+            # observable = validate_data(self, observable, reset=False, copy=self.copy_X)
             if observable.shape[0] != self.X_fit_.shape[0]:
                 raise ValueError(
                     "'observable' should have the same number of samples "
@@ -425,15 +431,16 @@ class Ridge(BaseEstimator):
         X_fit, _ = self._split_trajectory(self.X_fit_)
         eig_result = _regressors.eig(self._fit_result, self.cov_XY_)
 
-        _gamma, = _regressors.estimator_modes(
+        _gamma = _regressors.estimator_modes(
             eig_result,
             self._fit_result,
             X_fit, 
             X,
+            self.cov_XY_
             )
         
         if observable is not None:
-            observable = validate_data(self, observable, reset=False, copy=self.copy_X)
+            # observable = validate_data(self, observable, reset=False, copy=self.copy_X)
             if observable.shape[0] != self.X_fit_.shape[0]:
                 raise ValueError(
                     "'observable' should have the same number of samples "
