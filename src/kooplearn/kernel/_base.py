@@ -36,6 +36,9 @@ class Kernel(BaseEstimator):
     n_components : int or None, default=None
         Number of components to retain. If None, all components are used.
 
+    lag_time : int, default=1
+        [TODO]
+
     reduced_rank : bool, default=True
         Whether to use reduced-rank regression introduced in
         :footcite:t:`Kostic2022`. If ``False``, initializes the classical
@@ -172,6 +175,9 @@ class Kernel(BaseEstimator):
             Interval(Integral, 1, None, closed="left"),
             None,
         ],
+        "lag_time": [
+            Interval(Integral, 1, None, closed="left"),
+        ],
         "reduced_rank": ["boolean"],
         "kernel": [
             StrOptions({"linear", "poly", "rbf", "sigmoid", "cosine"}),
@@ -209,6 +215,7 @@ class Kernel(BaseEstimator):
         self,
         n_components=None,
         *,
+        lag_time=1,
         reduced_rank=True,
         kernel="linear",
         gamma=None,
@@ -227,6 +234,7 @@ class Kernel(BaseEstimator):
         n_jobs=None,
     ):
         self.n_components = n_components
+        self.lag_time = lag_time
         self.reduced_rank = reduced_rank
         self.kernel = kernel
         self.kernel_params = kernel_params
@@ -255,8 +263,7 @@ class Kernel(BaseEstimator):
             Training trajectory data, where `n_samples` is the number of
             samples and `n_features` is the number of features.
 
-        y : Ignored
-            Unused, present for scikit-learn compatibility.
+        y : [TODO]
 
         Returns
         -------
@@ -264,7 +271,11 @@ class Kernel(BaseEstimator):
             Returns the instance itself.
         """
         self._pre_fit_checks(X)
-
+        if y is not None:
+            if y.shape[0] != X.shape[0]:
+                raise ValueError(
+                        "Observables must have same number of samples of input trajectory."
+                    )
         # Adjust number of components
         if self.n_components is None:
             n_components = self.kernel_X_.shape[0]
@@ -411,10 +422,10 @@ class Kernel(BaseEstimator):
         check_is_fitted(self)
         if X is not None:
             X = validate_data(self, X, reset=False, copy=self.copy_X)
-            if X.shape[0] < 1 + self.lag_time_:
+            if X.shape[0] < 1 + self.lag_time:
                 raise ValueError(
                     f"X has only {X.shape[0]} samples, but at least" 
-                    f"{1 + self.lag_time_} are required."
+                    f"{1 + self.lag_time} are required."
                 )
             X_val, Y_val = self._split_trajectory(X)
             X_train, Y_train = self._split_trajectory(self.X_fit_)
@@ -505,10 +516,10 @@ class Kernel(BaseEstimator):
         """
         check_is_fitted(self)
         X = validate_data(self, X, reset=False, copy=self.copy_X)
-        if X.shape[0] < 1 + self.lag_time_:
+        if X.shape[0] < 1 + self.lag_time:
             raise ValueError(
                 f"X has only {X.shape[0]} samples, but at least "
-                f"{1 + self.lag_time_} are required."
+                f"{1 + self.lag_time} are required."
             )
 
         eig_result = _regressors.eig(
@@ -571,11 +582,11 @@ class Kernel(BaseEstimator):
     def _pre_fit_checks(self, X):
         """Perform pre-fit checks and initialize kernel matrices."""
         X = validate_data(self, X, copy=self.copy_X)
-        self.lag_time_ = 1
-        if X.shape[0] < 1 + self.lag_time_:
+        self.lag_time = 1
+        if X.shape[0] < 1 + self.lag_time:
             raise ValueError(
                 f"X has only {X.shape[0]} samples, but at least "
-                f"{1 + self.lag_time_} are required."
+                f"{1 + self.lag_time} are required."
             )
         self.gamma_ = 1 / X.shape[1] if self.gamma is None else self.gamma
         self.X_fit_ = X
@@ -586,7 +597,7 @@ class Kernel(BaseEstimator):
 
     def _split_trajectory(self, X):
         """Split a trajectory into context and target pairs."""
-        return X[: -self.lag_time_], X[self.lag_time_ :]
+        return X[: -self.lag_time], X[self.lag_time :]
 
     def __sklearn_tags__(self):
         tags = super().__sklearn_tags__()

@@ -21,6 +21,7 @@ def make_linear_system():
 
 
 @pytest.mark.parametrize("kernel", ['linear', 'rbf', 'laplacian'])
+@pytest.mark.parametrize("lag_time", [1, 5])
 @pytest.mark.parametrize("reduced_rank", [True, False])
 @pytest.mark.parametrize("n_components", [TRUE_RANK, TRUE_RANK - 2, TRUE_RANK + 10])
 @pytest.mark.parametrize("eigen_solver", ["auto", "dense", "arpack", "randomized"])
@@ -36,6 +37,7 @@ def make_linear_system():
 @pytest.mark.parametrize("n_jobs", [1])
 def test_Kernel_fit_predict_eig_modes_risk_svals(
     n_components,
+    lag_time,
     reduced_rank,
     kernel,
     alpha,
@@ -55,6 +57,7 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
 
     model = KernelRidge(
         n_components=n_components,
+        lag_time=lag_time,
         reduced_rank=reduced_rank,
         kernel=kernel,
         alpha=alpha,

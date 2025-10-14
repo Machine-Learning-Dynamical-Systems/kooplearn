@@ -31,6 +31,9 @@ class Ridge(BaseEstimator):
     n_components : int or None, default=None
         Number of components to retain. If None, all components are used.
 
+    lag_time : int, default=1
+        [TODO]
+       
     reduced_rank : bool, default=True
         Whether to use reduced-rank regression introduced in
         :footcite:t:`Kostic2022`. If ``False``, initializes the classical
@@ -132,6 +135,9 @@ class Ridge(BaseEstimator):
             Interval(Integral, 1, None, closed="left"),
             None,
         ],
+        "lag_time": [
+            Interval(Integral, 1, None, closed="left"),
+        ],
         "reduced_rank": ["boolean"],
         "alpha": [
             [Interval(Real, 0, None, closed="left")],
@@ -156,6 +162,7 @@ class Ridge(BaseEstimator):
         self,
         n_components=None,
         *,
+        lag_time=1,
         reduced_rank=True,
         alpha=0.0,
         eigen_solver="auto",
@@ -167,6 +174,7 @@ class Ridge(BaseEstimator):
         copy_X=True,
     ):
         self.n_components = n_components
+        self.lag_time = lag_time
         self.reduced_rank = reduced_rank
         self.alpha = alpha
         self.eigen_solver = eigen_solver
@@ -188,8 +196,7 @@ class Ridge(BaseEstimator):
             Training trajectory data, where `n_samples` is the number of
             samples and `n_features` is the number of features.
 
-        y : Ignored
-            Unused, present for scikit-learn compatibility.
+        y : [TODO]
 
         Returns
         -------
@@ -197,8 +204,13 @@ class Ridge(BaseEstimator):
             Returns the instance itself.
         """
         self._pre_fit_checks(X)
-
-                # Adjust number of components
+        if y is not None:
+            if y.shape[0] != X.shape[0]:
+                raise ValueError(
+                        "Observables must have same number of samples of input trajectory."
+                    )
+            
+        # Adjust number of components
         if self.n_components is None:
             n_components = self.cov_X_.shape[0]
         else:
@@ -346,10 +358,10 @@ class Ridge(BaseEstimator):
         check_is_fitted(self)
         if X is not None:
             X = validate_data(self, X, reset=False, copy=self.copy_X)
-            if X.shape[0] < 1 + self.lag_time_:
+            if X.shape[0] < 1 + self.lag_time:
                 raise ValueError(
                     f"X has only {X.shape[0]} samples, but at least" 
-                    f"{1 + self.lag_time_} are required."
+                    f"{1 + self.lag_time} are required."
                 )
             X_val, Y_val = self._split_trajectory(X)
             cov_Xv, cov_Yv, cov_XYv = self._init_covs(X_val, Y_val)
@@ -422,10 +434,10 @@ class Ridge(BaseEstimator):
         """
         check_is_fitted(self)
         X = validate_data(self, X, reset=False, copy=self.copy_X)
-        if X.shape[0] < 1 + self.lag_time_:
+        if X.shape[0] < 1 + self.lag_time:
             raise ValueError(
                 f"X has only {X.shape[0]} samples, but at least "
-                f"{1 + self.lag_time_} are required."
+                f"{1 + self.lag_time} are required."
             )
         
         X_fit, _ = self._split_trajectory(self.X_fit_)
@@ -492,11 +504,11 @@ class Ridge(BaseEstimator):
             samples and `n_features` is the number of features.
         """
         X = validate_data(self, X, copy=self.copy_X)
-        self.lag_time_ = 1
-        if X.shape[0] < 1 + self.lag_time_:
+        self.lag_time = 1
+        if X.shape[0] < 1 + self.lag_time:
             raise ValueError(
                 f"X has only {X.shape[0]} samples, but at least "
-                f"{1 + self.lag_time_} are required."
+                f"{1 + self.lag_time} are required."
             )
         self.X_fit_ = X
         X_fit, Y_fit = self._split_trajectory(X)
@@ -506,7 +518,7 @@ class Ridge(BaseEstimator):
 
     def _split_trajectory(self, X):
         """Split a trajectory into context and target pairs."""
-        return X[: -self.lag_time_], X[self.lag_time_ :]
+        return X[: -self.lag_time], X[self.lag_time :]
     
     def __sklearn_tags__(self):
         tags = super().__sklearn_tags__()

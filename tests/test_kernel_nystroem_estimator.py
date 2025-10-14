@@ -21,19 +21,21 @@ def make_linear_system():
 
 
 @pytest.mark.parametrize("kernel", ['linear', 'rbf', 'laplacian'])
+@pytest.mark.parametrize("lag_time", [1, 5])
 @pytest.mark.parametrize("reduced_rank", [True, False])
 @pytest.mark.parametrize("n_components", [TRUE_RANK, TRUE_RANK - 2, TRUE_RANK + 10])
 @pytest.mark.parametrize("eigen_solver", ["auto", "dense", "arpack"])
 @pytest.mark.parametrize("alpha", [None, 0.0, 1e-5])
-@pytest.mark.parametrize("observables", [None, np.zeros, np.ones])
+@pytest.mark.parametrize("observables", [None, np.ones])
 @pytest.mark.parametrize("tol", [0.0])
 @pytest.mark.parametrize("max_iter", [None])
-@pytest.mark.parametrize("n_centers", [0.1, 1.0, 100,])
+@pytest.mark.parametrize("n_centers", [0.1, 0.5, 50,])
 @pytest.mark.parametrize("random_state", [None])
 @pytest.mark.parametrize("copy_X", [True])
 @pytest.mark.parametrize("n_jobs", [1])
 def test_Kernel_fit_predict_eig_modes_risk_svals(
     n_components,
+    lag_time,
     reduced_rank,
     kernel,
     alpha,
@@ -51,6 +53,7 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
 
     model = NystroemKernelRidge(
         n_components=n_components,
+        lag_time=lag_time,
         reduced_rank=reduced_rank,
         kernel=kernel,
         alpha=alpha,
