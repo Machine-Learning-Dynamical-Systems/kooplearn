@@ -1,11 +1,12 @@
 import numpy as np
+import pandas as pd
 from typing import Optional
 
 from kooplearn.datasets.misc import DataGenerator
-from kooplearn.datasets.stochastic import DiscreteTimeDynamics
+from kooplearn.datasets.stochastic import DiscreteTimeDynamics, DataFrameMixin
 
 
-class DiscreteBlackScholes(DiscreteTimeDynamics):
+class DiscreteBlackScholes(DiscreteTimeDynamics, DataFrameMixin):
     """
     Discretised simulation of the Black Scholes model.
 
@@ -29,7 +30,9 @@ class DiscreteBlackScholes(DiscreteTimeDynamics):
         self.A = A
         self.dt = dt
         self.sigma = sigma
-        self.rng = np.random.default_rng(rng_seed)
+        self.rng_seed = rng_seed
+        self._rng = np.random.default_rng(self.rng_seed)
+        self._init_dataframe(columns=[f"x{i}" for i in range(A.shape[0])])
 
     def _step(self, X: np.ndarray):
         return (
@@ -37,11 +40,11 @@ class DiscreteBlackScholes(DiscreteTimeDynamics):
             + self.A @ X * self.dt
             + np.sqrt(self.dt)
             * X
-            * self.rng.multivariate_normal(np.zeros(self.dim), self.sigma)
+            * self._rng.multivariate_normal(np.zeros(self.dim), self.sigma)
         )
 
 
-class DiscreteOhrnstein(DiscreteTimeDynamics):
+class DiscreteOhrnstein(DiscreteTimeDynamics, DataFrameMixin):
     """
     Discretised simulation of the Ohrnstein-Ulhenbeck volatility model.
 
@@ -68,14 +71,16 @@ class DiscreteOhrnstein(DiscreteTimeDynamics):
         self.mu = mu
         self.sigma = sigma
         self.dt = dt
-        self.rng = np.random.default_rng(rng_seed)
+        self.rng_seed = rng_seed
+        self._rng = np.random.default_rng(self.rng_seed)
+        self._init_dataframe(columns=[f"x{i}" for i in range(mu.shape[0])])
 
     def _step(self, X: np.ndarray):
         return (
             X
             + self.beta @ (self.mu - X) * self.dt
             + np.sqrt(self.dt)
-            * self.rng.multivariate_normal(np.zeros(self.dim), self.sigma)
+            * self._rng.multivariate_normal(np.zeros(self.dim), self.sigma)
         )
 
 
@@ -99,12 +104,12 @@ class DiscreteCIR(DiscreteOhrnstein):
             + self.beta @ (self.mu - X) * self.dt
             + np.sqrt(self.dt)
             * np.sqrt(X)
-            * self.rng.multivariate_normal(np.zeros(self.dim), self.sigma)
+            * self._rng.multivariate_normal(np.zeros(self.dim), self.sigma)
         )
 
 
 # Heston like model (ohrnstein volatility)
-class DiscreteHeston(DiscreteTimeDynamics):
+class DiscreteHeston(DiscreteTimeDynamics, DataFrameMixin):
     """
     Discretised simulation of the Heston model.
 
@@ -139,7 +144,9 @@ class DiscreteHeston(DiscreteTimeDynamics):
         self.sigma2 = sigma2
         self.nu0 = nu0
         self.dt = dt
-        self.rng = np.random.default_rng(rng_seed)
+        self.rng_seed = rng_seed
+        self._rng = np.random.default_rng(self.rng_seed)
+        self._init_dataframe(columns=[f"x{i}" for i in range(A.shape[0])])
 
     def _step(self, X: np.ndarray):
         next_X = (
@@ -148,22 +155,23 @@ class DiscreteHeston(DiscreteTimeDynamics):
             + np.sqrt(self.dt)
             * np.sqrt(self.nu0)
             * X
-            * self.rng.multivariate_normal(np.zeros(self.dim), self.sigma2)
+            * self._rng.multivariate_normal(np.zeros(self.dim), self.sigma2)
         )
         self.nu0 += self.dt * self.beta @ (self.mu - self.nu0) + np.sqrt(
             self.dt
-        ) * np.sqrt(self.nu0) * self.rng.multivariate_normal(
+        ) * np.sqrt(self.nu0) * self._rng.multivariate_normal(
             np.zeros(self.dim), self.sigma1
         )
         return next_X
 
 
-class Garch(DataGenerator):
+class Garch(DataGenerator, DataFrameMixin):
     # one dimensional one lag garch model
     def __init__(self, alpha: float, beta: float, alpha0: float = 0.0):
         self.alpha = alpha
         self.beta = beta
         self.alpha0 = alpha0
+        self._init_dataframe(columns=["x"])
 
     def sample(self, X0, T=1):
         memory = np.zeros(T + 1)
@@ -178,15 +186,25 @@ class Garch(DataGenerator):
             )
             memory[t + 1] = noise[t] * np.sqrt(aux_memory[t + 1])
 
-        return memory
+        # MultiIndex
+        t_eval = np.arange(T + 1)
+        index = pd.MultiIndex.from_arrays([t_eval], names=["step"])
 
+        # Update DataFrame
+        self._update_dataframe(memory, index)
 
-class DMgarch(DataGenerator):
-    # mutlidimensional one lag diagonal mgarch model
+        # Update attributes
+        self.df.attrs["X0"] = X0
+
+        return self.df
+
+class DMgarch(DataGenerator, DataFrameMixin):
+    # multidimensional one lag diagonal mgarch model
     def __init__(self, s, A, B):
         self.A = A
         self.B = B
         self.s = s
+        self._init_dataframe(columns=[f"x{i}" for i in range(A.shape[0])])
 
     def sample(self, X0, T=1):
         memory = np.zeros((T, X0.shape))
@@ -199,4 +217,14 @@ class DMgarch(DataGenerator):
                 0, 1, size=X0.shape
             )
 
-        return memory
+        # MultiIndex
+        t_eval = np.arange(T + 1)
+        index = pd.MultiIndex.from_arrays([t_eval], names=["step"])
+
+        # Update DataFrame
+        self._update_dataframe(memory, index)
+
+        # Update attributes
+        self.df.attrs["X0"] = X0
+
+        return self.df

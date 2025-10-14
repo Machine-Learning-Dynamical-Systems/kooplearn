@@ -4,64 +4,95 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
+import pandas as pd
 import scipy
 import scipy.sparse
+import sdeint
 from scipy.integrate import romb
 from scipy.special import binom
 from scipy.stats.sampling import NumericalInversePolynomial
 
 from kooplearn.utils import topk
-from kooplearn.datasets.misc import (
+from .misc import (
     DataGenerator,
     DiscreteTimeDynamics,
     LinalgDecomposition,
-)
+    DataFrameMixin,
+    )
 
 logger = logging.getLogger("kooplearn")
 
-try:
-    import sdeint
 
-    _has_sdeint = True
-except ImportError:
-    _has_sdeint = False
+class Mock(DataGenerator, DataFrameMixin):
+    """
+    A mock data generator that produces random trajectories for testing.
 
+    Args:
+        num_features (int): Number of features per sample.
+        rng_seed (Optional[int]): Random seed for reproducibility.
+        dt (float): Time step between samples (default 1.0).
+    """
 
-class Mock(DataGenerator):
-    def __init__(self, num_features: int = 50, rng_seed: Optional[int] = None):
+    def __init__(self, num_features: int = 50, rng_seed: Optional[int] = None, dt: float = 1.0):
         self.rng = np.random.default_rng(rng_seed)
         self.num_features = num_features
+        self.dt = dt
+        self._init_dataframe(columns=[f"x{i}" for i in range(self.num_features)])
 
-    def sample(self, X0: np.ndarray, T: int = 1):
-        return self.rng.random((T + 1, self.num_features))
+    def sample(self, X0: np.ndarray = None, T: int = 1) -> pd.DataFrame:
+        """
+        Generate a random trajectory.
+
+        Args:
+            X0 (np.ndarray): Ignored (kept for API consistency).
+            T (int): Number of time steps.
+
+        Returns:
+            pd.DataFrame: Random trajectory with MultiIndex (step, time)
+            and generator parameters in df.attrs.
+        """
+        t_eval = np.arange(0, T + self.dt, self.dt)
+        step_index = np.arange(len(t_eval))
+        index = pd.MultiIndex.from_arrays(
+            [step_index, t_eval],
+            names=["step", "time"]
+        )
+        data = self.rng.random((T + 1, self.num_features))
+        self._update_dataframe(data, index)
+        self.df['X0'] = X0
+
+        return self.df
 
 
-class LinearModel(DiscreteTimeDynamics):
+class LinearModel(DiscreteTimeDynamics, DataFrameMixin):
     def __init__(
-        self, A: np.ndarray, noise: float = 0.0, rng_seed: Optional[int] = None
+        self, A: np.ndarray, noise: float = 0.0, rng_seed: Optional[int] = None, dt: float = 1.0
     ):
-        """Linear Dynamical System of the form
+        """Linear Dynamical System of the form:
 
         .. math::
             x_{t + 1} = A x_{t} + \\xi_{t}
 
-        For this linear system, the Koopman operator is simply the transpose of :math:`A` .
+        For this linear system, the Koopman operator is simply the transpose of :math:`A`.
 
         Args:
             A (np.ndarray): :math:`d\\times d` matrix defining the dynamical system.
             noise (float): Intensity of the (zero-mean) Gaussian noise :math:`\\xi_{t}`. Defaults to 0.0.
             rng_seed (int): Internal number generator seed. Defaults to None.
-
         """
-        self.A = A
+        self.A = np.asarray(A)
         self.noise = noise
-        self.rng = np.random.default_rng(rng_seed)
+        self.rng_seed = rng_seed
+        self._rng = np.random.default_rng(self.rng_seed)
+        self.dt = dt
+        self._init_dataframe(columns=[f"x{i}" for i in range(A.shape[0])])
 
-    def _step(self, X: np.ndarray):
-        return self.A @ X + self.noise * self.rng.standard_normal(size=X.shape)
+    def _step(self, X: np.ndarray) -> np.ndarray:
+        """One-step update of the linear system."""
+        return self.A @ X + self.noise * self._rng.standard_normal(size=X.shape)
 
 
-class RegimeChangeVAR(DiscreteTimeDynamics):
+class RegimeChangeVAR(DiscreteTimeDynamics, DataFrameMixin):
     def __init__(
         self,
         phi1: np.ndarray,
@@ -69,6 +100,7 @@ class RegimeChangeVAR(DiscreteTimeDynamics):
         transition: np.ndarray,
         noise: float = 0.0,
         rng_seed: Optional[int] = None,
+        dt: float = 1.0,
     ):
         self.phi1 = phi1
         self.phi2 = phi2
@@ -76,6 +108,8 @@ class RegimeChangeVAR(DiscreteTimeDynamics):
         self.noise = noise
         self.rng = np.random.default_rng(rng_seed)
         self.current_state = 0
+        self.dt = dt
+        self._init_dataframe(columns=[f"x{i}" for i in range(self.phi1.shape[0])])
 
     def _step(self, X: np.ndarray):
         rand_trans = np.random.uniform(0, 1)
@@ -97,9 +131,13 @@ class CosineDistribution:
         return self.C_N * ((np.cos(np.pi * x)) ** self.N)
 
 
-class LogisticMap(DiscreteTimeDynamics):
+class LogisticMap(DiscreteTimeDynamics, DataFrameMixin):
     def __init__(
-        self, r: float = 4.0, N: Optional[int] = None, rng_seed: Optional[int] = None
+        self, 
+        r: float = 4.0, 
+        N: Optional[int] = 20, 
+        rng_seed: Optional[int] = None,
+        dt: float = 1.0,
     ):
         """Noisy Logistic map
 
@@ -109,12 +147,13 @@ class LogisticMap(DiscreteTimeDynamics):
         Args:
             r (float): parameter of the logistic map. Defaults to 4.0.
             N (int): Exponent of the trigonometric noise as defined in :footcite:t:`Kostic2022` (Appendix). Should be an _even_ integer or None (no noise). Defaults to None.
-            rng_seed (int): Internal number generator seed. Defaults to None.
+            rng_seed (int): Internal number generator seed. Defaults to 20.
 
         """
         self.rng_seed = rng_seed
         self.r = r
         self._rng = np.random.default_rng(self.rng_seed)
+        self.dt = dt
         if N is not None:
             # Noisy logistic map
             if N % 2 != 0:
@@ -133,10 +172,10 @@ class LogisticMap(DiscreteTimeDynamics):
                 self._lv,
                 self._rv,
             ) = self._init_transfer_matrices()
-
         else:
             # Noiseless logistic map
             self.has_noise = False
+        self._init_dataframe(columns=["x"])
 
     def predict(self, X_init: np.ndarray, T: int = 1):
         raise NotImplementedError("This method is not implemented yet")
@@ -288,10 +327,20 @@ class LogisticMap(DiscreteTimeDynamics):
         return np.sqrt(svdvals), eigvals, lv, rv
 
 
-class MullerBrownPotential(DataGenerator):
-    def __init__(self, kt: float = 1.5e3, rng_seed: Optional[int] = None):
-        if not _has_sdeint:
-            raise ImportError("sdeint not found, please install it to use this class")
+class MullerBrownPotential(DataGenerator, DataFrameMixin):
+    def __init__(
+            self, 
+            kt: float = 1.5e3,
+            dt: float = 1.0,
+            rng_seed: Optional[int] = None,
+            ):
+        """Müller–Brown potential stochastic dynamics.
+
+        Args:
+            kt (float): Temperature scaling factor (Boltzmann constant * T).
+            dt (float): Integration time step.
+            rng_seed (Optional[int]): Random seed for reproducibility.
+        """
         self.a = np.array([-1, -1, -6.5, 0.7])
         self.b = np.array([0.0, 0.0, 11.0, 0.6])
         self.c = np.array([-10, -10, -6.5, 0.7])
@@ -299,14 +348,36 @@ class MullerBrownPotential(DataGenerator):
         self.X = np.array([1, 0, -0.5, -1])
         self.Y = np.array([0, 0.5, 1.5, 1])
         self.kt = kt
-        self.rng = np.random.default_rng(rng_seed)
+        self.rng_seed = rng_seed
+        self._rng = np.random.default_rng(self.rng_seed)
+        self.dt = dt
+        self._init_dataframe(columns=["x", "y"])
+        
+    def sample(self, X0: np.ndarray, T: int = 1) -> pd.DataFrame:
+        """Generate trajectory under the Müller–Brown potential.
 
-    def sample(self, X0: np.ndarray, T: int = 1):
-        tspan = np.arange(0, 0.1 * T, 0.1)
+        Args:
+            X0 (np.ndarray): Initial condition (2D vector).
+            T (int): Number of time steps.
+
+        Returns:
+            pd.DataFrame: Trajectory with MultiIndex (step, time) and model metadata.
+        """
+        # Time grid — keep consistent with dt
+        tspan = np.arange(0, T + self.dt, self.dt)
+
+        # Integrate SDE
         result = sdeint.itoint(
-            self.neg_grad_potential, self.noise_term, X0, tspan, self.rng
+            self.neg_grad_potential, self.noise_term, X0, tspan, self._rng
         )
-        return result
+
+        # Build MultiIndex
+        step_index = np.arange(len(tspan))
+        index = pd.MultiIndex.from_arrays([step_index, tspan], names=["step", "time"])
+
+        self._update_dataframe(result, index)
+        self.df.attrs['X0'] = X0
+        return self.df
 
     def potential(self, X: np.ndarray):
         t1 = X[0] - self.X
@@ -335,7 +406,7 @@ class MullerBrownPotential(DataGenerator):
         return np.diag([math.sqrt(2 * 1e-2), math.sqrt(2 * 1e-2)])
 
 
-class LangevinTripleWell1D(DiscreteTimeDynamics):
+class LangevinTripleWell1D(DiscreteTimeDynamics, DataFrameMixin):
     def __init__(
         self,
         gamma: float = 0.1,
@@ -345,8 +416,10 @@ class LangevinTripleWell1D(DiscreteTimeDynamics):
     ):
         self.gamma = gamma
         self.kt = kt
-        self.rng = np.random.default_rng(rng_seed)
+        self.rng_seed = rng_seed
+        self._rng = np.random.default_rng(self.rng_seed)
         self.dt = dt
+        self._init_dataframe(columns=['x'])
 
         self._inv_gamma = (self.gamma) ** -1
 
@@ -407,7 +480,7 @@ class LangevinTripleWell1D(DiscreteTimeDynamics):
 
     def _step(self, X: np.ndarray):
         F = self.force_fn(X)
-        xi = self.rng.standard_normal(X.shape)
+        xi = self._rng.standard_normal(X.shape)
         dX = (
             F * self._inv_gamma * self.dt
             + np.sqrt(2.0 * self.kt * self.dt * self._inv_gamma) * xi

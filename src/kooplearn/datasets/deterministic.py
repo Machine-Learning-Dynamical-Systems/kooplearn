@@ -1,10 +1,11 @@
 import numpy as np
+import pandas as pd
 import scipy.integrate
 
-from kooplearn.datasets.misc import DataGenerator
+from kooplearn.datasets.misc import DataGenerator, DataFrameMixin
 
 
-class DuffingOscillator(DataGenerator):
+class DuffingOscillator(DataGenerator, DataFrameMixin):
     """
     A class for simulating the Duffing Oscillator.
 
@@ -58,6 +59,7 @@ class DuffingOscillator(DataGenerator):
         self.delta = delta
         self.omega = omega
         self.dt = dt
+        self._init_dataframe(columns=["vel", "acc"])
 
     def D(self, t, x):
         """
@@ -93,16 +95,25 @@ class DuffingOscillator(DataGenerator):
             np.ndarray: An array containing the trajectory of the oscillator with shape (T+1, 2),
                 where each row represents [position, velocity] at a given time step.
         """
-        sim_time = self.dt * (T + 1)
-        t_eval = np.linspace(0, sim_time, T + 1, endpoint=True)
+        t_eval = np.arange(0, T + self.dt, self.dt)
         t_span = (0, t_eval[-1])
         sol = scipy.integrate.solve_ivp(
             self.D, t_span, X0, t_eval=t_eval, method="RK45"
         )
-        return sol.y.T
+        
+        # Create MultiIndex: (step, time)
+        step_index = np.arange(len(t_eval))
+        index = pd.MultiIndex.from_arrays(
+            [step_index, t_eval],
+            names=["step", "time"]
+        )
+        
+        self._update_dataframe(sol.y.T, index)
+        self.df.attrs["X0"] = X0
+        return self.df
 
 
-class Lorenz63(DataGenerator):
+class Lorenz63(DataGenerator, DataFrameMixin):
     """
     A class for simulating the Lorenz-63 chaotic dynamical system.
 
@@ -149,26 +160,37 @@ class Lorenz63(DataGenerator):
         self.M_lin = np.array(
             [[-self.sigma, self.sigma, 0], [self.mu, 0, 0], [0, 0, -self.beta]]
         )
+        self._init_dataframe(columns=["x", "y", "z"])
 
-    def sample(self, X0: np.ndarray, T: int = 1):
+    def sample(self, X0: np.ndarray, T: int = 1) -> pd.DataFrame:
         """
         Generate the trajectory of the Lorenz-63 system.
 
         Args:
-            X0 (np.ndarray): The initial conditions as an array [x, y, z].
-            T (int, optional): The number of time steps (default is 1).
+            X0 (np.ndarray): Initial conditions [x, y, z].
+            T (int, optional): Number of time steps (default 1).
 
         Returns:
-            np.ndarray: An array containing the trajectory of the system with shape (T+1, 3),
-                where each row represents [x, y, z] at a given time step.
+            pd.DataFrame: DataFrame containing the trajectory and parameter notes.
         """
-        sim_time = self.dt * (T + 1)
-        t_eval = np.linspace(0, sim_time, T + 1, endpoint=True)
+        t_eval = np.arange(0, T + self.dt, self.dt)
         t_span = (0, t_eval[-1])
+
         sol = scipy.integrate.solve_ivp(
             self.D, t_span, X0, t_eval=t_eval, method="RK45"
         )
-        return sol.y.T
+
+        # Create MultiIndex: (step, time)
+        step_index = np.arange(len(t_eval))
+        index = pd.MultiIndex.from_arrays(
+            [step_index, t_eval],
+            names=["step", "time"]
+        )
+
+        self._update_dataframe(sol.y.T, index)
+        self.df.attrs["X0"] = X0
+
+        return self.df
 
     def D(self, t, x):
         """
