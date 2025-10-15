@@ -272,10 +272,15 @@ class Kernel(BaseEstimator):
         """
         self._pre_fit_checks(X)
         if y is not None:
-            if y.shape[0] != X.shape[0]:
+            if y.shape[0] == X.shape[0]:
+                self.y_ = y
+            else:
                 raise ValueError(
-                        "Observables must have same number of samples of input trajectory."
-                    )
+                    f"y has {y.shape[0]} samples, but X has {X.shape[0]}. "
+                    "Both must have the same number of samples."
+                )
+        else:
+            self.y_ = None
         # Adjust number of components
         if self.n_components is None:
             n_components = self.kernel_X_.shape[0]
@@ -358,7 +363,7 @@ class Kernel(BaseEstimator):
         logger.info(f"Fitted {self.__class__.__name__} model.")
         return self
 
-    def predict(self, X, n_steps=1, observable=None):
+    def predict(self, X, n_steps=1, observable=False):
         r"""Predicts the state or, if the system is stochastic, its expected
         value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t=n_steps`` instants
         given the initial conditions ``X``. If ``observable`` is not ``None``,
@@ -372,8 +377,8 @@ class Kernel(BaseEstimator):
         n_steps : int, default=1
             Number of steps in the future to predict (returns the last one).
 
-        observable : ndarray of shape (n_samples, n_features), optional
-            Observable values corresponding to the training trajectory.
+        observable : bool, default=False
+            If true, predict returns the observable at time :math:`t`.
 
         Returns
         -------
@@ -385,15 +390,13 @@ class Kernel(BaseEstimator):
         X_fit, _ = self._split_trajectory(self.X_fit_)
         K_Xin_X = self._get_kernel(X, X_fit)
 
-        if observable is not None:
-            # observable = validate_data(self, observable, reset=False, copy=self.copy_X)
-            if observable.shape[0] != self.X_fit_.shape[0]:
+        if observable:
+            if self.y_ is not None:
+                observable_fit, _ = self._split_trajectory(self.y_)
+            else:
                 raise ValueError(
-                    "'observable' should have the same number of samples "
-                    f"as 'X_fit_' ({self.X_fit_.shape[0]}), but has "
-                    f"{observable.shape[0]}"
-                )
-            observable_fit, _ = self._split_trajectory(observable)
+                            "Observable should be passed when calling fit as the y parameter."
+                            )
         else:
             observable_fit = X_fit
         pred = _regressors.predict(
@@ -488,7 +491,7 @@ class Kernel(BaseEstimator):
                 eig_result, 'right', kernel_Xin_X_or_Y_right),
             )
 
-    def modes(self, X, observable=None):
+    def modes(self, X, observable=False):
         """
         Computes the mode decomposition of arbitrary observables of the
         Koopman/Transfer operator at the states defined by ``X``.
@@ -505,9 +508,8 @@ class Kernel(BaseEstimator):
         X : ndarray of shape (n_samples, n_features)
             States at which to evaluate the modes.
 
-        observable : ndarray or None, default=None
-            Observables at training states. If None, modes of the state are
-            computed.
+        observable : bool, default=false
+            If true, modes of the observable are computed.
 
         Returns
         -------
@@ -529,15 +531,13 @@ class Kernel(BaseEstimator):
         K_Xin_X = self._get_kernel(X, X_fit)
         _gamma = _regressors.estimator_modes(eig_result, K_Xin_X)
 
-        if observable is not None:
-            # observable = validate_data(self, observable, reset=False, copy=self.copy_X)
-            if observable.shape[0] != self.X_fit_.shape[0]:
+        if observable:
+            if self.y_ is not None:
+                observable_fit, _ = self._split_trajectory(self.y_)
+            else:
                 raise ValueError(
-                    "'observable' should have the same number of samples "
-                    f"as 'X_fit_' ({self.X_fit_.shape[0]}), but has "
-                    f"{observable.shape[0]}"
-                )
-            observable_fit, _ = self._split_trajectory(observable)
+                            "Observable should be passed when calling fit as the y parameter."
+                            )
         else:
             observable_fit = X_fit
         return np.tensordot(_gamma, observable_fit, axes=1), eig_result
