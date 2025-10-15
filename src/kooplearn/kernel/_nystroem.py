@@ -547,7 +547,7 @@ class NystroemKernel(BaseEstimator):
         X_fit, Y_fit = self._split_trajectory(X)
 
         # Perform random center selection
-        self.nys_centers_idxs_ = self._center_selection(X_fit.shape[0])
+        self.nys_centers_idxs_ = self._center_selection(X_fit.shape[0] - self.lag_time)
         X_nys = X_fit[self.nys_centers_idxs_]
         Y_nys = Y_fit[self.nys_centers_idxs_]
 
