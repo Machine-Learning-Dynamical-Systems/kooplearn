@@ -15,6 +15,14 @@ dependencies = [
     "tqdm>=4.67.1",
 ]
 
+[project.optional-dependencies]
+torch = [
+    "torch>=2.8.0",
+]
+jax = [
+    "jax>=0.4.30",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

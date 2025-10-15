@@ -266,3 +266,21 @@ class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
 
         reconstructed /= np.maximum(counts[:, np.newaxis], 1)
         return reconstructed
+    
+
+def check_torch_deps():
+    try:
+        import torch
+    except ImportError:
+        raise ImportError(
+            "To use kooplearn's deep learning losses please reinstall it with the `torch` extra flag by typing `pip install kooplearn[torch]`."
+        )
+    
+    
+def check_jax_deps():
+    try:
+        import jax
+    except ImportError:
+        raise ImportError(
+            "To use kooplearn's deep learning losses please reinstall it with the `jax` extra flag by typing `pip install kooplearn[jax]`."
+        )
