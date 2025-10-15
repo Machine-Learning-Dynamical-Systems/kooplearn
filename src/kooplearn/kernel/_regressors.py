@@ -560,7 +560,6 @@ def nystroem_reduced_rank(
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
     add_diagonal_(kernel_Xnys_sq, -eps)
-
     values, stable_values_idxs = stable_topk(values, rank, ignore_warnings=False)
     vectors = vectors[:, stable_values_idxs]
     # Compare the filtered eigenvalues with the regularization strength, and warn

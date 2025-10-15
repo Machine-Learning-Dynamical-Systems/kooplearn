@@ -5,7 +5,7 @@ _Author:_ [Giacomo Meanti](https://github.com/Giodiro)
 In this tutorial we will do a simple spectral analysis of a molecular dynamics simulation of the alanine dipeptide.
 This small molecule is often used as a test bench for algorithms working on MD since it provides interesting, slow dynamics while being small and easy to work with.
 
-We will start by training a Nystroem reduced rank regression model with the `kooplearn.models.NystroemKernel` class and a Gaussian kernel, and from there move to the spectral analysis of eigenvalues and eigenfunctions of the estimated Koopman operator.
+We will start by training a Nystroem reduced rank regression model with the `kooplearn.kernel.NystroemKernelRidge` class and a Gaussian kernel, and from there move to the spectral analysis of eigenvalues and eigenfunctions of the estimated Koopman operator.
 
 Using the Nystroem approximation allows us to run a full analysis of MD data in a few seconds, without needing to subsample the trajectories too much (we will be training models on 25k and 50k points in a matter of seconds).
 
@@ -30,8 +30,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colors
 from sklearn.gaussian_process.kernels import RBF
-from kooplearn.models import NystroemKernel
-from kooplearn.data import traj_to_contexts
+from kooplearn.kernel import NystroemKernelRidge
 ```
 
 ### Download the data
@@ -69,39 +68,32 @@ a specific state in which the protein can be in.
 
 
 ```python
-train_distances = np.load(files[1])["arr_0"]
-test_distances = np.load(files[1])["arr_1"]
-test_dihedrals = np.load(files[0])["arr_1"]
-time_ns = np.arange(train_distances.shape[0], dtype=np.float_)*1e-3
+train_distances = np.load(files[1])["arr_0"].astype(np.float64)
+train_dihedrals = np.load(files[0])["arr_0"].astype(np.float64)
+test_distances = np.load(files[1])["arr_1"].astype(np.float64)
+test_dihedrals = np.load(files[0])["arr_1"].astype(np.float64)
+time_ns = np.arange(train_distances.shape[0], dtype=np.float64)*1e-3
+dt_ns = time_ns[1] - time_ns[0]
+lagtime = 50
 ```
 
 
 ```python
 subsample = 20
-
 x_ticks = np.arange(len(test_distances[::subsample]))[::2000]
 x_tickslabels = [f"{x:.0f}" for x in (time_ns[::subsample])[::2000]]
 
-fig, ax = plt.subplots(ncols=3, figsize=(15, 9))
-ax[0].imshow(test_distances[::subsample, :].T, aspect=120, cmap='plasma', interpolation='nearest')
-ax[0].set_ylabel("Atom distance")
-ax[0].set_xlabel("Time [ns]")
-ax[0].set_yticks([], [])
-ax[0].set_xticks(x_ticks, x_tickslabels)
-ax[1].imshow(test_dihedrals[::subsample, :].T, aspect=2750, cmap='plasma', interpolation='nearest')
-ax[1].set_ylabel("Backbone dihedrals")
-ax[1].set_xlabel("Time [ns]")
-ax[1].set_yticks([], [])
-ax[1].set_xticks(x_ticks, x_tickslabels)
-
-ax[2].scatter(test_dihedrals[::20, 0], test_dihedrals[::20, 1], s=2, color = 'k', alpha = 0.2)
-ax[2].set_xlabel("$\phi$")
-ax[2].set_ylabel("$\psi$")
-ax[2].set_xticks([-np.pi, 0, np.pi], ["$-\pi$", "$0$", "$\pi$"])
-ax[2].set_yticks([-np.pi, 0, np.pi], ["$-\pi$", "$0$", "$\pi$"])
-ax[2].set_title("Ramachandran plot")
-ax[2].margins(0)
-ax[2].set_aspect('equal')
+fig, ax = plt.subplots(figsize=(4, 4))
+ax.scatter(test_dihedrals[::subsample, 0], test_dihedrals[::subsample, 1], s=2, color = 'k', alpha = 0.2)
+ax.set_xlabel("Dihedral $\phi$")
+ax.set_ylabel("Dihedral $\psi$")
+ax.set_xticks([-np.pi, 0, np.pi], ["$-\pi$", "$0$", r"$\pi$"])
+ax.set_yticks([-np.pi, 0, np.pi], ["$-\pi$", "$0$", r"$\pi$"])
+ax.set_xlim(-np.pi, np.pi)
+ax.set_ylim(-np.pi, np.pi)
+ax.set_title("Ramachandran plot")
+ax.margins(0)
+ax.set_aspect('equal')
 ```
 
 
@@ -112,39 +104,19 @@ ax[2].set_aspect('equal')
 
 ## Model training
 
- - `tr_dist_ctx`: the training context (x and y). This uses atom distances
- - `ts_dist_ctx`: the test context (x and y) using atom distances
- - `ts_dih_ctx`: an auxiliary *test* context which contains dihedrals instead of atom distances
-
 
 ```python
-def build_contexts(time_lag: int, subsample: int):
-    tr_dist_ctx = traj_to_contexts(train_distances[::subsample], time_lag=time_lag)
-    ts_dist_ctx = traj_to_contexts(test_distances[::subsample], time_lag=time_lag)
-    ts_dih_ctx = traj_to_contexts(test_dihedrals[::subsample], time_lag=time_lag)
-    return tr_dist_ctx, ts_dist_ctx, ts_dih_ctx
-```
-
-
-```python
-time_lag = 10
-subsample = 50
-
-tr_dist_ctx, ts_dist_ctx, ts_dih_ctx = build_contexts(time_lag, subsample)
-
 print(f"Training data size: {train_distances.shape}")
-print(f"Training context with {subsample}x subsampling and time lag of {time_lag} units:")
-print(f"\t{tr_dist_ctx.shape=}")
+print(f"Training a lagtime {lagtime}, corresponding to {dt_ns*lagtime} ns)")
 ```
 
     Training data size: (250000, 45)
-    Training context with 50x subsampling and time lag of 10 units:
-    	tr_dist_ctx.shape=(4990, 2, 45)
+    Training a lagtime 50, corresponding to 0.05 ns)
 
 
 Build the Nyström reduced rank regression (N-RRR) model used for training. Important hyperparameters are:
- - The kernel, here a Gaussian (RBF) kernel with length-scale 0.5. You can use all kernels supported by scipy here!
- - The regularizer `tikhonov_reg`, should be a small positive number to ensure a stable solution
+ - The kernel, here a Gaussian (RBF) kernel.
+ - The regularizer `alpha`, should be a small positive number to ensure a stable solution
  - The rank of the model to be trained: this depends on the system being analyzed.
  - The number of Nyström centers. Increasing this parameter makes the model slower to train but also more accurate.
  
@@ -152,30 +124,33 @@ Then we fit the estimator and make predictions on the test set.
 
 
 ```python
-kernel = RBF(length_scale=0.5)
-nys_rrr = NystroemKernel(
-    kernel=kernel,
-    reduced_rank=True,  # Set the estimator to RRR. If False the estimator is PCR.
-    tikhonov_reg=1e-7,
-    rank=5,
-    num_centers=600, 
-    rng_seed=0
+model = NystroemKernelRidge(
+    n_components=5, # Rank of the estimator
+    reduced_rank=True,
+    kernel="rbf",
+    alpha=1e-7,
+    gamma=2.0,
+    eigen_solver="arpack",
+    n_centers=600,
+    random_state=0,
+    lag_time=lagtime
 )
 ```
 
 
 ```python
 # Fit the Nystroem model
-nys_rrr.fit(tr_dist_ctx)
+model.fit(train_distances)
 # Predict on the test set and compute an error metric
-X_pred = nys_rrr.predict(ts_dist_ctx)  # Here we must pass the `X` part of the context
-X_true = ts_dist_ctx.lookforward(nys_rrr.lookback_len)  # This is the `Y` part of the test context
-rmse_onestep = np.sqrt(np.mean((X_pred - X_true)**2))
-print(f"Trained Nystroem RRR model with {nys_rrr.num_centers} centers. "
+X_test = test_distances[:-lagtime]
+Y_test = test_distances[lagtime:]
+Y_pred = model.predict(X_test)  # Here we must pass the `X` part of the context
+rmse_onestep = np.sqrt(np.mean((Y_pred - Y_test)**2))
+print(f"Trained Nystroem RRR model with {model.n_centers} centers. "
       f"Test RMSE on 1-step predictions = {rmse_onestep:.3f}")
 ```
 
-    Trained Nystroem RRR model with 600 centers. Test RMSE on 1-step predictions = 0.031
+    Trained Nystroem RRR model with 600 centers. Test RMSE on 1-step predictions = 0.029
 
 
 ## Spectral Analysis
@@ -188,18 +163,17 @@ Each eigenpair describes a different component of the dynamics. Eigenvalues prov
 
 A special mention to the highest eigenpair which should have eigenvalue close to 1. This is the stationary dynamics, and is generally not used for spectral analysis.
 
-First we use the `nys_rrr` object to compute the eigenvalues of the operator, and the eigenvectors.
+First we use the `model` object to compute the eigenvalues of the operator, and the eigenvectors.
 Note that since the Koopman operator is technically an *infinite dimensional operator* it doesn't have eigenvectors but **eigenfunctions**. For this reason, in order to have a concrete, finite-dimensional representation, the eigenfunctions must be evaluated on some data-points. Here we evaluate the right eigenfunctions on the subsampled test distances. Here it doesn't really matter if you're using the `X` or `Y` part of the data.
 
 Another thing to note is that the eigenvalues are returned in ascending order. We reverse the order to simplify the analysis later (since we're most interested in the highest eigenvalues!)
 
 
 ```python
-from kooplearn.utils import topk
-evals, evec_right = nys_rrr.eig(eval_right_on=ts_dist_ctx)
-top_evals = topk(np.abs(evals), 4) # Take the Four largest eigenvalues in modulus
-evals = evals[top_evals.indices]
-evec_right = evec_right[:, top_evals.indices]
+evals, evec_right = model.eig(eval_right_on=test_distances)
+#Sort in descending order
+evals = np.flip(evals)
+evec_right = np.flip(evec_right, axis = 1)
 ```
 
 Now we compute the time-scales implied by the eigenvalues. We have to take into account the fact that we've subsampled the data, and that we have generated trajectories such that the Koopman operator predicts Y from X where the pairs are `time_lag` time-steps apart. Knowing that the trajectories have a time-step of 1ps, we can compute the implied time-scales!
@@ -211,15 +185,15 @@ Note that:
 
 ```python
 tscales = -1 / np.log(evals.real.clip(1e-8, 1))
-tscales_real = tscales * time_lag * subsample
+tscales_real = tscales * dt_ns * subsample
 print(f"Stationary distribution eigenvalue: {evals[0].real:.3f}")
 print(f"Other eigenvalues: {evals[1:].real}")
 print(f"Implied time-scales: {tscales_real[1:]*1e-3} ns")
 ```
 
     Stationary distribution eigenvalue: 1.000
-    Other eigenvalues: [0.62691671 0.03133949 0.03133949]
-    Implied time-scales: [1.07079777 0.14438864 0.14438864] ns
+    Other eigenvalues: [0.93192551 0.50585308 0.05886585 0.00148958]
+    Implied time-scales: [2.83678306e-04 2.93466412e-05 7.06091472e-06 3.07254469e-06] ns
 
 
 Finally, we're going to plot the first three eigenfunctions (excluding the stationary distribution) on the test data. We will superimpose the eigenfunctions, which in the plot below are represented with as the color, to the Ramachandran plot.
@@ -237,19 +211,21 @@ efun_vals = evec_right.real
 
 # It might be useful to play with the mid value and range of the
 # color-maps for each eigenfunction to get nicer visualizations.
-vcenters = [0, 0, 0]  # np.median(efun_vals, axis=0)
-halfranges = [0.01, 0.1, 0.02]  # efun_vals.std(axis=0)
+vcenters = [0, 0 ,0]
+halfranges = efun_vals.std(axis=0)[1:]
 
 for i in range(len(axes)):
     axes[i].scatter(
-        ts_dih_ctx.data[:, 0, 0], ts_dih_ctx.data[:, 0, 1],
-        c=efun_vals[:, i + 1], s=s, cmap=cmap, alpha=alpha,
+        test_dihedrals[::subsample, 0], test_dihedrals[::subsample, 1],
+        c=efun_vals[::subsample, i + 1], s=s, cmap=cmap, alpha=alpha,
         norm=colors.CenteredNorm(vcenter=vcenters[i], halfrange=halfranges[i])
     )
-    axes[i].set_title(f"time-scale = {tscales_real[i + 1].real:.3f}ps")
+    axes[i].set_title(f"Implied timescale = {1000*tscales_real[i + 1].real:.1f}ps")
     axes[i].set_xticks([-np.pi, 0, np.pi], ["$-\pi$", "$0$", "$\pi$"])
     axes[i].set_xlabel("$\phi$")
     axes[i].set_yticks([-np.pi, 0, np.pi])
+    axes[i].set_ylim([-np.pi, np.pi])
+    axes[i].set_xlim([-np.pi, np.pi])
     if i == 0:
         axes[i].set_yticklabels(["$-\pi$", "$0$", "$\pi$"])
         axes[i].set_ylabel("$\psi$")
@@ -261,7 +237,7 @@ for i in range(len(axes)):
 
 
     
-![png](ala2_nys_tutorial_files/ala2_nys_tutorial_22_0.png)
+![png](ala2_nys_tutorial_files/ala2_nys_tutorial_20_0.png)
     
 
 
@@ -288,84 +264,77 @@ We first define a helper function to train a model and return its ITS at a speci
 
 
 ```python
-def train_model(time_lag: int, subsample: int):
-    tr_dist_ctx, ts_dist_ctx, _ = build_contexts(time_lag, subsample)
-    kernel = RBF(length_scale=0.5)
-    nys_rrr = NystroemKernel(
-        kernel=kernel,
-        reduced_rank=True,  # Set the estimator to RRR. If False the estimator is PCR.
-        tikhonov_reg=1e-7,
-        rank=5,
-        num_centers=300, 
-        rng_seed=0
-    )
-    
-    nys_rrr.fit(tr_dist_ctx)
-    
-    X_pred = nys_rrr.predict(ts_dist_ctx)  # Here we must pass the `X` part of the context
-    X_true = ts_dist_ctx.lookforward(nys_rrr.lookback_len)# This is the `Y` part of the test context
-    rmse_onestep = np.sqrt(np.mean((X_pred - X_true)**2))
+def train_model(lag_time: int, reduced_rank:bool):
+    train_set = train_distances
+    test_set = test_distances
+    model = NystroemKernelRidge(
+        n_components=5,  # Rank of the estimator
+        reduced_rank=reduced_rank,  # Using Principal Component Regression
+        kernel="rbf",
+        gamma=2.,
+        alpha=1e-7,
+        eigen_solver="arpack",
+        n_centers=300,
+        lag_time=lag_time,
+        random_state=0,
+    ).fit(train_set)
 
-    evals = nys_rrr.eig()
-    evals = evals[topk(np.abs(evals), 4).indices]
+    X_test = test_set[:-1]
+    Y_test = test_set[1:]
+    Y_pred = model.predict(X_test)  # Here we must pass the `X` part of the context
+    rmse_onestep = np.sqrt(np.mean((Y_pred - Y_test) ** 2))
+
+    evals = model.eig()
+    evals = np.flip(evals)[:4]
 
     tscales = -1 / np.log(evals.real.clip(1e-8, 1))
-    tscales_real = tscales * time_lag
-    
+    tscales_real = tscales*lag_time
+
     return rmse_onestep, tscales_real
 ```
 
-Now we train one model per time-lag. Note that since the Nystroem method is very efficient we can quickly train many models even with many time-points (subsample=5 means training with 50k points).
+Now we train one model per time-lag. Note that since the Nystroem method is very efficient we can quickly train many models even with many time-points.
 
 
 ```python
-error_d = {}
-tscale_d = {}
-for time_lag in [1, 2, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
-    error, tscale = train_model(time_lag, subsample=50)
-    error_d[time_lag] = error
-    tscale_d[time_lag] = tscale
+from collections import defaultdict
+
+errors = defaultdict(list)
+tscales = defaultdict(list)
+lagtimes= np.linspace(1, 100, 10, dtype=int)
+
+for method, reduced_rank in zip(['Reduced Rank', 'Principal Components (kDMD)'], [True, False]):
+    for lagtime in lagtimes:
+        error, tscale = train_model(lagtime, reduced_rank)
+        errors[method].append(error)
+        tscales[method].append(tscale)
+
 ```
 
 Simple plot of the RMSE for different time-lags
 
 
 ```python
-fig, ax = plt.subplots()
-ax.plot(error_d.keys(), error_d.values(), lw=3, marker='o')
-ax.set_xlabel("Time-lag [ps]")
-ax.set_ylabel("RMSE")
-ax.margins(x=0)
-```
+fig, ax = plt.subplots(ncols=3, figsize=(13.5, 3))
 
-
-    
-![png](ala2_nys_tutorial_files/ala2_nys_tutorial_30_0.png)
-    
-
-
-
-```python
-fig, ax = plt.subplots(ncols=2, figsize=(9, 4.5))
-time_lags = list(tscale_d.keys())
-ax[0].plot(time_lags, [tscale[1] for tscale in tscale_d.values()], lw=3, marker='o')
-ax[1].plot(time_lags, [tscale[2] for tscale in tscale_d.values()], lw=3, marker='o')
-ax[0].plot([0, 100], [0, 100], lw=3, c='k')
-ax[1].plot([0, 100], [0, 100], lw=3, c='k')
-ax[0].set_xlabel("Lag time (steps)")
-ax[0].set_ylabel("ITS (steps)")
-ax[1].set_xlabel("Lag time (steps)")
-ax[1].set_ylabel("ITS (steps)")
-ax[0].set_title("1st component")
-ax[1].set_title("2nd component")
+for method in errors.keys():
+    ax[0].plot(lagtimes, errors[method], '.-', label=method)
+ax[0].set_xlabel("Lagtime")
+ax[0].set_title("One-step RMSE")
 ax[0].margins(x=0)
-ax[1].margins(x=0)
+ax[0].legend(frameon=False)
+for eig_id in [1, 2]:
+    ax[eig_id].fill_between([0, lagtimes[-1]], [0, 0], [0, lagtimes[-1]],color='k', alpha=0.2)
+    for method in errors.keys():
+        _tscale = [ t[eig_id] for t in tscales[method]]
+        ax[eig_id].plot(lagtimes, _tscale,'.-', label=method)
+    ax[eig_id].margins(0)
+    ax[eig_id].set_title(f"Implied Timescale {eig_id}\n(higher is better)")
+    
 ```
 
 
     
-![png](ala2_nys_tutorial_files/ala2_nys_tutorial_31_0.png)
+![png](ala2_nys_tutorial_files/ala2_nys_tutorial_28_0.png)
     
 
-
-Note that if we correct for subsampling the first ITS is approximately 1000ps and the second is approximately 90ps.

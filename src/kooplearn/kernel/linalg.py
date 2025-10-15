@@ -33,6 +33,7 @@ def stable_topk(
         ignore_warnings (bool): If False, raise a warning when some elements are discarted for being below the requested numerical precision.
 
     """
+
     if rcond is None:
         rcond = 10.0 * vec.shape[0] * np.finfo(vec.dtype).eps
 
