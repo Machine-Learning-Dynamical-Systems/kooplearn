@@ -16,6 +16,7 @@ author = "kooplearn team"
 extensions = [
     "sphinxcontrib.bibtex",
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
@@ -23,6 +24,8 @@ extensions = [
     "myst_nb",
     "sphinx_iconify",
 ]
+
+autosummary_generate = True
 
 source_suffix = {
     ".rst": "restructuredtext",

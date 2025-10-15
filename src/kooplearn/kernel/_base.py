@@ -17,7 +17,7 @@ from kooplearn.kernel import _regressors
 logger = logging.getLogger("kooplearn")
 
 
-class Kernel(BaseEstimator):
+class KernelRidge(BaseEstimator):
     r"""Kernel model minimizing the :math:`L^{2}` loss.
     Implements a model approximating the Koopman (deterministic systems) or
     Transfer (stochastic systems) operator by lifting the state with a
