@@ -18,14 +18,14 @@ logger = logging.getLogger("kooplearn")
 
 
 class Ridge(BaseEstimator):
-    """Linear model minimizing the :math:`L^{2}` loss.
+    r"""Linear model minimizing the :math:`L^{2}` loss.
     Implements a model approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator by lifting the state with a *nonlinear* feature map and then minimizing the :math:`L^{2}` loss in the embedded space as described in :footcite:t:`Kostic2022`.
 
     .. tip::
 
         The dynamical modes obtained by calling :class:`kooplearn.models.Nonlinear.modes` correspond to the *Extended Dynamical Mode Decomposition* by :footcite:t:`Williams2015_EDMD`.
 
-    
+
     Parameters
     ----------
     n_components : int or None, default=None
@@ -33,7 +33,7 @@ class Ridge(BaseEstimator):
 
     lag_time : int, default=1
         [TODO]
-       
+
     reduced_rank : bool, default=True
         Whether to use reduced-rank regression introduced in
         :footcite:t:`Kostic2022`. If ``False``, initializes the classical
@@ -97,10 +97,10 @@ class Ridge(BaseEstimator):
         `copy_X=False` saves memory by storing a reference.
 
     .. tip::
-        
+
         A powerful variation proposed by :footcite:t:`Arbabi2017`, known as Hankel-DMD [TODO], evaluates the Koopman/Transfer estimators by stacking consecutive snapshots together in a Hankel matrix. When this model is fitted on context windows of length > 2, the lookback window is automatically set to length ``context_len - 1``. Upon fitting, the whole lookback window is passed through the feature map and the results are then flattened and *concatenated* together, realizing an Hankel-EDMD estimator.
 
-    
+
     Attributes
     ----------
     X_fit_ : ndarray of shape (n_samples, n_features)
@@ -119,6 +119,8 @@ class Ridge(BaseEstimator):
 
     U_ : Projection matrix of shape (n_out_features, n_components). The Koopman/Transfer
         operator is approximated as :math:`U U^T \mathrm{cov_{XY}}`.
+
+    estimator_ : Least Squares estimator :math:`U U^T \mathrm{cov_{XY}}`.
 
 
     References
@@ -142,7 +144,7 @@ class Ridge(BaseEstimator):
         "alpha": [
             [Interval(Real, 0, None, closed="left")],
             None,
-            ],        
+        ],
         "eigen_solver": [StrOptions({"auto", "dense", "arpack", "randomized"})],
         "tol": [Interval(Real, 0, None, closed="left")],
         "max_iter": [
@@ -214,7 +216,7 @@ class Ridge(BaseEstimator):
                 )
         else:
             self.y_ = None
-            
+
         # Adjust number of components
         if self.n_components is None:
             n_components = self.cov_X_.shape[0]
@@ -287,13 +289,14 @@ class Ridge(BaseEstimator):
         self.U_, _, self._spectral_biases = fit_result.values()
         self.rank_ = self.U_.shape[1]
 
-
         assert self.U_.shape[1] <= n_components
         if self.U_.shape[1] < n_components:
             logger.warning(
                 f"Warning: The fitting algorithm discarded {n_components - self.U_.shape[1]} dimensions of the {n_components} requested out of numerical instabilities.\nThe rank attribute has been updated to {self.U_.shape[1]}.\nConsider decreasing the rank parameter."
             )
             n_components = self.U_.shape[1]
+
+        self.estimator_ = self.U_ @ self.U_.T @ self.cov_XY_
 
         logger.info(f"Fitted {self.__class__.__name__} model.")
 
@@ -330,8 +333,8 @@ class Ridge(BaseEstimator):
                 observable_fit, _ = self._split_trajectory(self.y_)
             else:
                 raise ValueError(
-                            "Observable should be passed when calling fit as the y parameter."
-                            )
+                    "Observable should be passed when calling fit as the y parameter."
+                )
         else:
             observable_fit = X_fit
         pred = _regressors.predict(
@@ -363,7 +366,7 @@ class Ridge(BaseEstimator):
             X = validate_data(self, X, reset=False, copy=self.copy_X)
             if X.shape[0] < 1 + self.lag_time:
                 raise ValueError(
-                    f"X has only {X.shape[0]} samples, but at least" 
+                    f"X has only {X.shape[0]} samples, but at least"
                     f"{1 + self.lag_time} are required."
                 )
             X_val, Y_val = self._split_trajectory(X)
@@ -371,7 +374,9 @@ class Ridge(BaseEstimator):
         else:
             cov_Xv, cov_Yv, cov_XYv = self.cov_X_, self.cov_Y_, self.cov_XY_
 
-        return _regressors.estimator_risk(self._fit_result, cov_Xv, cov_Yv, cov_XYv, self.cov_XY_)
+        return _regressors.estimator_risk(
+            self._fit_result, cov_Xv, cov_Yv, cov_XYv, self.cov_XY_
+        )
 
     def eig(self, eval_left_on=None, eval_right_on=None):
         """Compute the eigendecomposition of the estimator.
@@ -389,24 +394,24 @@ class Ridge(BaseEstimator):
             return eig_result["values"]
         elif eval_left_on is None and eval_right_on is not None:
             # (eigenvalues, right eigenfunctions)
-            Xin, _ = self._split_trajectory(eval_right_on) 
+            Xin, _ = self._split_trajectory(eval_right_on)
             return eig_result["values"], _regressors.evaluate_eigenfunction(
-                eig_result, 'right', Xin)
+                eig_result, "right", Xin
+            )
         elif eval_left_on is not None and eval_right_on is None:
             # (eigenvalues, left eigenfunctions)
-            Xin, _ = self._split_trajectory(eval_left_on) 
+            Xin, _ = self._split_trajectory(eval_left_on)
             return eig_result["values"], _regressors.evaluate_eigenfunction(
-                eig_result, 'left', Xin)
+                eig_result, "left", Xin
+            )
         elif eval_left_on is not None and eval_right_on is not None:
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
-            Xin_r, _ = self._split_trajectory(eval_right_on) 
-            Xin_l, _ = self._split_trajectory(eval_left_on) 
+            Xin_r, _ = self._split_trajectory(eval_right_on)
+            Xin_l, _ = self._split_trajectory(eval_left_on)
             return (
                 eig_result["values"],
-                _regressors.evaluate_eigenfunction(
-                eig_result, 'left', Xin_l),
-                _regressors.evaluate_eigenfunction(
-                eig_result, 'right', Xin_r),
+                _regressors.evaluate_eigenfunction(eig_result, "left", Xin_l),
+                _regressors.evaluate_eigenfunction(eig_result, "right", Xin_r),
             )
 
     def modes(self, X, observable=False):
@@ -441,29 +446,25 @@ class Ridge(BaseEstimator):
                 f"X has only {X.shape[0]} samples, but at least "
                 f"{1 + self.lag_time} are required."
             )
-        
+
         X_fit, _ = self._split_trajectory(self.X_fit_)
         eig_result = _regressors.eig(self._fit_result, self.cov_XY_)
 
         _gamma = _regressors.estimator_modes(
-            eig_result,
-            self._fit_result,
-            X_fit, 
-            X,
-            self.cov_XY_
-            )
-        
+            eig_result, self._fit_result, X_fit, X, self.cov_XY_
+        )
+
         if observable:
             if self.y_ is not None:
                 observable_fit, _ = self._split_trajectory(self.y_)
             else:
                 raise ValueError(
-                            "Observable should be passed when calling fit as the y parameter."
-                            )
+                    "Observable should be passed when calling fit as the y parameter."
+                )
         else:
             observable_fit = X_fit
         return np.tensordot(_gamma, observable_fit, axes=1), eig_result
-    
+
     def svals(self):
         """Singular values of the Koopman/Transfer operator.
 
@@ -503,7 +504,6 @@ class Ridge(BaseEstimator):
             samples and `n_features` is the number of features.
         """
         X = validate_data(self, X, copy=self.copy_X)
-        self.lag_time = 1
         if X.shape[0] < 1 + self.lag_time:
             raise ValueError(
                 f"X has only {X.shape[0]} samples, but at least "
@@ -511,14 +511,12 @@ class Ridge(BaseEstimator):
             )
         self.X_fit_ = X
         X_fit, Y_fit = self._split_trajectory(X)
-        self.cov_X_, self.cov_Y_, self.cov_XY_ = self._init_covs(
-            X_fit, Y_fit
-        )
+        self.cov_X_, self.cov_Y_, self.cov_XY_ = self._init_covs(X_fit, Y_fit)
 
     def _split_trajectory(self, X):
         """Split a trajectory into context and target pairs."""
         return X[: -self.lag_time], X[self.lag_time :]
-    
+
     def __sklearn_tags__(self):
         tags = super().__sklearn_tags__()
         tags.target_tags.required = False

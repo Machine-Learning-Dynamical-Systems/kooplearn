@@ -48,7 +48,7 @@ def stable_topk(
 
         if not ignore_warnings:
             warn(
-                f"Warning: Discarted {k_max - vec.shape[0]} dimensions of the {k_max} requested due to numerical instability. Consider decreasing the k. The largest discarded value is: {_first_discarded_val:.3e}."
+                f"Warning: Discarted {k_max - np.sum(valid)} dimensions of the {k_max} requested due to numerical instability. Consider decreasing the k. The largest discarded value is: {_first_discarded_val:.3e}."
             )
         return top_vec[valid], top_idxs[valid]
 
