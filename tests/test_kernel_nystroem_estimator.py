@@ -80,17 +80,23 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
     assert check_is_fitted(model) is None
     assert model.U_.shape[1] == model.rank_
 
-    # Predict and modes checks
+    # Fit, predict and modes checks
     if observables is None:
-        X_pred = model.predict(data)
+        model.fit(data, y=observables)
+        assert check_is_fitted(model) is None
+        assert model.U_.shape[1] == model.rank_
+        X_pred = model.predict(data, observable=False)
         assert X_pred.shape == model.X_fit_.shape
-        modes, _ = model.modes(data)
+        modes, _ = model.modes(data, observable=False)
         assert modes.shape == (model.rank_,) + model.X_fit_.shape
     else:
         obs_shape = (len(data), 1, 2, 3, 4)
-        X_pred = model.predict(data, observable=observables(obs_shape))
+        model.fit(data, y=observables(obs_shape))
+        assert check_is_fitted(model) is None
+        assert model.U_.shape[1] == model.rank_
+        X_pred = model.predict(data, observable=True)
         assert X_pred.shape == obs_shape
-        modes, _ = model.modes(data, observable=observables(obs_shape))
+        modes, _ = model.modes(data, observable=True)
         assert modes.shape == (model.rank_,) + obs_shape
 
     # Eigen-decomposition
@@ -107,9 +113,9 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
 
     # Internal consistency
     if observables is None:
-        X_pred_2 = model.predict(data)
+        X_pred_2 = model.predict(data, observable=False)
     else:
-        X_pred_2 = model.predict(data, observable=observables(obs_shape))
+        X_pred_2 = model.predict(data, observable=True)
     np.testing.assert_allclose(X_pred, X_pred_2, rtol=1e-10)
 
 
