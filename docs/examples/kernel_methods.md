@@ -43,19 +43,17 @@ In `kooplearn`, we provide an implementation of the Lorenz-63 system in {class}`
 
 ```python
 import numpy as np
-from kooplearn.datasets import Lorenz63
+from kooplearn.datasets import make_lorenz63
+from sklearn.preprocessing import StandardScaler
 
 train_samples = 10000
 test_samples = 100
-raw_data = Lorenz63().sample(X0 = np.ones(3), T=train_samples + 1000 + test_samples)
+data = make_lorenz63(X0 = np.ones(3), n_steps =train_samples + 1000 + test_samples)
 # Data rescaling
-mean = np.mean(raw_data, axis=0)
-norm = np.max(np.abs(raw_data), axis=0)
-data = raw_data - mean
-data /= norm
+scaler = StandardScaler()
 
-train_set = data[:train_samples + 1]
-test_set = data[-test_samples - 1:]
+train_set = scaler.fit_transform(data[:train_samples + 1])
+test_set = scaler.transform(data[-test_samples - 1:])
 ```
 
 
@@ -64,10 +62,8 @@ import matplotlib.pyplot as plt
 
 fig = plt.figure(figsize=(6,6))
 ax = fig.add_subplot(111, projection='3d')
-ax.plot(train_set.x.values, train_set.y.values, train_set.z.values, lw=1, label='Training Set', color='k', alpha=0.3)
-ax.plot(test_set.x.values, test_set.y.values, test_set.z.values, lw=2, label='Test Set', color='#e60049')
-ax.set_xticks(np.linspace(-1,1,5),)
-ax.set_yticks(np.linspace(-1,1,5))
+ax.plot(train_set[:, 0], train_set[:, 1], train_set[:, 2], lw=1, label='Training Set', color='k', alpha=0.3)
+ax.plot(test_set[:, 0], test_set[:, 1], test_set[:, 2], lw=2, label='Test Set', color='#e60049')
 
 plt.legend(frameon=False)
 plt.show()
@@ -81,7 +77,7 @@ plt.show()
 
 ### Fitting the kernel-based estimators
 
-The first step in training the estimators is the choice of the kernel. In this example, we choose the standard [Gaussian kernel](https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.RBF.html) and set its length scale using [median heuristic](https://arxiv.org/abs/1707.07269).
+The first step in training the estimators is the choice of the kernel. In this example, we choose the standard [Gaussian kernel](https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.kernels.RBF.html).
 
 Then, the hyperparameters to be tuned, common to the three estimators under consideration, are:
 - The Tikhonov regularization, `alpha`, which should be a small positive number to ensure stability and generalizability,
@@ -99,17 +95,12 @@ Finally, in the randomized-RRR model which leverages Gaussian sketching, we can 
 
 ```python
 from kooplearn.kernel import KernelRidge, NystroemKernelRidge
-from scipy.spatial.distance import pdist
 
 # Base settings
 reduced_rank = True
 n_components = 25
 n_centers = 500
 alpha = 1e-6
-
-# Setting the RBF length scale (gamma) through the median_heuristic
-data_pdist2 = pdist(train_set) ** 2
-gamma = np.sqrt(np.median(data_pdist2) / 2)
 ```
 
 We define some utility functions to measure fitting time and evaluate the RMSE of the one-step prediction on the test set.
@@ -159,7 +150,6 @@ for stop in train_stops:
         n_components=n_components,
         reduced_rank=reduced_rank,
         kernel="rbf",
-        gamma=gamma,
         alpha=alpha,
         eigen_solver="arpack",
         random_state=0,
@@ -172,7 +162,6 @@ for stop in train_stops:
         n_components=n_components,
         reduced_rank=reduced_rank,
         kernel="rbf",
-        gamma=gamma,
         alpha=alpha,
         eigen_solver="arpack",
         n_centers=n_centers,
@@ -186,7 +175,6 @@ for stop in train_stops:
         n_components=n_components,
         reduced_rank=reduced_rank,
         kernel="rbf",
-        gamma=gamma,
         alpha=alpha,
         eigen_solver="randomized",
         iterated_power=1,
@@ -265,8 +253,8 @@ for name in estimators:
 ```
 
     Average fitting time speed-up for RRR: 1.00x
-    Average fitting time speed-up for Nystroem-RRR: 16.47x
-    Average fitting time speed-up for Randomized-RRR: 10.29x
+    Average fitting time speed-up for Nystroem-RRR: 27.41x
+    Average fitting time speed-up for Randomized-RRR: 6.43x
 
 
 

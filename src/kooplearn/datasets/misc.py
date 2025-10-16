@@ -32,7 +32,7 @@ class DiscreteTimeDynamics(DataGenerator):
         memory = np.zeros((len(t_eval),) + X0.shape)
         memory[0] = X0
 
-        for t in range(len(t_eval)-1):
+        for t in range(len(t_eval) - 1):
             memory[t + 1] = self._step(memory[t])
 
         # MultiIndex: step + time
@@ -42,11 +42,11 @@ class DiscreteTimeDynamics(DataGenerator):
         # columns = [f"x{i}" for i in range(memory.shape[1])] if memory.ndim > 1 else ["x"]
         traj = pd.DataFrame(memory, columns=self.df.columns, index=index)
         traj.attrs = self.df.attrs
-        traj.attrs['X0'] = X0
+        traj.attrs["X0"] = X0
         self.df = traj
 
         return self.df
-    
+
 
 class DataFrameMixin:
     """Mixin to manage an internal DataFrame for generated trajectories."""

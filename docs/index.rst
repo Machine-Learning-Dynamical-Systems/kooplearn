@@ -101,7 +101,14 @@ Learn more
    :hidden:
 
    Getting Started <examples/linear_system.md>
-   Kernel Methods <examples/kernel_methods.md>
-   Molecular Dynamics <examples/ala2_nys_tutorial.md>
+   Large Scale Kernel Methods <examples/kernel_methods.md>
+   Molecular Dynamics (Kernels) <examples/ala2_nys_tutorial.md>
 
+.. autosummary::
+   :caption: API reference
+   :toctree: _autosummary
+   :template: custom-module-template.rst
 
+   kooplearn.kernel
+   kooplearn.linear_model
+   kooplearn.datasets
