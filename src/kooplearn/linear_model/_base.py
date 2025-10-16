@@ -19,11 +19,11 @@ logger = logging.getLogger("kooplearn")
 
 class Ridge(BaseEstimator):
     r"""Linear model minimizing the :math:`L^{2}` loss.
-    Implements a model approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator by lifting the state with a *nonlinear* feature map and then minimizing the :math:`L^{2}` loss in the embedded space as described in :footcite:t:`Kostic2022`.
+    Implements a model approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator by lifting the state with a *nonlinear* feature map and then minimizing the :math:`L^{2}` loss in the embedded space as described in :cite:t:`Kostic2022`.
 
     .. tip::
 
-        The dynamical modes obtained by calling :class:`kooplearn.models.Nonlinear.modes` correspond to the *Extended Dynamical Mode Decomposition* by :footcite:t:`Williams2015_EDMD`.
+        The dynamical modes obtained by calling :class:`kooplearn.models.Nonlinear.modes` correspond to the *Extended Dynamical Mode Decomposition* by :cite:t:`Williams2015_EDMD`.
 
 
     Parameters
@@ -36,7 +36,7 @@ class Ridge(BaseEstimator):
 
     reduced_rank : bool, default=True
         Whether to use reduced-rank regression introduced in
-        :footcite:t:`Kostic2022`. If ``False``, initializes the classical
+        :cite:t:`Kostic2022`. If ``False``, initializes the classical
         principal component estimator.
 
     alpha : float, default=0.0
@@ -67,7 +67,7 @@ class Ridge(BaseEstimator):
             `scipy.sparse.linalg.eigsh`. It requires strictly
             0 < n_components < n_samples
         randomized :
-            run randomized SVD as described in :footcite:t:`Turri2023`.
+            run randomized SVD as described in :cite:t:`turri2023randomized`.
 
     tol : float, default=0
         Convergence tolerance for arpack.
@@ -98,7 +98,7 @@ class Ridge(BaseEstimator):
 
     .. tip::
 
-        A powerful variation proposed by :footcite:t:`Arbabi2017`, known as Hankel-DMD [TODO], evaluates the Koopman/Transfer estimators by stacking consecutive snapshots together in a Hankel matrix. When this model is fitted on context windows of length > 2, the lookback window is automatically set to length ``context_len - 1``. Upon fitting, the whole lookback window is passed through the feature map and the results are then flattened and *concatenated* together, realizing an Hankel-EDMD estimator.
+        A powerful variation proposed by :cite:t:`Arbabi2017`, known as Hankel-DMD [TODO], evaluates the Koopman/Transfer estimators by stacking consecutive snapshots together in a Hankel matrix. When this model is fitted on context windows of length > 2, the lookback window is automatically set to length ``context_len - 1``. Upon fitting, the whole lookback window is passed through the feature map and the results are then flattened and *concatenated* together, realizing an Hankel-EDMD estimator.
 
 
     Attributes
@@ -423,7 +423,7 @@ class Ridge(BaseEstimator):
         eigentriplets of the Koopman/Transfer operator, for any observable
         :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
         :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
-        See :footcite:t:`Kostic2022` for more details.
+        See :cite:t:`Kostic2022` for more details.
 
 
         Parameters

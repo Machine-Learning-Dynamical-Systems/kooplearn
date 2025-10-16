@@ -7,7 +7,7 @@ from torch.nn import Module
 
 from kooplearn.torch.nn import _functional as F
 
-__all__ = ["VampLoss", "L2ContrastiveLoss", "KLContrastiveLoss", "DynamicAELoss"]
+__all__ = ["DynamicAELoss", "KLContrastiveLoss", "L2ContrastiveLoss", "VampLoss"]
 
 # Losses_____________________________________________________________________________________________
 
@@ -35,7 +35,7 @@ class _RegularizedLoss(Module):
 
 
 class VampLoss(_RegularizedLoss):
-    r"""Variational Approach for learning Markov Processes (VAMP) score by :footcite:t:`Wu2019`.
+    r"""Variational Approach for learning Markov Processes (VAMP) score by :cite:t:`Wu2019`.
 
     .. math::
 
@@ -83,7 +83,7 @@ class VampLoss(_RegularizedLoss):
 
 
 class L2ContrastiveLoss(_RegularizedLoss):
-    r"""NCP/Contrastive/Mutual Information Loss based on the :math:`L^{2}` error by :footcite:t:`Kostic2024NCP`.
+    r"""NCP/Contrastive/Mutual Information Loss based on the :math:`L^{2}` error by :cite:t:`Kostic2024NCP`.
 
     .. math::
 
@@ -101,7 +101,7 @@ class L2ContrastiveLoss(_RegularizedLoss):
     ) -> None:
         super().__init__(gamma, regularizer)
 
-    def forward(self, x: Tensor, y: Tensor) -> Tensor:  # noqa: D102
+    def forward(self, x: Tensor, y: Tensor) -> Tensor:
         """Forward pass of the L2 contrastive loss.
 
         Args:
@@ -140,7 +140,7 @@ class KLContrastiveLoss(_RegularizedLoss):
     ) -> None:
         super().__init__(gamma, regularizer)
 
-    def forward(self, x: Tensor, y: Tensor) -> Tensor:  # noqa: D102
+    def forward(self, x: Tensor, y: Tensor) -> Tensor:
         """Forward pass of the KL contrastive loss.
 
         Args:
@@ -159,10 +159,10 @@ class KLContrastiveLoss(_RegularizedLoss):
 
 
 class DynamicAELoss(Module):
-    r"""Single-step Dynamic Autoencoder (DAE) loss introduced by :footcite:t:`Lusch2018`.
-    
+    r"""Single-step Dynamic Autoencoder (DAE) loss introduced by :cite:t:`Lusch2018`.
+
     This loss combines three objectives to train dynamic autoencoders:
-    
+
     1. **Reconstruction loss** — measures how well the autoencoder reconstructs inputs.
     2. **Linearity loss** — enforces linear evolution in latent space.
     3. **Prediction loss** — penalizes errors between predicted and actual encoded outputs.
@@ -170,7 +170,7 @@ class DynamicAELoss(Module):
     The total loss is a weighted sum:
 
     .. math::
-        \mathcal{L} = 
+        \mathcal{L} =
         \alpha_\mathrm{rec} \, \|x - \phi^{-1}(\phi(x)) \|^2 +
         \alpha_\mathrm{lin} \, \|\phi(y) - K\phi(x) \|^2 +
         \alpha_\mathrm{pred} \, \|y - \phi^{-1}(K\phi(x))\|^2
@@ -185,9 +185,9 @@ class DynamicAELoss(Module):
         self,
         alpha_rec: float = 1.0,
         alpha_lin: float = 1.0,
-        alpha_pred: float = 1.0, 
+        alpha_pred: float = 1.0,
     ) -> None:
-        """Initialize the Dynamic Autoencoder (DAE) loss.
+        r"""Initialize the Dynamic Autoencoder (DAE) loss.
 
         Parameters
         ----------
@@ -203,14 +203,15 @@ class DynamicAELoss(Module):
         self.alpha_lin = alpha_lin
         self.alpha_pred = alpha_pred
 
-    def forward(self, 
-                x: Tensor, 
-                y: Tensor,
-                x_rec: Tensor, 
-                y_enc: Tensor, 
-                x_evo: Tensor, 
-                y_pred: Tensor,
-                ) -> Tensor:  # noqa: D102
+    def forward(
+        self,
+        x: Tensor,
+        y: Tensor,
+        x_rec: Tensor,
+        y_enc: Tensor,
+        x_evo: Tensor,
+        y_pred: Tensor,
+    ) -> Tensor:
         """Compute the Dynamic Autoencoder loss.
 
         Parameters
@@ -235,4 +236,14 @@ class DynamicAELoss(Module):
         torch.Tensor
             A scalar tensor representing the total dynamic autoencoder loss.
         """
-        return F.dynamic_ae_loss(x, y, x_rec, y_enc, x_evo, y_pred, self.alpha_rec, self.alpha_lin, self.alpha_pred)
+        return F.dynamic_ae_loss(
+            x,
+            y,
+            x_rec,
+            y_enc,
+            x_evo,
+            y_pred,
+            self.alpha_rec,
+            self.alpha_lin,
+            self.alpha_pred,
+        )

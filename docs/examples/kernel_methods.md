@@ -1,3 +1,4 @@
+(fast-kernels)=
 # Large Scale Kernel Models
 
 _Author:_ [Giacomo Turri](https://github.com/g-turri)
@@ -6,7 +7,7 @@ This tutorial explains how to train kernel-based estimators of the Koopman opera
 
 - Reduced Rank Regression (RRR) as described in {cite:p}`Kostic2022`,
 - Nyström Reduced Rank Regression (Nyström-RRR) as described in {cite:p}`Meanti2023`,
-- Randomized Reduced Rank Regression (Randomized-RRR) as described in {cite:p}`Turri2023`
+- Randomized Reduced Rank Regression (Randomized-RRR) as described in {cite:p}`turri2023randomized`
 
 by investigating the Lorenz-63 System (a.k.a. Lorenz attractor). This model is defined by a system of three coupled ordinary differential equations:
 

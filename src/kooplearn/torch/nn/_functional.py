@@ -6,8 +6,8 @@ from torch import Tensor
 from ._linalg import sqrtmh
 from ._stats import cov_norm_squared_unbiased, covariance
 
-
 # Losses_______________________________________________________________________
+
 
 def vamp_loss(
     x: Tensor, y: Tensor, schatten_norm: int = 2, center_covariances: bool = True
@@ -47,7 +47,9 @@ def l2_contrastive_loss(x: Tensor, y: Tensor) -> Tensor:
     diag = 2 * torch.mean(x * y) * dim
     square_term = torch.matmul(x, y.T) ** 2
     off_diag = (
-        torch.mean(torch.triu(square_term, diagonal=1) + torch.tril(square_term, diagonal=-1))
+        torch.mean(
+            torch.triu(square_term, diagonal=1) + torch.tril(square_term, diagonal=-1)
+        )
         * npts
         / (npts - 1)
     )
@@ -63,15 +65,26 @@ def kl_contrastive_loss(x: Tensor, y: Tensor) -> Tensor:
     log_term = torch.mean(torch.log(x * y)) * dim
     linear_term = torch.matmul(x, y.T)
     off_diag = (
-        torch.mean(torch.triu(linear_term, diagonal=1) + torch.tril(linear_term, diagonal=-1))
+        torch.mean(
+            torch.triu(linear_term, diagonal=1) + torch.tril(linear_term, diagonal=-1)
+        )
         * npts
         / (npts - 1)
     )
     return off_diag - log_term
 
 
-def dynamic_ae_loss(x: Tensor, y: Tensor, x_rec: Tensor, y_enc: Tensor, x_evo: Tensor, y_pred: Tensor,
-                    alpha_rec: float = 1.0, alpha_lin: float = 1.0, alpha_pred: float = 1.0) -> Tensor:
+def dynamic_ae_loss(
+    x: Tensor,
+    y: Tensor,
+    x_rec: Tensor,
+    y_enc: Tensor,
+    x_evo: Tensor,
+    y_pred: Tensor,
+    alpha_rec: float = 1.0,
+    alpha_lin: float = 1.0,
+    alpha_pred: float = 1.0,
+) -> Tensor:
     """See :class:`kooplearn.torch.nn.DynamicAELoss` for details."""
     mse = torch.nn.MSELoss()
     rec_loss = mse(x, x_rec)
@@ -81,6 +94,7 @@ def dynamic_ae_loss(x: Tensor, y: Tensor, x_rec: Tensor, y_enc: Tensor, x_evo: T
 
 
 # Regularizers_________________________________________________________________
+
 
 def orthonormal_fro_reg(x: Tensor) -> Tensor:
     r"""Orthonormality regularization with Frobenious norm of covariance of `x`.
@@ -115,7 +129,7 @@ def orthonormal_fro_reg(x: Tensor) -> Tensor:
 
 
 def orthonormal_logfro_reg(x: Tensor) -> Tensor:
-    r"""Orthonormality regularization with log-Frobenious norm of covariance of x by :footcite:t:`Kostic2023DPNets`.
+    r"""Orthonormality regularization with log-Frobenious norm of covariance of x by :cite:t:`Kostic2023DPNets`.
 
     .. math::
 

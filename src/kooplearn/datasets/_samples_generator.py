@@ -457,7 +457,7 @@ def make_logistic_map(
     random_state=None,
 ):
     """
-    Generate a trajectory from the logistic map with optional trigonometric noise :footcite:t:`ostruszka2000dynamical`.
+    Generate a trajectory from the logistic map with optional trigonometric noise :cite:t:`ostruszka2000dynamical`.
 
     The logistic map is a discrete-time dynamical system defined by:
 
@@ -804,7 +804,7 @@ def make_prinz_potential(
     rng_seed=None,
 ):
     """
-    Generate a 1D Langevin trajectory for the "Prinz potential" :footcite:t:`Prinz2011`.
+    Generate a 1D Langevin trajectory for the "Prinz potential" :cite:t:`Prinz2011`.
 
     This quadruple-well potential exhibits three metastable states separated by
     energy barriers. The dynamics follow the (discretized) overdamped Langevin equation:

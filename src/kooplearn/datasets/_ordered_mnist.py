@@ -56,7 +56,7 @@ def fetch_ordered_mnist(
     Notes
     -----
     The dataset is reordered so that classes are interleaved in the returned
-    arrays. For example, with ``num_digits=3``, the ordering will be roughly:
+    arrays. For example, with ``num_digits=3``, the ordering will be:
 
     ``[0, 1, 2, 0, 1, 2, 0, 1, 2, ...]``
 

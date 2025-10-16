@@ -301,7 +301,7 @@ def nystroem_pcr(
     max_iter: int | None = None,
 ) -> FitResult:
     """Fits the Principal Components estimator using the Nyström method
-    from :footcite:t:`Meanti2023`.
+    from :cite:t:`Meanti2023`.
 
     Args:
         kernel_X (ndarray): Kernel matrix of the input inducing points.
@@ -406,7 +406,7 @@ def reduced_rank(
     tol: float = 0,
     max_iter: int | None = None,
 ) -> FitResult:
-    """Fits the Reduced Rank estimator from :footcite:t:`Kostic2022`.
+    """Fits the Reduced Rank estimator from :cite:t:`Kostic2022`.
 
     Args:
         kernel_X (ndarray): Kernel matrix of the input data.
@@ -497,7 +497,7 @@ def nystroem_reduced_rank(
     tol: float = 0,
     max_iter: int | None = None,
 ) -> FitResult:
-    """Fits the Nyström Reduced Rank estimator from :footcite:t:`Meanti2023`.
+    """Fits the Nyström Reduced Rank estimator from :cite:t:`Meanti2023`.
 
     Args:
         kernel_X (ndarray): Kernel matrix of the input inducing points.
@@ -594,7 +594,7 @@ def rand_reduced_rank(
     rng_seed: int | None = None,
     precomputed_cholesky=None,
 ) -> FitResult:
-    """Fits the Randomized Reduced Rank Estimator from :footcite:t:`Turri2023`.
+    """Fits the Randomized Reduced Rank Estimator from :cite:t:`turri2023randomized`.
 
     Args:
         kernel_X (ndarray): Kernel matrix of the input data

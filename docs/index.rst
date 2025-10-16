@@ -8,9 +8,32 @@ kooplearn documentation
 
 .. div:: sd-text-left sd-font-italic
 
-   A sklearn-compatible library for Koopman and Transfer operator learning.
+   A sklearn-compatible library for evolution operator learning.
 
 ----
+
+What is Kooplearn?
+^^^^^^^^^^^^^^^^^^
+Kooplearn is a Python library implementing machine-learning algorithms to approximate :ref:`evolution operators <primer>` —  also known as Koopman :cite:p:`Koopman1931` or Transfer :cite:p:`Applebaum2009` operators —  from data. ``kooplearn`` can
+
+1. Predict future states *and* observables.
+2. Estimate the eigenvalues and eigenfucntions of the evolution operators.
+3. Compute the `dynamic mode decomposition <https://en.wikipedia.org/wiki/Dynamic_mode_decomposition>`_ of states *and* observables.
+
+...but does not handle control inputs, have a look at the related project `pykoop <https://pykoop.readthedocs.io/en/stable/>`_ for those!
+
+What Kooplearn does *really* well?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1. It is easy to use, and adheres to the `scikit-learn API <https://scikit-learn.org/stable/api/index.html>`_.
+2. :ref:`Kernel estimators <api_kernel>` are state-of-the-art: 
+   
+   * ``kooplearn`` implements the *Reduced Rank Regressor* from :cite:`Kostic2022` which is provably better :cite:`Kostic2023SpectralRates` than the classical kernel DMD :cite:`Williams2015_KDMD` in estimating eigenvalues and eigenfunctions. 
+   * It also implements Nyström estimators :cite:`Meanti2023` and randomized estimators :cite:`turri2023randomized` for :ref:`blazingly fast <fast-kernels>` kernel learning.
+
+3. Includes representation learning losses to train neural-network Koopman embeddings.
+
+
 
 Installation
 ^^^^^^^^^^^^
@@ -94,21 +117,32 @@ Learn more
 
 ----
 
+.. toctree::
+   :maxdepth: 2
+   :caption: User Guide
+   :hidden:
+
+   Getting Started <examples/linear_system.md>
+   A Primer on Evolution Operators <primer.md>
+   The Operator Way <https://pietronvll.github.io/the-operator-way.html>
 
 .. toctree::
    :maxdepth: 2
    :caption: Examples
    :hidden:
 
-   Getting Started <examples/linear_system.md>
    Large Scale Kernel Methods <examples/kernel_methods.md>
    Molecular Dynamics (Kernels) <examples/ala2_nys_tutorial.md>
 
 .. toctree::
    :maxdepth: 4
    :caption: API
+   :hidden:
 
    api/linear_model
    api/kernel
    api/datasets
    
+.. bibliography::
+   :filter: docname in docnames
+   :style: unsrt

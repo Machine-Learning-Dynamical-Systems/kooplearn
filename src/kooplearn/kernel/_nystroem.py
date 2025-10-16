@@ -23,12 +23,12 @@ class NystroemKernelRidge(BaseEstimator):
     Transfer (stochastic systems) operator by lifting the state with a
     *infinite-dimensional nonlinear* feature map associated to a kernel
     :math:`k` and then minimizing the :math:`L^{2}` loss in the embedded space
-    as described in :footcite:t:`Meanti2023`.
+    as described in :cite:t:`Meanti2023`.
 
     .. tip::
         The dynamical modes obtained by calling
         :class:`kooplearn.models.Kernel.modes` correspond to the *Kernel
-        Dynamical Mode Decomposition* by :footcite:t:`Williams2015_KDMD`.
+        Dynamical Mode Decomposition* by :cite:t:`Williams2015_KDMD`.
 
 
     Parameters
@@ -41,7 +41,7 @@ class NystroemKernelRidge(BaseEstimator):
        
     reduced_rank : bool, default=True
         Whether to use reduced-rank regression introduced in
-        :footcite:t:`Kostic2022`. If ``False``, initializes the classical
+        :cite:t:`Kostic2022`. If ``False``, initializes the classical
         principal component estimator.
 
     kernel : {'linear', 'poly', 'rbf', 'sigmoid', 'cosine'} \
@@ -147,11 +147,11 @@ class NystroemKernelRidge(BaseEstimator):
 
     U_ : Projection matrix of shape (n_samples, rank). The Koopman/Transfer
         operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)`
-        (see :footcite:t:`Kostic2022`).
+        (see :cite:t:`Kostic2022`).
 
     V_ : Projection matrix of shape (n_samples, rank). The Koopman/Transfer
       operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)`
-      (see :footcite:t:`Kostic2022`).
+      (see :cite:t:`Kostic2022`).
 
     References
     ----------
@@ -455,7 +455,7 @@ class NystroemKernelRidge(BaseEstimator):
         eigentriplets of the Koopman/Transfer operator, for any observable
         :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
         :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
-        See :footcite:t:`Kostic2022` for more details.
+        See :cite:t:`Kostic2022` for more details.
 
 
         Parameters
