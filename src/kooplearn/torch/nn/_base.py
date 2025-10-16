@@ -7,7 +7,7 @@ from torch.nn import Module
 
 from kooplearn.torch.nn import _functional as F
 
-__all__ = ["VampLoss", "L2ContrastiveLoss", "KLContrastiveLoss"]
+__all__ = ["VampLoss", "L2ContrastiveLoss", "KLContrastiveLoss", "DynamicAELoss"]
 
 # Losses_____________________________________________________________________________________________
 
@@ -156,3 +156,83 @@ class KLContrastiveLoss(_RegularizedLoss):
         return F.kl_contrastive_loss(x, y) + self.gamma * (
             self.regularizer(x) + self.regularizer(y)
         )
+
+
+class DynamicAELoss(Module):
+    r"""Single-step Dynamic Autoencoder (DAE) loss introduced by :footcite:t:`Lusch2018`.
+    
+    This loss combines three objectives to train dynamic autoencoders:
+    
+    1. **Reconstruction loss** — measures how well the autoencoder reconstructs inputs.
+    2. **Linearity loss** — enforces linear evolution in latent space.
+    3. **Prediction loss** — penalizes errors between predicted and actual encoded outputs.
+
+    The total loss is a weighted sum:
+
+    .. math::
+        \mathcal{L} = 
+        \alpha_\mathrm{rec} \, \|x - \phi^{-1}(\phi(x)) \|^2 +
+        \alpha_\mathrm{lin} \, \|\phi(y) - K\phi(x) \|^2 +
+        \alpha_\mathrm{pred} \, \|y - \phi^{-1}(K\phi(x))\|^2
+
+    where :math:`\phi^{-1}(\phi(x))` is the reconstruction of :math:`x`,
+    :math:`\phi(y)` is the encoded output,
+    :math:`K\phi(x)` is the evolved input latent representation,
+    and :math:`\phi^{-1}(K\phi(x))` is the predicted decoded output.
+    """
+
+    def __init__(
+        self,
+        alpha_rec: float = 1.0,
+        alpha_lin: float = 1.0,
+        alpha_pred: float = 1.0, 
+    ) -> None:
+        """Initialize the Dynamic Autoencoder (DAE) loss.
+
+        Parameters
+        ----------
+        alpha_rec : float, default=1.0
+            Weight for the reconstruction term :math:`\|x - \phi^{-1}(\phi(x)) \|^2`.
+        alpha_lin : float, default=1.0
+            Weight for the linearity term :math:`\|\phi(y) - K\phi(x) \|^2`.
+        alpha_pred : float, default=1.0
+            Weight for the prediction term :math:`\|y - \phi^{-1}(K\phi(x))\|^2`.
+        """
+        super().__init__()
+        self.alpha_rec = alpha_rec
+        self.alpha_lin = alpha_lin
+        self.alpha_pred = alpha_pred
+
+    def forward(self, 
+                x: Tensor, 
+                y: Tensor,
+                x_rec: Tensor, 
+                y_enc: Tensor, 
+                x_evo: Tensor, 
+                y_pred: Tensor,
+                ) -> Tensor:  # noqa: D102
+        """Compute the Dynamic Autoencoder loss.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input features of shape ``(N, D)``, where ``N`` is the batch size
+            and ``D`` is the feature dimension.
+        y : torch.Tensor
+            Output (target) features. Same shape as ``x``.
+        x_rec : torch.Tensor
+            Reconstructed version of the input ``x`` produced by the decoder. Same shape as ``x``.
+        y_enc : torch.Tensor
+            Encoded latent representation of the target ``y``.
+        x_evo : torch.Tensor
+            Evolved latent representation obtained by applying the learned
+            linear operator to the latent encoding of ``x``. Same shape as ``x``.
+        y_pred : torch.Tensor
+            Predicted decoded output corresponding to the evolved latent state. Same shape as ``x``.
+
+        Returns
+        -------
+        torch.Tensor
+            A scalar tensor representing the total dynamic autoencoder loss.
+        """
+        return F.dynamic_ae_loss(x, y, x_rec, y_enc, x_evo, y_pred, self.alpha_rec, self.alpha_lin, self.alpha_pred)

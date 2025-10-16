@@ -54,20 +54,30 @@ def l2_contrastive_loss(x: Tensor, y: Tensor) -> Tensor:
     return off_diag - diag
 
 
-def kl_contrastive_loss(X: Tensor, Y: Tensor) -> Tensor:
+def kl_contrastive_loss(x: Tensor, y: Tensor) -> Tensor:
     """See :class:`kooplearn.torch.nn.KLContrastiveLoss` for details."""
-    assert X.shape == Y.shape
-    assert X.ndim == 2
+    assert x.shape == y.shape
+    assert x.ndim == 2
 
-    npts, dim = X.shape
-    log_term = torch.mean(torch.log(X * Y)) * dim
-    linear_term = torch.matmul(X, Y.T)
+    npts, dim = x.shape
+    log_term = torch.mean(torch.log(x * y)) * dim
+    linear_term = torch.matmul(x, y.T)
     off_diag = (
         torch.mean(torch.triu(linear_term, diagonal=1) + torch.tril(linear_term, diagonal=-1))
         * npts
         / (npts - 1)
     )
     return off_diag - log_term
+
+
+def dynamic_ae_loss(x: Tensor, y: Tensor, x_rec: Tensor, y_enc: Tensor, x_evo: Tensor, y_pred: Tensor,
+                    alpha_rec: float = 1.0, alpha_lin: float = 1.0, alpha_pred: float = 1.0) -> Tensor:
+    """See :class:`kooplearn.torch.nn.DynamicAELoss` for details."""
+    mse = torch.nn.MSELoss()
+    rec_loss = mse(x, x_rec)
+    lin_loss = mse(y_enc, x_evo)
+    pred_loss = mse(y, y_pred)
+    return alpha_rec * rec_loss + alpha_lin * lin_loss + alpha_pred * pred_loss
 
 
 # Regularizers_________________________________________________________________
