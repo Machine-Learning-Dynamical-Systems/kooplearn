@@ -455,7 +455,7 @@ def make_logistic_map(
     random_state=None,
 ):
     """
-    Generate a trajectory from the logistic map with optional trigonometric noise.
+    Generate a trajectory from the logistic map with optional trigonometric noise :footcite:t:`ostruszka2000dynamical`.
 
     The logistic map is a discrete-time dynamical system defined by:
 
@@ -640,3 +640,154 @@ def _make_noise_rng(M, rng):
         noise_dist, domain=(-0.5, 0.5), mode=0, random_state=rng
     )
     return noise_rng
+
+
+def make_regime_switching_var(
+    X0,
+    phi1,
+    phi2,
+    transition,
+    n_steps=100,
+    dt=1.0,
+    noise=0.0,
+    rng_seed=None,
+):
+    """
+    Generate a trajectory from a regime-switching vector autoregressive (VAR) process.
+
+    This model alternates between two linear dynamical regimes according to a
+    Markov transition matrix. At each step, the system evolves according to one
+    of two dynamics matrices ``phi1`` or ``phi2``, with optional Gaussian noise.
+
+    Mathematically, the system evolves as:
+
+    .. math::
+
+        x_{t+1} = \\Phi_{s_t} x_t + \\epsilon_t, \\quad
+        \\epsilon_t \\sim \\mathcal{N}(0, \\sigma^2 I)
+
+    where ``s_t`` is the active regime (0 or 1), evolving according to a
+    2x2 Markov transition matrix ``P`` such that
+
+    .. math::
+
+        P_{ij} = \\mathbb{P}(s_{t+1} = j \\mid s_t = i)
+
+    Parameters
+    ----------
+    X0 : array-like of shape (n_features,)
+        Initial state of the system.
+
+    phi1 : ndarray of shape (n_features, n_features)
+        Dynamics matrix for regime 0.
+
+    phi2 : ndarray of shape (n_features, n_features)
+        Dynamics matrix for regime 1.
+
+    transition : ndarray of shape (2, 2)
+        Row-stochastic Markov transition matrix defining the probabilities
+        of switching between regimes. ``transition[i, j]`` gives the
+        probability of transitioning from regime ``i`` to ``j``.
+
+    n_steps : int, default=100
+        Number of discrete time steps to simulate.
+
+    dt : float, default=1.0
+        Time step size for discrete simulation. Added as metadata in the output.
+
+    noise : float, default=0.0
+        Standard deviation of Gaussian noise added at each step.
+
+    rng_seed : int, optional
+        Seed for the random number generator.
+
+    Returns
+    -------
+    df : pandas.DataFrame of shape ``(n_steps + 1, n_features)``
+        Generated trajectory with columns ``['x0', 'x1', ..., 'x{n_features-1}']``.
+        Has a MultiIndex with levels ``['step', 'time']``.
+
+        The following metadata are stored in ``df.attrs``:
+
+        - ``'generator'``: ``'make_regime_switching_var'``
+        - ``'X0'``: initial state
+        - ``'params'``: dictionary with all model parameters
+        - ``'regimes'``: integer array of active regimes over time
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from kooplearn.datasets import make_regime_switching_var
+    >>> phi1 = np.array([[0.9, 0.1], [0.0, 0.8]])
+    >>> phi2 = np.array([[0.5, -0.2], [0.3, 0.7]])
+    >>> transition = np.array([[0.95, 0.05], [0.1, 0.9]])
+    >>> X0 = np.zeros(2)
+    >>> df = make_regime_switching_var(X0, phi1, phi2, transition, n_steps=100, noise=0.01)
+    >>> df.head()
+    """
+
+    X0 = np.asarray(X0, dtype=float)
+    n_features = X0.shape[0]
+
+    # Validate shapes
+    phi1 = np.asarray(phi1, dtype=float)
+    phi2 = np.asarray(phi2, dtype=float)
+    transition = np.asarray(transition, dtype=float)
+
+    if phi1.shape != (n_features, n_features):
+        raise ValueError(
+            f"`phi1` must have shape {(n_features, n_features)}, got {phi1.shape}."
+        )
+    if phi2.shape != (n_features, n_features):
+        raise ValueError(
+            f"`phi2` must have shape {(n_features, n_features)}, got {phi2.shape}."
+        )
+    if transition.shape != (2, 2):
+        raise ValueError("`transition` must be a 2x2 matrix.")
+    if not np.allclose(transition.sum(axis=1), 1.0):
+        raise ValueError("Rows of `transition` must sum to 1.")
+
+    rng = np.random.default_rng(rng_seed)
+    phi = [phi1, phi2]
+
+    # Allocate trajectory and regime arrays
+    data = np.zeros((n_steps + 1, n_features))
+    regimes = np.zeros(n_steps + 1, dtype=int)
+    data[0] = X0
+
+    current_regime = 0
+
+    for t in range(n_steps):
+        noise_vec = noise * rng.standard_normal(size=n_features)
+        X_next = phi[current_regime] @ data[t] + noise_vec
+        data[t + 1] = X_next
+
+        # Draw next regime
+        current_regime = rng.choice([0, 1], p=transition[current_regime])
+        regimes[t + 1] = current_regime
+
+    # Time and step index
+    step_index = np.arange(n_steps + 1)
+    time_index = step_index * dt
+    index = pd.MultiIndex.from_arrays([step_index, time_index], names=["step", "time"])
+
+    columns = [f"x{i}" for i in range(n_features)]
+    df = pd.DataFrame(data, columns=columns, index=index)
+
+    # Metadata
+    df.attrs = {
+        "generator": "make_regime_switching_var",
+        "X0": X0.tolist(),
+        "params": {
+            "phi1": phi1,
+            "phi2": phi2,
+            "transition": transition,
+            "n_steps": n_steps,
+            "dt": dt,
+            "noise": noise,
+            "rng_seed": rng_seed,
+        },
+        "regimes": regimes,
+    }
+
+    return df
