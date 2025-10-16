@@ -1,41 +1,28 @@
 ```python
-from sklearn.datasets import fetch_openml
+from kooplearn.datasets import fetch_ordered_mnist
 import matplotlib.pyplot as plt
 ```
 
 
 ```python
-mnist = fetch_openml(data_id=554)
-```
-
-
-```python
-images = mnist['data'].values.reshape(-1, 28, 28)
+num_digits = 5
+images, targets = fetch_ordered_mnist(num_digits=num_digits)
 ```
 
 
 ```python
 def plot_digits(X, title):
     """Small helper function to plot 100 digits."""
-    fig, axs = plt.subplots(nrows=10, ncols=10, figsize=(8, 8))
-    for img, ax in zip(X, axs.ravel()):
+    fig, axs = plt.subplots(nrows=10, ncols=num_digits, figsize=(0.8*num_digits, 8))
+    for img, ax in zip(images, axs.ravel()):
         ax.imshow(img, cmap="Greys")
         ax.axis("off")
     fig.suptitle(title, fontsize=24)
-```
-
-
-```python
 plot_digits(images, "MNIST")
 ```
 
 
     
-![png](ordered_mnist_files/ordered_mnist_4_0.png)
+![png](ordered_mnist_files/ordered_mnist_2_0.png)
     
 
-
-
-```python
-
-```

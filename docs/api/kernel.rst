@@ -1,10 +1,17 @@
-Kernel Methods
-==============
+.. _api_kernel:
+
+kooplearn.kernel
+================
+
+.. automodule:: kooplearn.kernel
+   :no-members:
+   :no-inherited-members:
 
 .. currentmodule:: kooplearn.kernel
 
-.. autoclass:: KernelRidge
-    :members:
+.. autosummary::
+   :toctree: ../generated/
+   :template: class.rst
 
-.. autoclass:: NystroemKernelRidge
-    :members:
+   KernelRidge
+   NystroemKernelRidge

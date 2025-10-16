@@ -104,11 +104,11 @@ Learn more
    Large Scale Kernel Methods <examples/kernel_methods.md>
    Molecular Dynamics (Kernels) <examples/ala2_nys_tutorial.md>
 
-.. autosummary::
-   :caption: API reference
-   :toctree: _autosummary
-   :template: custom-module-template.rst
+.. toctree::
+   :maxdepth: 4
+   :caption: API
 
-   kooplearn.kernel
-   kooplearn.linear_model
-   kooplearn.datasets
+   api/linear_model
+   api/kernel
+   api/datasets
+   

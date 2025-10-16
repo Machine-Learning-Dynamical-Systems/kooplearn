@@ -28,7 +28,7 @@ In `kooplearn`, we provide {class}`kooplearn.datasets.LinearModel` which can be 
 
 ```python
 import numpy as np
-from kooplearn.datasets import LinearModel
+from kooplearn.datasets import make_linear_system
 from scipy.linalg import eigvals
 
 seed = 42
@@ -43,9 +43,7 @@ X0 = np.random.randn(A.shape[0])
 # Dataset generation and splitting
 train_samples = int(1e5)
 test_samples = int(1e3)
-data = LinearModel(A, noise=0.1, rng_seed=seed).sample(
-    X0=X0, T=train_samples + 100 + train_samples
-)
+data = make_linear_system(X0 = X0, A=A, n_steps=train_samples + 100 + train_samples, noise=0.1, random_state=seed)
 train_set = data[: train_samples + 1]
 test_set = data[: test_samples + 1]
 ```
