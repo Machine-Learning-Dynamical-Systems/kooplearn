@@ -1,6 +1,5 @@
 """Kernel-based regressors for linear operators."""
 
-
 from math import sqrt
 from typing import Literal
 from warnings import warn
@@ -33,7 +32,7 @@ def estimator_risk(
     kernel_Y: np.ndarray,
     kernel_XXv: np.ndarray,
     kernel_YYv: np.ndarray,
-    ) -> float:
+) -> float:
     """
     Estimate the validation risk of a fitted kernel regressor.
 
@@ -77,11 +76,7 @@ def estimator_risk(
     return r_Y + r_XY + r_X
 
 
-def eig(
-        fit_result: FitResult,
-        K_X: ndarray, 
-        K_YX: ndarray
-        ) -> EigResult:
+def eig(fit_result: FitResult, K_X: ndarray, K_YX: ndarray) -> EigResult:
     """
     Compute the eigendecomposition of a fitted kernel regressor.
 
@@ -110,7 +105,9 @@ def eig(
     W_YX = np.linalg.multi_dot([V.T, r_dim * K_YX, U])
     W_X = np.linalg.multi_dot([U.T, r_dim * K_X, U])
 
-    values, vl, vr = scipy.linalg.eig(W_YX, left=True, right=True)  # Left -> V, Right -> U
+    values, vl, vr = scipy.linalg.eig(
+        W_YX, left=True, right=True
+    )  # Left -> V, Right -> U
     values = sanitize_complex_conjugates(values)
     r_perm = np.argsort(values)
     vr = vr[:, r_perm]
@@ -159,9 +156,7 @@ def evaluate_eigenfunction(
     return np.linalg.multi_dot([rsqrt_dim * K_Xin_X_or_Y, vr_or_vl])
 
 
-def estimator_modes(
-            eig_result: EigResult,
-            K_Xin_X: np.ndarray):
+def estimator_modes(eig_result: EigResult, K_Xin_X: np.ndarray):
     """
     Compute dynamic modes associated with eigenfunctions.
 
@@ -180,8 +175,8 @@ def estimator_modes(
     lv = eig_result["left"]
     r_dim = lv.shape[0] ** -0.5
     rv_in = evaluate_eigenfunction(
-        eig_result, 'right', K_Xin_X
-        ).T  # [rank, num_initial_conditions]
+        eig_result, "right", K_Xin_X
+    ).T  # [rank, num_initial_conditions]
     lv_obs = r_dim * lv.T  # [rank, num_observations]
     return (
         rv_in[:, :, None] * lv_obs[:, None, :]
@@ -223,13 +218,15 @@ def predict(
     V = fit_result["V"]
     npts = U.shape[0]
     K_dot_U = kernel_Xin_X @ U / sqrt(npts)
-    obs_shape = obs_train_Y.shape[1:]           # e.g. (npts, 1, 2, 3, 4)
+    obs_shape = obs_train_Y.shape[1:]  # e.g. (npts, 1, 2, 3, 4)
     obs_flat = obs_train_Y.reshape(npts, -1)  # (npts, n_features)
     V_dot_obs_flat = (V.T @ obs_flat) / sqrt(npts)  # (n_components, n_features)
-    V_K_YX_U = np.linalg.multi_dot([V.T, kernel_YX, U]) / npts  # (n_components, n_components)
+    V_K_YX_U = (
+        np.linalg.multi_dot([V.T, kernel_YX, U]) / npts
+    )  # (n_components, n_components)
     M = np.linalg.matrix_power(V_K_YX_U, num_steps - 1)  # (n_components, n_components)
     propagated_flat = K_dot_U @ M @ V_dot_obs_flat  # (npts, n_features)
-    propagated = propagated_flat.reshape((K_dot_U.shape[0],)+ obs_shape)
+    propagated = propagated_flat.reshape((K_dot_U.shape[0],) + obs_shape)
     return propagated
 
 
@@ -446,11 +443,11 @@ def reduced_rank(
         num_arpack_eigs = min(rank + 5, npts)
         values, vectors = eigs(
             A, k=num_arpack_eigs, M=kernel_X, maxiter=max_iter, tol=tol
-            )
+        )
     elif svd_solver == "dense":  # 'dense'
         values, vectors = scipy.linalg.eig(
             A, kernel_X, overwrite_a=True, overwrite_b=True
-            )
+        )
     else:
         raise ValueError(f"Unknown svd_solver: {svd_solver}")
     # Remove the penalty from kernel_X (inplace)
@@ -546,7 +543,7 @@ def nystroem_reduced_rank(
 
     # RHS of the generalized eigenvalue problem
     kernel_Xnys_sq = (kernel_Xnys.T / sqrt_Mn) @ (kernel_Xnys / sqrt_Mn)
-    + reg * kernel_X * (num_centers**-1)
+    +reg * kernel_X * (num_centers**-1)
 
     add_diagonal_(kernel_Xnys_sq, eps)
     A = scipy.linalg.lstsq(kernel_Xnys_sq, kernel_XYX)[0]
@@ -558,16 +555,11 @@ def nystroem_reduced_rank(
         _oversampling = max(10, 4 * int(np.sqrt(rank)))
         _num_arpack_eigs = min(rank + _oversampling, num_centers)
         values, vectors = eigs(
-            kernel_XYX,
-            k=_num_arpack_eigs,
-            M=kernel_Xnys_sq,
-            maxiter=max_iter,
-            tol=tol
-            )
+            kernel_XYX, k=_num_arpack_eigs, M=kernel_Xnys_sq, maxiter=max_iter, tol=tol
+        )
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
     add_diagonal_(kernel_Xnys_sq, -eps)
-
     values, stable_values_idxs = stable_topk(values, rank, ignore_warnings=False)
     vectors = vectors[:, stable_values_idxs]
     # Compare the filtered eigenvalues with the regularization strength, and warn

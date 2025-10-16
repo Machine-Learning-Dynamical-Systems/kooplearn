@@ -1,32 +1,18 @@
-from kooplearn.datasets.deterministic import DuffingOscillator, Lorenz63
-from kooplearn.datasets.stochastic import (
-    LangevinTripleWell1D,
-    LinearModel,
-    LogisticMap,
-    Mock,
-    MullerBrownPotential,
-)
-from kooplearn.datasets.heteroscedastic import (
-    DiscreteBlackScholes,
-    DiscreteOhrnstein,
-    DiscreteCIR,
-    DiscreteHeston,
-    Garch,
-    DMgarch,
+# Authors: The kooplearn developers
+from kooplearn.datasets._ordered_mnist import fetch_ordered_mnist
+from kooplearn.datasets._samples_generator import (
+    make_duffing,
+    make_linear_system,
+    make_logistic_map,
+    make_lorenz63,
+    make_regime_switching_var,
 )
 
 __all__ = [
-    "DuffingOscillator",
-    "Lorenz63",
-    "LangevinTripleWell1D",
-    "LinearModel",
-    "LogisticMap",
-    "Mock",
-    "MullerBrownPotential",
-    "DiscreteBlackScholes",
-    "DiscreteOhrnstein",
-    "DiscreteCIR",
-    "DiscreteHeston",
-    "Garch",
-    "DMgarch",
+    "fetch_ordered_mnist",
+    "make_duffing",
+    "make_linear_system",
+    "make_logistic_map",
+    "make_lorenz63",
+    "make_regime_switching_var",
 ]

@@ -17,7 +17,7 @@ from kooplearn.kernel import _regressors
 logger = logging.getLogger("kooplearn")
 
 
-class NystroemKernel(BaseEstimator):
+class NystroemKernelRidge(BaseEstimator):
     r"""Nystroem-accelerated Kernel model minimizing the :math:`L^{2}` loss.
     Implements a model approximating the Koopman (deterministic systems) or
     Transfer (stochastic systems) operator by lifting the state with a
@@ -185,7 +185,7 @@ class NystroemKernel(BaseEstimator):
         "alpha": [
             [Interval(Real, 0, None, closed="left")],
             None,
-            ],
+        ],
         "eigen_solver": [StrOptions({"auto", "dense", "arpack"})],
         "tol": [Interval(Real, 0, None, closed="left")],
         "max_iter": [
@@ -347,8 +347,8 @@ class NystroemKernel(BaseEstimator):
                 observable_fit = observable_fit[self.nys_centers_idxs_]
             else:
                 raise ValueError(
-                            "Observable should be passed when calling fit as the y parameter."
-                            )
+                    "Observable should be passed when calling fit as the y parameter."
+                )
         else:
             observable_fit = X_fit
         pred = _regressors.predict(
@@ -384,7 +384,10 @@ class NystroemKernel(BaseEstimator):
                 )
             X_val, Y_val = self._split_trajectory(X)
             X_train, Y_train = self._split_trajectory(self.X_fit_)
-            X_train, Y_train = X_train[self.nys_centers_idxs_], Y_train[self.nys_centers_idxs_]
+            X_train, Y_train = (
+                X_train[self.nys_centers_idxs_],
+                Y_train[self.nys_centers_idxs_],
+            )
             kernel_Yv = self._get_kernel(Y_val)
             kernel_XXv = self._get_kernel(X_train, X_val)
             kernel_YYv = self._get_kernel(Y_train, Y_val)
@@ -394,7 +397,11 @@ class NystroemKernel(BaseEstimator):
             kernel_YYv = self.kernel_Y_
 
         return _regressors.estimator_risk(
-            self._fit_result, kernel_Yv, self.kernel_Y_, kernel_XXv, kernel_YYv,
+            self._fit_result,
+            kernel_Yv,
+            self.kernel_Y_,
+            kernel_XXv,
+            kernel_YYv,
         )
 
     def eig(self, eval_left_on=None, eval_right_on=None):
@@ -484,8 +491,8 @@ class NystroemKernel(BaseEstimator):
                 observable_fit = observable_fit[self.nys_centers_idxs_]
             else:
                 raise ValueError(
-                            "Observable should be passed when calling fit as the y parameter."
-                            )
+                    "Observable should be passed when calling fit as the y parameter."
+                )
         else:
             observable_fit = X_fit
         return np.tensordot(_gamma, observable_fit, axes=1), eig_result
@@ -530,7 +537,6 @@ class NystroemKernel(BaseEstimator):
     def _pre_fit_checks(self, X):
         """Perform pre-fit checks and initialize kernel matrices."""
         X = validate_data(self, X, copy=self.copy_X)
-        self.lag_time = 1
         if X.shape[0] < 1 + self.lag_time:
             raise ValueError(
                 f"X has only {X.shape[0]} samples, but at least "
@@ -541,7 +547,7 @@ class NystroemKernel(BaseEstimator):
         X_fit, Y_fit = self._split_trajectory(X)
 
         # Perform random center selection
-        self.nys_centers_idxs_ = self._center_selection(X_fit.shape[0])
+        self.nys_centers_idxs_ = self._center_selection(X_fit.shape[0] - self.lag_time)
         X_nys = X_fit[self.nys_centers_idxs_]
         Y_nys = Y_fit[self.nys_centers_idxs_]
 

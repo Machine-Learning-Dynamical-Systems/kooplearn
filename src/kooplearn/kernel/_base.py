@@ -17,7 +17,7 @@ from kooplearn.kernel import _regressors
 logger = logging.getLogger("kooplearn")
 
 
-class Kernel(BaseEstimator):
+class KernelRidge(BaseEstimator):
     r"""Kernel model minimizing the :math:`L^{2}` loss.
     Implements a model approximating the Koopman (deterministic systems) or
     Transfer (stochastic systems) operator by lifting the state with a
@@ -27,7 +27,7 @@ class Kernel(BaseEstimator):
 
     .. tip::
         The dynamical modes obtained by calling
-        :class:`kooplearn.models.Kernel.modes` correspond to the *Kernel
+        :class:`kooplearn.models.KernelRidge.modes` correspond to the *Kernel
         Dynamical Mode Decomposition* by :footcite:t:`Williams2015_KDMD`.
 
 
@@ -193,7 +193,7 @@ class Kernel(BaseEstimator):
         "alpha": [
             [Interval(Real, 0, None, closed="left")],
             None,
-            ],        
+        ],
         "eigen_solver": [StrOptions({"auto", "dense", "arpack", "randomized"})],
         "tol": [Interval(Real, 0, None, closed="left")],
         "max_iter": [
@@ -349,10 +349,10 @@ class Kernel(BaseEstimator):
             else:
                 fit_result = _regressors.pcr(
                     self.kernel_X_,
-                    alpha, 
-                    n_components, 
-                    eigen_solver, 
-                    self.tol, 
+                    alpha,
+                    n_components,
+                    eigen_solver,
+                    self.tol,
                     self.max_iter,
                 )
 
@@ -395,8 +395,8 @@ class Kernel(BaseEstimator):
                 observable_fit, _ = self._split_trajectory(self.y_)
             else:
                 raise ValueError(
-                            "Observable should be passed when calling fit as the y parameter."
-                            )
+                    "Observable should be passed when calling fit as the y parameter."
+                )
         else:
             observable_fit = X_fit
         pred = _regressors.predict(
@@ -427,7 +427,7 @@ class Kernel(BaseEstimator):
             X = validate_data(self, X, reset=False, copy=self.copy_X)
             if X.shape[0] < 1 + self.lag_time:
                 raise ValueError(
-                    f"X has only {X.shape[0]} samples, but at least" 
+                    f"X has only {X.shape[0]} samples, but at least"
                     f"{1 + self.lag_time} are required."
                 )
             X_val, Y_val = self._split_trajectory(X)
@@ -441,7 +441,11 @@ class Kernel(BaseEstimator):
             kernel_YYv = self.kernel_Y_
 
         return _regressors.estimator_risk(
-            self._fit_result, kernel_Yv, self.kernel_Y_, kernel_XXv, kernel_YYv,
+            self._fit_result,
+            kernel_Yv,
+            self.kernel_Y_,
+            kernel_XXv,
+            kernel_YYv,
         )
 
     def eig(self, eval_left_on=None, eval_right_on=None):
@@ -453,9 +457,7 @@ class Kernel(BaseEstimator):
             Dictionary containing eigenvalues and eigenvectors.
         """
         check_is_fitted(self)
-        eig_result = _regressors.eig(
-            self._fit_result, self.kernel_X_, self.kernel_YX_
-        )
+        eig_result = _regressors.eig(self._fit_result, self.kernel_X_, self.kernel_YX_)
 
         X_fit, Y_fit = self._split_trajectory(self.X_fit_)
         if eval_left_on is None and eval_right_on is None:
@@ -463,32 +465,28 @@ class Kernel(BaseEstimator):
             return eig_result["values"]
         elif eval_left_on is None and eval_right_on is not None:
             # (eigenvalues, right eigenfunctions)
-            kernel_Xin_X_or_Y = self._get_kernel(
-                eval_right_on, X_fit
-            )
+            kernel_Xin_X_or_Y = self._get_kernel(eval_right_on, X_fit)
             return eig_result["values"], _regressors.evaluate_eigenfunction(
-                eig_result, 'right', kernel_Xin_X_or_Y)
+                eig_result, "right", kernel_Xin_X_or_Y
+            )
         elif eval_left_on is not None and eval_right_on is None:
             # (eigenvalues, left eigenfunctions)
-            kernel_Xin_X_or_Y = self._get_kernel(
-                eval_left_on, Y_fit
-            )
+            kernel_Xin_X_or_Y = self._get_kernel(eval_left_on, Y_fit)
             return eig_result["values"], _regressors.evaluate_eigenfunction(
-                eig_result, 'left', kernel_Xin_X_or_Y)
+                eig_result, "left", kernel_Xin_X_or_Y
+            )
         elif eval_left_on is not None and eval_right_on is not None:
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
-            kernel_Xin_X_or_Y_left = self._get_kernel(
-                eval_left_on, Y_fit
-            )
-            kernel_Xin_X_or_Y_right = self._get_kernel(
-                eval_right_on, X_fit
-            )
+            kernel_Xin_X_or_Y_left = self._get_kernel(eval_left_on, Y_fit)
+            kernel_Xin_X_or_Y_right = self._get_kernel(eval_right_on, X_fit)
             return (
                 eig_result["values"],
                 _regressors.evaluate_eigenfunction(
-                eig_result, 'left', kernel_Xin_X_or_Y_left),
+                    eig_result, "left", kernel_Xin_X_or_Y_left
+                ),
                 _regressors.evaluate_eigenfunction(
-                eig_result, 'right', kernel_Xin_X_or_Y_right),
+                    eig_result, "right", kernel_Xin_X_or_Y_right
+                ),
             )
 
     def modes(self, X, observable=False):
@@ -524,9 +522,7 @@ class Kernel(BaseEstimator):
                 f"{1 + self.lag_time} are required."
             )
 
-        eig_result = _regressors.eig(
-            self._fit_result, self.kernel_X_, self.kernel_YX_
-        )
+        eig_result = _regressors.eig(self._fit_result, self.kernel_X_, self.kernel_YX_)
         X_fit, _ = self._split_trajectory(self.X_fit_)
         K_Xin_X = self._get_kernel(X, X_fit)
         _gamma = _regressors.estimator_modes(eig_result, K_Xin_X)
@@ -536,8 +532,8 @@ class Kernel(BaseEstimator):
                 observable_fit, _ = self._split_trajectory(self.y_)
             else:
                 raise ValueError(
-                            "Observable should be passed when calling fit as the y parameter."
-                            )
+                    "Observable should be passed when calling fit as the y parameter."
+                )
         else:
             observable_fit = X_fit
         return np.tensordot(_gamma, observable_fit, axes=1), eig_result
@@ -582,7 +578,6 @@ class Kernel(BaseEstimator):
     def _pre_fit_checks(self, X):
         """Perform pre-fit checks and initialize kernel matrices."""
         X = validate_data(self, X, copy=self.copy_X)
-        self.lag_time = 1
         if X.shape[0] < 1 + self.lag_time:
             raise ValueError(
                 f"X has only {X.shape[0]} samples, but at least "

@@ -33,6 +33,7 @@ def stable_topk(
         ignore_warnings (bool): If False, raise a warning when some elements are discarted for being below the requested numerical precision.
 
     """
+
     if rcond is None:
         rcond = 10.0 * vec.shape[0] * np.finfo(vec.dtype).eps
 
@@ -48,7 +49,7 @@ def stable_topk(
 
         if not ignore_warnings:
             warn(
-                f"Warning: Discarted {k_max - vec.shape[0]} dimensions of the {k_max} requested due to numerical instability. Consider decreasing the k. The largest discarded value is: {_first_discarded_val:.3e}."
+                f"Warning: Discarted {k_max - np.sum(valid)} dimensions of the {k_max} requested due to numerical instability. Consider decreasing the k. The largest discarded value is: {_first_discarded_val:.3e}."
             )
         return top_vec[valid], top_idxs[valid]
 
