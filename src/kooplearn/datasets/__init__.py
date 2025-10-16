@@ -1,5 +1,8 @@
 # Authors: The kooplearn developers
 from kooplearn.datasets._ordered_mnist import fetch_ordered_mnist
+from kooplearn.datasets._overdamped_langevin_generator import (
+    compute_prinz_potential_eig,
+)
 from kooplearn.datasets._samples_generator import (
     make_duffing,
     make_linear_system,
@@ -10,6 +13,7 @@ from kooplearn.datasets._samples_generator import (
 )
 
 __all__ = [
+    "compute_prinz_potential_eig",
     "fetch_ordered_mnist",
     "make_duffing",
     "make_linear_system",
