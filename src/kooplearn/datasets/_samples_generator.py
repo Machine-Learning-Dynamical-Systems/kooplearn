@@ -1,3 +1,5 @@
+from math import sqrt
+
 import numpy as np
 import pandas as pd
 import scipy.integrate
@@ -788,6 +790,123 @@ def make_regime_switching_var(
             "rng_seed": rng_seed,
         },
         "regimes": regimes,
+    }
+
+    return df
+
+
+def make_prinz_potential(
+    X0,
+    n_steps=10000,
+    dt=1e-4,
+    gamma=1.0,
+    sigma=sqrt(2.0),
+    rng_seed=None,
+):
+    """
+    Generate a 1D Langevin trajectory for the "Prinz potential" :footcite:t:`Prinz2011`.
+
+    This quadruple-well potential exhibits three metastable states separated by
+    energy barriers. The dynamics follow the (discretized) overdamped Langevin equation:
+
+    .. math::
+
+        X_{t + 1} = X_t -\\frac{1}{\\gamma}\\nabla V{X_t}\\Delta t + \\frac{\\sigma}{\\gamma}\\sqrt{\\Delta t}\\xi_t,
+
+
+    where :math:`\\xi_t` is a Gaussian white noise process with zero mean and unit variance,
+    :math:`\\gamma` is the friction coefficient, and :math:`k_B T = \\frac{\\sigma^2}{2\\gamma}` determines the thermal energy scale.
+
+    The potential is defined as:
+
+    .. math::
+
+        V(x) = 32 x^8 - 256 e^{-80 x^2} - 80 e^{-40 (x + 0.5)^2}
+               - 128 e^{-80 (x - 0.5)^2}
+
+    Parameters
+    ----------
+    X0 : float or array-like of shape (1,)
+        Initial position.
+
+    n_steps : int, default=10000
+        Number of discrete time steps to simulate.
+
+    dt : float, default=1e-4
+        Time step size for Euler–Maruyama integration.
+
+    gamma : float, default=0.1
+        Friction coefficient.
+
+    sigma : float, default=:math:`\\sqrt{2}`
+        Noise variance, corresponding to a thermal energy scale
+        :math:`k_B T = \\frac{\\sigma^2}{2\\gamma}`.
+
+    rng_seed : int, optional
+        Random seed for reproducibility.
+
+    Returns
+    -------
+    df : pandas.DataFrame of shape ``(n_steps + 1, 1)``
+        Trajectory of the particle with column ``['x']``.
+        Indexed by a MultiIndex with levels ``['step', 'time']``.
+
+        Metadata stored in ``df.attrs`` includes:
+
+        - ``'generator'``: ``'make_prinz_potential'``
+        - ``'X0'``: initial condition
+        - ``'params'``: dictionary of all parameters
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from kooplearn.datasets import make_prinz_potential
+    >>> df = make_prinz_potential(X0=0.0, n_steps=5000, dt=1e-4)
+    >>> df.head()
+    """
+
+    X0 = np.atleast_1d(np.asarray(X0, dtype=float))
+    if X0.shape != (1,):
+        raise ValueError(f"X0 must have shape (1,), got {X0.shape}")
+    X0 = X0[0]
+
+    rng = np.random.default_rng(rng_seed)
+    inv_gamma = 1.0 / gamma
+
+    def force_fn(x):
+        """Force corresponding to the triple-well potential."""
+        return -1.0 * (
+            -128 * np.exp(-80 * ((-0.5 + x) ** 2)) * (-0.5 + x)
+            - 512 * np.exp(-80 * (x**2)) * x
+            + 32 * (x**7)
+            - 160 * np.exp(-40 * ((0.5 + x) ** 2)) * (0.5 + x)
+        )
+
+    X = np.zeros(n_steps + 1)
+    X[0] = X0
+    sqrt_term = inv_gamma * sigma * np.sqrt(dt)
+
+    for t in range(n_steps):
+        F = force_fn(X[t])
+        xi = rng.standard_normal()
+        X[t + 1] = X[t] + inv_gamma * F * dt + sqrt_term * xi
+
+    # MultiIndex (step, time)
+    step_index = np.arange(n_steps + 1)
+    time_index = step_index * dt
+    index = pd.MultiIndex.from_arrays([step_index, time_index], names=["step", "time"])
+
+    df = pd.DataFrame(X[:, None], columns=["x"], index=index)
+    df.attrs = {
+        "generator": "make_prinz_potential",
+        "X0": X0.tolist(),
+        "params": {
+            "n_steps": n_steps,
+            "dt": dt,
+            "gamma": gamma,
+            "sigma": sigma,
+            "rng_seed": rng_seed,
+        },
     }
 
     return df

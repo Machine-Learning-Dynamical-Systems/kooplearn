@@ -5,6 +5,7 @@ from kooplearn.datasets._samples_generator import (
     make_linear_system,
     make_logistic_map,
     make_lorenz63,
+    make_prinz_potential,
     make_regime_switching_var,
 )
 
@@ -14,5 +15,6 @@ __all__ = [
     "make_linear_system",
     "make_logistic_map",
     "make_lorenz63",
+    "make_prinz_potential",
     "make_regime_switching_var",
 ]
