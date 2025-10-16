@@ -5,11 +5,13 @@ check_torch_deps()
 from kooplearn.torch.nn._base import (
     VampLoss, 
     L2ContrastiveLoss, 
-    KLContrastiveLoss
+    KLContrastiveLoss,
+    DynamicAELoss,
     )
 
 __all__ = [
     "VampLoss",
     "L2ContrastiveLoss",
     "KLContrastiveLoss",
+    "DynamicAELoss",
     ]
