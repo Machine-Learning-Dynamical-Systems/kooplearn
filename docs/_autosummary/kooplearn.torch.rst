@@ -1,6 +1,6 @@
 ﻿kooplearn.torch
 ===============
 
-.. currentmodule:: kooplearn.torch
+.. currentmodule:: kooplearn
 
-.. automodule:: kooplearn.torch
+.. automodule:: torch
