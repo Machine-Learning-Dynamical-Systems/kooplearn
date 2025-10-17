@@ -116,4 +116,7 @@ def fetch_ordered_mnist(
     images = images[ordering_perm]
     targets = targets[ordering_perm]
 
+    # Scaling data
+    images = (images/255.0).astype('float64')
+
     return images, targets

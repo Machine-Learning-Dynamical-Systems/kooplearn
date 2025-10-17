@@ -7,9 +7,10 @@ from scipy.sparse.linalg import eigsh
 from scipy.linalg import eigh
 from sklearn.utils.extmath import randomized_svd
 
-from kooplearn.kernel.linalg import add_diagonal_, stable_topk, weighted_norm
+from kooplearn.kernel.linalg import add_diagonal_, stable_topk, weighted_norm, eigh_rank_reveal
 from kooplearn.kernel.structs import FitResult, EigResult
 from kooplearn.utils import fuzzy_parse_complex, topk, spd_neg_pow
+
 
 __all__ = [
     "primal_reduced_rank",
@@ -230,12 +231,12 @@ def pcr(
         raise ValueError(f"Unknown svd_solver {svd_solver}")
     add_diagonal_(C_X, -tikhonov_reg)
 
-    values, stable_values_idxs = stable_topk(values, rank, ignore_warnings=False)
-    rsqrt_vals = (np.sqrt(values)) ** -1
-    vectors = vectors[:, stable_values_idxs]
-    vectors = vectors @ np.diag(rsqrt_vals)
-    # vectors, _, rsqrt_evals = eigh_rank_reveal(values, vectors, rank)
-    # vectors =  vectors @ np.diag(rsqrt_evals)
+    # values, stable_values_idxs = stable_topk(values, rank, ignore_warnings=False)
+    # rsqrt_vals = (np.sqrt(values)) ** -1
+    # vectors = vectors[:, stable_values_idxs]
+    # vectors = vectors @ np.diag(rsqrt_vals)
+    vectors, _, rsqrt_evals = eigh_rank_reveal(values, vectors, rank)
+    vectors =  vectors @ np.diag(rsqrt_evals)
     result: FitResult = {"U": vectors, "V": vectors, "svals": values}
     return result
 

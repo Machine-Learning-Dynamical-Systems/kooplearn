@@ -1,6 +1,7 @@
 """Linear algebra utilities for the `kernel` algorithms."""
 
 from warnings import warn
+from typing import Optional
 
 import numpy as np
 from numpy import ndarray
@@ -76,3 +77,36 @@ def weighted_norm(A: ndarray, M: ndarray | None = None):
     rcond = 10.0 * A.shape[0] * np.finfo(A.dtype).eps
     norm = np.where(norm < rcond, 0.0, norm)
     return np.sqrt(norm)
+
+
+def eigh_rank_reveal(
+    values: np.ndarray,
+    vectors: np.ndarray,
+    rank: int,  # Desired rank
+    rcond: Optional[float] = None,  # Threshold for the singular values
+    ignore_warnings: bool = True,
+):
+    if rcond is None:
+        rcond = 10.0 * values.shape[0] * np.finfo(values.dtype).eps
+    top_vals, indices = topk(values, rank)
+    vectors = vectors[:, indices]
+    values = top_vals
+
+    _ftest = values > rcond
+    if all(_ftest):
+        rsqrt_vals = (np.sqrt(values)) ** -1
+    else:
+        first_invalid = np.argmax(
+            ~_ftest
+        )  # In the case of multiple occurrences of the maximum values, the indices corresponding to the first occurrence are returned.
+        _first_discarded_val = np.max(np.abs(values[first_invalid:]))
+        values = values[_ftest]
+        vectors = vectors[:, _ftest]
+
+        if not ignore_warnings:
+            warn(
+                f"Warning: Discarted {rank - vectors.shape[1]} dimensions of the {rank} requested due to numerical instability. Consider decreasing the rank. The largest discarded value is: {_first_discarded_val:.3e}."
+            )
+        # Compute stable sqrt
+        rsqrt_vals = (np.sqrt(values)) ** -1
+    return vectors, values, rsqrt_vals
