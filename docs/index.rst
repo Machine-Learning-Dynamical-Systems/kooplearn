@@ -134,8 +134,11 @@ Learn more
    :caption: Examples
    :hidden:
 
-   Large Scale Kernel Methods <examples/kernel_methods.ipynb>
+   Estimating Eigenfunctions <examples/prinz_potential.ipynb>
+   Fast Kernel Models <examples/kernel_methods.ipynb>
    Molecular Dynamics (Kernels) <examples/ala2_nys_tutorial.ipynb>
+   Ordered MNIST (nn) <examples/ordered_mnist.ipynb>
+
 
 .. toctree::
    :maxdepth: 4
