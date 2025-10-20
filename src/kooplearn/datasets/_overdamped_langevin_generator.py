@@ -430,6 +430,49 @@ def sort_indices_by_magnitude(vector):
 
 
 def compute_prinz_potential_eig(gamma, sigma, dt, eval_right_on, num_components=4):
+    """
+    Computes the eigenvalues and eigenfunctions of the Generator of the Overdamped
+    Langevin dynamics for the Prinz potential.
+
+    The generator :math:`\\mathcal{L}` is defined as:
+
+    .. math::
+
+        \\mathcal{L} = -\\frac{1}{\\gamma} \\nabla V(x) \\cdot \\nabla + \\frac{\\sigma^2}{2\\gamma} \\Delta
+
+    where :math:`V(x)` is the Prinz potential. The eigenvalues :math:`\\lambda_i`
+    and eigenfunctions :math:`\\psi_i(x)` satisfy :math:`\\mathcal{L} \\psi_i = \\lambda_i \\psi_i`.
+    The Koopman eigenvalues for the discrete-time system are then :math:`e^{\\lambda_i \\Delta t}`.
+
+    Parameters
+    ----------
+    gamma : float
+        Friction coefficient of the Langevin dynamics.
+    sigma : float
+        Noise amplitude of the Langevin dynamics.
+    dt : float
+        Time step for the discrete-time Koopman operator.
+    eval_right_on : ndarray
+        Points at which to evaluate the right eigenfunctions.
+    num_components : int, default=4
+        Number of dominant eigenvalues and corresponding
+        eigenfunctions to return.
+
+    Returns
+    -------
+    eigenvalues : ndarray
+        The `num_components` dominant Koopman eigenvalues (i.e., :math:`e^{\\lambda_i \\Delta t}`),
+        sorted by magnitude in ascending order. Shape `(num_components,)`.
+    eigenfunctions : ndarray
+        The `num_components` right eigenfunctions evaluated at `eval_right_on`,
+        corresponding to the returned eigenvalues. Shape `(len(eval_right_on), num_components)`.
+
+    Notes
+    -----
+    The computation uses a Galerkin projection method with a 1D cosine basis
+    to discretize the Fokker-Planck operator. The domain for the basis functions
+    is set to `(-3, 3)`.
+    """
     prinz_grad = lambda x: (
         -128 * np.exp(-80 * ((-0.5 + x) ** 2)) * (-0.5 + x)
         - 512 * np.exp(-80 * (x**2)) * x
