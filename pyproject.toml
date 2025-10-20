@@ -43,6 +43,7 @@ docs = [
     "sphinxcontrib-bibtex>=2.6.5",
     "nbconvert>=7.16.6",
     "sphinx-iconify>=0.2.1",
+    "nbsphinx>=0.9.7",
 ]
 
 [tool.ruff]

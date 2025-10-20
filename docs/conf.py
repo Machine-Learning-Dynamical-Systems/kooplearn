@@ -26,7 +26,8 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx_design",
-    "myst_nb",
+    "nbsphinx",
+    "myst_parser",
     "sphinx_iconify",
 ]
 
@@ -35,8 +36,15 @@ napoleon_use_ivar = True
 
 source_suffix = {
     ".rst": "restructuredtext",
-    ".myst": "myst-nb",
 }
+
+html_logo = "_static/logo.svg"
+html_favicon = "_static/favicon.png"
+
+
+nbsphinx_epilog = """
+.. footbibliography::
+"""
 
 autodoc_default_options = {
     "members": True,
@@ -47,13 +55,24 @@ autodoc_default_options = {
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
-# pygments_style = "tango"
-# pygments_style_dark = "material"
 
 html_theme_options = {
     "accent_color": "teal",
+    "github_url": "https://github.com/Machine-Learning-Dynamical-Systems/kooplearn",
 }
 
+html_sidebars = {
+    "**": [
+        "sidebars/localtoc.html",
+        "sidebars/repo-stats.html",
+    ]
+}
+
+html_context = {
+    "source_type": "github",
+    "source_user": "Machine-Learning-Dynamical-Systems",
+    "source_repo": "kooplearn",
+}
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

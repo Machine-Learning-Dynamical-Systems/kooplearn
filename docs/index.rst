@@ -14,18 +14,19 @@ kooplearn documentation
 
 What is Kooplearn?
 ^^^^^^^^^^^^^^^^^^
-Kooplearn is a Python library implementing machine-learning algorithms to approximate :ref:`evolution operators <primer>` —  also known as Koopman :cite:p:`Koopman1931` or Transfer :cite:p:`Applebaum2009` operators —  from data. ``kooplearn`` can
+Kooplearn is a Python library to learn :ref:`evolution operators <primer>` —  also known as Koopman :cite:p:`Koopman1931` or Transfer :cite:p:`Applebaum2009` operators —  from data. ``kooplearn`` can
 
 1. Predict future states *and* observables.
-2. Estimate the eigenvalues and eigenfucntions of the evolution operators.
+2. Estimate the eigenvalues and eigenfucntions of the learned evolution operators.
 3. Compute the `dynamic mode decomposition <https://en.wikipedia.org/wiki/Dynamic_mode_decomposition>`_ of states *and* observables.
+4. Learn neural-network representations :math:`x_t \mapsto \varphi(x_t)` for evolution operators.
 
 ...but does not handle control inputs, have a look at the related project `pykoop <https://pykoop.readthedocs.io/en/stable/>`_ for those!
 
 What Kooplearn does *really* well?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1. It is easy to use, and adheres to the `scikit-learn API <https://scikit-learn.org/stable/api/index.html>`_.
+1. It is easy to use, and strictly adheres to the `scikit-learn API <https://scikit-learn.org/stable/api/index.html>`_.
 2. :ref:`Kernel estimators <api_kernel>` are state-of-the-art: 
    
    * ``kooplearn`` implements the *Reduced Rank Regressor* from :cite:`Kostic2022` which is provably better :cite:`Kostic2023SpectralRates` than the classical kernel DMD :cite:`Williams2015_KDMD` in estimating eigenvalues and eigenfunctions. 
@@ -78,7 +79,9 @@ To be able to use the representation-learning losses in ``kooplearn.nn``, run
             # JAX
             uv add "kooplearn[jax]"
 
-
+Try it out
+^^^^^^^^^^
+[TODO] Add Marimo Playground here.
 
 Learn more
 ^^^^^^^^^^
@@ -131,8 +134,8 @@ Learn more
    :caption: Examples
    :hidden:
 
-   Large Scale Kernel Methods <examples/kernel_methods.md>
-   Molecular Dynamics (Kernels) <examples/ala2_nys_tutorial.md>
+   Large Scale Kernel Methods <examples/kernel_methods.ipynb>
+   Molecular Dynamics (Kernels) <examples/ala2_nys_tutorial.ipynb>
 
 .. toctree::
    :maxdepth: 4
