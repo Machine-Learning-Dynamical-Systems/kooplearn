@@ -326,17 +326,17 @@ class Ridge(BaseEstimator):
         """
         check_is_fitted(self)
         X = validate_data(self, X, reset=False, copy=self.copy_X)
-        X_fit, _ = self._split_trajectory(self.X_fit_)
+        X_fit, X_lagged_fit = self._split_trajectory(self.X_fit_)
 
         if observable:
             if self.y_ is not None:
-                observable_fit, _ = self._split_trajectory(self.y_)
+                _, observable_fit = self._split_trajectory(self.y_)
             else:
                 raise ValueError(
                     "Observable should be passed when calling fit as the y parameter."
                 )
         else:
-            observable_fit = X_fit
+            observable_fit = X_lagged_fit
         pred = _regressors.predict(
             n_steps,
             self._fit_result,

@@ -1,10 +1,10 @@
-import numpy as np
 from math import sqrt
 from typing import Optional
 
+import numpy as np
+from scipy.spatial.distance import pdist
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import check_array, check_is_fitted
-from scipy.spatial.distance import pdist
 
 
 def topk(vec: np.ndarray, k: int):
@@ -41,9 +41,9 @@ def directed_hausdorff_distance(pred: np.ndarray, reference: np.ndarray):
 
 
 def fuzzy_parse_complex(vec: np.ndarray, tol: float = 10.0):
-    assert issubclass(
-        vec.dtype.type, np.complexfloating
-    ), "The input element should be complex"
+    assert issubclass(vec.dtype.type, np.complexfloating), (
+        "The input element should be complex"
+    )
     rcond = tol * np.finfo(vec.dtype).eps
     pdist_real_part = pdist(vec.real[:, None])
     # Set the same element whenever pdist is smaller than eps*tol
@@ -156,7 +156,8 @@ def spd_neg_pow(
 #             X = X - X.mean(axis=0, keepdims=True)
 #             Y = Y - Y.mean(axis=0, keepdims=True)
 #         return X.T @ Y
-    
+
+
 def covariance(X: np.ndarray, Y: Optional[np.ndarray] = None):
     X = np.atleast_2d(X)
     if X.ndim > 2:
@@ -203,7 +204,7 @@ class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
 
     Notes
     -----
-    - The `inverse_transform` method **only works when `stride=1`**.  
+    - The `inverse_transform` method **only works when `stride=1`**.
       Using `stride>1` will raise a ValueError, because reconstruction requires overlapping windows.
 
     Examples
@@ -249,7 +250,10 @@ class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
             raise ValueError("stride must be a positive integer.")
 
         n_windows = (n_samples - self.history_length) // self.stride + 1
-        indices = np.arange(self.history_length)[None, :] + self.stride * np.arange(n_windows)[:, None]
+        indices = (
+            np.arange(self.history_length)[None, :]
+            + self.stride * np.arange(n_windows)[:, None]
+        )
         windows = X[indices]  # shape: (n_windows, history_length, n_features)
         X_embedded = windows.reshape(n_windows, -1)
         return X_embedded
@@ -282,12 +286,14 @@ class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
         for i in range(n_windows):
             start = i * self.stride
             end = start + self.history_length
-            reconstructed[start:end] += X[i].reshape(self.history_length, self.n_features_in_)
+            reconstructed[start:end] += X[i].reshape(
+                self.history_length, self.n_features_in_
+            )
             counts[start:end] += 1
 
         reconstructed /= np.maximum(counts[:, np.newaxis], 1)
         return reconstructed
-    
+
 
 def check_torch_deps():
     try:
@@ -296,8 +302,8 @@ def check_torch_deps():
         raise ImportError(
             "To use kooplearn's deep learning losses please reinstall it with the `torch` extra flag by typing `pip install kooplearn[torch]`."
         )
-    
-    
+
+
 def check_jax_deps():
     try:
         import jax
@@ -305,7 +311,7 @@ def check_jax_deps():
         raise ImportError(
             "To use kooplearn's deep learning losses please reinstall it with the `jax` extra flag by typing `pip install kooplearn[jax]`."
         )
-    
+
 
 class Flatten3DTo2DTransformer(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
@@ -318,10 +324,8 @@ class Flatten3DTo2DTransformer(BaseEstimator, TransformerMixin):
         n_samples = X.shape[0]
         self._rest_shape = X.shape[1:]
         return X.reshape(n_samples, -1)
-    
+
     def inverse_transform(self, X, y=None):
         # Restore to original 3D shape
         n_samples = X.shape[0]
         return X.reshape((n_samples,) + self._rest_shape)
-    
-
