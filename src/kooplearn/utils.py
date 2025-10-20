@@ -93,70 +93,91 @@ def spd_neg_pow(
     return np.linalg.multi_dot([v, np.diag(inv_w), v.T])
 
 
-def covariance(
-    X: np.ndarray,
-    Y: np.ndarray | None = None,
-    center: bool = True,
-    norm: float | None = None,
-) -> np.ndarray:
-    """
-    Compute the covariance of ``X`` or the cross-covariance between ``X`` and ``Y``.
+# def covariance(
+#     X: np.ndarray,
+#     Y: np.ndarray | None = None,
+#     center: bool = True,
+#     norm: float | None = None,
+# ) -> np.ndarray:
+#     """
+#     Compute the covariance of ``X`` or the cross-covariance between ``X`` and ``Y``.
 
-    Parameters
-    ----------
-    X : ndarray of shape (n_samples, n_features)
-        Input features.
-    Y : ndarray of shape (n_samples, n_features), optional
-        Output features. If provided, computes the cross-covariance between ``X`` and ``Y``.
-        If ``None``, computes the auto-covariance of ``X``.
-    center : bool, default=True
-        Whether to subtract the mean before computing the covariance.
-    norm : float, optional
-        Normalization factor. If ``None``, normalizes by ``sqrt(n_samples)``.
+#     Parameters
+#     ----------
+#     X : ndarray of shape (n_samples, n_features)
+#         Input features.
+#     Y : ndarray of shape (n_samples, n_features), optional
+#         Output features. If provided, computes the cross-covariance between ``X`` and ``Y``.
+#         If ``None``, computes the auto-covariance of ``X``.
+#     center : bool, default=True
+#         Whether to subtract the mean before computing the covariance.
+#     norm : float, optional
+#         Normalization factor. If ``None``, normalizes by ``sqrt(n_samples)``.
 
-    Returns
-    -------
-    ndarray of shape (n_features, n_features)
-        Covariance or cross-covariance matrix.
+#     Returns
+#     -------
+#     ndarray of shape (n_features, n_features)
+#         Covariance or cross-covariance matrix.
 
-    Notes
-    -----
-    Given samples :math:`X \\in \\mathbb{R}^{N \\times D}`, the (centered) covariance is:
+#     Notes
+#     -----
+#     Given samples :math:`X \\in \\mathbb{R}^{N \\times D}`, the (centered) covariance is:
 
-    .. math::
+#     .. math::
 
-        C_X = \\frac{1}{N} (X - \\bar{X})^T (X - \\bar{X})
+#         C_X = \\frac{1}{N} (X - \\bar{X})^T (X - \\bar{X})
 
-    Similarly, if ``Y`` is provided:
+#     Similarly, if ``Y`` is provided:
 
-    .. math::
+#     .. math::
 
-        C_{XY} = \\frac{1}{N} (X - \\bar{X})^T (Y - \\bar{Y})
+#         C_{XY} = \\frac{1}{N} (X - \\bar{X})^T (Y - \\bar{Y})
 
-    """
-    assert X.ndim == 2, "X must be a 2D array."
-    n_samples = X.shape[0]
+#     """
+#     assert X.ndim == 2, "X must be a 2D array."
+#     n_samples = X.shape[0]
 
-    if norm is None:
-        norm = sqrt(n_samples)
-    else:
-        assert norm > 0, "norm must be positive."
-        norm = sqrt(norm)
+#     if norm is None:
+#         norm = sqrt(n_samples)
+#     else:
+#         assert norm > 0, "norm must be positive."
+#         norm = sqrt(norm)
 
-    X = X / norm
+#     X = X / norm
+
+#     if Y is None:
+#         if center:
+#             X = X - X.mean(axis=0, keepdims=True)
+#         return X.T @ X
+#     else:
+#         assert Y.ndim == 2, "Y must be a 2D array."
+#         Y = Y / norm
+#         if center:
+#             X = X - X.mean(axis=0, keepdims=True)
+#             Y = Y - Y.mean(axis=0, keepdims=True)
+#         return X.T @ Y
+    
+def covariance(X: np.ndarray, Y: Optional[np.ndarray] = None):
+    X = np.atleast_2d(X)
+    if X.ndim > 2:
+        raise ValueError(f"Input array has more than 2 dimensions ({X.ndim}).")
+    rnorm = (X.shape[0]) ** (-0.5)
+    X = X * rnorm
 
     if Y is None:
-        if center:
-            X = X - X.mean(axis=0, keepdims=True)
-        return X.T @ X
+        c = X.T @ X
     else:
-        assert Y.ndim == 2, "Y must be a 2D array."
-        Y = Y / norm
-        if center:
-            X = X - X.mean(axis=0, keepdims=True)
-            Y = Y - Y.mean(axis=0, keepdims=True)
-        return X.T @ Y
-    
+        if X.shape[0] != Y.shape[0]:
+            raise ValueError(
+                f"Shape mismatch: the covariance between two arrays can be computed only if they have the same initial dimension. Got {X.shape[0]} and {Y.shape[0]}."
+            )
+        Y = np.atleast_2d(Y)
+        if Y.ndim > 2:
+            raise ValueError(f"Input array has more than 2 dimensions ({Y.ndim}).")
+        Y = Y * rnorm
+        c = X.T @ Y
+    return c
+
 
 class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
     """
@@ -284,3 +305,23 @@ def check_jax_deps():
         raise ImportError(
             "To use kooplearn's deep learning losses please reinstall it with the `jax` extra flag by typing `pip install kooplearn[jax]`."
         )
+    
+
+class Flatten3DTo2DTransformer(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        # Save shape for inverse_transform
+        self._original_shape = X.shape
+        return self
+
+    def transform(self, X, y=None):
+        # Flatten the last two dimensions
+        n_samples = X.shape[0]
+        self._rest_shape = X.shape[1:]
+        return X.reshape(n_samples, -1)
+    
+    def inverse_transform(self, X, y=None):
+        # Restore to original 3D shape
+        n_samples = X.shape[0]
+        return X.reshape((n_samples,) + self._rest_shape)
+    
+
