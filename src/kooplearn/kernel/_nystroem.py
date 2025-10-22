@@ -464,9 +464,7 @@ class NystroemKernelRidge(BaseEstimator):
     def modes(self, X, observable=False):
         """
         Computes the mode decomposition of arbitrary observables of the
-        Koopman/Transfer operator at the states defined by ``X``.
-
-        Informally, if :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are
+        Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are
         eigentriplets of the Koopman/Transfer operator, for any observable
         :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
         :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.

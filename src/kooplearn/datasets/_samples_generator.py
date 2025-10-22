@@ -25,9 +25,9 @@ def make_duffing(
 
     The system is governed by the differential equation:
 
-        .. math::
+    .. math::
 
-            x'' + \\delta x' + \\alpha x + \\beta x^3 = \\gamma \\text{cos}(\\omega t)
+        x'' + \\delta x' + \\alpha x + \\beta x^3 = \\gamma \\text{cos}(\\omega t)
 
 
     Parameters

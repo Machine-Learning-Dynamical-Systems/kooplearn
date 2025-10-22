@@ -3,28 +3,18 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-kooplearn documentation
-=======================
+Kooplearn
+=========
 
-.. div:: sd-text-left sd-font-italic
+Kooplearn is a Python library to learn :ref:`evolution operators <primer>` —  also known as Koopman :cite:p:`Koopman1931` or Transfer :cite:p:`Applebaum2009` operators —  from data. ``kooplearn`` models can
 
-   A sklearn-compatible library for evolution operator learning.
-
-----
-
-What is Kooplearn?
-^^^^^^^^^^^^^^^^^^
-Kooplearn is a Python library to learn :ref:`evolution operators <primer>` —  also known as Koopman :cite:p:`Koopman1931` or Transfer :cite:p:`Applebaum2009` operators —  from data. ``kooplearn`` can
-
-1. Predict future states *and* observables.
+1. Predict the evolution of states *and* observables.
 2. Estimate the eigenvalues and eigenfucntions of the learned evolution operators.
 3. Compute the `dynamic mode decomposition <https://en.wikipedia.org/wiki/Dynamic_mode_decomposition>`_ of states *and* observables.
 4. Learn neural-network representations :math:`x_t \mapsto \varphi(x_t)` for evolution operators.
 
-...but does not handle control inputs, have a look at the related project `pykoop <https://pykoop.readthedocs.io/en/stable/>`_ for those!
-
-What Kooplearn does *really* well?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Why Choosing Kooplearn?
+^^^^^^^^^^^^^^^^^^^^^^^
 
 1. It is easy to use, and strictly adheres to the `scikit-learn API <https://scikit-learn.org/stable/api/index.html>`_.
 2. :ref:`Kernel estimators <api_kernel>` are state-of-the-art: 
@@ -79,9 +69,21 @@ To be able to use the representation-learning losses in ``kooplearn.nn``, run
             # JAX
             uv add "kooplearn[jax]"
 
-Try it out
+Quickstart
 ^^^^^^^^^^
-[TODO] Add Marimo Playground here.
+
+.. code-block:: python 
+
+   from kooplearn.datasets import make_duffing
+   from kooplearn.kernel import KernelRidge
+   import numpy as np
+
+   # Sample data from the Duffing oscillator
+   data = make_duffing(X0 = np.array([0, 0]), n_steps=1000)
+
+   # Fit the model
+   model = KernelRidge(n_components=4, kernel='rbf', alpha=1e-5)
+   model.fit(data.to_numpy())
 
 Learn more
 ^^^^^^^^^^

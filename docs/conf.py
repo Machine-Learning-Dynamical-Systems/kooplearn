@@ -41,7 +41,6 @@ source_suffix = {
     ".rst": "restructuredtext",
 }
 
-html_logo = "_static/logo.svg"
 html_favicon = "_static/favicon.png"
 
 
@@ -60,8 +59,10 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 
 html_theme_options = {
-    "accent_color": "teal",
+    "accent_color": "jade",
     "github_url": "https://github.com/Machine-Learning-Dynamical-Systems/kooplearn",
+    "light_logo": "_static/logo-light.svg",
+    "dark_logo": "_static/logo-dark.svg",
 }
 
 html_sidebars = {
