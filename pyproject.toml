@@ -44,6 +44,7 @@ docs = [
     "nbconvert>=7.16.6",
     "sphinx-iconify>=0.2.1",
     "nbsphinx>=0.9.7",
+    "sphinx-copybutton>=0.5.2",
 ]
 
 [tool.ruff]

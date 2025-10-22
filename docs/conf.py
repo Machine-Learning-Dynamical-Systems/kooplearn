@@ -29,10 +29,13 @@ extensions = [
     "nbsphinx",
     "myst_parser",
     "sphinx_iconify",
+    "sphinx_copybutton",
 ]
 
 autosummary_generate = True
 napoleon_use_ivar = True
+napoleon_preprocess_types = True
+
 
 source_suffix = {
     ".rst": "restructuredtext",

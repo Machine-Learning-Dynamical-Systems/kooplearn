@@ -27,7 +27,7 @@ class KernelRidge(BaseEstimator):
 
     .. tip::
         The dynamical modes obtained by calling
-        :class:`kooplearn.models.KernelRidge.modes` correspond to the *Kernel
+        :class:`kooplearn.kernel.KernelRidge.modes` correspond to the *Kernel
         Dynamical Mode Decomposition* by :cite:t:`Williams2015_KDMD`.
 
 
@@ -37,7 +37,7 @@ class KernelRidge(BaseEstimator):
         Number of components to retain. If None, all components are used.
 
     lag_time : int, default=1
-        [TODO]
+        Time delay between the pairs of snapshots `(X_t, X_{t + lag_time})` used to train the estimator.
 
     reduced_rank : bool, default=True
         Whether to use reduced-rank regression introduced in
@@ -132,42 +132,54 @@ class KernelRidge(BaseEstimator):
 
     Attributes
     ----------
-    X_fit_ : ndarray of shape (n_samples, n_features)
+    X_fit_ : ndarray 
         The data used to fit the model. If `copy_X=False`, then `X_fit_` is
         a reference. This attribute is used for the calls to predict and
-        transform.
+        transform. Shape ``(n_samples + 1, n_features)``.
 
     gamma_ : float
         Kernel coefficient for rbf, poly and sigmoid kernels. When `gamma`
         is explicitly provided, this is just the same as `gamma`. When `gamma`
         is `None`, this is the actual value of kernel coefficient.
 
-    kernel_X_ : Kernel matrix evaluated at the initial states, that is
-        ``self.data_fit[:, :self.lookback_len, ...]`.
-        Shape ``(n_samples, n_samples)``.
+    kernel_X_ : ndarray 
+        Kernel matrix evaluated at the initial states. Shape ``(n_samples, n_samples)``.
 
-    kernel_Y : Kernel matrix evaluated at the evolved states, that is
-        ``self.data_fit[:, 1:self.lookback_len + 1, ...]``.
-        Shape ``(n_samples, n_samples)``.
+    kernel_Y : ndarray
+        Kernel matrix evaluated at the evolved states. Shape ``(n_samples, n_samples)``.
 
-    kernel_XY : Cross-kernel matrix between initial and evolved states.
-        Shape ``(n_samples, n_samples)``.
+    kernel_YX : ndarray
+        Cross-kernel matrix between evolved and initial states. Shape ``(n_samples, n_samples)``.
 
-    U_ : Projection matrix of shape (n_samples, rank). The Koopman/Transfer
-        operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)`
+    U_ : ndarray
+        Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)`
         (see :cite:t:`Kostic2022`).
 
-    V_ : Projection matrix of shape (n_samples, rank). The Koopman/Transfer
-      operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)`
-      (see :cite:t:`Kostic2022`).
-
-    References
-    ----------
-    [TODO]
+    V_ : ndarray
+        Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :cite:t:`Kostic2022`).
 
     Examples
     --------
-    [TODO]
+    .. code-block:: python
+
+        from kooplearn.datasets import make_linear_system
+        from kooplearn.kernel import KernelRidge
+        import numpy as np
+        
+        # Generate a linear system
+        A = np.array([[0.9, 0.1], [-0.1, 0.9]])
+        X0 = np.array([1.0, 0.0])
+        data = make_linear_system(X0, A, n_steps=100, noise=0.1, random_state=42).to_numpy()
+        
+        # Fit the model
+        model = KernelRidge(n_components=2, kernel='linear', alpha=1e-3)
+        model.fit(data)
+        
+        # Predict the future state
+        pred = model.predict(data)
+        
+        # Get the eigenvalues of the Koopman operator
+        eigvals = model.eig()
     """
 
     _parameter_constraints: dict = {
@@ -263,7 +275,8 @@ class KernelRidge(BaseEstimator):
             Training trajectory data, where `n_samples` is the number of
             samples and `n_features` is the number of features.
 
-        y : [TODO]
+        y : ndarray of shape (n_samples, n_features_out), default=None
+            Optional observable to use for the fit. If `None`, the observable is the state itself.
 
         Returns
         -------
@@ -366,7 +379,7 @@ class KernelRidge(BaseEstimator):
     def predict(self, X, n_steps=1, observable=False):
         r"""Predicts the state or, if the system is stochastic, its expected
         value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t=n_steps`` instants
-        given the initial conditions ``X``. If ``observable`` is not ``None``,
+        given the initial conditions ``X``. If ``observable`` is ``True``,
         returns the analogue quantity for the observable instead.
 
         Parameters
@@ -492,13 +505,7 @@ class KernelRidge(BaseEstimator):
     def modes(self, X, observable=False):
         """
         Computes the mode decomposition of arbitrary observables of the
-        Koopman/Transfer operator at the states defined by ``X``.
-
-        Informally, if :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are
-        eigentriplets of the Koopman/Transfer operator, for any observable
-        :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
-        :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
-        See :cite:t:`Kostic2022` for more details.
+        Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`. See :cite:t:`Kostic2022` for more details.
 
 
         Parameters
