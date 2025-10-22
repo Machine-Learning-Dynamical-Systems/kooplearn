@@ -20,7 +20,7 @@ Why Choosing Kooplearn?
 2. :ref:`Kernel estimators <api_kernel>` are state-of-the-art: 
    
    * ``kooplearn`` implements the *Reduced Rank Regressor* from :cite:`Kostic2022` which is provably better :cite:`Kostic2023SpectralRates` than the classical kernel DMD :cite:`Williams2015_KDMD` in estimating eigenvalues and eigenfunctions. 
-   * It also implements Nyström estimators :cite:`Meanti2023` and randomized estimators :cite:`turri2023randomized` for :ref:`blazingly fast <fast-kernels>` kernel learning.
+   * It also implements Nyström estimators :cite:`Meanti2023` and randomized estimators :cite:`turri2023randomized` for :doc:`blazingly fast <examples/ala2_nys_tutorial.ipynb>` kernel learning.
 
 3. Includes representation learning losses to train neural-network Koopman embeddings.
 
@@ -139,7 +139,8 @@ Learn more
    Estimating Eigenfunctions <examples/prinz_potential.ipynb>
    Fast Kernel Models <examples/kernel_methods.ipynb>
    Molecular Dynamics (Kernels) <examples/ala2_nys_tutorial.ipynb>
-   Ordered MNIST (nn) <examples/ordered_mnist.ipynb>
+   Ordered MNIST (torch) <examples/ordered_mnist_torch.ipynb>
+   Switching System <examples/switching_system.ipynb>
 
 
 .. toctree::
