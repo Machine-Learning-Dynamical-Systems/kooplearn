@@ -83,7 +83,7 @@ Quickstart
 
    # Fit the model
    model = KernelRidge(n_components=4, kernel='rbf', alpha=1e-5)
-   model.fit(data.to_numpy())
+   model.fit(data)
 
 Learn more
 ^^^^^^^^^^

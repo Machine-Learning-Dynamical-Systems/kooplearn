@@ -32,7 +32,7 @@ class Ridge(BaseEstimator):
         Number of components to retain. If None, all components are used.
 
     lag_time : int, default=1
-        [TODO]
+        Time delay between the pairs of snapshots `(X_t, X_{t + lag_time})` used to train the estimator.
 
     reduced_rank : bool, default=True
         Whether to use reduced-rank regression introduced in
@@ -96,40 +96,52 @@ class Ridge(BaseEstimator):
         attribute. If no further changes will be done to X, setting
         `copy_X=False` saves memory by storing a reference.
 
-    .. tip::
-
-        A powerful variation proposed by :cite:t:`Arbabi2017`, known as Hankel-DMD [TODO], evaluates the Koopman/Transfer estimators by stacking consecutive snapshots together in a Hankel matrix. When this model is fitted on context windows of length > 2, the lookback window is automatically set to length ``context_len - 1``. Upon fitting, the whole lookback window is passed through the feature map and the results are then flattened and *concatenated* together, realizing an Hankel-EDMD estimator.
-
 
     Attributes
     ----------
-    X_fit_ : ndarray of shape (n_samples, n_features)
-        The data used to fit the model. If `copy_X=False`, then `X_fit_` is
-        a reference. This attribute is used for the calls to predict and
-        transform.
+    X_fit_ : ndarray
+        The data used to fit the model. If ``copy_X=False``, then ``X_fit_`` is
+        a reference to the original data. This attribute is used for the calls to predict and
+        transform. Shape ``(n_samples, n_features)``
 
-    cov_X_ : Covariance matrix evaluated at the initial states, that is x_t.
-        Shape ``(n_samples, n_samples)``.
+    cov_X_ : ndarray
+        Covariance matrix evaluated at the initial states, that is :math:`x_t`. Shape ``(n_features, n_features)``.
 
-    cov_Y : Covariance matrix evaluated at the evolved states, that is x_{t+1}.
-        Shape ``(n_samples, n_samples)``.
+    cov_Y : ndarray
+        Covariance matrix evaluated at the evolved states, that is :math:`x_{t+1}`. Shape ``(n_features, n_features)``.
 
-    cov_XY : Cross-covariance matrix between initial and evolved states.
-        Shape ``(n_samples, n_samples)``.
+    cov_XY : ndarray
+        Cross-covariance matrix between initial and evolved states. Shape ``(n_features, n_features)``.
 
-    U_ : Projection matrix of shape (n_out_features, n_components). The Koopman/Transfer
+    U_ : ndarray
+        Projection matrix of shape ``(n_features, n_components)``. The Koopman/Transfer
         operator is approximated as :math:`U U^T \mathrm{cov_{XY}}`.
 
-    estimator_ : Least Squares estimator :math:`U U^T \mathrm{cov_{XY}}`.
-
-
-    References
-    ----------
-    [TODO]
+    estimator_ : ndarray
+        Least Squares estimator :math:`U U^T \mathrm{cov_{XY}}`.
 
     Examples
     --------
-    [TODO]
+    .. code-block:: python
+
+        from kooplearn.datasets import make_linear_system
+        from kooplearn.linear_model import Ridge
+        import numpy as np
+
+        # Generate a linear system
+        A = np.array([[0.9, 0.1], [-0.1, 0.9]])
+        X0 = np.array([1.0, 0.0])
+        data = make_linear_system(X0, A, n_steps=100, noise=0.1, random_state=42).to_numpy()
+
+        # Fit the model
+        model = Ridge(n_components=2, alpha=1e-3)
+        model.fit(data)
+
+        # Predict the future state
+        pred = model.predict(data)
+
+        # Get the eigenvalues of the Koopman operator
+        eigvals = model.eig()
     """
 
     _parameter_constraints: dict = {
@@ -194,11 +206,11 @@ class Ridge(BaseEstimator):
 
         Parameters
         ----------
-        X : ndarray of shape (n_samples, n_features)
-            Training trajectory data, where `n_samples` is the number of
-            samples and `n_features` is the number of features.
+        X : ndarray
+            Training trajectory data  of shape ``(n_samples, n_features)``.
 
-        y : [TODO]
+        y : ndarray of shape (n_samples, n_features_out), default=None
+            Optional observable to use for the fit. If ``None``, the observable is the state itself.
 
         Returns
         -------
@@ -417,9 +429,7 @@ class Ridge(BaseEstimator):
     def modes(self, X, observable=False):
         """
         Computes the mode decomposition of arbitrary observables of the
-        Koopman/Transfer operator at the states defined by ``X``.
-
-        Informally, if :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are
+        Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are
         eigentriplets of the Koopman/Transfer operator, for any observable
         :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
         :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
