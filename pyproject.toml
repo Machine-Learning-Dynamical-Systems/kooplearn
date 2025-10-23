@@ -29,6 +29,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "datasets>=4.2.0",
     "ipykernel>=6.30.1",
     "pytest>=8.4.2",
     "ruff>=0.13.2",

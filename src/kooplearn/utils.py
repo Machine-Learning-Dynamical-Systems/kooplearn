@@ -329,3 +329,20 @@ class Flatten3DTo2DTransformer(BaseEstimator, TransformerMixin):
         # Restore to original 3D shape
         n_samples = X.shape[0]
         return X.reshape((n_samples,) + self._rest_shape)
+
+
+class Flattener(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        # Save shape for inverse_transform
+        self._feature_shape = X.shape[1:]
+        return self
+
+    def transform(self, X, y=None):
+        # Flatten the last two dimensions
+        n_samples = X.shape[0]
+        return X.reshape(n_samples, -1)
+
+    def inverse_transform(self, X, y=None):
+        # Restore to original 3D shape
+        n_samples = X.shape[0]
+        return X.reshape((n_samples,) + self._feature_shape)

@@ -1,5 +1,5 @@
-import torch
 import numpy as np
+import torch
 from sklearn.base import BaseEstimator, TransformerMixin
 
 
@@ -17,7 +17,12 @@ class FeatureMapEmbedder(BaseEstimator, TransformerMixin):
         Device for computation ('cpu' or 'cuda'). Defaults to auto-detect.
     """
 
-    def __init__(self, encoder: torch.nn.Module, decoder: torch.nn.Module = None, device: str | None = None):
+    def __init__(
+        self,
+        encoder: torch.nn.Module,
+        decoder: torch.nn.Module = None,
+        device: str | None = None,
+    ):
         self.encoder = encoder
         self.decoder = decoder
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,6 +62,8 @@ class FeatureMapEmbedder(BaseEstimator, TransformerMixin):
         return tensor.to(self.device)
 
     def __repr__(self):
-        return (f"NeuralTransformer(encoder={self.encoder.__class__.__name__}, "
-                f"decoder={self.decoder.__class__.__name__ if self.decoder else None}, "
-                f"device='{self.device}')")
+        return (
+            f"NeuralTransformer(encoder={self.encoder.__class__.__name__}, "
+            f"decoder={self.decoder.__class__.__name__ if self.decoder else None}, "
+            f"device='{self.device}')"
+        )
