@@ -40,7 +40,9 @@ class DynamicalModes:
     handles complex conjugate pairs, sorts modes by stability, and provides
     convenient access to mode shapes, frequencies, and decay rates.
 
-    The class should be not initialized directly, and will be the return type of ``.dynamical_modes`` methods of Kooplearn estimators.
+    .. warning::
+
+        The class should be not initialized directly, and will be the return type of ``.dynamical_modes`` methods of Kooplearn estimators.
 
     Parameters
     ----------
@@ -66,10 +68,10 @@ class DynamicalModes:
 
     .. math::
 
-        \\text{mode} = 2 \\cdot \\text{Re}(\\phi_r \\otimes \\phi_l^*)
+        \\text{mode} = 2 \\cdot \\text{Re}(\\phi_r(x) \\langle phi_l, f \\rangle)
 
-    where :math:`\\phi_r` is the right eigenfunction and :math:`\\phi_l` is
-    the left projection, and :math:`\\otimes` denotes the outer product.
+    where :math:`\\phi_r` is the right eigenfunction and :math:`\\langle phi_l, f \\rangle` is
+    the left projection on the mode's observable.
 
     Modes are sorted by stability: stable modes (:math:`|\\lambda| < 1`) are ordered by
     decreasing half-life, followed by unstable modes.
@@ -104,9 +106,6 @@ class DynamicalModes:
         summary_df = modes.summary(dt=0.1)
         print(summary_df)
 
-    See Also
-    --------
-    find_complex_conjugates : Function for identifying conjugate pairs
     """
 
     def __init__(

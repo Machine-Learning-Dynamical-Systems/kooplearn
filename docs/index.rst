@@ -148,6 +148,7 @@ Learn more
    :caption: API
    :hidden:
 
+   api/main
    api/kernel
    api/linear_model
    api/preprocessing

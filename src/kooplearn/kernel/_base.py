@@ -6,7 +6,6 @@
 import logging
 from numbers import Integral, Real
 
-import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.utils._param_validation import Interval, StrOptions
@@ -28,7 +27,7 @@ class KernelRidge(BaseEstimator):
 
     .. tip::
         The dynamical modes obtained by calling
-        :class:`kooplearn.kernel.KernelRidge.modes` correspond to the *Kernel
+        :class:`kooplearn.kernel.KernelRidge.dynamical_modes` correspond to the *Kernel
         Dynamical Mode Decomposition* by :cite:t:`Williams2015_KDMD`.
 
 
@@ -502,57 +501,6 @@ class KernelRidge(BaseEstimator):
                     eig_result, "right", kernel_Xin_X_or_Y_right
                 ),
             )
-
-    def modes(self, X, observable=False):
-        """
-        Computes the mode decomposition of arbitrary observables of the
-        Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`. See :cite:t:`Kostic2022` for more details.
-
-
-        Parameters
-        ----------
-        X : ndarray of shape (n_samples, n_features)
-            States at which to evaluate the modes.
-
-        observable : bool, default=false
-            If true, modes of the observable are computed.
-
-        Returns
-        -------
-        tuple of (ndarray, dict)
-            Modes and eigendecomposition results.
-        """
-        check_is_fitted(self)
-        X = validate_data(self, X, reset=False, copy=self.copy_X)
-        if X.shape[0] < 1 + self.lag_time:
-            raise ValueError(
-                f"X has only {X.shape[0]} samples, but at least "
-                f"{1 + self.lag_time} are required."
-            )
-
-        eig_result = _regressors.eig(self._fit_result, self.kernel_X_, self.kernel_YX_)
-        X_fit, _ = self._split_trajectory(self.X_fit_)
-        K_Xin_X = self._get_kernel(X, X_fit)
-        """
-        [rank, num_initial_conditions]
-        [rank, num_observations]
-        """
-        _gamma = _regressors.estimator_modes(
-            eig_result, K_Xin_X
-        )  # [rank, num_init_conditions, num_training_points]
-
-        if observable:
-            if self.y_ is not None:
-                observable_fit, _ = self._split_trajectory(self.y_)
-            else:
-                raise ValueError(
-                    "Observable should be passed when calling fit as the y parameter."
-                )
-        else:
-            observable_fit = X_fit  # [num_training_points, num_features]
-        print("Didn't failed up to here")
-
-        return np.tensordot(_gamma, observable_fit, axes=1), eig_result
 
     def dynamical_modes(self, X, observable=False) -> DynamicalModes:
         """

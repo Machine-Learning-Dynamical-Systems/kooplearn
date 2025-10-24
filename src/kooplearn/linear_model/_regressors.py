@@ -1,32 +1,35 @@
-from math import sqrt
 from typing import Literal
 
 import numpy as np
 import scipy.linalg
-from scipy.sparse.linalg import eigsh
 from scipy.linalg import eigh
+from scipy.sparse.linalg import eigsh
 from sklearn.utils.extmath import randomized_svd
 
-from kooplearn.kernel.linalg import add_diagonal_, stable_topk, weighted_norm, eigh_rank_reveal
-from kooplearn.kernel.structs import FitResult, EigResult
-from kooplearn.utils import fuzzy_parse_complex, topk, spd_neg_pow
-
+from kooplearn._utils import fuzzy_parse_complex, spd_neg_pow, topk
+from kooplearn.kernel.linalg import (
+    add_diagonal_,
+    eigh_rank_reveal,
+    stable_topk,
+    weighted_norm,
+)
+from kooplearn.structs import EigResult, FitResult
 
 __all__ = [
-    "primal_reduced_rank",
-    "primal_rand_reduced_rank",
     "primal_pcr",
     "primal_rand_pcr",
+    "primal_rand_reduced_rank",
+    "primal_reduced_rank",
 ]
 
 
 def estimator_risk(
-        fit_result: FitResult,
-        cov_Xv: np.ndarray,
-        cov_Yv: np.ndarray,
-        cov_XYv: np.ndarray,
-        cov_XY: np.ndarray,
-        ) -> float:
+    fit_result: FitResult,
+    cov_Xv: np.ndarray,
+    cov_Yv: np.ndarray,
+    cov_XYv: np.ndarray,
+    cov_XY: np.ndarray,
+) -> float:
     """
     Estimate validation risk.
 
@@ -56,9 +59,9 @@ def estimator_risk(
 
 
 def eig(
-        fit_result: FitResult,
-        C_XY: np.ndarray,
-        ) -> EigResult:
+    fit_result: FitResult,
+    C_XY: np.ndarray,
+) -> EigResult:
     # Using the trick described in https://arxiv.org/abs/1905.11490
     U = fit_result["U"]
     M = np.linalg.multi_dot([U.T, C_XY, U])
@@ -83,10 +86,10 @@ def eig(
 
 
 def evaluate_eigenfunction(
-        eig_result: EigResult,
-        which: Literal["left", "right"],
-        phi_Xin: np.ndarray,
-        ):
+    eig_result: EigResult,
+    which: Literal["left", "right"],
+    phi_Xin: np.ndarray,
+):
     lv_or_rv = eig_result[which]
     return phi_Xin @ lv_or_rv
 
@@ -113,11 +116,11 @@ def evaluate_eigenfunction(
 
 
 def estimator_modes(
-        eig_result: EigResult,
-        fit_result: FitResult,
-        phi_X: np.ndarray,  # Feature map evaluated on the training input data
-        phi_Xin: np.ndarray,  # Feature map evaluated on the initial conditions
-        C_XY,
+    eig_result: EigResult,
+    fit_result: FitResult,
+    phi_X: np.ndarray,  # Feature map evaluated on the training input data
+    phi_Xin: np.ndarray,  # Feature map evaluated on the initial conditions
+    C_XY,
 ):
     U = fit_result["U"]
     M = np.linalg.multi_dot([U.T, C_XY, U])
@@ -144,7 +147,7 @@ def estimator_modes(
     # This should be multiplied on the right by the observable evaluated at the output training data
     lv_obs = np.linalg.multi_dot([r_dim * phi_X, U, lv]).T
     return rv_in[:, :, None] * lv_obs[:, None, :]
-         # [rank, num_init_conditions, num_training_points]
+    # [rank, num_init_conditions, num_training_points]
 
 
 def predict(
@@ -188,14 +191,17 @@ def predict(
     obs_flat = obs_train_Y.reshape(num_train, -1)  # (N_train, n_features)
 
     # Core components
-    phi_Xin_dot_U = phi_Xin @ U                                 # (N_eval, r)
-    U_C_XY_U = np.linalg.multi_dot([U.T, C_XY, U])              # (r, r)
-    U_phi_X_obs_Y = (np.linalg.multi_dot([U.T, phi_X.T, obs_flat]) 
-                     * (num_train**-1))                         # (r, n_features)
+    phi_Xin_dot_U = phi_Xin @ U  # (N_eval, r)
+    U_C_XY_U = np.linalg.multi_dot([U.T, C_XY, U])  # (r, r)
+    U_phi_X_obs_Y = np.linalg.multi_dot([U.T, phi_X.T, obs_flat]) * (
+        num_train**-1
+    )  # (r, n_features)
 
     # Koopman propagation
-    M = np.linalg.matrix_power(U_C_XY_U, num_steps - 1)      # (r, r)
-    predictions = np.linalg.multi_dot([phi_Xin_dot_U, M, U_phi_X_obs_Y])      # (N_eval, n_features)
+    M = np.linalg.matrix_power(U_C_XY_U, num_steps - 1)  # (r, r)
+    predictions = np.linalg.multi_dot(
+        [phi_Xin_dot_U, M, U_phi_X_obs_Y]
+    )  # (N_eval, n_features)
 
     # Restore observable shape
     predictions = predictions.reshape((phi_Xin.shape[0],) + obs_shape)
@@ -203,9 +209,9 @@ def predict(
 
 
 def svdvals(
-        fit_result: FitResult,
-        C_XY,
-        ):
+    fit_result: FitResult,
+    C_XY,
+):
     U = fit_result["U"]
     M = np.linalg.multi_dot([U, U.T, C_XY])
     return np.linalg.svd(M, compute_uv=False)
@@ -223,8 +229,10 @@ def pcr(
     assert rank <= dim, f"Rank too high. The maximum value for this problem is {dim}"
     add_diagonal_(C_X, tikhonov_reg)
     if svd_solver == "arpack":
-        num_arpack_eigs = min(rank + 5, C_X.shape[0]-1)
-        values, vectors = eigsh(C_X, k=num_arpack_eigs, which="LM", maxiter=max_iter, tol=tol)
+        num_arpack_eigs = min(rank + 5, C_X.shape[0] - 1)
+        values, vectors = eigsh(
+            C_X, k=num_arpack_eigs, which="LM", maxiter=max_iter, tol=tol
+        )
     elif svd_solver == "dense":
         values, vectors = eigh(C_X)
     else:
@@ -236,7 +244,7 @@ def pcr(
     # vectors = vectors[:, stable_values_idxs]
     # vectors = vectors @ np.diag(rsqrt_vals)
     vectors, _, rsqrt_evals = eigh_rank_reveal(values, vectors, rank)
-    vectors =  vectors @ np.diag(rsqrt_evals)
+    vectors = vectors @ np.diag(rsqrt_evals)
     result: FitResult = {"U": vectors, "V": vectors, "svals": values}
     return result
 
@@ -280,7 +288,7 @@ def _reduced_rank_noreg(
     _crcov = B @ B.T
     if svd_solver == "arpack":
         # Adding a small buffer to the Arnoldi-computed eigenvalues.
-        num_arpack_eigs = min(rank + 5, C_X.shape[0]-1)
+        num_arpack_eigs = min(rank + 5, C_X.shape[0] - 1)
         values, vectors = eigsh(_crcov, num_arpack_eigs)
     elif svd_solver == "dense":  # 'dense'
         values, vectors = eigh(_crcov)
@@ -293,6 +301,7 @@ def _reduced_rank_noreg(
     vectors = rsqrt_C_X @ vectors
     result: FitResult = {"U": vectors, "V": vectors, "svals": values}
     return result
+
 
 def reduced_rank(
     C_X: np.ndarray,  # Input covariance matrix
@@ -308,7 +317,7 @@ def reduced_rank(
         _crcov = C_XY @ C_XY.T
         if svd_solver == "arpack":
             # Adding a small buffer to the Arnoldi-computed eigenvalues.
-            num_arpack_eigs = min(rank + 5, C_X.shape[0]-1)
+            num_arpack_eigs = min(rank + 5, C_X.shape[0] - 1)
             values, vectors = eigsh(_crcov, num_arpack_eigs, M=C_X)
         elif svd_solver == "dense":  # 'dense'
             values, vectors = eigh(_crcov, C_X)
@@ -336,9 +345,7 @@ def rand_reduced_rank(
     rng = np.random.default_rng(rng_seed)
     _crcov = C_XY @ C_XY.T
     rng = np.random.default_rng(rng_seed)
-    sketch = rng.standard_normal(
-        size=(C_X.shape[0], rank + n_oversamples)
-    )
+    sketch = rng.standard_normal(size=(C_X.shape[0], rank + n_oversamples))
 
     add_diagonal_(C_X, tikhonov_reg)
     if precomputed_cholesky is None:
@@ -363,4 +370,4 @@ def rand_reduced_rank(
     values, indices = topk(values, rank)
     vectors = sketch_p @ vectors[:, indices]
     result: FitResult = {"U": vectors, "V": vectors, "svals": values}
-    return result   
+    return result

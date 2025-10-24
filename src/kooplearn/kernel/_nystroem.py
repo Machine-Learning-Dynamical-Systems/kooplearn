@@ -13,6 +13,7 @@ from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.validation import check_is_fitted, validate_data
 
 from kooplearn.kernel import _regressors
+from kooplearn.structs import DynamicalModes
 
 logger = logging.getLogger("kooplearn")
 
@@ -27,7 +28,7 @@ class NystroemKernelRidge(BaseEstimator):
 
     .. tip::
         The dynamical modes obtained by calling
-        :class:`kooplearn.kernel.NystroemKernelRidge.modes` correspond to the *Kernel
+        :class:`kooplearn.kernel.NystroemKernelRidge.dynamical_modes` correspond to the *Kernel
         Dynamical Mode Decomposition* by :cite:t:`Williams2015_KDMD`.
 
 
@@ -461,14 +462,10 @@ class NystroemKernelRidge(BaseEstimator):
                 ),
             )
 
-    def modes(self, X, observable=False):
+    def dynamical_modes(self, X, observable=False) -> DynamicalModes:
         """
         Computes the mode decomposition of arbitrary observables of the
-        Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are
-        eigentriplets of the Koopman/Transfer operator, for any observable
-        :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
-        :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
-        See :cite:t:`Kostic2022` for more details.
+        Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`. See :cite:t:`Kostic2022` for more details.
 
 
         Parameters
@@ -481,8 +478,8 @@ class NystroemKernelRidge(BaseEstimator):
 
         Returns
         -------
-        tuple of (ndarray, dict)
-            Modes and eigendecomposition results.
+        DynamicalModes
+            See :class:`kooplearn.structs.DynamicalModes`
         """
         check_is_fitted(self)
         X = validate_data(self, X, reset=False, copy=self.copy_X)
@@ -492,23 +489,36 @@ class NystroemKernelRidge(BaseEstimator):
                 f"{1 + self.lag_time} are required."
             )
 
+        # Compute eigendecomposition
         eig_result = _regressors.eig(self._fit_result, self.kernel_X_, self.kernel_YX_)
-        X_fit, _ = self._split_trajectory(self.X_fit_)
+        # Evaluate the right eigenfunctions on the input points X, see also self.eig
+        X_fit, Y_fit = self._split_trajectory(self.X_fit_)
         X_fit = X_fit[self.nys_centers_idxs_]
+        Y_fit = Y_fit[self.nys_centers_idxs_]
         K_Xin_X = self._get_kernel(X, X_fit)
-        _gamma = _regressors.estimator_modes(eig_result, K_Xin_X)
-
+        right_eigenfunctions = _regressors.evaluate_eigenfunction(
+            eig_result, "right", K_Xin_X
+        )  # [num_initial_conditions, rank]
+        # Project the observable onto the left eigenfunctions
         if observable:
             if self.y_ is not None:
-                observable_fit, _ = self._split_trajectory(self.y_)
+                _, observable_fit = self._split_trajectory(self.y_)
                 observable_fit = observable_fit[self.nys_centers_idxs_]
             else:
                 raise ValueError(
                     "Observable should be passed when calling fit as the y parameter."
                 )
         else:
-            observable_fit = X_fit
-        return np.tensordot(_gamma, observable_fit, axes=1), eig_result
+            observable_fit = Y_fit  # [num_training_points, num_features]
+        left_projections = (
+            (eig_result["left"].T) @ observable_fit / (Y_fit.shape[0] ** 0.5)
+        )
+
+        dmd = DynamicalModes(
+            eig_result["values"], right_eigenfunctions, left_projections
+        )
+
+        return dmd
 
     def svals(self):
         """Singular values of the Koopman/Transfer operator.

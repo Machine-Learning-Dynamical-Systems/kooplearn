@@ -11,8 +11,8 @@ from scipy.sparse.linalg import eigs, eigsh
 from sklearn.utils.extmath import randomized_svd
 
 from kooplearn.kernel.linalg import add_diagonal_, stable_topk, weighted_norm
-from kooplearn.kernel.structs import EigResult, FitResult
 from kooplearn.kernel.utils import sanitize_complex_conjugates
+from kooplearn.structs import EigResult, FitResult
 
 __all__ = [
     "eig",
