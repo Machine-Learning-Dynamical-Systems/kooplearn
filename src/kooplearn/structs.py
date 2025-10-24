@@ -204,7 +204,10 @@ class DynamicalModes:
 
         # Step 2: Select unique modes (first from each conjugate pair + all real)
         # For each conjugate pair [i, j], we only keep index i
-        unique_indices = np.concatenate([cc_pairs[:, 0], real_idxs])
+        if len(cc_pairs) > 0:
+            unique_indices = np.concatenate([cc_pairs[:, 0], real_idxs])
+        else:
+            unique_indices = real_idxs
 
         # Extract the unique eigenvalues and corresponding eigenfunctions/projections
         self._values = values[unique_indices]

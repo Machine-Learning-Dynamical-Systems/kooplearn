@@ -3,7 +3,7 @@ import pytest
 from scipy.stats import special_ortho_group
 from sklearn.utils.validation import check_is_fitted
 
-from kooplearn.datasets.stochastic import LinearModel
+from kooplearn.datasets import make_linear_system
 from kooplearn.kernel import KernelRidge
 
 TRUE_RANK = 5
@@ -11,16 +11,16 @@ DIM = 20
 NUM_SAMPLES = 50
 
 
-def make_linear_system():
+def make_data():
     eigs = 9 * np.logspace(-3, -1, TRUE_RANK)
     eigs = np.concatenate([eigs, np.zeros(DIM - TRUE_RANK)])
     Q = special_ortho_group(DIM, 0).rvs(1)
     A = np.linalg.multi_dot([Q, np.diag(eigs), Q.T])
     assert np.allclose(np.sort(np.linalg.eigvalsh(A)), np.sort(eigs))
-    return LinearModel(A, noise=1e-5, rng_seed=0)
+    return make_linear_system(np.zeros(DIM), A, NUM_SAMPLES, noise=1e-3, random_state=0)
 
 
-@pytest.mark.parametrize("kernel", ['linear', 'rbf', 'laplacian'])
+@pytest.mark.parametrize("kernel", ["linear", "rbf", "laplacian"])
 @pytest.mark.parametrize("lag_time", [1, 5])
 @pytest.mark.parametrize("reduced_rank", [True, False])
 @pytest.mark.parametrize("n_components", [TRUE_RANK, TRUE_RANK - 2, TRUE_RANK + 10])
@@ -52,8 +52,7 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
     copy_X,
     n_jobs,
 ):
-    dataset = make_linear_system()
-    data = dataset.sample(np.zeros(DIM), NUM_SAMPLES)
+    data = make_data()
 
     model = KernelRidge(
         n_components=n_components,
@@ -77,7 +76,11 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
         check_is_fitted(model)
 
     # randomized solver without regularization should fail
-    if reduced_rank and eigen_solver == "randomized" and (alpha is None or alpha == 0.0):
+    if (
+        reduced_rank
+        and eigen_solver == "randomized"
+        and (alpha is None or alpha == 0.0)
+    ):
         with pytest.raises(ValueError):
             model.fit(data)
         return
@@ -89,17 +92,17 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
         assert model.U_.shape[1] == model.rank_
         X_pred = model.predict(data, observable=False)
         assert X_pred.shape == model.X_fit_.shape
-        modes, _ = model.modes(data, observable=False)
-        assert modes.shape == (model.rank_,) + model.X_fit_.shape
+        modes = model.dynamical_modes(data, observable=False)
+        assert modes[0].shape == model.X_fit_.shape
     else:
-        obs_shape = (len(data), 1, 2, 3, 4)
+        obs_shape = (len(data), 6)
         model.fit(data, y=observables(obs_shape))
         assert check_is_fitted(model) is None
         assert model.U_.shape[1] == model.rank_
         X_pred = model.predict(data, observable=True)
         assert X_pred.shape == obs_shape
-        modes, _ = model.modes(data, observable=True)
-        assert modes.shape == (model.rank_,) + obs_shape
+        modes = model.dynamical_modes(data, observable=True)
+        assert modes[0].shape == obs_shape
 
     # Eigen-decomposition
     vals, lv, rv = model.eig(eval_left_on=data, eval_right_on=data)
@@ -122,6 +125,7 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
 
 
 # ---- Extra edge case tests integrated below ----
+
 
 def test_invalid_input_shape_raises():
     X_too_small = np.random.randn(1, 5)
@@ -147,7 +151,7 @@ def test_callable_kernel_functionality():
         X = np.atleast_2d(X)
         Y = X if Y is None else np.atleast_2d(Y)
         # Compute squared Euclidean distance
-        dists = np.sum((X[:, None, :] - Y[None, :, :])**2, axis=-1)
+        dists = np.sum((X[:, None, :] - Y[None, :, :]) ** 2, axis=-1)
         return np.exp(-0.1 * dists)
 
     model = KernelRidge(kernel=custom_kernel, n_components=3)
@@ -160,10 +164,22 @@ def test_callable_kernel_functionality():
 
 def test_random_state_reproducibility():
     X = np.random.randn(25, 6)
-    model1 = KernelRidge(kernel="rbf", n_components=3, reduced_rank=True,
-                    alpha=1e-3, eigen_solver="randomized", random_state=42)
-    model2 = KernelRidge(kernel="rbf", n_components=3, reduced_rank=True,
-                    alpha=1e-3, eigen_solver="randomized", random_state=42)
+    model1 = KernelRidge(
+        kernel="rbf",
+        n_components=3,
+        reduced_rank=True,
+        alpha=1e-3,
+        eigen_solver="randomized",
+        random_state=42,
+    )
+    model2 = KernelRidge(
+        kernel="rbf",
+        n_components=3,
+        reduced_rank=True,
+        alpha=1e-3,
+        eigen_solver="randomized",
+        random_state=42,
+    )
     model1.fit(X)
     model2.fit(X)
     np.testing.assert_allclose(model1.U_, model2.U_, rtol=1e-10)

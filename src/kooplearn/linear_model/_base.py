@@ -7,12 +7,14 @@ import logging
 from numbers import Integral, Real
 
 import numpy as np
+import scipy
 from sklearn.base import BaseEstimator
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.validation import check_is_fitted, validate_data
 
-from kooplearn._utils import covariance
+from kooplearn._utils import covariance, fuzzy_parse_complex
 from kooplearn.linear_model import _regressors
+from kooplearn.structs import DynamicalModes
 
 logger = logging.getLogger("kooplearn")
 
@@ -23,7 +25,7 @@ class Ridge(BaseEstimator):
 
     .. tip::
 
-        The dynamical modes obtained by calling :class:`kooplearn.models.Nonlinear.modes` correspond to the *Extended Dynamical Mode Decomposition* by :cite:t:`Williams2015_EDMD`.
+        The dynamical modes obtained by calling :class:`kooplearn.linear_model.Ridge.dynamical_modes` correspond to the *Extended Dynamical Mode Decomposition* by :cite:t:`Williams2015_EDMD`.
 
 
     Parameters
@@ -426,11 +428,10 @@ class Ridge(BaseEstimator):
                 _regressors.evaluate_eigenfunction(eig_result, "right", Xin_r),
             )
 
-    def modes(self, X, observable=False):
+    def dynamical_modes(self, X, observable=False) -> DynamicalModes:
         """
         Computes the mode decomposition of arbitrary observables of the
-        Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are
-        eigentriplets of the Koopman/Transfer operator, for any observable
+        Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable
         :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
         :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
         See :cite:t:`Kostic2022` for more details.
@@ -446,8 +447,8 @@ class Ridge(BaseEstimator):
 
         Returns
         -------
-        tuple of (ndarray, dict)
-            Modes and eigendecomposition results.
+        DynamicalModes
+            See :class:`kooplearn.structs.DynamicalModes`
         """
         check_is_fitted(self)
         X = validate_data(self, X, reset=False, copy=self.copy_X)
@@ -457,23 +458,42 @@ class Ridge(BaseEstimator):
                 f"{1 + self.lag_time} are required."
             )
 
-        X_fit, _ = self._split_trajectory(self.X_fit_)
-        eig_result = _regressors.eig(self._fit_result, self.cov_XY_)
-
-        _gamma = _regressors.estimator_modes(
-            eig_result, self._fit_result, X_fit, X, self.cov_XY_
-        )
-
+        X_fit, Y_fit = self._split_trajectory(self.X_fit_)
+        # Compute eigendecomposition
+        U = self._fit_result["U"]
+        M = np.linalg.multi_dot([U.T, self.cov_XY_, U])
+        values, lv, rv = scipy.linalg.eig(M, left=True, right=True)
+        values = fuzzy_parse_complex(values)
+        r_perm = np.argsort(values)
+        l_perm = np.argsort(values.conj())
+        values = values[r_perm]
+        # Normalization in RKHS norm
+        rv = (U @ rv)[:, r_perm]
+        rv /= np.linalg.norm(rv, axis=0)
+        # Biorthogonalization
+        lv_full = np.linalg.multi_dot([self.cov_XY_.T, U, lv])
+        lv_full = lv_full[:, l_perm]
+        lv = lv[:, l_perm]
+        # Compute correct orthogonalization for the left projection
+        l_norm = np.sum(lv_full * rv, axis=0)
+        lv = lv / l_norm
+        # Initial conditions
+        right_eigenfunctions = (X @ rv) / X_fit.shape[0]  # [num_init_conditions, rank]
         if observable:
             if self.y_ is not None:
-                observable_fit, _ = self._split_trajectory(self.y_)
+                _, observable_fit = self._split_trajectory(self.y_)
             else:
                 raise ValueError(
                     "Observable should be passed when calling fit as the y parameter."
                 )
         else:
-            observable_fit = X_fit
-        return np.tensordot(_gamma, observable_fit, axes=1), eig_result
+            observable_fit = Y_fit
+        left_projections = (
+            np.linalg.multi_dot([X_fit / X_fit.shape[0], U, lv]).T @ observable_fit
+        )
+
+        dmd = DynamicalModes(values, right_eigenfunctions, left_projections)
+        return dmd
 
     def svals(self):
         """Singular values of the Koopman/Transfer operator.

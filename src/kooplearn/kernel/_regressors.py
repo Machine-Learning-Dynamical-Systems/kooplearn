@@ -73,7 +73,7 @@ def estimator_risk(
             np.linalg.multi_dot([kernel_XXv.T, U, V.T, kernel_Y, V, U.T, kernel_XXv])
         )
     )
-    return r_Y + r_XY + r_X
+    return (r_Y + r_XY + r_X).real
 
 
 def eig(fit_result: FitResult, K_X: ndarray, K_YX: ndarray) -> EigResult:
@@ -280,7 +280,6 @@ def pcr(
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
     add_diagonal_(kernel_X, -npts * tikhonov_reg)
-
     values, stable_values_idxs = stable_topk(values, rank, ignore_warnings=False)
     vectors = vectors[:, stable_values_idxs]
     Q = sqrt(npts) * vectors / np.sqrt(values)

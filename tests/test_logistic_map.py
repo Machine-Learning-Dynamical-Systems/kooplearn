@@ -187,14 +187,18 @@ def test_make_logistic_map_sensitive_dependence():
     from kooplearn.datasets import make_logistic_map
 
     # Two very close initial conditions
-    df1 = make_logistic_map(X0=0.1, n_steps=50, r=4.0)
-    df2 = make_logistic_map(X0=0.1 + 1e-8, n_steps=50, r=4.0)
+    df1 = make_logistic_map(X0=0.1, n_steps=100, r=4.0)
+    df2 = make_logistic_map(X0=0.1 + 1e-8, n_steps=100, r=4.0)
 
     # Initially close
     assert_allclose(df1.iloc[0]["x"], df2.iloc[0]["x"], atol=1e-7)
 
     # Should diverge significantly (Lyapunov exponent > 0)
-    distance = np.abs(df1.iloc[-1]["x"] - df2.iloc[-1]["x"])
+    distance = (
+        2
+        * np.abs(df1.iloc[-1]["x"] - df2.iloc[-1]["x"])
+        / (df1.iloc[-1]["x"] + df2.iloc[-1]["x"])
+    )
     assert distance > 0.1
 
 

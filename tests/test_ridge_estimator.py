@@ -3,7 +3,7 @@ import pytest
 from scipy.stats import special_ortho_group
 from sklearn.utils.validation import check_is_fitted
 
-from kooplearn.datasets.stochastic import LinearModel
+from kooplearn.datasets import make_linear_system
 from kooplearn.linear_model import Ridge
 
 TRUE_RANK = 5
@@ -11,13 +11,13 @@ DIM = 20
 NUM_SAMPLES = 50
 
 
-def make_linear_system():
+def make_data():
     eigs = 9 * np.logspace(-3, -1, TRUE_RANK)
     eigs = np.concatenate([eigs, np.zeros(DIM - TRUE_RANK)])
     Q = special_ortho_group(DIM, 0).rvs(1)
     A = np.linalg.multi_dot([Q, np.diag(eigs), Q.T])
     assert np.allclose(np.sort(np.linalg.eigvalsh(A)), np.sort(eigs))
-    return LinearModel(A, noise=1e-5, rng_seed=0)
+    return make_linear_system(np.zeros(DIM), A, NUM_SAMPLES, noise=1e-3, random_state=0)
 
 
 @pytest.mark.parametrize("reduced_rank", [True, False])
@@ -46,8 +46,7 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
     random_state,
     copy_X,
 ):
-    dataset = make_linear_system()
-    data = dataset.sample(np.zeros(DIM), NUM_SAMPLES)
+    data = make_data()
 
     model = Ridge(
         n_components=n_components,
@@ -68,7 +67,11 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
         check_is_fitted(model)
 
     # randomized solver without regularization should fail
-    if reduced_rank and eigen_solver == "randomized" and (alpha is None or alpha == 0.0):
+    if (
+        reduced_rank
+        and eigen_solver == "randomized"
+        and (alpha is None or alpha == 0.0)
+    ):
         with pytest.raises(ValueError):
             model.fit(data)
         return
@@ -84,17 +87,17 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
         assert model.U_.shape[1] == model.rank_
         X_pred = model.predict(data, observable=False)
         assert X_pred.shape == model.X_fit_.shape
-        modes, _ = model.modes(data, observable=False)
-        assert modes.shape == (model.rank_,) + model.X_fit_.shape
+        modes = model.dynamical_modes(data, observable=False)
+        assert modes[0].shape == model.X_fit_.shape
     else:
-        obs_shape = (len(data), 1, 2, 3, 4)
+        obs_shape = (len(data), 6)
         model.fit(data, y=observables(obs_shape))
         assert check_is_fitted(model) is None
         assert model.U_.shape[1] == model.rank_
         X_pred = model.predict(data, observable=True)
         assert X_pred.shape == obs_shape
-        modes, _ = model.modes(data, observable=True)
-        assert modes.shape == (model.rank_,) + obs_shape
+        modes = model.dynamical_modes(data, observable=True)
+        assert modes[0].shape == obs_shape
 
     # Eigen-decomposition
     vals, lv, rv = model.eig(eval_left_on=data, eval_right_on=data)
@@ -118,6 +121,7 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
 
 # ---- Extra edge case tests integrated below ----
 
+
 def test_invalid_input_shape_raises():
     X_too_small = np.random.randn(1, 5)
     model = Ridge()
@@ -135,12 +139,21 @@ def test_predict_observable_shape_mismatch_raises():
 
 
 def test_random_state_reproducibility():
-    dataset = make_linear_system()
-    data = dataset.sample(np.zeros(DIM), NUM_SAMPLES)
-    model1 = Ridge(n_components=3, reduced_rank=True,
-                    alpha=1e-3, eigen_solver="randomized", random_state=42)
-    model2 = Ridge(n_components=3, reduced_rank=True,
-                    alpha=1e-3, eigen_solver="randomized", random_state=42)
+    data = make_data()
+    model1 = Ridge(
+        n_components=3,
+        reduced_rank=True,
+        alpha=1e-3,
+        eigen_solver="randomized",
+        random_state=42,
+    )
+    model2 = Ridge(
+        n_components=3,
+        reduced_rank=True,
+        alpha=1e-3,
+        eigen_solver="randomized",
+        random_state=42,
+    )
     model1.fit(data)
     model2.fit(data)
     np.testing.assert_allclose(model1.U_, model2.U_, rtol=1e-10)
