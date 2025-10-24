@@ -1,12 +1,12 @@
 """Linear algebra utilities for the `kernel` algorithms."""
 
-from warnings import warn
 from typing import Optional
+from warnings import warn
 
 import numpy as np
 from numpy import ndarray
 
-from kooplearn.utils import topk
+from kooplearn._utils import topk
 
 
 def add_diagonal_(M: ndarray, alpha: float):

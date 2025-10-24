@@ -13,6 +13,7 @@ from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.validation import check_is_fitted, validate_data
 
 from kooplearn.kernel import _regressors
+from kooplearn.structs import DynamicalModes
 
 logger = logging.getLogger("kooplearn")
 
@@ -532,7 +533,13 @@ class KernelRidge(BaseEstimator):
         eig_result = _regressors.eig(self._fit_result, self.kernel_X_, self.kernel_YX_)
         X_fit, _ = self._split_trajectory(self.X_fit_)
         K_Xin_X = self._get_kernel(X, X_fit)
-        _gamma = _regressors.estimator_modes(eig_result, K_Xin_X)
+        """
+        [rank, num_initial_conditions]
+        [rank, num_observations]
+        """
+        _gamma = _regressors.estimator_modes(
+            eig_result, K_Xin_X
+        )  # [rank, num_init_conditions, num_training_points]
 
         if observable:
             if self.y_ is not None:
@@ -542,8 +549,65 @@ class KernelRidge(BaseEstimator):
                     "Observable should be passed when calling fit as the y parameter."
                 )
         else:
-            observable_fit = X_fit
+            observable_fit = X_fit  # [num_training_points, num_features]
+        print("Didn't failed up to here")
+
         return np.tensordot(_gamma, observable_fit, axes=1), eig_result
+
+    def dynamical_modes(self, X, observable=False) -> DynamicalModes:
+        """
+        Computes the mode decomposition of arbitrary observables of the
+        Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`. See :cite:t:`Kostic2022` for more details.
+
+
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, n_features)
+            States at which to evaluate the modes.
+
+        observable : bool, default=false
+            If true, modes of the observable are computed.
+
+        Returns
+        -------
+        DynamicalModes
+            See :class:`kooplearn.structs.DynamicalModes`
+        """
+        check_is_fitted(self)
+        X = validate_data(self, X, reset=False, copy=self.copy_X)
+        if X.shape[0] < 1 + self.lag_time:
+            raise ValueError(
+                f"X has only {X.shape[0]} samples, but at least "
+                f"{1 + self.lag_time} are required."
+            )
+
+        # Compute eigendecomposition
+        eig_result = _regressors.eig(self._fit_result, self.kernel_X_, self.kernel_YX_)
+        # Evaluate the right eigenfunctions on the input points X, see also self.eig
+        X_fit, Y_fit = self._split_trajectory(self.X_fit_)
+        K_Xin_X = self._get_kernel(X, X_fit)
+        right_eigenfunctions = _regressors.evaluate_eigenfunction(
+            eig_result, "right", K_Xin_X
+        )  # [num_initial_conditions, rank]
+        # Project the observable onto the left eigenfunctions
+        if observable:
+            if self.y_ is not None:
+                _, observable_fit = self._split_trajectory(self.y_)
+            else:
+                raise ValueError(
+                    "Observable should be passed when calling fit as the y parameter."
+                )
+        else:
+            observable_fit = Y_fit  # [num_training_points, num_features]
+        left_projections = (
+            (eig_result["left"].T) @ observable_fit / (Y_fit.shape[0] ** 0.5)
+        )
+
+        dmd = DynamicalModes(
+            eig_result["values"], right_eigenfunctions, left_projections
+        )
+
+        return dmd
 
     def svals(self):
         """Singular values of the Koopman/Transfer operator.

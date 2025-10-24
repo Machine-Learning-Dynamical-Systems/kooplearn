@@ -11,8 +11,8 @@ from sklearn.base import BaseEstimator
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.validation import check_is_fitted, validate_data
 
+from kooplearn._utils import covariance
 from kooplearn.linear_model import _regressors
-from kooplearn.utils import covariance
 
 logger = logging.getLogger("kooplearn")
 

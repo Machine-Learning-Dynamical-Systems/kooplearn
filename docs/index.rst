@@ -148,8 +148,9 @@ Learn more
    :caption: API
    :hidden:
 
-   api/linear_model
    api/kernel
+   api/linear_model
+   api/preprocessing
    api/datasets
    
 .. bibliography::
