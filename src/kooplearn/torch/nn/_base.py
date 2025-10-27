@@ -7,7 +7,12 @@ from torch.nn import Module
 
 from kooplearn.torch.nn import _functional as F
 
-__all__ = ["AutoEncoderLoss", "KLContrastiveLoss", "SpectralContrastiveLoss", "VampLoss"]
+__all__ = [
+    "AutoEncoderLoss",
+    "KLContrastiveLoss",
+    "SpectralContrastiveLoss",
+    "VampLoss",
+]
 
 # Losses_____________________________________________________________________________________________
 
@@ -83,7 +88,7 @@ class VampLoss(_RegularizedLoss):
 
 
 class SpectralContrastiveLoss(_RegularizedLoss):
-    r"""Spectral contrastive loss based on the :math:`L^{2}` error by :cite:t:`Kostic2024NCP`.
+    r"""Spectral contrastive loss based originally introduced by :cite:t:`haochen2021provable`, and adopted for evolution operators in :cite:t:`turri2025self, jeong2025efficient`
 
     .. math::
 
