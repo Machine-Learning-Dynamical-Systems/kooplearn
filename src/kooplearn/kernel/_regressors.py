@@ -153,31 +153,6 @@ def evaluate_eigenfunction(
     rsqrt_dim = (K_Xin_X_or_Y.shape[1]) ** (-0.5)
     return np.linalg.multi_dot([rsqrt_dim * K_Xin_X_or_Y, vr_or_vl])
 
-    """
-    Compute dynamic modes associated with eigenfunctions.
-
-    Parameters
-    ----------
-    eig_result : EigResult
-        Dictionary containing left and right eigenfunctions.
-    K_Xin_X : ndarray of shape (N_eval, N_train)
-        Kernel matrix between evaluation and training data.
-
-    Returns
-    -------
-    ndarray of shape (R, N_eval, N_train)
-        Outer product of left and right eigenfunctions (dynamic modes).
-    """
-    lv = eig_result["left"]
-    r_dim = lv.shape[0] ** -0.5
-    rv_in = evaluate_eigenfunction(
-        eig_result, "right", K_Xin_X
-    ).T  # [rank, num_initial_conditions]
-    lv_obs = r_dim * lv.T  # [rank, num_observations]
-    return (
-        rv_in[:, :, None] * lv_obs[:, None, :]
-    )  # [rank, num_init_conditions, num_training_points]
-
 
 def predict(
     num_steps: int,
