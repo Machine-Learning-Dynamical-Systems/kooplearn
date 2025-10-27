@@ -154,6 +154,7 @@ Learn more
    api/linear_model
    api/preprocessing
    api/datasets
+   api/torch
    
 .. bibliography::
    :filter: docname in docnames

@@ -5,9 +5,6 @@ from math import sqrt
 import torch
 from torch import Tensor
 
-from ._linalg import filter_reduced_rank_svals, sqrtmh
-
-
 def covariance(
     X: Tensor,
     Y: Tensor | None = None,

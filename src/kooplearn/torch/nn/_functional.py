@@ -38,8 +38,8 @@ def vamp_loss(
         raise NotImplementedError(f"Schatten norm {schatten_norm} not implemented")
 
 
-def l2_contrastive_loss(x: Tensor, y: Tensor) -> Tensor:
-    """See :class:`kooplearn.torch.nn.L2ContrastiveLoss` for details."""
+def spectral_contrastive_loss(x: Tensor, y: Tensor) -> Tensor:
+    """See :class:`kooplearn.torch.nn.SpectralContrastiveLoss` for details."""
     assert x.shape == y.shape
     assert x.ndim == 2
 
@@ -91,9 +91,6 @@ def dynamic_ae_loss(
     lin_loss = mse(y_enc, x_evo)
     pred_loss = mse(y, y_pred)
     return alpha_rec * rec_loss + alpha_lin * lin_loss + alpha_pred * pred_loss
-
-
-# Regularizers_________________________________________________________________
 
 
 def orthonormal_fro_reg(x: Tensor) -> Tensor:

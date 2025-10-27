@@ -7,7 +7,7 @@ from torch.nn import Module
 
 from kooplearn.torch.nn import _functional as F
 
-__all__ = ["DynamicAELoss", "KLContrastiveLoss", "L2ContrastiveLoss", "VampLoss"]
+__all__ = ["AutoEncoderLoss", "KLContrastiveLoss", "SpectralContrastiveLoss", "VampLoss"]
 
 # Losses_____________________________________________________________________________________________
 
@@ -82,8 +82,8 @@ class VampLoss(_RegularizedLoss):
         ) + self.gamma * (self.regularizer(x) + self.regularizer(y))
 
 
-class L2ContrastiveLoss(_RegularizedLoss):
-    r"""NCP/Contrastive/Mutual Information Loss based on the :math:`L^{2}` error by :cite:t:`Kostic2024NCP`.
+class SpectralContrastiveLoss(_RegularizedLoss):
+    r"""Spectral contrastive loss based on the :math:`L^{2}` error by :cite:t:`Kostic2024NCP`.
 
     .. math::
 
@@ -158,7 +158,7 @@ class KLContrastiveLoss(_RegularizedLoss):
         )
 
 
-class DynamicAELoss(Module):
+class AutoEncoderLoss(Module):
     r"""Single-step Dynamic Autoencoder (DAE) loss introduced by :cite:t:`Lusch2018`.
 
     This loss combines three objectives to train dynamic autoencoders:
