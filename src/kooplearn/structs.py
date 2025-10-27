@@ -80,31 +80,32 @@ class DynamicalModes:
     --------
     .. code-block:: python
 
-        import numpy as np
-        from kooplearn.datasets import make_duffing
-        from kooplearn.kernel import KernelRidge
-
-        # Sample data from the Duffing oscillator
-        data = make_duffing(X0 = np.array([0, 0]), n_steps=1000)
-
-        # Fit the model
-        model = KernelRidge(n_components=4, kernel='rbf', alpha=1e-5)
-        model.fit(data)
-
-        # Initialize the container
-        modes = model.dynamical_modes(data)
-
-        # Access individual mode
-        mode_0 = modes[0]  # Returns (100, 50) real array
-        print(f"Mode shape: {mode_0.shape}")
-
-        # Iterate over all modes
-        for idx, mode in enumerate(modes):
-            print(f"Mode {idx}: shape={mode.shape}, frequency={modes.frequency(idx):.3f}")
-
-        # Get summary statistics
-        summary_df = modes.summary(dt=0.1)
-        print(summary_df)
+        >>> import numpy as np
+        >>> from kooplearn.datasets import make_duffing
+        >>> from kooplearn.kernel import KernelRidge
+        >>>
+        >>> # Sample data from the Duffing oscillator
+        >>> data = make_duffing(X0 = np.array([0, 0]), n_steps=1000)
+        >>> data = data.to_numpy()
+        >>>
+        >>> # Fit the model
+        >>> model = KernelRidge(n_components=4, kernel='rbf', alpha=1e-5)
+        >>> model.fit(data)
+        >>>
+        >>> # Initialize the container
+        >>> modes = model.dynamical_modes(data)
+        >>>
+        >>> # Access individual mode
+        >>> mode_0 = modes[0]  # Returns (100, 50) real array
+        >>> print(f"Mode shape: {mode_0.shape}")
+        >>>
+        >>> # Iterate over all modes
+        >>> for idx, mode in enumerate(modes):
+        >>>     print(f"Mode {idx}: shape={mode.shape}, frequency={modes.frequency(idx):.3f}")
+        >>>
+        >>> # Get summary statistics
+        >>> summary_df = modes.summary(dt=0.1)
+        >>> print(summary_df)
 
     """
 
@@ -406,9 +407,9 @@ class DynamicalModes:
         --------
         .. code-block:: python
 
-            mode = modes[0]  # Get first mode
-            assert mode.shape == (n_points, n_features)
-            assert mode.dtype == np.float64
+            >>> mode = modes[0]  # Get first mode
+            >>> assert mode.shape == (n_points, n_features)
+            >>> assert mode.dtype == np.float64
         """
         self._validate_index(key)
 
@@ -440,10 +441,10 @@ class DynamicalModes:
         --------
         .. code-block:: python
 
-            # Iterate over all modes
-            for idx, mode in enumerate(modes):
-                assert np.allclose(mode, modes[idx])
-                print(f"Mode {idx} has frequency {modes.frequency(idx):.3f}")
+            >>> # Iterate over all modes
+            >>> for idx, mode in enumerate(modes):
+            >>>     assert np.allclose(mode, modes[idx])
+            >>>     print(f"Mode {idx} has frequency {modes.frequency(idx):.3f}")
         """
         for i in range(self.n_modes):
             yield self[i]
@@ -481,10 +482,10 @@ class DynamicalModes:
         --------
         .. code-block:: python
 
-            # Get frequency in Hz (assuming dt in seconds)
-            freq_hz = modes.frequency(0, dt=0.01)
-            # Get angular frequency
-            omega = 2 * np.pi * freq_hz
+        >>> # Get frequency in Hz (assuming dt in seconds)
+        >>> freq_hz = modes.frequency(0, dt=0.01)
+        >>> # Get angular frequency
+        >>> omega = 2 * np.pi * freq_hz
         """
         self._validate_index(key)
         return self._frequencies[key] / dt
@@ -526,10 +527,10 @@ class DynamicalModes:
         --------
         .. code-block:: python
 
-            # Get e-folding time
-            tau = modes.lifetime(0, dt=0.01)
-            # Get actual half-life
-            t_half = tau * np.log(2)
+            >>> # Get e-folding time
+            >>> tau = modes.lifetime(0, dt=0.01)
+            >>> # Get actual half-life
+            >>> t_half = tau * np.log(2)
         """
         self._validate_index(key)
         return self._lifetimes[key] * dt
@@ -564,12 +565,12 @@ class DynamicalModes:
         --------
         .. code-block:: python
 
-            summary = modes.summary(dt=0.01)
-            print(summary)
-            # Filter stable modes
-            stable = summary[summary['is_stable']]
-            # Sort by frequency
-            by_freq = summary.sort_values('frequency')
+            >>> summary = modes.summary(dt=0.01)
+            >>> print(summary)
+            >>> # Filter stable modes
+            >>> stable = summary[summary['is_stable']]
+            >>> # Sort by frequency
+            >>> by_freq = summary.sort_values('frequency')
         """
         import pandas as pd
 
@@ -612,9 +613,9 @@ class DynamicalModes:
         --------
         .. code-block:: python
 
-            eigenval = modes.get_eigenvalue(0)
-            print(f"λ = {eigenval:.4f}")
-            print(f"|λ| = {abs(eigenval):.4f}")
+            >>> eigenval = modes.get_eigenvalue(0)
+            >>> print(f"λ = {eigenval:.4f}")
+            >>> print(f"|λ| = {abs(eigenval):.4f}")
         """
         self._validate_index(key)
         # Return eigenvalue with positive imaginary part

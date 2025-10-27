@@ -48,6 +48,9 @@ nbsphinx_epilog = """
 .. footbibliography::
 """
 
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
+copybutton_prompt_is_regexp = True
+
 autodoc_default_options = {
     "members": True,
     "undoc-members": True,

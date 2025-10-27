@@ -157,24 +157,24 @@ class NystroemKernelRidge(BaseEstimator):
     --------
     .. code-block:: python
 
-        from kooplearn.datasets import make_linear_system
-        from kooplearn.kernel import NystroemKernelRidge
-        import numpy as np
-        
-        # Generate a linear system
-        A = np.array([[0.9, 0.1], [-0.1, 0.9]])
-        X0 = np.array([1.0, 0.0])
-        data = make_linear_system(X0, A, n_steps=100, noise=0.1, random_state=42).to_numpy()
-        
-        # Fit the model
-        model = NystroemKernelRidge(n_components=2, kernel='linear', alpha=1e-3)
-        model.fit(data)
-        
-        # Predict the future state
-        pred = model.predict(data)
-        
-        # Get the eigenvalues of the Koopman operator
-        eigvals = model.eig()
+        >>> from kooplearn.datasets import make_linear_system
+        >>> from kooplearn.kernel import NystroemKernelRidge
+        >>> import numpy as np
+        >>> 
+        >>> # Generate a linear system
+        >>> A = np.array([[0.9, 0.1], [-0.1, 0.9]])
+        >>> X0 = np.array([1.0, 0.0])
+        >>> data = make_linear_system(X0, A, n_steps=100, noise=0.1, random_state=42).to_numpy()
+        >>> 
+        >>> # Fit the model
+        >>> model = NystroemKernelRidge(n_components=2, kernel='linear', alpha=1e-3)
+        >>> model.fit(data)
+        >>> 
+        >>> # Predict the future state
+        >>> pred = model.predict(data)
+        >>> 
+        >>> # Get the eigenvalues of the Koopman operator
+        >>> eigvals = model.eig()
     """
 
     _parameter_constraints: dict = {

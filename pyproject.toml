@@ -4,7 +4,7 @@ version = "2.0.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
-    { name = "Giacomo Turri", email = "turri.giacomo@gmail.com" }
+    { name = "the kooplearn developers"}
 ]
 requires-python = ">=3.9"
 dependencies = [
@@ -107,9 +107,6 @@ ignore=[
     "COM812",
     "COM819",
 ]
-
-[tool.ruff.lint.flake8-copyright]
-notice-rgx = "\\#\\ Authors:\\ The\\ scikit\\-learn\\ developers\\\r?\\\n\\#\\ SPDX\\-License\\-Identifier:\\ BSD\\-3\\-Clause"
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
