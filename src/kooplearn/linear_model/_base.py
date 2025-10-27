@@ -409,24 +409,20 @@ class Ridge(BaseEstimator):
             return eig_result["values"]
         elif eval_left_on is None and eval_right_on is not None:
             # (eigenvalues, right eigenfunctions)
-            Xin, _ = self._split_trajectory(eval_right_on)
             return eig_result["values"], _regressors.evaluate_eigenfunction(
-                eig_result, "right", Xin
+                eig_result, "right", eval_right_on
             )
         elif eval_left_on is not None and eval_right_on is None:
             # (eigenvalues, left eigenfunctions)
-            Xin, _ = self._split_trajectory(eval_left_on)
             return eig_result["values"], _regressors.evaluate_eigenfunction(
-                eig_result, "left", Xin
+                eig_result, "left", eval_left_on
             )
         elif eval_left_on is not None and eval_right_on is not None:
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
-            Xin_r, _ = self._split_trajectory(eval_right_on)
-            Xin_l, _ = self._split_trajectory(eval_left_on)
             return (
                 eig_result["values"],
-                _regressors.evaluate_eigenfunction(eig_result, "left", Xin_l),
-                _regressors.evaluate_eigenfunction(eig_result, "right", Xin_r),
+                _regressors.evaluate_eigenfunction(eig_result, "left", eval_left_on),
+                _regressors.evaluate_eigenfunction(eig_result, "right", eval_right_on),
             )
 
     def dynamical_modes(self, X, observable=False) -> DynamicalModes:
