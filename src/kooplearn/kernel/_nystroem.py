@@ -64,7 +64,7 @@ class NystroemKernelRidge(BaseEstimator):
         Parameters (keyword arguments) and values for kernel passed as
         callable object. Ignored by other kernels.
 
-    alpha : float, default=0.0
+    alpha : float, default=1e-6
         Tikhonov (ridge) regularization coefficient. ``None`` is equivalent to
         ``tikhonov_reg = 0``, and internally calls specialized stable
         algorithms to deal with this specific case.
@@ -224,7 +224,7 @@ class NystroemKernelRidge(BaseEstimator):
         degree=3,
         coef0=1,
         kernel_params=None,
-        alpha=0.0,
+        alpha=1e-6,
         eigen_solver="auto",
         tol=0,
         max_iter=None,

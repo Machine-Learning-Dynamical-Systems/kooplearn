@@ -42,7 +42,7 @@ class Ridge(BaseEstimator):
         :cite:t:`Kostic2022`. If ``False``, initializes the classical
         principal component estimator.
 
-    alpha : float, default=0.0
+    alpha : float, default=1e-6
         Tikhonov (ridge) regularization coefficient. ``None`` is equivalent to
         ``tikhonov_reg = 0``, and internally calls specialized stable
         algorithms to deal with this specific case.
@@ -181,7 +181,7 @@ class Ridge(BaseEstimator):
         *,
         lag_time=1,
         reduced_rank=True,
-        alpha=0.0,
+        alpha=1e-6,
         eigen_solver="auto",
         tol=0,
         max_iter=None,
