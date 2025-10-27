@@ -101,9 +101,9 @@ Learn more
    .. grid-item::
       :columns: 6
 
-      .. card:: :material-regular:`library_books;2em` Guides
+      .. card:: :material-regular:`library_books;2em` Theory Primer
          :class-card: sd-text-black sd-bg-light sd-text-center sd-align-middle
-         :link: guides/index.html
+         :link: primer.html
 
    .. grid-item::
       :columns: 6
@@ -118,7 +118,7 @@ Learn more
 
       .. card:: :material-regular:`menu_book;2em` API reference
          :class-card: sd-text-black sd-bg-light sd-text-center sd-align-middle
-         :link: api_reference/index.html
+         :link: api/index.html
 
 ----
 

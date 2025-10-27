@@ -66,6 +66,10 @@ html_theme_options = {
     "github_url": "https://github.com/Machine-Learning-Dynamical-Systems/kooplearn",
     "light_logo": "_static/logo-light.svg",
     "dark_logo": "_static/logo-dark.svg",
+    "nav_links": [
+        {"title": "Examples", "url": "examples"},
+        {"title": "API Reference", "url": "api/index"},
+    ],
 }
 
 html_sidebars = {
