@@ -6,13 +6,13 @@ from scipy.linalg import eigh
 from scipy.sparse.linalg import eigsh
 from sklearn.utils.extmath import randomized_svd
 
-from kooplearn._utils import fuzzy_parse_complex, spd_neg_pow, topk
-from kooplearn.kernel.linalg import (
+from kooplearn._linalg import (
     add_diagonal_,
     eigh_rank_reveal,
-    stable_topk,
+    spd_neg_pow,
     weighted_norm,
 )
+from kooplearn._utils import fuzzy_parse_complex, stable_topk
 from kooplearn.structs import EigResult, FitResult
 
 __all__ = [
@@ -92,62 +92,6 @@ def evaluate_eigenfunction(
 ):
     lv_or_rv = eig_result[which]
     return phi_Xin @ lv_or_rv
-
-
-# def estimator_modes(
-#         eig_result: EigResult,
-#         fit_result: FitResult,
-#         phi_X: np.ndarray,  # Feature map evaluated on the training input data
-#         phi_Xin: np.ndarray,  # Feature map evaluated on the initial conditions
-# ):
-#     lv = eig_result["left"]
-#     rv = eig_result["right"]
-#     U = fit_result["U"]
-#     r_dim = phi_X.shape[0] ** -1.0
-
-#     # Initial conditions
-#     rv_in = evaluate_eigenfunction(eig_result, "right", phi_Xin).T  # [rank, num_init_conditions]
-#     rv_in = (phi_Xin @ rv).T  # [rank, num_init_conditions]
-#     # This should be multiplied on the right by the observable evaluated at the output training data
-#     lv_obs = np.linalg.multi_dot([r_dim * phi_X, U, lv]).T
-#     return (
-#         rv_in[:, :, None] * lv_obs[:, None, :],
-#     )  # [rank, num_init_conditions, num_training_points]
-
-
-def estimator_modes(
-    eig_result: EigResult,
-    fit_result: FitResult,
-    phi_X: np.ndarray,  # Feature map evaluated on the training input data
-    phi_Xin: np.ndarray,  # Feature map evaluated on the initial conditions
-    C_XY,
-):
-    U = fit_result["U"]
-    M = np.linalg.multi_dot([U.T, C_XY, U])
-    values, lv, rv = scipy.linalg.eig(M, left=True, right=True)
-    values = fuzzy_parse_complex(values)
-    r_perm = np.argsort(values)
-    l_perm = np.argsort(values.conj())
-    # values = values[r_perm]
-
-    # Normalization in RKHS norm
-    rv = U @ rv
-    rv = rv[:, r_perm]
-    rv = rv / np.linalg.norm(rv, axis=0)
-    # Biorthogonalization
-    lv_full = np.linalg.multi_dot([C_XY.T, U, lv])
-    lv_full = lv_full[:, l_perm]
-    lv = lv[:, l_perm]
-    l_norm = np.sum(lv_full * rv, axis=0)
-    lv = lv / l_norm
-    r_dim = phi_X.shape[0] ** -1.0
-
-    # Initial conditions
-    rv_in = (phi_Xin @ rv).T  # [rank, num_init_conditions]
-    # This should be multiplied on the right by the observable evaluated at the output training data
-    lv_obs = np.linalg.multi_dot([r_dim * phi_X, U, lv]).T
-    return rv_in[:, :, None] * lv_obs[:, None, :]
-    # [rank, num_init_conditions, num_training_points]
 
 
 def predict(
@@ -239,10 +183,6 @@ def pcr(
         raise ValueError(f"Unknown svd_solver {svd_solver}")
     add_diagonal_(C_X, -tikhonov_reg)
 
-    # values, stable_values_idxs = stable_topk(values, rank, ignore_warnings=False)
-    # rsqrt_vals = (np.sqrt(values)) ** -1
-    # vectors = vectors[:, stable_values_idxs]
-    # vectors = vectors @ np.diag(rsqrt_vals)
     vectors, _, rsqrt_evals = eigh_rank_reveal(values, vectors, rank)
     vectors = vectors @ np.diag(rsqrt_evals)
     result: FitResult = {"U": vectors, "V": vectors, "svals": values}
@@ -322,7 +262,7 @@ def reduced_rank(
         elif svd_solver == "dense":  # 'dense'
             values, vectors = eigh(_crcov, C_X)
 
-        values, indices = topk(values, rank)
+        values, indices = stable_topk(values, rank)
         vectors = vectors[:, indices]
 
         _norms = weighted_norm(vectors, C_X)
@@ -367,7 +307,7 @@ def rand_reduced_rank(
     _norms = weighted_norm(vectors, F_0)
     vectors = vectors @ np.diag(_norms ** (-1.0))
 
-    values, indices = topk(values, rank)
+    values, indices = stable_topk(values, rank)
     vectors = sketch_p @ vectors[:, indices]
     result: FitResult = {"U": vectors, "V": vectors, "svals": values}
     return result

@@ -10,8 +10,7 @@ from numpy import ndarray
 from scipy.sparse.linalg import eigs, eigsh
 from sklearn.utils.extmath import randomized_svd
 
-from kooplearn.kernel.linalg import add_diagonal_, stable_topk, weighted_norm
-from kooplearn.kernel.utils import sanitize_complex_conjugates
+from kooplearn._linalg import add_diagonal_, stable_topk, weighted_norm
 from kooplearn.structs import EigResult, FitResult
 
 __all__ = [
@@ -108,7 +107,6 @@ def eig(fit_result: FitResult, K_X: ndarray, K_YX: ndarray) -> EigResult:
     values, vl, vr = scipy.linalg.eig(
         W_YX, left=True, right=True
     )  # Left -> V, Right -> U
-    values = sanitize_complex_conjugates(values)
     r_perm = np.argsort(values)
     vr = vr[:, r_perm]
     l_perm = np.argsort(values.conj())
@@ -155,8 +153,6 @@ def evaluate_eigenfunction(
     rsqrt_dim = (K_Xin_X_or_Y.shape[1]) ** (-0.5)
     return np.linalg.multi_dot([rsqrt_dim * K_Xin_X_or_Y, vr_or_vl])
 
-
-def estimator_modes(eig_result: EigResult, K_Xin_X: np.ndarray):
     """
     Compute dynamic modes associated with eigenfunctions.
 

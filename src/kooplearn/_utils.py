@@ -1,26 +1,61 @@
 from math import sqrt
-from typing import Optional
+from warnings import warn
 
 import numpy as np
 from scipy.spatial.distance import pdist
 
 
-def topk(vec: np.ndarray, k: int):
-    """Get the top k values from a Numpy array.
+def stable_topk(
+    vec: np.ndarray,
+    k_max: int,
+    rcond: float | None = None,
+    ignore_warnings: bool = True,
+):
+    """Takes up to k_max indices of the top k_max values of vec. If the values are below rcond, they are discarded.
 
     Args:
-        vec (ndarray): A 1D numpy array
-        k (int): Number of elements to keep
+        vec (ndarray): Vector to extract the top k indices from.
+        k_max (int): Number of indices to extract.
+        rcond (float, optional): Value below which the values are discarded. Defaults to None, in which case it is set according to the machine precision of vec's dtype.
+        ignore_warnings (bool): If False, raise a warning when some elements are discarted for being below the requested numerical precision.
 
-    Returns:
-        values, indices: top k values and their indices
     """
-    assert np.ndim(vec) == 1, "'vec' must be a 1D array"
-    assert k > 0, "k should be greater than 0"
-    sort_perm = np.flip(np.argsort(vec))  # descending order
-    indices = sort_perm[:k]
-    values = vec[indices]
-    return values, indices
+
+    def _topk(vec: np.ndarray, k: int):
+        """Get the top k values from a Numpy array.
+
+        Args:
+            vec (ndarray): A 1D numpy array
+            k (int): Number of elements to keep
+
+        Returns:
+            values, indices: top k values and their indices
+        """
+        assert np.ndim(vec) == 1, "'vec' must be a 1D array"
+        assert k > 0, "k should be greater than 0"
+        sort_perm = np.flip(np.argsort(vec))  # descending order
+        indices = sort_perm[:k]
+        values = vec[indices]
+        return values, indices
+
+    if rcond is None:
+        rcond = 10.0 * vec.shape[0] * np.finfo(vec.dtype).eps
+
+    top_vec, top_idxs = _topk(vec, k_max)
+
+    if all(top_vec > rcond):
+        return top_vec, top_idxs
+    else:
+        valid = top_vec > rcond
+        # In the case of multiple occurrences of the maximum vec, the indices corresponding to the first occurrence are returned.
+        first_invalid = np.argmax(np.logical_not(valid))
+        _first_discarded_val = np.max(np.abs(vec[first_invalid:]))
+
+        if not ignore_warnings:
+            warn(
+                f"Warning: Discarted {k_max - np.sum(valid)} dimensions of the {k_max} requested due to numerical instability. Consider decreasing the k. The largest discarded value is: {_first_discarded_val:.3e}."
+            )
+        return top_vec[valid], top_idxs[valid]
 
 
 def find_complex_conjugates(
@@ -143,53 +178,6 @@ def row_col_from_condensed_index(d, index):
     i = (-b - sqrt(b**2 - 8 * index)) // 2
     j = index + i * (b + i + 2) // 2 + 1
     return (int(i), int(j))
-
-
-def spd_neg_pow(
-    M: np.ndarray,
-    exponent: float = -1.0,
-    cutoff: Optional[float] = None,
-    strategy: str = "trunc",
-) -> np.ndarray:
-    """
-    Truncated eigenvalue decomposition of A
-    """
-    if cutoff is None:
-        cutoff = 10.0 * M.shape[0] * np.finfo(M.dtype).eps
-    w, v = np.linalg.eigh(M)
-    if strategy == "trunc":
-        sanitized_w = np.where(w <= cutoff, 1.0, w)
-        inv_w = np.where(
-            w > cutoff, (sanitized_w ** np.abs(exponent)) ** np.sign(exponent), 0.0
-        )
-        v = np.where(w > cutoff, v, 0.0)
-    elif strategy == "tikhonov":
-        inv_w = ((w + cutoff) ** np.abs(exponent)) ** np.sign(exponent)
-    else:
-        raise NotImplementedError(f"Strategy {strategy} not implemented")
-    return np.linalg.multi_dot([v, np.diag(inv_w), v.T])
-
-
-def covariance(X: np.ndarray, Y: Optional[np.ndarray] = None):
-    X = np.atleast_2d(X)
-    if X.ndim > 2:
-        raise ValueError(f"Input array has more than 2 dimensions ({X.ndim}).")
-    rnorm = (X.shape[0]) ** (-0.5)
-    X = X * rnorm
-
-    if Y is None:
-        c = X.T @ X
-    else:
-        if X.shape[0] != Y.shape[0]:
-            raise ValueError(
-                f"Shape mismatch: the covariance between two arrays can be computed only if they have the same initial dimension. Got {X.shape[0]} and {Y.shape[0]}."
-            )
-        Y = np.atleast_2d(Y)
-        if Y.ndim > 2:
-            raise ValueError(f"Input array has more than 2 dimensions ({Y.ndim}).")
-        Y = Y * rnorm
-        c = X.T @ Y
-    return c
 
 
 def check_torch_deps():

@@ -12,7 +12,8 @@ from sklearn.base import BaseEstimator
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.validation import check_is_fitted, validate_data
 
-from kooplearn._utils import covariance, fuzzy_parse_complex
+from kooplearn._linalg import covariance
+from kooplearn._utils import fuzzy_parse_complex
 from kooplearn.linear_model import _regressors
 from kooplearn.structs import DynamicalModes
 
