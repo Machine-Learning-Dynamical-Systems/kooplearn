@@ -56,6 +56,7 @@ class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
         """Store input shape."""
         X = check_array(X, ensure_2d=True, dtype=float)
         self.n_samples_in_, self.n_features_in_ = X.shape
+        self._is_fitted = True
         return self
 
     def transform(self, X):
@@ -119,14 +120,15 @@ class FeatureFlattener(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         # Save shape for inverse_transform
         self._feature_shape = X.shape[1:]
+        self._is_fitted = True
         return self
 
     def transform(self, X, y=None):
-        # Flatten the last two dimensions
+        # Flatten the last dimensions
         n_samples = X.shape[0]
         return X.reshape(n_samples, -1)
 
     def inverse_transform(self, X, y=None):
-        # Restore to original 3D shape
+        # Restore to original shape
         n_samples = X.shape[0]
         return X.reshape((n_samples,) + self._feature_shape)

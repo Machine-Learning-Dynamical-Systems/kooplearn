@@ -68,13 +68,14 @@ class DynamicalModes:
 
     .. math::
 
-        \\text{mode} = 2 \\cdot \\text{Re}(\\phi_r(x) \\langle phi_l, f \\rangle)
+        \\text{mode} = 2 \\cdot \\text{Re}(\\phi_r(x) \\langle \\phi_l, f \\rangle)
 
-    where :math:`\\phi_r` is the right eigenfunction and :math:`\\langle phi_l, f \\rangle` is
+    where :math:`\\phi_r` is the right eigenfunction and :math:`\\langle \\phi_l, f \\rangle` is
     the left projection on the mode's observable.
 
-    Modes are sorted by stability: stable modes (:math:`|\\lambda| < 1`) are ordered by
-    decreasing half-life, followed by unstable modes.
+    .. tip::
+
+        Modes are sorted by stability: stable modes (:math:`|\\lambda| < 1`) are ordered by decreasing half-life, followed by unstable modes.
 
     Examples
     --------
@@ -482,10 +483,10 @@ class DynamicalModes:
         --------
         .. code-block:: python
 
-        >>> # Get frequency in Hz (assuming dt in seconds)
-        >>> freq_hz = modes.frequency(0, dt=0.01)
-        >>> # Get angular frequency
-        >>> omega = 2 * np.pi * freq_hz
+            >>> # Get frequency in Hz (assuming dt in seconds)
+            >>> freq_hz = modes.frequency(0, dt=0.01)
+            >>> # Get angular frequency
+            >>> omega = 2 * np.pi * freq_hz
         """
         self._validate_index(key)
         return self._frequencies[key] / dt
