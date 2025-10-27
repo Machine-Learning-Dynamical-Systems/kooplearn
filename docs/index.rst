@@ -141,6 +141,7 @@ Learn more
    Molecular Dynamics (Kernels) <examples/ala2_nys_tutorial.ipynb>
    Ordered MNIST (torch) <examples/ordered_mnist_torch.ipynb>
    Switching System <examples/switching_system.ipynb>
+   Dynamic Mode Decomposition <examples/fluid_flow_dmd.ipynb>
 
 
 .. toctree::
