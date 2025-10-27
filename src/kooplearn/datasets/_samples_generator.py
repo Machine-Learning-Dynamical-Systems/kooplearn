@@ -232,7 +232,7 @@ def make_lorenz63(
     >>> from mpl_toolkits.mplot3d import Axes3D
     >>> fig = plt.figure()
     >>> ax = fig.add_subplot(111, projection='3d')
-    >>> ax.plot(df['x'], df['y'], df['z'])
+    >>> _ = ax.plot(df['x'], df['y'], df['z'])
     >>> plt.show()
 
     """
@@ -384,7 +384,7 @@ def make_linear_system(
 
     Access the Koopman operator (transpose of A):
 
-    >>> K = df.attrs['A'].T
+    >>> K = np.array(df.attrs['A']).T
 
     Notes
     -----
@@ -725,7 +725,6 @@ def make_regime_switching_var(
     >>> transition = np.array([[0.95, 0.05], [0.1, 0.9]])
     >>> X0 = np.zeros(2)
     >>> df = make_regime_switching_var(X0, phi1, phi2, transition, n_steps=100, noise=0.01)
-    >>> df.head()
     """
 
     X0 = np.asarray(X0, dtype=float)
@@ -862,7 +861,6 @@ def make_prinz_potential(
     >>> import numpy as np
     >>> from kooplearn.datasets import make_prinz_potential
     >>> df = make_prinz_potential(X0=0.0, n_steps=5000, dt=1e-4)
-    >>> df.head()
     """
 
     X0 = np.atleast_1d(np.asarray(X0, dtype=float))

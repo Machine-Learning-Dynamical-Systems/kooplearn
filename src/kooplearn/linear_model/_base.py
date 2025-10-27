@@ -137,7 +137,7 @@ class Ridge(BaseEstimator):
         >>>
         >>> # Fit the model
         >>> model = Ridge(n_components=2, alpha=1e-3)
-        >>> model.fit(data)
+        >>> model = model.fit(data)
         >>>
         >>> # Predict the future state
         >>> pred = model.predict(data)

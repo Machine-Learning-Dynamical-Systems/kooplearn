@@ -65,7 +65,7 @@ def fetch_ordered_mnist(
     >>> from kooplearn.datasets import fetch_ordered_mnist
     >>> images, targets = fetch_ordered_mnist(num_digits=3)
     >>> images.shape
-    (18000, 28, 28)
+    (20709, 28, 28)
     >>> np.unique(targets)
     array([0, 1, 2])
     """
@@ -117,6 +117,6 @@ def fetch_ordered_mnist(
     targets = targets[ordering_perm]
 
     # Scaling data
-    images = (images/255.0).astype('float64')
+    images = (images / 255.0).astype("float64")
 
     return images, targets

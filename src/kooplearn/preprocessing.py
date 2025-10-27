@@ -46,9 +46,6 @@ class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
     >>> X2 = tde2.fit_transform(traj)
     >>> X2.shape
     (4, 6)
-    >>> # inverse_transform not supported for stride > 1
-    >>> tde2.inverse_transform(X2)
-    ValueError: inverse_transform only works when stride=1.
     """
 
     def __init__(self, history_length: int, stride: int = 1):

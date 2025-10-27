@@ -173,8 +173,7 @@ class KernelRidge(BaseEstimator):
         >>> 
         >>> # Fit the model
         >>> model = KernelRidge(n_components=2, kernel='linear', alpha=1e-3)
-        >>> model.fit(data)
-        >>> 
+        >>> model = model.fit(data) 
         >>> # Predict the future state
         >>> pred = model.predict(data)
         >>> 
