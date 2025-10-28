@@ -15,5 +15,4 @@ kooplearn.torch.nn
 
    SpectralContrastiveLoss
    VampLoss
-   KLContrastiveLoss
    AutoEncoderLoss

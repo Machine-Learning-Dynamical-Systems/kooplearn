@@ -2,9 +2,8 @@ from kooplearn._utils import check_torch_deps
 
 check_torch_deps()
 
-from kooplearn.torch.nn._base import (
+from kooplearn.torch.nn._base import (  # noqa: E402
     AutoEncoderLoss,
-    KLContrastiveLoss,
     SpectralContrastiveLoss,
     VampLoss,
 )
@@ -12,6 +11,5 @@ from kooplearn.torch.nn._base import (
 __all__ = [
     "AutoEncoderLoss",
     "SpectralContrastiveLoss",
-    "KLContrastiveLoss",
     "VampLoss",
 ]

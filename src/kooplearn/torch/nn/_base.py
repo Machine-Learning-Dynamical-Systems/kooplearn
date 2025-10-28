@@ -1,7 +1,5 @@
 """Loss functions for representation learning."""
 
-from typing import Literal
-
 from torch import Tensor
 from torch.nn import Module
 
@@ -9,7 +7,6 @@ from kooplearn.torch.nn import _functional as F
 
 __all__ = [
     "AutoEncoderLoss",
-    "KLContrastiveLoss",
     "SpectralContrastiveLoss",
     "VampLoss",
 ]
@@ -66,9 +63,6 @@ class SpectralContrastiveLoss(Module):
 
         \mathcal{L}(x, y) = \frac{1}{N(N-1)}\sum_{i \neq j}\langle x_{i}, y_{j} \rangle^2 - \frac{2}{N}\sum_{i=1}\langle x_{i}, y_{i} \rangle.
 
-    Args:
-        gamma (float, optional): Regularization strength. Defaults to 0.0 (no regularization).
-        regularizer (literal, optional): Regularizer. Either :func:`orthn_fro <linear_operator_learning.nn.functional.orthonormal_fro_reg>` or :func:`orthn_logfro <linear_operator_learning.nn.functional.orthonormal_logfro_reg>`. Defaults to :func:`orthn_fro <linear_operator_learning.nn.functional.orthonormal_fro_reg>`.
     """
 
     def __init__(
@@ -90,41 +84,6 @@ class SpectralContrastiveLoss(Module):
             ``y``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of features.
         """
         return F.spectral_contrastive_loss(x, y)
-
-
-class KLContrastiveLoss(Module):
-    r"""NCP/Contrastive/Mutual Information Loss based on the KL divergence.
-
-    .. math::
-
-        \mathcal{L}(x, y) = \frac{1}{N(N-1)}\sum_{i \neq j}\langle x_{i}, y_{j} \rangle - \frac{2}{N}\sum_{i=1}\log\big(\langle x_{i}, y_{i} \rangle\big).
-
-    Args:
-        gamma (float, optional): Regularization strength. Defaults to 0.0 (no regularization).
-        regularizer (literal, optional): Regularizer. Either :func:`orthn_fro <linear_operator_learning.nn.functional.orthonormal_fro_reg>` or :func:`orthn_logfro <linear_operator_learning.nn.functional.orthonormal_logfro_reg>`. Defaults to :func:`orthn_fro <linear_operator_learning.nn.functional.orthonormal_fro_reg>`.
-
-
-    """
-
-    def __init__(
-        self,
-    ) -> None:
-        super().__init__()
-
-    def forward(self, x: Tensor, y: Tensor) -> Tensor:
-        """Forward pass of the KL contrastive loss.
-
-        Args:
-            x (Tensor): Input features.
-            y (Tensor): Output features.
-
-
-        Shape:
-            ``x``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of features.
-
-            ``y``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of features.
-        """
-        return F.kl_contrastive_loss(x, y)
 
 
 class AutoEncoderLoss(Module):

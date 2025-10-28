@@ -1,7 +1,5 @@
 """Linear Algebra."""
 
-from typing import NamedTuple
-
 import torch
 from torch import Tensor
 

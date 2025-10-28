@@ -3,10 +3,8 @@
 import torch
 from torch import Tensor
 
-from ._linalg import sqrtmh
-from ._stats import cov_norm_squared_unbiased, covariance
-
-# Losses_______________________________________________________________________
+from kooplearn.torch.nn._linalg import sqrtmh
+from kooplearn.torch.nn._stats import cov_norm_squared_unbiased, covariance
 
 
 def vamp_loss(
@@ -56,24 +54,6 @@ def spectral_contrastive_loss(x: Tensor, y: Tensor) -> Tensor:
     return off_diag - diag
 
 
-def kl_contrastive_loss(x: Tensor, y: Tensor) -> Tensor:
-    """See :class:`kooplearn.torch.nn.KLContrastiveLoss` for details."""
-    assert x.shape == y.shape
-    assert x.ndim == 2
-
-    npts, dim = x.shape
-    log_term = torch.mean(torch.log(x * y)) * dim
-    linear_term = torch.matmul(x, y.T)
-    off_diag = (
-        torch.mean(
-            torch.triu(linear_term, diagonal=1) + torch.tril(linear_term, diagonal=-1)
-        )
-        * npts
-        / (npts - 1)
-    )
-    return off_diag - log_term
-
-
 def dynamic_ae_loss(
     x: Tensor,
     y: Tensor,
@@ -85,7 +65,7 @@ def dynamic_ae_loss(
     alpha_lin: float = 1.0,
     alpha_pred: float = 1.0,
 ) -> Tensor:
-    """See :class:`kooplearn.torch.nn.DynamicAELoss` for details."""
+    """See :class:`kooplearn.torch.nn.AutoEncoderLoss` for details."""
     mse = torch.nn.MSELoss()
     rec_loss = mse(x, x_rec)
     lin_loss = mse(y_enc, x_evo)

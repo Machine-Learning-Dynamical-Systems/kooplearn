@@ -46,7 +46,7 @@ To install the core version of ``kooplearn``, run
 
             uv add kooplearn
 
-To be able to use the representation-learning losses in ``kooplearn.nn``, run
+To be able to use the representation-learning losses in ``kooplearn.torch`` or ``kooplearn.jax``, run
 
 .. tab-set::
     :class: outline
@@ -155,6 +155,7 @@ Learn more
    api/preprocessing
    api/datasets
    api/torch
+   api/jax
    
 .. bibliography::
    :filter: docname in docnames
