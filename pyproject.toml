@@ -1,18 +1,15 @@
 [project]
 name = "kooplearn"
 version = "2.0.0"
-description = "Add your description here"
+description = "A python package for evolution operator learning"
 readme = "README.md"
 authors = [
-    { name = "the kooplearn developers"}
+    { name = "the kooplearn authors"}
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "matplotlib>=3.9.4",
     "pandas>=2.3.3",
     "scikit-learn>=1.6.1",
-    "sdeint>=0.3.0",
-    "tqdm>=4.67.1",
 ]
 
 [project.optional-dependencies]
@@ -29,7 +26,6 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "datasets>=4.2.0",
     "ipykernel>=6.30.1",
     "pytest>=8.4.2",
     "ruff>=0.13.2",
@@ -46,6 +42,10 @@ docs = [
     "sphinx-iconify>=0.2.1",
     "nbsphinx>=0.9.7",
     "sphinx-copybutton>=0.5.2",
+]
+examples = [
+    "matplotlib>=3.9.4",
+    "tqdm>=4.67.1",
 ]
 
 [tool.ruff]
