@@ -29,8 +29,9 @@ extensions = [
     "nbsphinx",
     "myst_parser",
     "sphinx_iconify",
-    "sphinx_copybutton",
+    "sphinx_copybutton"
 ]
+
 
 autosummary_generate = True
 napoleon_use_ivar = True

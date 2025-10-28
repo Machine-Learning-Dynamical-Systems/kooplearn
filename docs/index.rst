@@ -136,12 +136,12 @@ Learn more
    :caption: Examples
    :hidden:
 
-   Estimating Eigenfunctions <examples/prinz_potential.ipynb>
-   Fast Kernel Models <examples/kernel_methods.ipynb>
-   Molecular Dynamics (Kernels) <examples/ala2_nys_tutorial.ipynb>
-   Ordered MNIST (torch) <examples/ordered_mnist_torch.ipynb>
-   Switching System <examples/switching_system.ipynb>
+   Eigenfunctions of a 1D Potential <examples/prinz_potential.ipynb>
    Dynamic Mode Decomposition <examples/fluid_flow_dmd.ipynb>
+   Fast Kernel Models <examples/kernel_methods.ipynb>
+   Analysing Molecular Dynamics <examples/ala2_nys_tutorial.ipynb>
+   Switching System <examples/switching_system.ipynb>
+   Ordered MNIST <examples/ordered_mnist_torch.ipynb>
 
 
 .. toctree::
@@ -150,8 +150,8 @@ Learn more
    :hidden:
 
    api/main
-   api/kernel
    api/linear_model
+   api/kernel
    api/preprocessing
    api/datasets
    api/torch

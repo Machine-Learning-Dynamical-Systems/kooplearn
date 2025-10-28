@@ -62,7 +62,6 @@ Datasets
 
 .. autosummary::
    :toctree: ../generated/
-   :template: class.rst
 
    compute_prinz_potential_eig
    fetch_ordered_mnist
@@ -72,3 +71,37 @@ Datasets
    make_lorenz63
    make_prinz_potential
    make_regime_switching_var
+
+PyTorch Integration
+^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: kooplearn.torch.nn
+   :no-members:
+   :no-inherited-members:
+
+.. currentmodule:: kooplearn.torch.nn
+
+.. autosummary::
+   :toctree: ../generated/
+   :template: class.rst
+
+   SpectralContrastiveLoss
+   VampLoss
+   AutoEncoderLoss
+
+JAX Integration
+^^^^^^^^^^^^^^^
+
+.. automodule:: kooplearn.jax.nn
+   :no-members:
+   :no-inherited-members:
+
+.. currentmodule:: kooplearn.jax.nn
+
+.. autosummary::
+   :toctree: ../generated/
+   :template: class.rst
+
+   spectral_contrastive_loss
+   vamp_loss
+   autoencoder_loss
