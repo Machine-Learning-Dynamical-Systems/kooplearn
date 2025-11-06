@@ -6,21 +6,21 @@
 Kooplearn
 =========
 
-Kooplearn is a Python library to learn :ref:`evolution operators <primer>` —  also known as Koopman :cite:p:`Koopman1931` or Transfer :cite:p:`Applebaum2009` operators —  from data. ``kooplearn`` models can
+``kooplearn`` is a Python library to learn :ref:`evolution operators <primer>` —  also known as Koopman :cite:p:`p1-Koopman1931` or Transfer :cite:p:`p1-Applebaum2009` operators —  from data. ``kooplearn`` models can
 
 1. Predict the evolution of states *and* observables.
 2. Estimate the eigenvalues and eigenfucntions of the learned evolution operators.
 3. Compute the `dynamic mode decomposition <https://en.wikipedia.org/wiki/Dynamic_mode_decomposition>`_ of states *and* observables.
 4. Learn neural-network representations :math:`x_t \mapsto \varphi(x_t)` for evolution operators.
 
-Why Choosing Kooplearn?
+Why Choosing ``kooplearn``?
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 1. It is easy to use, and strictly adheres to the `scikit-learn API <https://scikit-learn.org/stable/api/index.html>`_.
 2. :ref:`Kernel estimators <api_kernel>` are state-of-the-art: 
    
-   * ``kooplearn`` implements the *Reduced Rank Regressor* from :cite:`Kostic2022` which is provably better :cite:`Kostic2023SpectralRates` than the classical kernel DMD :cite:`Williams2015_KDMD` in estimating eigenvalues and eigenfunctions. 
-   * It also implements Nyström estimators :cite:`Meanti2023` and randomized estimators :cite:`turri2023randomized` for :doc:`blazingly fast <examples/ala2_nys_tutorial.ipynb>` kernel learning.
+   * ``kooplearn`` implements the *Reduced Rank Regressor* from :cite:`p1-Kostic2022` which is provably better :cite:`p1-Kostic2023SpectralRates` than the classical kernel DMD :cite:`p1-Williams2015_KDMD` in estimating eigenvalues and eigenfunctions. 
+   * It also implements Nyström estimators :cite:`p1-Meanti2023` and randomized estimators :cite:`p1-turri2023randomized` for :doc:`blazingly fast <examples/ala2_nys_tutorial.ipynb>` kernel learning.
 
 3. Includes representation learning losses to train neural-network Koopman embeddings.
 
@@ -46,7 +46,7 @@ To install the core version of ``kooplearn``, run
 
             uv add kooplearn
 
-To be able to use the representation-learning losses in ``kooplearn.torch`` or ``kooplearn.jax``, run
+To be able to learn neural-network representations using the representation-learning losses in ``kooplearn.torch`` or ``kooplearn.jax``, run
 
 .. tab-set::
     :class: outline
@@ -158,5 +158,5 @@ Learn more
    api/jax
    
 .. bibliography::
-   :filter: docname in docnames
+   :keyprefix: p1-
    :style: unsrt
