@@ -1,3 +1,33 @@
 img {
     border-radius: 10px !important;
 }
+
+/* ---- Consistent example card layout ---- */
+
+.example-grid .sd-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  text-align: center;
+}
+
+/* Keep image aspect ratio consistent */
+.example-grid .sd-card img {
+  width: 100%;
+  height: 150px;       /* uniform height */
+  object-fit: contain; /* keeps full image visible */
+  background-color: #f8f9fa; /* optional light background to fill empty space */
+  border-radius: 0.5rem;
+  padding: 0.25rem;    /* small padding looks better with contain */
+}
+
+/* Space and alignment for caption text */
+.example-grid .sd-card p {
+  flex-grow: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
