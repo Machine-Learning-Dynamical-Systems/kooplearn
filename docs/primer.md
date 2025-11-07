@@ -17,7 +17,7 @@ $$
 (\mathsf{E} 1_{B})(x_t) = \int_{B}p(dy|x_{t}) = \mathbb{P}\left[X_{t + 1} \in B | x_t\right].
 $$
 
-An advantage of the operator approach over dealing directly with the conditional probability $p(\cdot | x_{t}$) is that $\mathsf{E}$ acts linearly on the objects to which it is applied. This means that operators unlock an arsenal of tools from linear algebra and functional analysis, which would be unavailable otherwise. Arguably the most important of them is the **spectral decomposition**, allowing us to decompose $\mathsf{E}$, and hence the dynamics, into a linear superposition of dynamical modes. These ideas lie at the core of the celebrated Time-lagged Independent Component Analysis (TICA) {cite:p}`Molgedey1994,perez2013identification` and Dynamical Mode Decomposition (DMD) {cite:p}`Schmid2010, Kutz2016`.
+An advantage of the operator approach over dealing directly with the conditional probability $p(\cdot | x_{t})$ is that $\mathsf{E}$ acts linearly on the objects to which it is applied. This means that operators unlock an arsenal of tools from linear algebra and functional analysis, which would be unavailable otherwise. Arguably the most important of them is the **spectral decomposition**, allowing us to decompose $\mathsf{E}$, and hence the dynamics, into a linear superposition of dynamical modes. These ideas lie at the core of the celebrated Time-lagged Independent Component Analysis (TICA) {cite:p}`Molgedey1994,perez2013identification` and Dynamical Mode Decomposition (DMD) {cite:p}`Schmid2010, Kutz2016`.
 
 ## Learning $\mathsf{E}$ and its spectral decomposition from data
 
@@ -58,7 +58,7 @@ In the limit of infinite data, $N\to \infty$, and infinitely dimensional encoder
 
 ### Dynamical Modes
 
-The spectral decomposition of $\mathsf{E}$ is approximated by expressing the least-squares estimator in its eigenvectors' basis $\mathsf{E}ls = Q\Lambda Q^{-1}$, where the columns of $Q = [q_1, \cdots, q_d]$ are the eigenvectors of $\mathsf{E}ls$, and $\Lambda$ is a diagonal matrix of eigenvalues. In this basis, the expected value in the future for a function $f(x) = \langle w,\varphi(x)\rangle$ is expressed as:
+The spectral decomposition of $\mathsf{E}$ is approximated by expressing the least-squares estimator in its eigenvectors' basis $\mathsf{E}_{ls} = Q\Lambda Q^{-1}$, where the columns of $Q = [q_1, \cdots, q_d]$ are the eigenvectors of $\mathsf{E}_{ls}$, and $\Lambda$ is a diagonal matrix of eigenvalues. In this basis, the expected value in the future for a function $f(x) = \langle w,\varphi(x)\rangle$ is expressed as:
 
 $$
 \mathbb{E}_{y \sim X_{t + 1} | X_{t}}[f(y) | x] \approx \langle \mathsf{E}_{ls} w,\varphi(x)\rangle = \langle Q\Lambda Q^{-1}w,\varphi(x)\rangle
@@ -74,13 +74,15 @@ The spectral decomposition expresses the transition $x_t \to x_{t+1}$ as a sum o
 
 ### Kernel methods
 
-Leveraging the kernel trick, one can learn evolution operators by deriving a closed-form solution of the least square loss in terms of kernel matrices whose elements are of the form $k(x_i, x_j) = \langle \varphi(x_i),\varphi(x_j)\rangle$, with $k(\cdot, \cdot)$ a suitable kernel function. Thanks to the theory of reproducing kernel Hilbert spaces, this class of methods is backed up by statistical learning guarantees, such as the ones derived in {cite:p}`Kostic2022,Kostic2023SpectralRates,nuske2023finite`. Similarly to the least-squares approach, one also approximates the spectral decomposition of $\mathsf{E}$ via kernel methods {cite:p}`Williams2015_KDMD,Kawahara2016, Klus2019, Das2020, Alexander2020, Meanti2023`. See the module {mod}`kooplearn.kernel` for state of the art kernel methods on evolution operator learning.
+Leveraging the kernel trick, one can learn evolution operators by deriving a closed-form solution of the least square loss in terms of kernel matrices whose elements are of the form $k(x_i, x_j) = \langle \varphi(x_i),\varphi(x_j)\rangle$, with $k(\cdot, \cdot)$ a suitable kernel function. Thanks to the theory of reproducing kernel Hilbert spaces, this class of methods is backed up by statistical learning guarantees, such as the ones derived in {cite:p}`Kostic2022,Kostic2023SpectralRates,nuske2023finite`. Similarly to the least-squares approach, one also approximates the spectral decomposition of $\mathsf{E}$ via kernel methods {cite:p}`Williams2015_KDMD,Kawahara2016, Klus2019, Das2020, Alexander2020, Meanti2023`. See the module {mod}`kooplearn.kernel` for state-of-the-art kernel methods on evolution operator learning.
 
 ### Deep learning
 
 In contrast to the previous approaches, where the encoder $\varphi$ is prescribed, a number of methods proposed to approximate $\mathsf{E}$ from data with end-to-end schemes including $\varphi$ as a learnable neural network. Since learning $\mathsf{E}$ ultimately entails learning its action on the linear space spanned by $\varphi$, it is appealing to choose an encoder capturing the most salient features of the dynamics.
 
 To this end, one can train $\varphi$ via an ***encoder-decoder*** scheme as proposed in {cite:p}`takeishi2017learning,Lusch2018, otto2019linearly, Azencot2020CAE, wehmeyer2018time` or with ***encoder-only*** approaches as in {cite:p}`li2017extended,Mardt2018,yeung2019learning,Kostic2023DPNets,federici2023latent, turri2025self`.
+
+---
 
 ```{bibliography}
 :filter: docname in docnames
