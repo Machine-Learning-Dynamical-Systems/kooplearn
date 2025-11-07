@@ -59,7 +59,7 @@ autodoc_default_options = {
 }
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "JOSS"]
 
 
 html_theme_options = {

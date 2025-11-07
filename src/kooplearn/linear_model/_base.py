@@ -22,106 +22,105 @@ logger = logging.getLogger("kooplearn")
 
 class Ridge(BaseEstimator):
     r"""Linear model minimizing the :math:`L^{2}` loss.
+    
     Implements a model approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator by lifting the state with a *nonlinear* feature map and then minimizing the :math:`L^{2}` loss in the embedded space as described in :cite:t:`ridge-Kostic2022`.
 
     .. tip::
 
         The dynamical modes obtained by calling :class:`kooplearn.linear_model.Ridge.dynamical_modes` correspond to the *Extended Dynamical Mode Decomposition* by :cite:t:`ridge-Williams2015_EDMD`.
 
-
     Parameters
     ----------
     n_components : int or None, default=None
-        Number of components to retain. If None, all components are used.
+        Number of components to retain. If ``None``, all components are used.
 
     lag_time : int, default=1
-        Time delay between the pairs of snapshots `(X_t, X_{t + lag_time})` used to train the estimator.
+        Time delay between the pairs of snapshots :math:`(X_t, X_{t + \text{lag_time}})` used to train the estimator.
 
     reduced_rank : bool, default=True
         Whether to use reduced-rank regression introduced in
         :cite:t:`ridge-Kostic2022`. If ``False``, initializes the classical
         principal component estimator.
 
-    alpha : float, default=1e-6
+    alpha : float or None, default=1e-6
         Tikhonov (ridge) regularization coefficient. ``None`` is equivalent to
-        ``tikhonov_reg = 0``, and internally calls specialized stable
+        ``alpha = 0``, and internally calls specialized stable
         algorithms to deal with this specific case.
 
     eigen_solver : {'auto', 'dense', 'arpack', 'randomized'}, default='auto'
-        Solver used to perform the internal SVD calcuations. If `n_components`
-        is much less than the number of training samples, randomized (or
-        arpack  to a smaller extent) may be more efficient than the dense
-        eigensolver.
+        Solver used to perform the internal SVD calculations. If ``n_components``
+        is much less than the number of training samples, ``randomized`` (or 
+        ``arpack`` to a smaller extent) may be more efficient than the ``dense`` solver.
 
         auto :
-            the solver is selected by a default policy based on n_samples
-            (the number of training samples) and `n_components`:
+            the solver is selected automatically based on the number of samples and components:
             if the number of components to extract is less than 10 (strict) and
-            the number of samples is more than 200 (strict), the 'arpack'
+            the number of samples is more than 200 (strict), the ``arpack``
             method is enabled. Otherwise the exact full eigenvalue
             decomposition is computed and optionally truncated afterwards
-            ('dense' method).
+            (``dense`` method).
         dense :
             run exact full eigenvalue decomposition calling the standard
-            LAPACK solver via `scipy.linalg.eigh`, and select the components
+            LAPACK solver via ``scipy.linalg.eigh``, and select the components
             by postprocessing.
         arpack :
-            run SVD truncated to n_components calling ARPACK solver using
-            `scipy.sparse.linalg.eigsh`. It requires strictly
-            0 < n_components < n_samples
+            run SVD truncated to ``n_components`` calling ARPACK solver using
+            ``scipy.sparse.linalg.eigsh``. It requires strictly
+            ``0 < n_components < n_samples``.
         randomized :
             run randomized SVD as described in :cite:t:`ridge-turri2023randomized`.
 
     tol : float, default=0
         Convergence tolerance for arpack.
-        If 0, optimal value will be chosen by arpack.
+        If 0, optimal value is chosen automatically by arpack.
 
     max_iter : int or None, default=None
         Maximum number of iterations for arpack.
-        If None, optimal value will be chosen by arpack.
+        If ``None``, optimal value is chosen automatically by arpack.
 
     iterated_power : {'auto'} or int, default='auto'
         Number of iterations for the power method computed by
-        svd_solver == 'randomized'. When 'auto', it is set to 7 when
-        `n_components < 0.1 * min(X.shape)`, other it is set to 4.
+        ``eigen_solver == 'randomized'``. When ``'auto'``, it is set to 7 when
+        ``n_components < 0.1 * min(X.shape)``, otherwise it is set to 4.
 
     n_oversamples : int, default=5
         Number of oversamples when using a randomized algorithm
-        (``svd_solver == 'randomized'``).
+        (``eigen_solver == 'randomized'``).
 
     random_state : int, RandomState instance or None, default=None
-        Used when ``eigen_solver`` == 'arpack' or 'randomized'. Pass an int
+        Used when ``eigen_solver`` is ``'arpack'`` or ``'randomized'``. Pass an int
         for reproducible results across multiple function calls.
-        See :term:`Glossary <random_state>`.
 
     copy_X : bool, default=True
-        If True, input X is copied and stored by the model in the `X_fit_`
+        If ``True``, input X is copied and stored by the model in the ``X_fit_``
         attribute. If no further changes will be done to X, setting
-        `copy_X=False` saves memory by storing a reference.
-
+        ``copy_X=False`` saves memory by storing a reference.
 
     Attributes
     ----------
-    X_fit_ : ndarray
+    X_fit_ : ndarray of shape (n_samples, n_features)
         The data used to fit the model. If ``copy_X=False``, then ``X_fit_`` is
         a reference to the original data. This attribute is used for the calls to predict and
-        transform. Shape ``(n_samples, n_features)``
+        transform.
 
-    cov_X_ : ndarray
-        Covariance matrix evaluated at the initial states, that is :math:`x_t`. Shape ``(n_features, n_features)``.
+    cov_X_ : ndarray of shape (n_features, n_features)
+        Covariance matrix evaluated at the initial states, that is :math:`x_t`.
 
-    cov_Y : ndarray
-        Covariance matrix evaluated at the evolved states, that is :math:`x_{t+1}`. Shape ``(n_features, n_features)``.
+    cov_Y_ : ndarray of shape (n_features, n_features)
+        Covariance matrix evaluated at the evolved states, that is :math:`x_{t+1}`.
 
-    cov_XY : ndarray
-        Cross-covariance matrix between initial and evolved states. Shape ``(n_features, n_features)``.
+    cov_XY_ : ndarray of shape (n_features, n_features)
+        Cross-covariance matrix between initial and evolved states.
 
-    U_ : ndarray
-        Projection matrix of shape ``(n_features, n_components)``. The Koopman/Transfer
-        operator is approximated as :math:`U U^T \mathrm{cov_{XY}}`.
+    U_ : ndarray of shape (n_features, n_components)
+        Projection matrix. The evolution operator is approximated as
+        :math:`U U^T \mathrm{cov_{XY}}`.
 
-    estimator_ : ndarray
-        Least Squares estimator :math:`U U^T \mathrm{cov_{XY}}`.
+    estimator_ : ndarray of shape (n_features, n_features)
+        Least-squares estimator :math:`U U^T \mathrm{cov_{XY}}`.
+
+    rank_ : int
+        Effective rank of the fitted estimator.
 
     Examples
     --------
@@ -204,21 +203,25 @@ class Ridge(BaseEstimator):
 
     def fit(self, X, y=None):
         """
-        Fits the Linear model using either a randomized or a non-randomized algorithm, and either a full rank or a reduced rank algorithm,
-        depending on the parameters of the model.
+        Fit the linear model using the selected algorithm.
+
+        Depending on the model parameters, this method fits the estimator using
+        either a randomized or non-randomized algorithm, and either a full-rank
+        or reduced-rank regression approach.
 
         Parameters
         ----------
-        X : ndarray
-            Training trajectory data  of shape ``(n_samples, n_features)``.
+        X : ndarray of shape (n_samples, n_features)
+            Training trajectory data.
 
         y : ndarray of shape (n_samples, n_features_out), default=None
-            Optional observable to use for the fit. If ``None``, the observable is the state itself.
+            Optional observable used for training.
+            If ``None``, the observable is assumed to be the state itself.
 
         Returns
         -------
         self : object
-            Returns the instance itself.
+            Fitted model instance.
         """
         self._pre_fit_checks(X)
         if y is not None:
@@ -317,27 +320,33 @@ class Ridge(BaseEstimator):
 
         return self
 
-    def predict(self, X, n_steps=1, observable=False):
-        r"""Predicts the state or, if the system is stochastic, its expected
-        value :math:`\mathbb{E}[X_t | X_0 = X]` after ``t=n_steps`` instants
-        given the initial conditions ``X``. If ``observable`` is not ``None``,
-        returns the analogue quantity for the observable instead.
+    def predict(self, X, n_steps=1, observable=False) -> np.ndarray:
+        r"""
+        Predict the system state or its expected value after ``n_steps``.
+
+        Computes the predicted state — or, in the case of a stochastic system,
+        the expected value :math:`\mathbb{E}[X_t \mid X_0 = X]` — after
+        ``t = n_steps`` time steps given the initial conditions ``X``.
+        If ``observable=True``, returns the corresponding predicted observable
+        instead of the state.
 
         Parameters
         ----------
         X : ndarray of shape (n_samples, n_features)
-            Initial states for prediction.
+            Initial conditions used for prediction.
 
         n_steps : int, default=1
-            Number of steps in the future to predict (returns the last one).
+            Number of future time steps to predict. Only the final predicted state
+            (at time ``t = n_steps``) is returned.
 
         observable : bool, default=False
-            If true, predict returns the observable at time :math:`t`.
+            If ``True``, returns the predicted observable at time :math:`t`
+            instead of the system state.
 
         Returns
         -------
-        ndarray
-            The predicted (expected) state or observable at time :math:`t`.
+        ndarray of shape (n_samples, n_features)
+            Predicted (expected) state or observable at time :math:`t = n_steps`.
         """
         check_is_fitted(self)
         X = validate_data(self, X, reset=False, copy=self.copy_X)
@@ -394,12 +403,35 @@ class Ridge(BaseEstimator):
         )
 
     def eig(self, eval_left_on=None, eval_right_on=None):
-        """Compute the eigendecomposition of the estimator.
+        """
+        Compute the eigendecomposition of the learned evolution operator.
+
+        This method returns the eigenvalues of the estimated evolution
+        operator, and optionally evaluates the corresponding left and/or right
+        eigenfunctions on user-provided data.
+
+        Parameters
+        ----------
+        eval_left_on : ndarray of shape (n_samples, n_features), optional
+            Data points on which to evaluate the **left** eigenfunctions.
+            If ``None``, left eigenfunctions are not evaluated.
+
+        eval_right_on : ndarray of shape (n_samples, n_features), optional
+            Data points on which to evaluate the **right** eigenfunctions.
+            If ``None``, right eigenfunctions are not evaluated.
 
         Returns
         -------
-        dict
-            Dictionary containing eigenvalues and eigenvectors.
+        eigenvalues : ndarray of shape (n_components,)
+            Eigenvalues of the estimated operator.
+
+        left_eigenfunctions : ndarray of shape (n_samples, n_components), optional
+            Values of the left eigenfunctions evaluated on ``eval_left_on``.
+            Returned only if ``eval_left_on`` is provided.
+
+        right_eigenfunctions : ndarray of shape (n_samples, n_components), optional
+            Values of the right eigenfunctions evaluated on ``eval_right_on``.
+            Returned only if ``eval_right_on`` is provided.
         """
         check_is_fitted(self)
         eig_result = _regressors.eig(self._fit_result, self.cov_XY_)
@@ -427,8 +459,9 @@ class Ridge(BaseEstimator):
 
     def dynamical_modes(self, X, observable=False) -> DynamicalModes:
         """
-        Computes the mode decomposition of arbitrary observables of the
-        Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable
+        Compute the mode decomposition of arbitrary observables of the
+        evolution operator at the states defined by ``X``. 
+        If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the evolution operator, for any observable
         :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
         :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
         See :cite:t:`ridge-Kostic2022` for more details.
@@ -439,13 +472,15 @@ class Ridge(BaseEstimator):
         X : ndarray of shape (n_samples, n_features)
             States at which to evaluate the modes.
 
-        observable : bool, default=false
-            If true, modes of the observable are computed.
+        observable : bool, default=False
+            If ``True``, computes the modes of the observable rather than those
+            of the system state.
 
         Returns
         -------
         DynamicalModes
-            See :class:`kooplearn.structs.DynamicalModes`
+            Object containing the eigenvalues, modes, and their projections.
+            See :class:`kooplearn.structs.DynamicalModes` for details.
         """
         check_is_fitted(self)
         X = validate_data(self, X, reset=False, copy=self.copy_X)

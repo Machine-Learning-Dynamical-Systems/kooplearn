@@ -23,7 +23,7 @@ Why Choosing ``kooplearn``?
    * It also implements Nyström estimators :cite:`p1-Meanti2023` and randomized estimators :cite:`p1-turri2023randomized` for :doc:`blazingly fast <examples/ala2_nys_tutorial.ipynb>` kernel learning.
 
 3. Includes representation learning losses (implemented both in :ref:`PyTorch <api_torchnn>` and :ref:`JAX <api_jaxnn>`) to train neural-network Koopman embeddings.
-4. Provides many :ref:`datasets <api_datasets>` for benchmarking evolution operator learning algorithms.
+4. Offers a collection of :ref:`datasets <api_datasets>` for benchmarking evolution operator learning algorithms.
 
 Installation
 ^^^^^^^^^^^^

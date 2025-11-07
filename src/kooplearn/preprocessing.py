@@ -6,7 +6,7 @@ from sklearn.utils.validation import check_array, check_is_fitted
 class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
     """
     A scikit-learn compatible transformer that constructs time-delay embeddings
-    (temporal windows) from trajectories, with configurable stride.
+    (temporal windows) from trajectory data, with a configurable stride.
 
     Each output sample corresponds to a flattened temporal window of length
     :math:`H`, with a stride :math:`s` between the starting points of consecutive windows.
@@ -15,6 +15,7 @@ class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
     ----------
     history_length : int
         Number of consecutive time steps per embedding window (:math:`H`).
+
     stride : int, default=1
         Step between the starts of successive windows (:math:`s`).
 
@@ -22,13 +23,14 @@ class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
     ----------
     n_samples_in_ : int
         Number of samples in the input data seen during fitting.
+
     n_features_in_ : int
         Number of features per sample in the input data.
 
     Notes
     -----
-    - The `inverse_transform` method **only works when `stride=1`**.
-      Using `stride>1` will raise a ValueError, because reconstruction requires overlapping windows.
+    - The ``inverse_transform`` method **only works when ``stride=1``**.
+      Using ``stride>1`` will raise a ``ValueError``, because reconstruction requires overlapping windows.
 
     Examples
     --------
@@ -53,14 +55,55 @@ class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
         self.stride = stride
 
     def fit(self, X, y=None):
-        """Store input shape."""
+        """
+        Fit the transformer by storing the input data shape.
+
+        This method validates the input array and stores its dimensions
+        for later use in transformations or inverse transformations.
+
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, n_features)
+            Input trajectory data.
+
+        y : None
+            Ignored. Present for API compatibility with scikit-learn pipelines.
+
+        Returns
+        -------
+        self : TimeDelayEmbedding
+            Fitted transformer instance.
+        """
         X = check_array(X, ensure_2d=True, dtype=float)
         self.n_samples_in_, self.n_features_in_ = X.shape
         self._is_fitted = True
         return self
 
     def transform(self, X):
-        """Construct time-delay embedding with stride."""
+        """
+        Construct the time-delay embedding of the input trajectory.
+
+        Builds overlapping or non-overlapping temporal windows of length
+        ``history_length`` with ``stride`` between successive windows.
+
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, n_features)
+            Input trajectory data to embed.
+
+        Returns
+        -------
+        ndarray of shape (n_windows, history_length * n_features)
+            Time-delay embedded representation of the input data.
+
+        Raises
+        ------
+        ValueError
+            If ``history_length`` exceeds the number of samples in ``X``.
+        ValueError
+            If ``stride`` is not a positive integer.
+        """
+
         check_is_fitted(self, ["n_samples_in_", "n_features_in_"])
         X = check_array(X, ensure_2d=True, dtype=float)
 
@@ -83,9 +126,31 @@ class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
         return self.fit(X, y).transform(X)
 
     def inverse_transform(self, X):
-        """Reconstruct approximate trajectory from flattened embeddings.
+        """
+        Reconstruct input trajectory from flattened time-delay embeddings.
 
-        Only works if stride=1.
+        This method reverses the transformation performed by
+        :meth:`~TimeDelayEmbedding.transform`. It is only supported when ``stride=1``, since larger
+        strides lead to non-overlapping windows and ambiguous reconstruction.
+
+        Parameters
+        ----------
+        X : ndarray of shape (n_windows, history_length * n_features_in_)
+            Flattened time-delay embedded data.
+
+        Returns
+        -------
+        ndarray of shape (n_samples, n_features_in_)
+            Approximate reconstruction of the original trajectory.
+
+        Raises
+        ------
+        ValueError
+            If ``stride != 1``.
+        ValueError
+            If input shape is incompatible with ``history_length`` and the
+            number of input features.
+
         """
         check_is_fitted(self, ["n_samples_in_", "n_features_in_"])
         X = np.asarray(X, dtype=float)
@@ -117,18 +182,84 @@ class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
 
 
 class FeatureFlattener(BaseEstimator, TransformerMixin):
+    """
+    A scikit-learn compatible transformer that flattens multi-dimensional trajectories
+    into a 2D array, and restores them to their original shape when inverted.
+
+    This transformer is useful when working with models that expect 2D input
+    (e.g., `(n_samples, n_features)`), but the data naturally has higher-order
+    structure, e.g., images or spatio-temporal fields.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.pipeline import make_pipeline
+    >>> from sklearn.preprocessing import StandardScaler
+    >>> from your_module import FeatureFlattener
+    >>>
+    >>> X = np.random.rand(10, 4, 5)  # e.g., 10 snapshots of a 4×5 field
+    >>> flattener = FeatureFlattener()
+    >>> X_flat = flattener.fit_transform(X)
+    >>> X_flat.shape
+    (10, 20)
+    >>> X_reconstructed = flattener.inverse_transform(X_flat)
+    >>> np.allclose(X, X_reconstructed)
+    True
+    """
     def fit(self, X, y=None):
-        # Save shape for inverse_transform
+        """Store the original feature shape for later reconstruction.
+
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, ...)
+            Input data with arbitrary feature dimensions.
+
+        y : None
+            Ignored. Present for API compatibility with scikit-learn pipelines.
+
+        Returns
+        -------
+        self : object
+            Fitted transformer instance.
+        """        
         self._feature_shape = X.shape[1:]
         self._is_fitted = True
         return self
 
     def transform(self, X, y=None):
-        # Flatten the last dimensions
+        """Flatten input features into a 2D array.
+
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, ...)
+            Input data to flatten.
+
+        y : None
+            Ignored. Present for API compatibility with scikit-learn pipelines.
+
+        Returns
+        -------
+        ndarray of shape (n_samples, n_features)
+            Flattened input data.
+        """
         n_samples = X.shape[0]
         return X.reshape(n_samples, -1)
 
     def inverse_transform(self, X, y=None):
-        # Restore to original shape
+        """Restore flattened features to their original shape.
+
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, n_features)
+            Flattened data to reconstruct.
+
+        y : None
+            Ignored. Present for API compatibility with scikit-learn pipelines.
+
+        Returns
+        -------
+        ndarray of shape (n_samples, ...) 
+            Data reshaped to the original feature dimensions.
+        """
         n_samples = X.shape[0]
         return X.reshape((n_samples,) + self._feature_shape)
