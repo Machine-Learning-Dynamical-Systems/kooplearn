@@ -74,9 +74,9 @@ Quickstart
 
 .. code-block:: python 
 
+   import numpy as np
    from kooplearn.datasets import make_duffing
    from kooplearn.kernel import KernelRidge
-   import numpy as np
 
    # Sample data from the Duffing oscillator
    data = make_duffing(X0 = np.array([0, 0]), n_steps=1000)
