@@ -29,7 +29,7 @@ extensions = [
     "nbsphinx",
     "myst_parser",
     "sphinx_iconify",
-    "sphinx_copybutton"
+    "sphinx_copybutton",
 ]
 
 
@@ -68,7 +68,7 @@ html_theme_options = {
     "light_logo": "_static/logo-light.svg",
     "dark_logo": "_static/logo-dark.svg",
     "nav_links": [
-        {"title": "Examples", "url": "examples"},
+        {"title": "Examples", "url": "examples/index"},
         {"title": "API Reference", "url": "api/index"},
     ],
 }
