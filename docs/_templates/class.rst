@@ -14,5 +14,5 @@
    {% endblock %}
 
 .. bibliography::
-   :filter: docname in docnames
+   :keyprefix: {{ objname | lower }}-
    :style: unsrt

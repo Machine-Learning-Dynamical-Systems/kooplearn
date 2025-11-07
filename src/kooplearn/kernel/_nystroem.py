@@ -19,17 +19,17 @@ logger = logging.getLogger("kooplearn")
 
 
 class NystroemKernelRidge(BaseEstimator):
-    r"""Nystroem-accelerated Kernel model minimizing the :math:`L^{2}` loss.
+    r"""Nyström-accelerated Kernel model minimizing the :math:`L^{2}` loss.
     Implements a model approximating the Koopman (deterministic systems) or
     Transfer (stochastic systems) operator by lifting the state with a
     *infinite-dimensional nonlinear* feature map associated to a kernel
     :math:`k` and then minimizing the :math:`L^{2}` loss in the embedded space
-    as described in :cite:t:`Meanti2023`.
+    as described in :cite:t:`nystroemkernelridge-Meanti2023`.
 
     .. tip::
         The dynamical modes obtained by calling
         :class:`kooplearn.kernel.NystroemKernelRidge.dynamical_modes` correspond to the *Kernel
-        Dynamical Mode Decomposition* by :cite:t:`Williams2015_KDMD`.
+        Dynamical Mode Decomposition* by :cite:t:`nystroemkernelridge-Williams2015_KDMD`.
 
 
     Parameters
@@ -42,7 +42,7 @@ class NystroemKernelRidge(BaseEstimator):
        
     reduced_rank : bool, default=True
         Whether to use reduced-rank regression introduced in
-        :cite:t:`Kostic2022`. If ``False``, initializes the classical
+        :cite:t:`nystroemkernelridge-Kostic2022`. If ``False``, initializes the classical
         principal component estimator.
 
     kernel : {'linear', 'poly', 'rbf', 'sigmoid', 'cosine'} \
@@ -147,10 +147,10 @@ class NystroemKernelRidge(BaseEstimator):
 
     U_ : ndarray
         Projection matrix of shape (n_centers, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)`
-        (see :cite:t:`Kostic2022`).
+        (see :cite:t:`nystroemkernelridge-Kostic2022`).
 
     V_ : ndarray
-        Projection matrix of shape (n_centers, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :cite:t:`Kostic2022`).
+        Projection matrix of shape (n_centers, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :cite:t:`nystroemkernelridge-Kostic2022`).
 
 
     Examples
@@ -465,7 +465,7 @@ class NystroemKernelRidge(BaseEstimator):
     def dynamical_modes(self, X, observable=False) -> DynamicalModes:
         """
         Computes the mode decomposition of arbitrary observables of the
-        Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`. See :cite:t:`Kostic2022` for more details.
+        Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`. See :cite:t:`nystroemkernelridge-Kostic2022` for more details.
 
 
         Parameters

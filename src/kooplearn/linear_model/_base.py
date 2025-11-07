@@ -22,11 +22,11 @@ logger = logging.getLogger("kooplearn")
 
 class Ridge(BaseEstimator):
     r"""Linear model minimizing the :math:`L^{2}` loss.
-    Implements a model approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator by lifting the state with a *nonlinear* feature map and then minimizing the :math:`L^{2}` loss in the embedded space as described in :cite:t:`Kostic2022`.
+    Implements a model approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator by lifting the state with a *nonlinear* feature map and then minimizing the :math:`L^{2}` loss in the embedded space as described in :cite:t:`ridge-Kostic2022`.
 
     .. tip::
 
-        The dynamical modes obtained by calling :class:`kooplearn.linear_model.Ridge.dynamical_modes` correspond to the *Extended Dynamical Mode Decomposition* by :cite:t:`Williams2015_EDMD`.
+        The dynamical modes obtained by calling :class:`kooplearn.linear_model.Ridge.dynamical_modes` correspond to the *Extended Dynamical Mode Decomposition* by :cite:t:`ridge-Williams2015_EDMD`.
 
 
     Parameters
@@ -39,7 +39,7 @@ class Ridge(BaseEstimator):
 
     reduced_rank : bool, default=True
         Whether to use reduced-rank regression introduced in
-        :cite:t:`Kostic2022`. If ``False``, initializes the classical
+        :cite:t:`ridge-Kostic2022`. If ``False``, initializes the classical
         principal component estimator.
 
     alpha : float, default=1e-6
@@ -70,7 +70,7 @@ class Ridge(BaseEstimator):
             `scipy.sparse.linalg.eigsh`. It requires strictly
             0 < n_components < n_samples
         randomized :
-            run randomized SVD as described in :cite:t:`turri2023randomized`.
+            run randomized SVD as described in :cite:t:`ridge-turri2023randomized`.
 
     tol : float, default=0
         Convergence tolerance for arpack.
@@ -431,7 +431,7 @@ class Ridge(BaseEstimator):
         Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable
         :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
         :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
-        See :cite:t:`Kostic2022` for more details.
+        See :cite:t:`ridge-Kostic2022` for more details.
 
 
         Parameters

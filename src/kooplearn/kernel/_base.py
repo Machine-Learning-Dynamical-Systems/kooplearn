@@ -23,12 +23,12 @@ class KernelRidge(BaseEstimator):
     Transfer (stochastic systems) operator by lifting the state with a
     *infinite-dimensional nonlinear* feature map associated to a kernel
     :math:`k` and then minimizing the :math:`L^{2}` loss in the embedded space
-    as described in :cite:t:`Kostic2022`.
+    as described in :cite:t:`kernelridge-Kostic2022`.
 
     .. tip::
         The dynamical modes obtained by calling
         :class:`kooplearn.kernel.KernelRidge.dynamical_modes` correspond to the *Kernel
-        Dynamical Mode Decomposition* by :cite:t:`Williams2015_KDMD`.
+        Dynamical Mode Decomposition* by :cite:t:`kernelridge-Williams2015_KDMD`.
 
 
     Parameters
@@ -91,7 +91,7 @@ class KernelRidge(BaseEstimator):
             `scipy.sparse.linalg.eigsh`. It requires strictly
             0 < n_components < n_samples
         randomized :
-            run randomized SVD as described in :cite:t:`turri2023randomized`.
+            run randomized SVD as described in :cite:t:`kernelridge-turri2023randomized`.
 
     tol : float, default=0
         Convergence tolerance for arpack.
@@ -153,10 +153,10 @@ class KernelRidge(BaseEstimator):
 
     U_ : ndarray
         Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)`
-        (see :cite:t:`Kostic2022`).
+        (see :cite:t:`kernelridge-Kostic2022`).
 
     V_ : ndarray
-        Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :cite:t:`Kostic2022`).
+        Projection matrix of shape (n_samples, rank). The Koopman/Transfer operator is approximated as :math:`k(\cdot, X)U V^T k(\cdot, Y)` (see :cite:t:`kernelridge-Kostic2022`).
 
     Examples
     --------
@@ -504,7 +504,7 @@ class KernelRidge(BaseEstimator):
     def dynamical_modes(self, X, observable=False) -> DynamicalModes:
         """
         Computes the mode decomposition of arbitrary observables of the
-        Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`. See :cite:t:`Kostic2022` for more details.
+        Koopman/Transfer operator at the states defined by ``X``. If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the Koopman/Transfer operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`. See :cite:t:`kernelridge-Kostic2022` for more details.
 
 
         Parameters

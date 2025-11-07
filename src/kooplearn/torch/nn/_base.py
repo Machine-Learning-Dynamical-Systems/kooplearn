@@ -13,7 +13,7 @@ __all__ = [
 
 
 class VampLoss(Module):
-    r"""Variational Approach for learning Markov Processes (VAMP) score by :cite:t:`Wu2019`.
+    r"""Variational Approach for learning Markov Processes (VAMP) score by :cite:t:`vamploss-Wu2019`.
 
     .. math::
 
@@ -57,7 +57,7 @@ class VampLoss(Module):
 
 
 class SpectralContrastiveLoss(Module):
-    r"""Spectral contrastive loss based originally introduced by :cite:t:`haochen2021provable`, and adopted for evolution operators in :cite:t:`turri2025self, jeong2025efficient`
+    r"""Spectral contrastive loss based originally introduced by :cite:t:`spectralcontrastiveloss-haochen2021provable`, and adopted for evolution operators in :cite:t:`spectralcontrastiveloss-turri2025self, spectralcontrastiveloss-jeong2025efficient`
 
     .. math::
 
@@ -87,7 +87,7 @@ class SpectralContrastiveLoss(Module):
 
 
 class AutoEncoderLoss(Module):
-    r"""Single-step Dynamic Autoencoder (DAE) loss introduced by :cite:t:`Lusch2018`.
+    r"""Single-step Dynamic Autoencoder (DAE) loss introduced by :cite:t:`autoencoderloss-Lusch2018`.
 
     This loss combines three objectives to train dynamic autoencoders:
 

@@ -8,7 +8,7 @@ from kooplearn.jax.nn._stats import cov_norm_squared_unbiased, covariance
 
 
 def vamp_loss(x, y, schatten_norm: int = 2, center_covariances: bool = True):
-    r"""Variational Approach for learning Markov Processes (VAMP) score by :cite:t:`Wu2019`.
+    r"""Variational Approach for learning Markov Processes (VAMP) score by :cite:t:`vamp_loss-Wu2019`.
 
     .. math::
 
@@ -44,7 +44,7 @@ def vamp_loss(x, y, schatten_norm: int = 2, center_covariances: bool = True):
 
 
 def spectral_contrastive_loss(x, y):
-    r"""Spectral contrastive loss based originally introduced by :cite:t:`haochen2021provable`, and adopted for evolution operators in :cite:t:`turri2025self, jeong2025efficient`
+    r"""Spectral contrastive loss based originally introduced by :cite:t:`spectral_contrastive_loss-haochen2021provable`, and adopted for evolution operators in :cite:t:`spectral_contrastive_loss-turri2025self, spectral_contrastive_loss-jeong2025efficient`
 
     .. math::
 
@@ -84,7 +84,7 @@ def autoencoder_loss(
     alpha_lin: float = 1.0,
     alpha_pred: float = 1.0,
 ):
-    r"""Single-step Dynamic Autoencoder (DAE) loss introduced by :cite:t:`Lusch2018`.
+    r"""Single-step Dynamic Autoencoder (DAE) loss introduced by :cite:t:`autoencoder_loss-Lusch2018`.
 
     This loss combines three objectives to train dynamic autoencoders:
 
