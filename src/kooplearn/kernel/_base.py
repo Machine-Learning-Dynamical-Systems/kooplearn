@@ -8,6 +8,7 @@ from numbers import Integral, Real
 from numpy import ndarray
 
 from sklearn.base import BaseEstimator
+from sklearn.metrics import r2_score
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.validation import check_is_fitted, validate_data
@@ -131,10 +132,13 @@ class KernelRidge(BaseEstimator):
 
     Attributes
     ----------
-    X_fit_ : ndarray of shape (n_samples + 1, n_features)
+    X_fit_ : ndarray of shape (n_samples, n_features)
         The data used to fit the model. If ``copy_X=False``, then ``X_fit_`` is
-        a reference to the original data. This attribute is used for the calls to predict and
-        transform.
+        a reference to the original data.
+
+    y_fit_ : ndarray of shape (n_samples, ...) or None
+        The observable used to fit the model. If no observable is provided during fitting,
+        this attribute is ``None``.
 
     gamma_ : float
         Effective kernel coefficient for RBF, polynomial, and sigmoid kernels.
@@ -293,14 +297,14 @@ class KernelRidge(BaseEstimator):
         self._pre_fit_checks(X)
         if y is not None:
             if y.shape[0] == X.shape[0]:
-                self.y_ = y
+                self.y_fit_ = y
             else:
                 raise ValueError(
                     f"y has {y.shape[0]} samples, but X has {X.shape[0]}. "
                     "Both must have the same number of samples."
                 )
         else:
-            self.y_ = None
+            self.y_fit_ = None
         # Adjust number of components
         if self.n_components is None:
             n_components = self.kernel_X_.shape[0]
@@ -417,8 +421,8 @@ class KernelRidge(BaseEstimator):
         K_Xin_X = self._get_kernel(X, X_fit)
 
         if observable:
-            if self.y_ is not None:
-                observable_fit, _ = self._split_trajectory(self.y_)
+            if self.y_fit_ is not None:
+                observable_fit, _ = self._split_trajectory(self.y_fit_)
             else:
                 raise ValueError(
                     "Observable should be passed when calling fit as the y parameter."
@@ -581,8 +585,8 @@ class KernelRidge(BaseEstimator):
         )  # [num_initial_conditions, rank]
         # Project the observable onto the left eigenfunctions
         if observable:
-            if self.y_ is not None:
-                _, observable_fit = self._split_trajectory(self.y_)
+            if self.y_fit_ is not None:
+                _, observable_fit = self._split_trajectory(self.y_fit_)
             else:
                 raise ValueError(
                     "Observable should be passed when calling fit as the y parameter."
@@ -598,6 +602,87 @@ class KernelRidge(BaseEstimator):
         )
 
         return dmd
+    
+    def score(self, X=None, y=None, n_steps=1, observable=False, metric=r2_score, **metric_kws) -> float:
+        """
+        Score the model predictions for timestep ``n_steps``.
+
+        Computes the ``metric`` (default is ``sklearn.metrics.r2_score``) evaluated between
+        the model predictions at timestep ``n_steps`` and the true system state (or observable,
+        if ``observable=True``) at the same timestep.
+
+        Parameters:
+            X : ndarray of shape (n_samples, n_features) or None, default=None
+                Trajectory used to compute the score. If None, evaluates on
+                training data.
+
+            y : ndarray of shape (n_samples, n_features) or None, default=None
+                Optional observable used to compute the score.
+
+            n_steps : int, default=1
+                Number of future time steps on which to compute the score. Only the
+                predictions at the final timestep (``t = n_steps``) are compared
+                to the true system state (or observable).
+
+            observable : bool, default=False
+                If ``True``, returns the predicted observable at time :math:`t`
+                instead of the system state.
+
+            metric: callable (default=r2_score)
+                The metric function used to score the model predictions.
+
+            metric_kws: dict
+                Optional parameters to pass to the metric function.
+
+        Returns:
+            score: float
+                Metric function value for the model predictions at the next timestep.
+        """
+        check_is_fitted(self)
+
+        # Case 1: Using training data
+        if X is None:
+            X_test, Y_test = self._split_trajectory(self.X_fit_)
+            if observable:
+                if self.y_fit_ is not None:
+                    _, target = self._split_trajectory(self.y_fit_)
+                else:
+                    raise ValueError(
+                        "Cannot score on observable: no training observable was provided during fit."
+                    )
+            else:
+                target = Y_test
+
+        # Case 2: Using provided test data
+        else:
+            X = validate_data(self, X, reset=False, copy=self.copy_X)
+            if X.shape[0] < 1 + self.lag_time:
+                raise ValueError(
+                    f"X has only {X.shape[0]} samples, but at least "
+                    f"{1 + self.lag_time} are required."
+                )
+            X_test, Y_test = self._split_trajectory(X)
+            if observable:
+                if y is None:
+                    raise ValueError(
+                        "When observable=True and X is provided, y must contain the corresponding observable values."
+                    )
+                if y.shape[0] != X.shape[0]:
+                    raise ValueError(
+                        f"y has {y.shape[0]} samples, but X has {X.shape[0]}. "
+                        "Both must have the same number of samples."
+                    )
+                _, target = self._split_trajectory(y)
+            else:
+                target = Y_test
+
+        # Make predictions and align timestamps
+        pred = self.predict(X_test, n_steps=n_steps, observable=observable)
+        if n_steps > 1:
+            target = target[n_steps - 1:]
+            pred = pred[: -(n_steps - 1)]
+        
+        return metric(target, pred, **metric_kws)
 
     def _svals(self):
         """Singular values of the Koopman/Transfer operator.
