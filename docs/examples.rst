@@ -9,7 +9,7 @@ Explore the following examples showcasing different applications of our methods:
    :class-container: example-grid
 
    .. grid-item-card::
-      :link: prinz_potential.html
+      :link: examples/prinz_potential.html
       :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
 
       .. image:: ../_static/prinz_potential.png
@@ -21,7 +21,7 @@ Explore the following examples showcasing different applications of our methods:
       Learn Koopman eigenfunctions for a 1D Prinz potential.
 
    .. grid-item-card::
-      :link: fluid_flow_dmd.html
+      :link: examples/fluid_flow_dmd.html
       :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
 
       .. image:: ../_static/fluid_flow_dmd.png
@@ -33,7 +33,7 @@ Explore the following examples showcasing different applications of our methods:
       Dynamic mode decomposition of a 2D fluid flow past a circular cylinder.
 
    .. grid-item-card::
-      :link: kernel_methods.html
+      :link: examples/kernel_methods.html
       :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
 
       .. image:: ../_static/kernel_methods.png
@@ -45,7 +45,7 @@ Explore the following examples showcasing different applications of our methods:
       Learn transfer operators efficiently using kernel-based approaches.
 
    .. grid-item-card::
-      :link: ala2_nys_tutorial.html
+      :link: examples/ala2_nys_tutorial.html
       :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
 
       .. image:: ../_static/ala2_nys_tutorial.png
@@ -57,7 +57,7 @@ Explore the following examples showcasing different applications of our methods:
       Characterize metastable states in alanine dipeptide trajectories.
 
    .. grid-item-card::
-      :link: switching_system.html
+      :link: examples/switching_system.html
       :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
 
       .. image:: ../_static/switching_system.png
@@ -69,13 +69,25 @@ Explore the following examples showcasing different applications of our methods:
       Detect regime switching by identifying changes in dominant frequencies using Koopman analysis.
 
    .. grid-item-card::
-      :link: ordered_mnist_torch.html
+      :link: examples/ordered_mnist_torch.html
       :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
 
       .. image:: ../_static/ordered_mnist_torch.png
          :alt: Ordered MNIST
          :width: 100%
 
-      **Ordered MNIST**
+      **Ordered MNIST (torch)**
+
+      Learn temporal structure in image sequences with neural-network representations.
+
+   .. grid-item-card::
+      :link: examples/ordered_mnist_jax.html
+      :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
+
+      .. image:: ../_static/ordered_mnist_jax.png
+         :alt: Ordered MNIST
+         :width: 100%
+
+      **Ordered MNIST (jax)**
 
       Learn temporal structure in image sequences with neural-network representations.

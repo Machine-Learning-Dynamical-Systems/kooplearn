@@ -109,7 +109,7 @@ Learn more
 
       .. card:: :material-regular:`science;2em` Examples
          :class-card: sd-text-black sd-bg-light sd-text-center sd-align-middle
-         :link: examples/index.html
+         :link: examples.html
 
 
    .. grid-item::
