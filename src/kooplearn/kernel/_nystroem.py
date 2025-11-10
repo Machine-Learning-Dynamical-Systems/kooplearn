@@ -561,7 +561,7 @@ class NystroemKernelRidge(BaseEstimator):
 
         return dmd
 
-    def svals(self):
+    def _svals(self):
         """Singular values of the Koopman/Transfer operator.
 
         Returns:
