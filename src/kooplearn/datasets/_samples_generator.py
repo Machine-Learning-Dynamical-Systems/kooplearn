@@ -27,8 +27,7 @@ def make_duffing(
 
     .. math::
 
-        x'' + \\delta x' + \\alpha x + \\beta x^3 = \\gamma \\text{cos}(\\omega t)
-
+        x'' + \\delta x' + \\alpha x + \\beta x^3 = \\gamma \\text{cos}(\\omega t).
 
     Parameters
     ----------
@@ -58,14 +57,14 @@ def make_duffing(
 
     Returns
     -------
-    df : pd.DataFrame, shape ``(n_steps + 1, 2)``
-        Trajectory of the oscillator with columns ``['position', 'velocity']``.
-        Has a MultiIndex with levels ``['step', 'time']``.
+    df : pandas.DataFrame
+        Trajectory of the oscillator with columns ``['position', 'velocity']``
+        and ``n_steps + 1`` samples. Has a MultiIndex with levels ``['step', 'time']``.
         Metadata stored in ``df.attrs`` includes:
 
-        - ``'generator'``: ``'make_duffing'``
-        - ``'X0'``: initial conditions
-        - ``'params'``: dict of all parameters
+        - ``'generator'``: ``'make_duffing'``;
+        - ``'X0'``: initial conditions;
+        - ``'params'``: dict of all parameters.
 
     Examples
     --------
@@ -161,9 +160,11 @@ def make_lorenz63(
 
     .. math::
 
-        \\frac{dx}{dt} &= \\sigma(y - x) \\\\
-        \\frac{dy}{dt} &= x(\\mu - z) - y \\\\
-        \\frac{dz}{dt} &= xy - \\beta z
+        \\begin{cases}
+        \\frac{dx}{dt} = \\sigma(y - x) \\\\
+        \\frac{dy}{dt} = x(\\mu - z) - y \\\\
+        \\frac{dz}{dt} = xy - \\beta z
+        \\end{cases}
 
     Parameters
     ----------
@@ -190,14 +191,15 @@ def make_lorenz63(
 
     Returns
     -------
-    df : pd.DataFrame, shape (n_steps + 1, 3)
-        Trajectory of the Lorenz-63 system with columns ``['x', 'y', 'z']``.
+    df : pandas.DataFrame
+        Trajectory of the Lorenz-63 system with columns ``['x', 'y', 'z']`` and
+        ``n_steps + 1`` samples.
         Has a MultiIndex with levels ``['step', 'time']``.
         Metadata stored in ``df.attrs`` includes:
 
-        - ``'generator'``: ``'make_lorenz63'``
-        - ``'X0'``: initial conditions
-        - ``'params'``: dict of all parameters
+        - ``'generator'``: ``'make_lorenz63'``;
+        - ``'X0'``: initial conditions;
+        - ``'params'``: dict of all parameters.
 
     Examples
     --------
@@ -322,19 +324,20 @@ def make_linear_system(
 
     random_state : int, RandomState instance or None, default=None
         Controls the random number generation for the noise.
-        Pass an int for reproducible output across multiple function calls.
+        Pass an ``int`` for reproducible output across multiple function calls.
 
     Returns
     -------
-    df : pd.DataFrame, shape (n_steps + 1, d)
-        Trajectory of the linear system with columns ``['x0', 'x1', ..., 'x{d-1}']``.
+    df : pandas.DataFrame
+        Trajectory of the linear system with columns ``['x0', 'x1', ..., 'x{d-1}']``
+        and ``n_steps + 1`` samples.
         Has a MultiIndex with levels ``['step', 'time']``.
         Metadata stored in ``df.attrs`` includes:
 
-        - ``'generator'``: ``'make_linear_system'``
-        - ``'X0'``: initial conditions
-        - ``'A'``: state transition matrix
-        - ``'params'``: dict of all parameters
+        - ``'generator'``: ``'make_linear_system'``;
+        - ``'X0'``: initial conditions;
+        - ``'A'``: state transition matrix;
+        - ``'params'``: dict of all parameters.
 
     Examples
     --------
@@ -501,18 +504,18 @@ def make_logistic_map(
 
     random_state : int, RandomState instance or None, default=None
         Controls the random number generation for the noise.
-        Pass an int for reproducible output across multiple function calls.
+        Pass an ``int`` for reproducible output across multiple function calls.
 
     Returns
     -------
-    df : pd.DataFrame, shape (n_steps + 1, 1)
-        Trajectory of the logistic map with column ``['x']``.
+    df : pandas.DataFrame
+        Trajectory of the logistic map with column ``['x']`` and ``n_steps + 1`` samples.
         Has a MultiIndex with levels ``['step', 'time']``.
         Metadata stored in ``df.attrs`` includes:
 
-        - ``'generator'``: ``'make_logistic_map'``
-        - ``'X0'``: initial condition
-        - ``'params'``: dict of all parameters
+        - ``'generator'``: ``'make_logistic_map'``;
+        - ``'X0'``: initial condition;
+        - ``'params'``: dict of all parameters.
 
     Examples
     --------
@@ -652,7 +655,7 @@ def make_regime_switching_var(
     n_steps=100,
     dt=1.0,
     noise=0.0,
-    rng_seed=None,
+    random_state=None,
 ):
     """
     Generate a trajectory from a regime-switching vector autoregressive (VAR) process.
@@ -673,7 +676,7 @@ def make_regime_switching_var(
 
     .. math::
 
-        P_{ij} = \\mathbb{P}(s_{t+1} = j \\mid s_t = i)
+        P_{ij} = \\mathbb{P}(s_{t+1} = j \\mid s_t = i).
 
     Parameters
     ----------
@@ -700,21 +703,22 @@ def make_regime_switching_var(
     noise : float, default=0.0
         Standard deviation of Gaussian noise added at each step.
 
-    rng_seed : int, optional
-        Seed for the random number generator.
+    random_state : int, RandomState instance or None, default=None
+        Controls the random number generation for the noise.
+        Pass an ``int`` for reproducible output across multiple function calls.
 
     Returns
     -------
-    df : pandas.DataFrame of shape ``(n_steps + 1, n_features)``
-        Generated trajectory with columns ``['x0', 'x1', ..., 'x{n_features-1}']``.
-        Has a MultiIndex with levels ``['step', 'time']``.
+    df : pandas.DataFrame
+        Generated trajectory with columns ``['x0', 'x1', ..., 'x{n_features-1}']``
+        and ``n_steps + 1`` samples. Has a MultiIndex with levels ``['step', 'time']``.
 
         The following metadata are stored in ``df.attrs``:
 
-        - ``'generator'``: ``'make_regime_switching_var'``
-        - ``'X0'``: initial state
-        - ``'params'``: dictionary with all model parameters
-        - ``'regimes'``: integer array of active regimes over time
+        - ``'generator'``: ``'make_regime_switching_var'``;
+        - ``'X0'``: initial state;
+        - ``'params'``: dictionary with all model parameters;
+        - ``'regimes'``: integer array of active regimes over time.
 
     Examples
     --------
@@ -748,7 +752,7 @@ def make_regime_switching_var(
     if not np.allclose(transition.sum(axis=1), 1.0):
         raise ValueError("Rows of `transition` must sum to 1.")
 
-    rng = np.random.default_rng(rng_seed)
+    rng = np.random.default_rng(random_state)
     phi = [phi1, phi2]
 
     # Allocate trajectory and regime arrays
@@ -786,7 +790,7 @@ def make_regime_switching_var(
             "n_steps": n_steps,
             "dt": dt,
             "noise": noise,
-            "rng_seed": rng_seed,
+            "random_state": random_state,
         },
         "regimes": regimes,
     }
@@ -800,7 +804,7 @@ def make_prinz_potential(
     dt=1e-4,
     gamma=1.0,
     sigma=sqrt(2.0),
-    rng_seed=None,
+    random_state=None,
 ):
     """
     Generate a 1D Langevin trajectory for the "Prinz potential" :cite:t:`make_prinz_potential-Prinz2011`.
@@ -821,7 +825,7 @@ def make_prinz_potential(
     .. math::
 
         V(x) = 32 x^8 - 256 e^{-80 x^2} - 80 e^{-40 (x + 0.5)^2}
-               - 128 e^{-80 (x - 0.5)^2}
+               - 128 e^{-80 (x - 0.5)^2}.
 
     Parameters
     ----------
@@ -841,20 +845,21 @@ def make_prinz_potential(
         Noise variance, corresponding to a thermal energy scale
         :math:`k_B T = \\frac{\\sigma^2}{2\\gamma}`.
 
-    rng_seed : int, optional
-        Random seed for reproducibility.
+    random_state : int, RandomState instance or None, default=None
+        Controls the random number generation for the noise.
+        Pass an ``int`` for reproducible output across multiple function calls.
 
     Returns
     -------
-    df : pandas.DataFrame of shape ``(n_steps + 1, 1)``
-        Trajectory of the particle with column ``['x']``.
+    df : pandas.DataFrame
+        Trajectory of the particle with column ``['x']`` and ``n_steps + 1`` samples.
         Indexed by a MultiIndex with levels ``['step', 'time']``.
 
         Metadata stored in ``df.attrs`` includes:
 
-        - ``'generator'``: ``'make_prinz_potential'``
-        - ``'X0'``: initial condition
-        - ``'params'``: dictionary of all parameters
+        - ``'generator'``: ``'make_prinz_potential'``;
+        - ``'X0'``: initial condition;
+        - ``'params'``: dictionary of all parameters.
 
     Examples
     --------
@@ -868,7 +873,7 @@ def make_prinz_potential(
         raise ValueError(f"X0 must have shape (1,), got {X0.shape}")
     X0 = X0[0]
 
-    rng = np.random.default_rng(rng_seed)
+    rng = np.random.default_rng(random_state)
     inv_gamma = 1.0 / gamma
 
     def force_fn(x):
@@ -903,7 +908,7 @@ def make_prinz_potential(
             "dt": dt,
             "gamma": gamma,
             "sigma": sigma,
-            "rng_seed": rng_seed,
+            "random_state": random_state,
         },
     }
 

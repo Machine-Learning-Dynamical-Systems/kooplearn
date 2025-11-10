@@ -461,17 +461,17 @@ def compute_prinz_potential_eig(gamma, sigma, dt, eval_right_on, num_components=
     Returns
     -------
     eigenvalues : ndarray
-        The `num_components` dominant Koopman eigenvalues (i.e., :math:`e^{\\lambda_i \\Delta t}`),
-        sorted by magnitude in ascending order. Shape `(num_components,)`.
+        The ``num_components`` dominant Koopman eigenvalues (i.e., :math:`e^{\\lambda_i \\Delta t}`),
+        sorted by magnitude in ascending order. Shape ``(num_components,)``.
     eigenfunctions : ndarray
-        The `num_components` right eigenfunctions evaluated at `eval_right_on`,
-        corresponding to the returned eigenvalues. Shape `(len(eval_right_on), num_components)`.
+        The ``num_components`` right eigenfunctions evaluated at `eval_right_on`,
+        corresponding to the returned eigenvalues. Shape ``(len(eval_right_on), num_components)``.
 
     Notes
     -----
     The computation uses a Galerkin projection method with a 1D cosine basis
     to discretize the Fokker-Planck operator. The domain for the basis functions
-    is set to `(-3, 3)`.
+    is set to ``(-3, 3)``.
     """
     prinz_grad = lambda x: (
         -128 * np.exp(-80 * ((-0.5 + x) ** 2)) * (-0.5 + x)

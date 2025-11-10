@@ -11,7 +11,7 @@ kooplearn.datasets
 
 .. autosummary::
    :toctree: ../generated/
-   :template: class.rst
+   :template: function.rst
 
    compute_prinz_potential_eig
    fetch_ordered_mnist

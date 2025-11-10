@@ -11,7 +11,7 @@ kooplearn.jax.nn
 
 .. autosummary::
    :toctree: ../generated/
-   :template: class.rst
+   :template: function.rst
 
    spectral_contrastive_loss
    vamp_loss
