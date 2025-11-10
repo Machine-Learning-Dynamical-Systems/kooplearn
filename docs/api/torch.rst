@@ -1,18 +1,19 @@
 .. _api_torchnn:
 
-kooplearn.torch.nn
-================
+kooplearn.torch
+===============
 
-.. automodule:: kooplearn.torch.nn
+.. automodule:: kooplearn.torch
    :no-members:
    :no-inherited-members:
 
-.. currentmodule:: kooplearn.torch.nn
+.. currentmodule:: kooplearn.torch
 
 .. autosummary::
    :toctree: ../generated/
    :template: class.rst
 
-   SpectralContrastiveLoss
-   VampLoss
-   AutoEncoderLoss
+   nn.SpectralContrastiveLoss
+   nn.VampLoss
+   nn.AutoEncoderLoss
+   FeatureMapEmbedder

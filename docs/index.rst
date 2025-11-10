@@ -140,7 +140,8 @@ Learn more
    Fast Kernel Models <examples/kernel_methods.ipynb>
    Analysing Molecular Dynamics <examples/ala2_nys_tutorial.ipynb>
    Switching System <examples/switching_system.ipynb>
-   Ordered MNIST <examples/ordered_mnist_torch.ipynb>
+   Ordered MNIST (torch) <examples/ordered_mnist_torch.ipynb>
+   Ordered MNIST (jax) <examples/ordered_mnist_jax.ipynb>
 
 
 .. toctree::

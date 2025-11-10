@@ -4,7 +4,7 @@
 
 .. autoclass:: {{ objname }}
    :members:
-   :exclude-members: __weakref__, __dict__, __module__, __init__, set_predict_request 
+   :exclude-members: __weakref__, __dict__, __module__, __init__, set_predict_request, set_inverse_transform_request 
 
    {% block methods %}
 

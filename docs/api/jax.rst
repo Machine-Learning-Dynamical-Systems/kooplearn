@@ -1,18 +1,24 @@
 .. _api_jaxnn:
 
-kooplearn.jax.nn
-================
+kooplearn.jax
+=============
 
-.. automodule:: kooplearn.jax.nn
+.. automodule:: kooplearn.jax
    :no-members:
    :no-inherited-members:
 
-.. currentmodule:: kooplearn.jax.nn
+.. currentmodule:: kooplearn.jax
 
 .. autosummary::
    :toctree: ../generated/
    :template: function.rst
 
-   spectral_contrastive_loss
-   vamp_loss
-   autoencoder_loss
+   nn.spectral_contrastive_loss
+   nn.vamp_loss
+   nn.autoencoder_loss
+
+.. autosummary::
+   :toctree: ../generated/
+   :template: class.rst
+
+   NnxFeatureMapEmbedder
