@@ -195,7 +195,7 @@ class FeatureFlattener(BaseEstimator, TransformerMixin):
     >>> import numpy as np
     >>> from sklearn.pipeline import make_pipeline
     >>> from sklearn.preprocessing import StandardScaler
-    >>> from your_module import FeatureFlattener
+    >>> from kooplearn.preprocessing import FeatureFlattener
     >>>
     >>> X = np.random.rand(10, 4, 5)  # e.g., 10 snapshots of a 4×5 field
     >>> flattener = FeatureFlattener()
