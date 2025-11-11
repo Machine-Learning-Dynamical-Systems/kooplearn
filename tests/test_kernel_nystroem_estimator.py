@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 from scipy.stats import special_ortho_group
+from sklearn.metrics import r2_score
 from sklearn.utils.validation import check_is_fitted
 
 from kooplearn.datasets import make_linear_system
@@ -165,3 +166,92 @@ def test_callable_kernel_functionality():
     assert out.shape == X.shape
     svals = model._svals()
     assert np.all(np.isfinite(svals))
+
+def test_score_training_and_test_alignment():
+    """Verify score() on training data equals manual metric computation and
+    n_steps alignment is correct."""
+    data = make_data()
+    model = NystroemKernelRidge(
+        n_components=3,
+        reduced_rank=True,
+        alpha=1e-3,
+        eigen_solver="dense",
+        random_state=0,
+    )
+    model.fit(data)
+
+    # training-data score (X is None)
+    score_train = model.score()
+    X_test, Y_test = model._split_trajectory(model.X_fit_)
+    pred = model.predict(X_test, n_steps=1, observable=False)
+    # manual metric
+    manual = r2_score(Y_test, pred)
+    assert np.allclose(score_train, manual)
+
+    # n_steps > 1 alignment: compare to manual trimming
+    n_steps = 3
+    score_ns = model.score(n_steps=n_steps)
+    pred_ns = model.predict(X_test, n_steps=n_steps, observable=False)
+    # align timestamps as implemented in score: target = Y_test[n_steps-1:], pred trimmed
+    target_ns = Y_test[n_steps - 1 :]
+    pred_trimmed = pred_ns[: -(n_steps - 1)]
+    assert np.allclose(score_ns, r2_score(target_ns, pred_trimmed))
+
+def test_score_observable_usage_and_errors():
+    """Verify observable scoring with provided training observable and error cases
+    when y is missing or has wrong shape."""
+    data = make_data()
+    obs = np.arange(len(data) * 4).reshape(len(data), 4).astype(float)
+    model = NystroemKernelRidge(
+        n_components=4,
+        reduced_rank=True,
+        alpha=1e-3,
+        eigen_solver="dense",
+        random_state=0,
+    )
+
+    # Fit with observable
+    model.fit(data, y=obs)
+    # scoring on training observable should match manual computation
+    score_obs = model.score(observable=True)
+    X_test, _ = model._split_trajectory(model.X_fit_)
+    pred_obs = model.predict(X_test, n_steps=1, observable=True)
+    _, obs_target = model._split_trajectory(model.y_fit_)
+    assert np.allclose(score_obs, r2_score(obs_target, pred_obs))
+
+    # When calling score with X provided and observable=True, y must be provided
+    with pytest.raises(ValueError):
+        model.score(X=data, observable=True, y=None)
+
+    # y with mismatched number of samples should raise
+    bad_y = np.zeros((len(data) + 1, obs.shape[1]))
+    with pytest.raises(ValueError):
+        model.score(X=data, observable=True, y=bad_y)
+
+def test_score_with_custom_metric_and_metric_kws():
+    """Verify custom metric (mean_squared_error) and passing metric_kws work."""
+    from sklearn.metrics import mean_squared_error
+
+    data = make_data()
+    model = NystroemKernelRidge(
+        n_components=3,
+        reduced_rank=True,
+        alpha=1e-3,
+        eigen_solver="dense",
+        random_state=0,
+    )
+    model.fit(data)
+
+    X_test, Y_test = model._split_trajectory(model.X_fit_)
+    pred = model.predict(X_test, n_steps=1, observable=False)
+
+    # Basic usage: no extra kwargs
+    mse_score = model.score(metric=mean_squared_error)
+    manual_mse = mean_squared_error(Y_test, pred)
+    assert np.allclose(mse_score, manual_mse)
+
+    # Ensure metric_kws are forwarded to the metric (use sample_weight)
+    sample_weight = np.linspace(1.0, 2.0, Y_test.shape[0])
+    mse_weighted = model.score(metric=mean_squared_error, sample_weight=sample_weight)
+    manual_weighted = mean_squared_error(Y_test, pred, sample_weight=sample_weight)
+    assert np.allclose(mse_weighted, manual_weighted)
