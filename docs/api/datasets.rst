@@ -14,6 +14,8 @@ kooplearn.datasets
    :template: function.rst
 
    compute_prinz_potential_eig
+   compute_logistic_map_eig
+   compute_logistic_map_invariant_pdf
    fetch_ordered_mnist
    make_duffing
    make_linear_system

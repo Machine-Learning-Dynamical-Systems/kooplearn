@@ -429,7 +429,7 @@ def sort_indices_by_magnitude(vector):
     return sort_indices
 
 
-def compute_prinz_potential_eig(gamma, sigma, dt, eval_right_on, num_components=4):
+def compute_prinz_potential_eig(gamma, sigma, dt, eval_right_on=None, num_components=4):
     """
     Computes the eigenvalues and eigenfunctions of the Generator of the Overdamped
     Langevin dynamics for the Prinz potential.
@@ -452,8 +452,9 @@ def compute_prinz_potential_eig(gamma, sigma, dt, eval_right_on, num_components=
         Noise amplitude of the Langevin dynamics.
     dt : float
         Time step for the discrete-time Koopman operator.
-    eval_right_on : ndarray
-        Points at which to evaluate the right eigenfunctions.
+    eval_right_on : ndarray of shape (n_samples, n_features), optional
+            Data points on which to evaluate the **right** eigenfunctions.
+            If ``None``, right eigenfunctions are not evaluated.
     num_components : int, default=4
         Number of dominant eigenvalues and corresponding
         eigenfunctions to return.
@@ -464,8 +465,8 @@ def compute_prinz_potential_eig(gamma, sigma, dt, eval_right_on, num_components=
         The ``num_components`` dominant Koopman eigenvalues (i.e., :math:`e^{\\lambda_i \\Delta t}`),
         sorted by magnitude in ascending order. Shape ``(num_components,)``.
     eigenfunctions : ndarray
-        The ``num_components`` right eigenfunctions evaluated at `eval_right_on`,
-        corresponding to the returned eigenvalues. Shape ``(len(eval_right_on), num_components)``.
+        The leading ``num_components`` right eigenfunctions evaluated at `eval_right_on`` if not ``None``.
+        Shape ``(len(eval_right_on), num_components)``.
 
     Notes
     -----
@@ -487,7 +488,8 @@ def compute_prinz_potential_eig(gamma, sigma, dt, eval_right_on, num_components=
     sorted_idxs = sort_indices_by_magnitude(eigvals)
     eigvals = eigvals[sorted_idxs].real
     eigvecs = eigvecs[:, sorted_idxs].real
-
-    u = eval_eigenfunctions_1d(eigvecs, eval_right_on, *domain)
-
-    return np.exp(eigvals * dt)[:num_components], u[:, :num_components]
+    if eval_right_on is not None:
+        u = eval_eigenfunctions_1d(eigvecs, eval_right_on, *domain)
+        return np.exp(eigvals * dt)[:num_components], u[:, :num_components]
+    else:
+        return np.exp(eigvals * dt)[:num_components]
