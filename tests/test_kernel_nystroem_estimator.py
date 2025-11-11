@@ -116,7 +116,7 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
     assert np.isfinite(vals).all()
 
     # Risk and singular values
-    svals = model.svals()
+    svals = model._svals()
     risk = model.risk()
     assert np.all(np.isfinite(svals))
     assert isinstance(risk, float)
@@ -163,5 +163,5 @@ def test_callable_kernel_functionality():
     model.fit(X)
     out = model.predict(X)
     assert out.shape == X.shape
-    svals = model.svals()
+    svals = model._svals()
     assert np.all(np.isfinite(svals))
