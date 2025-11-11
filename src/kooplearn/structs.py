@@ -90,24 +90,42 @@ class DynamicalModes:
         >>> data = data.to_numpy()
         >>>
         >>> # Fit the model
-        >>> model = KernelRidge(n_components=4, kernel='rbf', alpha=1e-5)
-        >>> model.fit(data)
+        >>> model = KernelRidge(n_components=4, kernel='rbf', alpha=1e-6)
+        >>> model = model.fit(data)
         >>>
         >>> # Initialize the container
         >>> modes = model.dynamical_modes(data)
         >>>
         >>> # Access individual mode
-        >>> mode_0 = modes[0]  # Returns (100, 50) real array
+        >>> mode_0 = modes[0]  # Returns (1001, 2) real array
         >>> print(f"Mode shape: {mode_0.shape}")
+        Mode shape: (1001, 2)
         >>>
         >>> # Iterate over all modes
         >>> for idx, mode in enumerate(modes):
-        >>>     print(f"Mode {idx}: shape={mode.shape}, frequency={modes.frequency(idx):.3f}")
+        ...     print(f"Mode {idx}: shape={mode.shape}, frequency={modes.frequency(idx):.3f}")
+        Mode 0: shape=(1001, 2), frequency=0.000
+        Mode 1: shape=(1001, 2), frequency=0.003
+        Mode 2: shape=(1001, 2), frequency=0.000
         >>>
         >>> # Get summary statistics
         >>> summary_df = modes.summary(dt=0.1)
         >>> print(summary_df)
-
+           frequency      lifetime  ...  is_stable  is_conjugate_pair
+        0   0.000000  69258.166099  ...       True              False
+        1   0.030812     22.993853  ...       True               True
+        2   0.000000      0.037522  ...       True              False
+        <BLANKLINE>
+        [3 rows x 7 columns]
+        >>>
+        >>> # Filter and analyze stable modes
+        >>> stable_modes = summary_df[summary_df['is_stable']]
+        >>> print(f"Number of stable modes: {len(stable_modes)}")
+        Number of stable modes: 3
+        >>>
+        >>> slowest_decay = stable_modes.loc[stable_modes['lifetime'].idxmax()]
+        >>> print(f"Slowest decay: lifetime={slowest_decay['lifetime']:.2f}s")
+        Slowest decay: lifetime=69258.17s
     """
 
     def __init__(
@@ -403,14 +421,6 @@ class DynamicalModes:
             If key is not an integer
         IndexError
             If key is out of range
-
-        Examples
-        --------
-        .. code-block:: python
-
-            >>> mode = modes[0]  # Get first mode
-            >>> assert mode.shape == (n_points, n_features)
-            >>> assert mode.dtype == np.float64
         """
         self._validate_index(key)
 
@@ -437,15 +447,6 @@ class DynamicalModes:
         ------
         mode : np.ndarray, shape (n_points, n_features)
             Mode shape arrays in order
-
-        Examples
-        --------
-        .. code-block:: python
-
-            >>> # Iterate over all modes
-            >>> for idx, mode in enumerate(modes):
-            >>>     assert np.allclose(mode, modes[idx])
-            >>>     print(f"Mode {idx} has frequency {modes.frequency(idx):.3f}")
         """
         for i in range(self.n_modes):
             yield self[i]
@@ -479,14 +480,9 @@ class DynamicalModes:
         The returned frequency is in cycles per unit time (Hz if time is in seconds).
         For angular frequency (rad/time), multiply by :math:`2\\pi`.
 
-        Examples
-        --------
-        .. code-block:: python
+        .. math::
 
-            >>> # Get frequency in Hz (assuming dt in seconds)
-            >>> freq_hz = modes.frequency(0, dt=0.01)
-            >>> # Get angular frequency
-            >>> omega = 2 * np.pi * freq_hz
+            \\omega = 2\\pi f
         """
         self._validate_index(key)
         return self._frequencies[key] / dt
@@ -523,15 +519,6 @@ class DynamicalModes:
         .. math::
 
             t_{1/2} = \\tau \\cdot \\ln(2)
-
-        Examples
-        --------
-        .. code-block:: python
-
-            >>> # Get e-folding time
-            >>> tau = modes.lifetime(0, dt=0.01)
-            >>> # Get actual half-life
-            >>> t_half = tau * np.log(2)
         """
         self._validate_index(key)
         return self._lifetimes[key] * dt
@@ -561,17 +548,6 @@ class DynamicalModes:
         Notes
         -----
         Requires pandas to be installed.
-
-        Examples
-        --------
-        .. code-block:: python
-
-            >>> summary = modes.summary(dt=0.01)
-            >>> print(summary)
-            >>> # Filter stable modes
-            >>> stable = summary[summary['is_stable']]
-            >>> # Sort by frequency
-            >>> by_freq = summary.sort_values('frequency')
         """
         import pandas as pd
 
@@ -609,14 +585,6 @@ class DynamicalModes:
             If key is not an integer
         IndexError
             If key is out of range
-
-        Examples
-        --------
-        .. code-block:: python
-
-            >>> eigenval = modes.get_eigenvalue(0)
-            >>> print(f"λ = {eigenval:.4f}")
-            >>> print(f"|λ| = {abs(eigenval):.4f}")
         """
         self._validate_index(key)
         # Return eigenvalue with positive imaginary part
