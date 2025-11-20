@@ -12,7 +12,7 @@ def test_output_structure_and_metadata():
     X0 = np.zeros(2)
 
     df = make_regime_switching_var(
-        X0, phi1, phi2, transition, n_steps=50, noise=0.01, rng_seed=42
+        X0, phi1, phi2, transition, n_steps=50, noise=0.01, random_state=42
     )
 
     # Check types and shape
@@ -39,10 +39,10 @@ def test_reproducibility_with_seed():
     X0 = np.zeros(2)
 
     df1 = make_regime_switching_var(
-        X0, phi1, phi2, transition, n_steps=20, noise=0.1, rng_seed=123
+        X0, phi1, phi2, transition, n_steps=20, noise=0.1, random_state=123
     )
     df2 = make_regime_switching_var(
-        X0, phi1, phi2, transition, n_steps=20, noise=0.1, rng_seed=123
+        X0, phi1, phi2, transition, n_steps=20, noise=0.1, random_state=123
     )
 
     pd.testing.assert_frame_equal(df1, df2)
@@ -69,7 +69,7 @@ def test_custom_initial_condition():
     X0 = np.array([1.0, -1.0])
 
     df = make_regime_switching_var(
-        X0, phi1, phi2, transition, n_steps=5, noise=0.0, rng_seed=0
+        X0, phi1, phi2, transition, n_steps=5, noise=0.0, random_state=0
     )
     np.testing.assert_array_almost_equal(df.iloc[0].values, X0)
 
@@ -81,7 +81,7 @@ def test_transition_probabilities_empirical():
     X0 = np.zeros(1)
 
     df = make_regime_switching_var(
-        X0, phi1, phi2, transition, n_steps=10000, noise=0.0, rng_seed=0
+        X0, phi1, phi2, transition, n_steps=10000, noise=0.0, random_state=0
     )
     regimes = df.attrs["regimes"]
 

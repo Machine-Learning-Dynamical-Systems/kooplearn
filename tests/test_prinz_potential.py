@@ -4,7 +4,7 @@ from kooplearn.datasets import make_prinz_potential
 
 
 def test_triple_well_output_structure():
-    df = make_prinz_potential(X0=0.0, n_steps=100, dt=1e-3, rng_seed=0)
+    df = make_prinz_potential(X0=0.0, n_steps=100, dt=1e-3, random_state=0)
     assert isinstance(df, pd.DataFrame)
     assert list(df.columns) == ["x"]
     assert df.index.names == ["step", "time"]
@@ -13,6 +13,6 @@ def test_triple_well_output_structure():
 
 
 def test_triple_well_reproducibility():
-    df1 = make_prinz_potential(X0=0.0, n_steps=50, dt=1e-3, rng_seed=42)
-    df2 = make_prinz_potential(X0=0.0, n_steps=50, dt=1e-3, rng_seed=42)
+    df1 = make_prinz_potential(X0=0.0, n_steps=50, dt=1e-3, random_state=42)
+    df2 = make_prinz_potential(X0=0.0, n_steps=50, dt=1e-3, random_state=42)
     pd.testing.assert_frame_equal(df1, df2)
