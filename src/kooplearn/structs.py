@@ -90,7 +90,7 @@ class DynamicalModes:
         >>> data = data.to_numpy()
         >>>
         >>> # Fit the model
-        >>> model = KernelRidge(n_components=4, kernel='rbf', alpha=1e-6)
+        >>> model = KernelRidge(n_components=4, kernel='rbf', alpha=1e-6, random_state=42)
         >>> model = model.fit(data)
         >>>
         >>> # Initialize the container
@@ -112,7 +112,7 @@ class DynamicalModes:
         >>> summary_df = modes.summary(dt=0.1)
         >>> print(summary_df)
            frequency      lifetime  ...  is_stable  is_conjugate_pair
-        0   0.000000  69258.166099  ...       True              False
+        0   0.000000  69258.166632  ...       True              False
         1   0.030812     22.993853  ...       True               True
         2   0.000000      0.037522  ...       True              False
         <BLANKLINE>
