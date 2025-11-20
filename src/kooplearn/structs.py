@@ -590,3 +590,29 @@ class DynamicalModes:
         # Return eigenvalue with positive imaginary part
         val = self._values[key]
         return val.real + 1j * np.abs(val.imag)
+
+    def get_right_eigenfunction(self, key: int) -> complex:
+        """
+        Get the right eigenfunction associated to a specific mode.
+
+        Parameters
+        ----------
+        key : int
+            Index of the mode
+
+        Returns
+        -------
+        complex : np.ndarray, shape (n_points,)
+            The right eigenfunction at index ``key``
+
+        Raises
+        ------
+        TypeError
+            If key is not an integer
+        IndexError
+            If key is out of range
+        """
+        self._validate_index(key)
+        # Return eigenvalue with positive imaginary part
+        val = self._right_eigenfunctions[:, key]
+        return val
