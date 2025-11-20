@@ -142,6 +142,7 @@ Learn more
    Switching System <examples/switching_system.ipynb>
    Ordered MNIST (torch) <examples/ordered_mnist_torch.ipynb>
    Ordered MNIST (jax) <examples/ordered_mnist_jax.ipynb>
+   Logistic Map (torch) <examples/logistic_map.ipynb>
 
 
 .. toctree::
@@ -153,6 +154,7 @@ Learn more
    api/linear_model
    api/kernel
    api/preprocessing
+   api/metrics
    api/datasets
    api/torch
    api/jax

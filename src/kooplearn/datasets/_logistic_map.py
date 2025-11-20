@@ -3,7 +3,6 @@ import scipy.integrate
 import scipy.special
 from numpy.typing import ArrayLike
 from scipy.stats.sampling import NumericalInversePolynomial
-from tqdm import tqdm
 
 
 def logistic_map(x: ArrayLike):
@@ -22,9 +21,7 @@ def noise_features(x: ArrayLike, i: int, M: int = 10):
 def transition_matrix(M: int = 10) -> ArrayLike:
     rank = 2 * M + 1
     P = np.zeros((rank, rank))
-    for i, j in tqdm(
-        np.ndindex((rank, rank)), total=rank**2, desc="Computing transition matrix"
-    ):
+    for i, j in np.ndindex((rank, rank)):
         P[i, j] = scipy.integrate.quad(
             lambda x: noise_features(x, i, M=M)
             * noise_features(logistic_map(x), j, M=M),

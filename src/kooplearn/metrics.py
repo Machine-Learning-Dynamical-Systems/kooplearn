@@ -4,21 +4,21 @@ import numpy as np
 def directed_hausdorff_distance(pred: np.ndarray, reference: np.ndarray):
     """One-sided directed Hausdorff distance between two 1D sets. Useful for computing distances between estimated eigenvalues
 
-    Calculates the directed Hausdorff distance $\\vec{H}(A, B) = \\max_{a \\in A} \\min_{b \\in B} \\|a - b\\|_p$
-    where $A$ is the set of points in ``pred`` and $B$ is the set of points in ``reference``.
-    The current implementation uses the $L_1$ norm ($\\|a - b\\|_1 = |a - b|$).
+    Calculates the directed Hausdorff distance :math:`\\vec{H}(A, B) = \\max_{a \\in A} \\min_{b \\in B} \\|a - b\\|_p`
+    where :math:`A` is the set of points in ``pred`` and :math:`B` is the set of points in ``reference``.
+    The current implementation uses the :math:`L_1` norm: :math:`\\|a - b\\|_1 = |a - b|`.
 
     Parameters
     ----------
     pred : numpy.ndarray
-        The set of predicted points $A$. Must be a 1D array.
+        The set of predicted points :math:`A`. Must be a 1D array.
     reference : numpy.ndarray
-        The set of reference points $B$. Must be a 1D array.
+        The set of reference points :math:`B`. Must be a 1D array.
 
     Returns
     -------
     float
-        The directed Hausdorff distance $\\vec{H}(pred, reference)$.
+        The directed Hausdorff distance between ``pred``and ``reference``.
 
     Raises
     ------

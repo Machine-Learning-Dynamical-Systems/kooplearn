@@ -63,7 +63,7 @@ class FeatureMapEmbedder(BaseEstimator, TransformerMixin):
 
     def __repr__(self):
         return (
-            f"NeuralTransformer(encoder={self.encoder.__class__.__name__}, "
+            f"FeatureMapEmbedder(encoder={self.encoder.__class__.__name__}, "
             f"decoder={self.decoder.__class__.__name__ if self.decoder else None}, "
             f"device='{self.device}')"
         )

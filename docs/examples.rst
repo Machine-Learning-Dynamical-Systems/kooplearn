@@ -91,3 +91,15 @@ Explore the following examples showcasing different applications of our methods:
       **Ordered MNIST (jax)**
 
       Learn temporal structure in image sequences with neural-network representations.
+
+   .. grid-item-card::
+      :link: examples/logistic_map.html
+      :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
+
+      .. image:: ../_static/logistic_map.png
+         :alt: Logistic Map
+         :width: 100%
+
+      **Logistic Map (torch)**
+
+      Representation Learning for the noisy Logistic Map.
