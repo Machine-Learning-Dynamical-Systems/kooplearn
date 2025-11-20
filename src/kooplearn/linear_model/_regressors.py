@@ -5,6 +5,7 @@ import scipy.linalg
 from scipy.linalg import eigh
 from scipy.sparse.linalg import eigsh
 from sklearn.utils.extmath import randomized_svd
+from sklearn.utils._arpack import _init_arpack_v0
 
 from kooplearn._linalg import (
     add_diagonal_,
@@ -163,19 +164,21 @@ def svdvals(
 
 def pcr(
     C_X: np.ndarray,  # Input covariance matrix
-    tikhonov_reg: float = 0.0,
-    rank: int | None = None,
-    svd_solver: Literal["arpack", "dense"] = "arpack",
-    tol: float = 0,
-    max_iter: int | None = None,
+    tikhonov_reg: float = 0.0,  # Tikhonov (ridge) regularization parameter
+    rank: int | None = None,  # Rank of the estimator
+    svd_solver: Literal["arpack", "dense"] = "arpack",  # SVD solver to use
+    tol: float = 0,  # Tolerance for ARPACK solver
+    max_iter: int | None = None,  # Maximum iterations for ARPACK solver
+    random_state: int | None = None,  # Seed for the random number generator
 ) -> FitResult:
     dim = C_X.shape[0]
     assert rank <= dim, f"Rank too high. The maximum value for this problem is {dim}"
     add_diagonal_(C_X, tikhonov_reg)
     if svd_solver == "arpack":
         num_arpack_eigs = min(rank + 5, C_X.shape[0] - 1)
+        v0 = _init_arpack_v0(dim, random_state)
         values, vectors = eigsh(
-            C_X, k=num_arpack_eigs, which="LM", maxiter=max_iter, tol=tol
+            C_X, k=num_arpack_eigs, which="LM", v0=v0, maxiter=max_iter, tol=tol
         )
     elif svd_solver == "dense":
         values, vectors = eigh(C_X)
@@ -195,8 +198,8 @@ def rand_pcr(
     rank: int,  # Rank of the estimator
     n_oversamples: int,  # Number of oversamples
     iterated_power: int,  # Number of power iterations
-    rng_seed: int | None = None,  # Seed for the random number generator
-):
+    random_state: int | None = None,  # Seed for the random number generator
+) -> FitResult:
     dim = C_X.shape[0]
     assert rank <= dim, f"Rank too high. The maximum value for this problem is {dim}"
     add_diagonal_(C_X, tikhonov_reg)
@@ -205,7 +208,7 @@ def rand_pcr(
         rank,
         n_oversamples=n_oversamples,
         n_iter=iterated_power,
-        random_state=rng_seed,
+        random_state=random_state,
     )
     add_diagonal_(C_X, -tikhonov_reg)
 
@@ -221,15 +224,19 @@ def _reduced_rank_noreg(
     C_X: np.ndarray,  # Input covariance matrix
     C_XY: np.ndarray,  # Cross-covariance matrix
     rank: int,  # Rank of the estimator
-    svd_solver: Literal["arpack", "dense"] = "arpack",
-):
+    svd_solver: Literal["arpack", "dense"] = "arpack",  # SVD solver to use
+    tol: float = 0,  # Tolerance for ARPACK solver
+    max_iter: int | None = None,  # Maximum iterations for ARPACK solver
+    random_state: int | None = None,  # Seed for the random number generator
+) -> FitResult:
     rsqrt_C_X = spd_neg_pow(C_X, -0.5)
     B = rsqrt_C_X @ C_XY
     _crcov = B @ B.T
     if svd_solver == "arpack":
         # Adding a small buffer to the Arnoldi-computed eigenvalues.
         num_arpack_eigs = min(rank + 5, C_X.shape[0] - 1)
-        values, vectors = eigsh(_crcov, num_arpack_eigs)
+        v0 = _init_arpack_v0(_crcov.shape[0], random_state)
+        values, vectors = eigsh(_crcov, num_arpack_eigs, v0=v0, maxiter=max_iter, tol=tol)
     elif svd_solver == "dense":  # 'dense'
         values, vectors = eigh(_crcov)
     else:
@@ -246,10 +253,13 @@ def _reduced_rank_noreg(
 def reduced_rank(
     C_X: np.ndarray,  # Input covariance matrix
     C_XY: np.ndarray,  # Cross-covariance matrix
-    tikhonov_reg: float,  # Tikhonov (ridge) regularization parameter, can be 0.0
+    tikhonov_reg: float,  # Tikhonov (ridge) regularization parameter
     rank: int,  # Rank of the estimator
-    svd_solver: Literal["arpack", "dense"] = "arpack",
-):
+    svd_solver: Literal["arpack", "dense"] = "arpack",  # SVD solver to use
+    tol: float = 0,  # Tolerance for ARPACK solver
+    max_iter: int | None = None,  # Maximum iterations for ARPACK solver
+    random_state: int | None = None,  # Seed for the random number generator
+) -> FitResult:
     if tikhonov_reg == 0.0:
         return _reduced_rank_noreg(C_X, C_XY, rank, svd_solver)
     else:
@@ -258,7 +268,8 @@ def reduced_rank(
         if svd_solver == "arpack":
             # Adding a small buffer to the Arnoldi-computed eigenvalues.
             num_arpack_eigs = min(rank + 5, C_X.shape[0] - 1)
-            values, vectors = eigsh(_crcov, num_arpack_eigs, M=C_X)
+            v0 = _init_arpack_v0(_crcov.shape[0], random_state)
+            values, vectors = eigsh(_crcov, num_arpack_eigs, M=C_X, v0=v0, maxiter=max_iter, tol=tol)
         elif svd_solver == "dense":  # 'dense'
             values, vectors = eigh(_crcov, C_X)
 
@@ -275,16 +286,16 @@ def reduced_rank(
 def rand_reduced_rank(
     C_X: np.ndarray,  # Input covariance matrix
     C_XY: np.ndarray,  # Cross-covariance matrix
-    tikhonov_reg: float,
-    rank: int,
-    n_oversamples: int = 5,
-    iterated_power: int = 1,
-    rng_seed: int | None = None,
-    precomputed_cholesky=None,
-):
-    rng = np.random.default_rng(rng_seed)
+    tikhonov_reg: float,  # Tikhonov (ridge) regularization parameter, can be 0.0
+    rank: int,  # Rank of the estimator
+    n_oversamples: int = 5,  # Number of oversamples
+    iterated_power: int = 1,  # Number of power iterations
+    random_state: int | None = None,  # Seed for the random number generator
+    precomputed_cholesky: tuple[np.ndarray, bool] | None = None,  # Precomputed Cholesky decomposition of C_X
+) -> FitResult:
+    rng = np.random.default_rng(random_state)
     _crcov = C_XY @ C_XY.T
-    rng = np.random.default_rng(rng_seed)
+    rng = np.random.default_rng(random_state)
     sketch = rng.standard_normal(size=(C_X.shape[0], rank + n_oversamples))
 
     add_diagonal_(C_X, tikhonov_reg)

@@ -289,6 +289,9 @@ class Ridge(BaseEstimator):
                     alpha,
                     n_components,
                     eigen_solver,
+                    self.tol,
+                    self.max_iter,
+                    self.random_state,
                 )
         else:
             if eigen_solver == "randomized":
@@ -298,6 +301,7 @@ class Ridge(BaseEstimator):
                     n_components,
                     self.n_oversamples,
                     self.iterated_power,
+                    self.random_state,
                 )
             else:
                 fit_result = _regressors.pcr(
@@ -305,6 +309,9 @@ class Ridge(BaseEstimator):
                     alpha,
                     n_components,
                     eigen_solver,
+                    self.tol,
+                    self.max_iter,
+                    self.random_state,
                 )
 
         self._fit_result = fit_result

@@ -348,7 +348,7 @@ class KernelRidge(BaseEstimator):
                     self.n_oversamples,
                     self.optimal_sketching,
                     iterated_power,
-                    rng_seed=self.random_state,
+                    random_state=self.random_state,
                 )
             else:
                 fit_result = _regressors.reduced_rank(
@@ -359,6 +359,7 @@ class KernelRidge(BaseEstimator):
                     eigen_solver,
                     self.tol,
                     self.max_iter,
+                    self.random_state,
                 )
         else:
             if eigen_solver == "randomized":
@@ -368,7 +369,7 @@ class KernelRidge(BaseEstimator):
                     n_components,
                     self.n_oversamples,
                     iterated_power,
-                    rng_seed=self.random_state,
+                    random_state=self.random_state,
                 )
             else:
                 fit_result = _regressors.pcr(
@@ -378,6 +379,7 @@ class KernelRidge(BaseEstimator):
                     eigen_solver,
                     self.tol,
                     self.max_iter,
+                    self.random_state,
                 )
 
         self._fit_result = fit_result

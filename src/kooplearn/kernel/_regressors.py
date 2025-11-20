@@ -9,6 +9,7 @@ import scipy
 from numpy import ndarray
 from scipy.sparse.linalg import eigs, eigsh
 from sklearn.utils.extmath import randomized_svd
+from sklearn.utils._arpack import _init_arpack_v0
 
 from kooplearn._linalg import add_diagonal_, stable_topk, weighted_norm
 from kooplearn.structs import EigResult, FitResult
@@ -222,6 +223,7 @@ def pcr(
     svd_solver: Literal["arpack", "dense"] = "arpack",
     tol: float = 0,
     max_iter: int | None = None,
+    random_state: int | None = None,
 ) -> FitResult:
     """Fits the Principal Components estimator.
 
@@ -238,6 +240,8 @@ def pcr(
         max_iter : int, default=None
         Maximum number of iterations for arpack.
         If None, optimal value will be chosen by arpack.
+        random_state : int | None, optional
+        Seed for the random number generator. Defaults to None.
     Shape:
         ``kernel_X``: :math:`(N, N)`, where :math:`N` is the number of training data.
     """
@@ -245,7 +249,8 @@ def pcr(
     add_diagonal_(kernel_X, npts * tikhonov_reg)
     if svd_solver == "arpack":
         _num_arpack_eigs = min(rank + 5, kernel_X.shape[0])
-        values, vectors = eigsh(kernel_X, k=_num_arpack_eigs, maxiter=max_iter, tol=tol)
+        v0 = _init_arpack_v0(npts, random_state)
+        values, vectors = eigsh(kernel_X, k=_num_arpack_eigs, v0=v0, maxiter=max_iter, tol=tol)
     elif svd_solver == "dense":
         values, vectors = scipy.linalg.eigh(kernel_X)
     else:
@@ -269,6 +274,7 @@ def nystroem_pcr(
     svd_solver: Literal["arpack", "dense"] = "arpack",
     tol: float = 0,
     max_iter: int | None = None,
+    random_state: int | None = None,
 ) -> FitResult:
     """Fits the Principal Components estimator using the Nyström method
     from :cite:t:`Meanti2023`.
@@ -291,6 +297,8 @@ def nystroem_pcr(
         max_iter : int, default=None
         Maximum number of iterations for arpack.
         If None, optimal value will be chosen by arpack.
+        random_state : int | None, optional
+        Seed for the random number generator. Defaults to None.
     Shape:
         ``kernel_X``: :math:`(N, N)`, where :math:`N` is the number of
         training data.
@@ -315,11 +323,13 @@ def nystroem_pcr(
     elif svd_solver == "arpack":
         _oversampling = max(10, 4 * int(np.sqrt(rank)))
         _num_arpack_eigs = min(rank + _oversampling, ncenters)
+        v0 = _init_arpack_v0(kernel_Xnys_sq.shape[0], random_state)
         values, vectors = eigsh(
             kernel_Xnys_sq,
             M=kernel_X,
             k=_num_arpack_eigs,
             which="LM",
+            v0=v0,
             maxiter=max_iter,
             tol=tol,
         )
@@ -346,8 +356,8 @@ def rand_pcr(
     rank: int,  # Rank of the estimator
     n_oversamples: int,  # Number of oversamples
     iterated_power: int,  # Number of iterations for the power method
-    rng_seed: int | None = None,  # Seed for the random number generator
-):
+    random_state: int | None = None,  # Seed for the random number generator
+) -> FitResult:
     npts = kernel_X.shape[0]
     add_diagonal_(kernel_X, npts * tikhonov_reg)
     vectors, values, _ = randomized_svd(
@@ -355,7 +365,7 @@ def rand_pcr(
         rank,
         n_oversamples=n_oversamples,
         n_iter=iterated_power,
-        random_state=rng_seed,
+        random_state=random_state,
     )
     add_diagonal_(kernel_X, -npts * tikhonov_reg)
 
@@ -375,6 +385,7 @@ def reduced_rank(
     svd_solver: Literal["arpack", "dense"] = "arpack",
     tol: float = 0,
     max_iter: int | None = None,
+    random_state: int | None = None,
 ) -> FitResult:
     """Fits the Reduced Rank estimator from :cite:t:`Kostic2022`.
 
@@ -391,6 +402,8 @@ def reduced_rank(
         max_iter : int, default=None
         Maximum number of iterations for arpack.
         If None, optimal value will be chosen by arpack.
+        random_state : int | None, optional
+        Seed for the random number generator. Defaults to None.
 
     Shape:
         ``kernel_X``: :math:`(N, N)`, where :math:`N` is the number of training
@@ -411,8 +424,9 @@ def reduced_rank(
     if svd_solver == "arpack":
         # Adding a small buffer to the arpack-computed eigenvalues.
         num_arpack_eigs = min(rank + 5, npts)
+        v0 = _init_arpack_v0(npts, random_state)
         values, vectors = eigs(
-            A, k=num_arpack_eigs, M=kernel_X, maxiter=max_iter, tol=tol
+            A, k=num_arpack_eigs, M=kernel_X, v0=v0, maxiter=max_iter, tol=tol
         )
     elif svd_solver == "dense":  # 'dense'
         values, vectors = scipy.linalg.eig(
@@ -466,6 +480,7 @@ def nystroem_reduced_rank(
     svd_solver: Literal["arpack", "dense"] = "arpack",
     tol: float = 0,
     max_iter: int | None = None,
+    random_state: int | None = None,
 ) -> FitResult:
     """Fits the Nyström Reduced Rank estimator from :cite:t:`Meanti2023`.
 
@@ -486,6 +501,8 @@ def nystroem_reduced_rank(
         max_iter : int, default=None
         Maximum number of iterations for arpack.
         If None, optimal value will be chosen by arpack.
+        random_state : int | None, optional
+        Seed for the random number generator. Defaults to None.
 
     Shape:
         ``kernel_X``: :math:`(N, N)`, where :math:`N` is the number of training
@@ -524,8 +541,9 @@ def nystroem_reduced_rank(
     elif svd_solver == "arpack":
         _oversampling = max(10, 4 * int(np.sqrt(rank)))
         _num_arpack_eigs = min(rank + _oversampling, num_centers)
+        v0 = _init_arpack_v0(kernel_XYX.shape[0], random_state)
         values, vectors = eigs(
-            kernel_XYX, k=_num_arpack_eigs, M=kernel_Xnys_sq, maxiter=max_iter, tol=tol
+            kernel_XYX, k=_num_arpack_eigs, M=kernel_Xnys_sq, v0=v0, maxiter=max_iter, tol=tol
         )
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
@@ -561,7 +579,7 @@ def rand_reduced_rank(
     n_oversamples: int = 5,
     optimal_sketching: bool = False,
     iterated_power: int = 1,
-    rng_seed: int | None = None,
+    random_state: int | None = None,
     precomputed_cholesky=None,
 ) -> FitResult:
     """Fits the Randomized Reduced Rank Estimator from :cite:t:`turri2023randomized`.
@@ -576,7 +594,7 @@ def rand_reduced_rank(
         (slower but more accurate) or not. Defaults to False.
         iterated_power (int, optional): Number of iterations of the power method.
         Defaults to 1.
-        rng_seed (int | None, optional): Random Number Generators seed. Defaults
+        random_state (int | None, optional): Random Number Generators seed. Defaults
         to None.
         precomputed_cholesky (optional): Precomputed Cholesky decomposition.
         Should be the output of cho_factor evaluated on the regularized kernel
@@ -587,7 +605,7 @@ def rand_reduced_rank(
 
         ``kernel_Y``: :math:`(N, N)`.
     """
-    rng = np.random.default_rng(rng_seed)
+    rng = np.random.default_rng(random_state)
     npts = kernel_X.shape[0]
 
     penalty = npts * tikhonov_reg
