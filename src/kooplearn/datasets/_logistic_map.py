@@ -40,8 +40,8 @@ class TrigonometricNoise:
         return self.norm * ((np.cos(np.pi * x)) ** (2 * self.M))
 
 
-def make_noise_rng(M: int, rng_seed: int | None = None):
-    random_state = np.random.default_rng(rng_seed)
+def make_noise_rng(M: int, random_state: int | None = None):
+    random_state = np.random.default_rng(random_state)
     noise_dist = TrigonometricNoise(M)
     noise_rng = NumericalInversePolynomial(
         noise_dist,  # ty: ignore
