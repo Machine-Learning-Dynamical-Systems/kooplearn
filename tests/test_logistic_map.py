@@ -158,13 +158,13 @@ def test_make_logistic_map_fixed_points():
     from kooplearn.datasets import make_logistic_map
 
     # For r < 1, x=0 is stable fixed point
-    df = make_logistic_map(X0=0.01, n_steps=50, r=0.5, M=0)
+    df = make_logistic_map(X0=0.01, n_steps=50, r=0.5, M=0, random_state=42)
     assert df.iloc[-1]["x"] < 0.001  # Should converge to 0
 
     # For 1 < r < 3, x=(r-1)/r is stable
     r = 2.5
     fixed_point = (r - 1) / r
-    df = make_logistic_map(X0=fixed_point, n_steps=10, r=r, M=0)
+    df = make_logistic_map(X0=fixed_point, n_steps=10, r=r, M=0, random_state=42)
     # Should stay at fixed point
     assert_allclose(df["x"].values, fixed_point, atol=1e-10)
 
@@ -174,7 +174,7 @@ def test_make_logistic_map_period_doubling():
     from kooplearn.datasets import make_logistic_map
 
     # Around r ≈ 3.2, should have period-2 orbit
-    df = make_logistic_map(X0=0.5, n_steps=100, r=3.2, M=0)
+    df = make_logistic_map(X0=0.5, n_steps=100, r=3.2, M=0, random_state=42)
 
     # After transient, should oscillate between two values
     steady = df["x"].iloc[-20:].values
@@ -187,8 +187,8 @@ def test_make_logistic_map_sensitive_dependence():
     from kooplearn.datasets import make_logistic_map
 
     # Two very close initial conditions
-    df1 = make_logistic_map(X0=0.1, n_steps=100, r=4.0)
-    df2 = make_logistic_map(X0=0.1 + 1e-8, n_steps=100, r=4.0)
+    df1 = make_logistic_map(X0=0.1, n_steps=100, r=4.0, random_state=42)
+    df2 = make_logistic_map(X0=0.1 + 1e-8, n_steps=100, r=4.0, random_state=43)
 
     # Initially close
     assert_allclose(df1.iloc[0]["x"], df2.iloc[0]["x"], atol=1e-7)
