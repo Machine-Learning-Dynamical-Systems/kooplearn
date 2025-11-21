@@ -1565,7 +1565,7 @@ requires-dist = [
     { name = "jax", marker = "extra == 'jax'", specifier = ">=0.4.30" },
     { name = "pandas", specifier = ">=2.3.3" },
     { name = "scikit-learn", specifier = ">=1.6.1" },
-    { name = "torch", marker = "extra == 'torch'", specifier = ">=2.8.0" },
+    { name = "torch", marker = "extra == 'torch'", specifier = ">=2.6" },
 ]
 
 [package.metadata.requires-dev]

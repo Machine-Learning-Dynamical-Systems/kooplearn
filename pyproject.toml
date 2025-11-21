@@ -14,7 +14,7 @@ dependencies = [
 
 [project.optional-dependencies]
 torch = [
-    "torch>=2.8.0",
+    "torch>=2.6",
 ]
 jax = [
     "flax>=0.8.5",
