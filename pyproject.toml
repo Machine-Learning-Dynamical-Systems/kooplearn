@@ -1,6 +1,6 @@
 [project]
 name = "kooplearn"
-version = "2.0.0b1"
+version = "2.0.0rc1"
 description = "A python package for evolution operator learning"
 readme = "README.md"
 authors = [
