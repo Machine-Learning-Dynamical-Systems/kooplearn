@@ -12,7 +12,7 @@ Explore the following examples showcasing different applications of our methods:
       :link: examples/prinz_potential.html
       :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
 
-      .. image:: ../_static/prinz_potential.png
+      .. image:: _static/prinz_potential.png
          :alt: Eigenfunctions of a 1D Potential
          :width: 100%
 
@@ -24,7 +24,7 @@ Explore the following examples showcasing different applications of our methods:
       :link: examples/fluid_flow_dmd.html
       :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
 
-      .. image:: ../_static/fluid_flow_dmd.png
+      .. image:: _static/fluid_flow_dmd.png
          :alt: Dynamic Mode Decomposition
          :width: 100%
 
@@ -36,7 +36,7 @@ Explore the following examples showcasing different applications of our methods:
       :link: examples/kernel_methods.html
       :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
 
-      .. image:: ../_static/kernel_methods.png
+      .. image:: _static/kernel_methods.png
          :alt: Fast Kernel Models
          :width: 100%
 
@@ -48,7 +48,7 @@ Explore the following examples showcasing different applications of our methods:
       :link: examples/ala2_nys_tutorial.html
       :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
 
-      .. image:: ../_static/ala2_nys_tutorial.png
+      .. image:: _static/ala2_nys_tutorial.png
          :alt: Analysing Molecular Dynamics
          :width: 100%
 
@@ -60,7 +60,7 @@ Explore the following examples showcasing different applications of our methods:
       :link: examples/switching_system.html
       :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
 
-      .. image:: ../_static/switching_system.png
+      .. image:: _static/switching_system.png
          :alt: Switching System
          :width: 100%
 
@@ -72,7 +72,7 @@ Explore the following examples showcasing different applications of our methods:
       :link: examples/ordered_mnist_torch.html
       :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
 
-      .. image:: ../_static/ordered_mnist_torch.png
+      .. image:: _static/ordered_mnist_torch.png
          :alt: Ordered MNIST
          :width: 100%
 
@@ -84,7 +84,7 @@ Explore the following examples showcasing different applications of our methods:
       :link: examples/ordered_mnist_jax.html
       :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
 
-      .. image:: ../_static/ordered_mnist_jax.png
+      .. image:: _static/ordered_mnist_jax.png
          :alt: Ordered MNIST
          :width: 100%
 
@@ -96,7 +96,7 @@ Explore the following examples showcasing different applications of our methods:
       :link: examples/logistic_map.html
       :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
 
-      .. image:: ../_static/logistic_map.png
+      .. image:: _static/logistic_map.png
          :alt: Logistic Map
          :width: 100%
 
