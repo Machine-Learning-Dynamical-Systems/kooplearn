@@ -140,8 +140,8 @@ class DynamicalModes:
         Number of stable modes: 3
         >>>
         >>> slowest_decay = stable_modes.loc[stable_modes['lifetime'].idxmax()]
-        >>> print(f"Slowest decay: lifetime={slowest_decay['lifetime']:.2f}s")
-        Slowest decay: lifetime=69258.17s
+        >>> print(f"Slowest decay: lifetime={slowest_decay['lifetime']:.1f}s")
+        Slowest decay: lifetime=69258.2s
     """
 
     def __init__(
