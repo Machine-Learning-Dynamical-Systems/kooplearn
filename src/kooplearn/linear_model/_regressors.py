@@ -4,8 +4,8 @@ import numpy as np
 import scipy.linalg
 from scipy.linalg import eigh
 from scipy.sparse.linalg import eigsh
-from sklearn.utils.extmath import randomized_svd
 from sklearn.utils._arpack import _init_arpack_v0
+from sklearn.utils.extmath import randomized_svd
 
 from kooplearn._linalg import (
     add_diagonal_,
@@ -188,7 +188,7 @@ def pcr(
 
     vectors, _, rsqrt_evals = eigh_rank_reveal(values, vectors, rank)
     vectors = vectors @ np.diag(rsqrt_evals)
-    result: FitResult = {"U": vectors, "V": vectors, "svals": values}
+    result = FitResult(vectors, vectors, values)
     return result
 
 
@@ -216,7 +216,7 @@ def rand_pcr(
     rsqrt_vals = (np.sqrt(values)) ** -1
     vectors = vectors[:, stable_values_idxs]
     vectors = vectors @ np.diag(rsqrt_vals)
-    result: FitResult = {"U": vectors, "V": vectors, "svals": values}
+    result = FitResult(vectors, vectors, values)
     return result
 
 
@@ -236,7 +236,9 @@ def _reduced_rank_noreg(
         # Adding a small buffer to the Arnoldi-computed eigenvalues.
         num_arpack_eigs = min(rank + 5, C_X.shape[0] - 1)
         v0 = _init_arpack_v0(_crcov.shape[0], random_state)
-        values, vectors = eigsh(_crcov, num_arpack_eigs, v0=v0, maxiter=max_iter, tol=tol)
+        values, vectors = eigsh(
+            _crcov, num_arpack_eigs, v0=v0, maxiter=max_iter, tol=tol
+        )
     elif svd_solver == "dense":  # 'dense'
         values, vectors = eigh(_crcov)
     else:
@@ -246,7 +248,7 @@ def _reduced_rank_noreg(
     vectors = vectors[:, stable_values_idxs]
     vectors = vectors @ np.diag(rsqrt_vals)
     vectors = rsqrt_C_X @ vectors
-    result: FitResult = {"U": vectors, "V": vectors, "svals": values}
+    result = FitResult(vectors, vectors, values)
     return result
 
 
@@ -269,7 +271,9 @@ def reduced_rank(
             # Adding a small buffer to the Arnoldi-computed eigenvalues.
             num_arpack_eigs = min(rank + 5, C_X.shape[0] - 1)
             v0 = _init_arpack_v0(_crcov.shape[0], random_state)
-            values, vectors = eigsh(_crcov, num_arpack_eigs, M=C_X, v0=v0, maxiter=max_iter, tol=tol)
+            values, vectors = eigsh(
+                _crcov, num_arpack_eigs, M=C_X, v0=v0, maxiter=max_iter, tol=tol
+            )
         elif svd_solver == "dense":  # 'dense'
             values, vectors = eigh(_crcov, C_X)
 
@@ -279,7 +283,7 @@ def reduced_rank(
         _norms = weighted_norm(vectors, C_X)
         add_diagonal_(C_X, -tikhonov_reg)
         vectors = vectors @ np.diag(_norms ** (-1.0))
-        result: FitResult = {"U": vectors, "V": vectors, "svals": values}
+        result = FitResult(vectors, vectors, values)
         return result
 
 
@@ -291,7 +295,8 @@ def rand_reduced_rank(
     n_oversamples: int = 5,  # Number of oversamples
     iterated_power: int = 1,  # Number of power iterations
     random_state: int | None = None,  # Seed for the random number generator
-    precomputed_cholesky: tuple[np.ndarray, bool] | None = None,  # Precomputed Cholesky decomposition of C_X
+    precomputed_cholesky: tuple[np.ndarray, bool]
+    | None = None,  # Precomputed Cholesky decomposition of C_X
 ) -> FitResult:
     rng = np.random.default_rng(random_state)
     _crcov = C_XY @ C_XY.T
@@ -320,5 +325,5 @@ def rand_reduced_rank(
 
     values, indices = stable_topk(values, rank)
     vectors = sketch_p @ vectors[:, indices]
-    result: FitResult = {"U": vectors, "V": vectors, "svals": values}
+    result = FitResult(vectors, vectors, values)
     return result

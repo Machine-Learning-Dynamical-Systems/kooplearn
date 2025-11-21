@@ -5,8 +5,8 @@
 
 import logging
 from numbers import Integral, Real
-from numpy import ndarray
 
+from numpy import ndarray
 from sklearn.base import BaseEstimator
 from sklearn.metrics import r2_score
 from sklearn.metrics.pairwise import pairwise_kernels
@@ -182,7 +182,7 @@ class KernelRidge(BaseEstimator):
         >>> 
         >>> # Fit the model
         >>> model = KernelRidge(n_components=2, kernel='linear', alpha=1e-3)
-        >>> model = model.fit(data) 
+        >>> model = model.fit(data)
         >>> # Predict the future state
         >>> pred = model.predict(data)
         >>> 
@@ -288,7 +288,7 @@ class KernelRidge(BaseEstimator):
         y : ndarray of shape (n_samples, n_features_out), default=None
             Optional observable used for training.
             If ``None``, the observable is assumed to be the state itself.
-            
+
         Returns
         -------
         self : object
@@ -381,7 +381,6 @@ class KernelRidge(BaseEstimator):
                     self.max_iter,
                     self.random_state,
                 )
-
         self._fit_result = fit_result
         self.U_, self.V_, self._spectral_biases = fit_result.values()
         self.rank_ = self.U_.shape[1]
@@ -547,7 +546,7 @@ class KernelRidge(BaseEstimator):
     def dynamical_modes(self, X, observable=False) -> DynamicalModes:
         """
         Compute the mode decomposition of arbitrary observables of the
-        evolution operator at the states defined by ``X``. 
+        evolution operator at the states defined by ``X``.
         If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the evolution operator, for any observable
         :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
         :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
@@ -604,8 +603,10 @@ class KernelRidge(BaseEstimator):
         )
 
         return dmd
-    
-    def score(self, X=None, y=None, n_steps=1, observable=False, metric=r2_score, **metric_kws) -> float:
+
+    def score(
+        self, X=None, y=None, n_steps=1, observable=False, metric=r2_score, **metric_kws
+    ) -> float:
         """
         Score the model predictions for timestep ``n_steps``.
 
@@ -681,9 +682,9 @@ class KernelRidge(BaseEstimator):
         # Make predictions and align timestamps
         pred = self.predict(X_test, n_steps=n_steps, observable=observable)
         if n_steps > 1:
-            target = target[n_steps - 1:]
+            target = target[n_steps - 1 :]
             pred = pred[: -(n_steps - 1)]
-        
+
         return metric(target, pred, **metric_kws)
 
     def _svals(self):

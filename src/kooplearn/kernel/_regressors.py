@@ -8,8 +8,8 @@ import numpy as np
 import scipy
 from numpy import ndarray
 from scipy.sparse.linalg import eigs, eigsh
-from sklearn.utils.extmath import randomized_svd
 from sklearn.utils._arpack import _init_arpack_v0
+from sklearn.utils.extmath import randomized_svd
 
 from kooplearn._linalg import add_diagonal_, stable_topk, weighted_norm
 from kooplearn.structs import EigResult, FitResult
@@ -250,7 +250,9 @@ def pcr(
     if svd_solver == "arpack":
         _num_arpack_eigs = min(rank + 5, kernel_X.shape[0])
         v0 = _init_arpack_v0(npts, random_state)
-        values, vectors = eigsh(kernel_X, k=_num_arpack_eigs, v0=v0, maxiter=max_iter, tol=tol)
+        values, vectors = eigsh(
+            kernel_X, k=_num_arpack_eigs, v0=v0, maxiter=max_iter, tol=tol
+        )
     elif svd_solver == "dense":
         values, vectors = scipy.linalg.eigh(kernel_X)
     else:
@@ -260,7 +262,7 @@ def pcr(
     vectors = vectors[:, stable_values_idxs]
     Q = sqrt(npts) * vectors / np.sqrt(values)
     kernel_X_eigvalsh = np.sqrt(np.abs(values)) / npts
-    result: FitResult = {"U": Q, "V": Q, "svals": kernel_X_eigvalsh}
+    result = FitResult(Q, Q, kernel_X_eigvalsh)
     return result
 
 
@@ -346,7 +348,7 @@ def nystroem_pcr(
     V = sqrt(ncenters) * V / np.sqrt(values)
 
     kernel_X_eigvalsh = np.sqrt(np.abs(values)) / npts
-    result: FitResult = {"U": U, "V": V, "svals": kernel_X_eigvalsh}
+    result = FitResult(U, V, kernel_X_eigvalsh)
     return result
 
 
@@ -373,7 +375,7 @@ def rand_pcr(
     vectors = vectors[:, stable_values_idxs]
     Q = sqrt(npts) * vectors / np.sqrt(values)
     kernel_X_eigvalsh = np.sqrt(np.abs(values)) / npts
-    result: FitResult = {"U": Q, "V": Q, "svals": kernel_X_eigvalsh}
+    result = FitResult(Q, Q, kernel_X_eigvalsh)
     return result
 
 
@@ -466,7 +468,7 @@ def reduced_rank(
     # Ordering the results
     V = kernel_X @ U
     svals = np.sqrt(np.abs(values))
-    result: FitResult = {"U": U.real, "V": V.real, "svals": svals}
+    result = FitResult(U.real, V.real, svals)
     return result
 
 
@@ -543,7 +545,12 @@ def nystroem_reduced_rank(
         _num_arpack_eigs = min(rank + _oversampling, num_centers)
         v0 = _init_arpack_v0(kernel_XYX.shape[0], random_state)
         values, vectors = eigs(
-            kernel_XYX, k=_num_arpack_eigs, M=kernel_Xnys_sq, v0=v0, maxiter=max_iter, tol=tol
+            kernel_XYX,
+            k=_num_arpack_eigs,
+            M=kernel_Xnys_sq,
+            v0=v0,
+            maxiter=max_iter,
+            tol=tol,
         )
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
@@ -567,7 +574,7 @@ def nystroem_reduced_rank(
     U = A @ vectors
     V = _tmp_YX @ vectors
     svals = np.sqrt(np.abs(values))
-    result: FitResult = {"U": U.real, "V": V.real, "svals": svals}
+    result = FitResult(U.real, V.real, svals)
     return result
 
 
@@ -659,5 +666,5 @@ def rand_reduced_rank(
     U = sqrt(npts) * kernel_X_sketch @ vectors
     V = sqrt(npts) * _M @ vectors
     svals = np.sqrt(values)
-    result: FitResult = {"U": U, "V": V, "svals": svals}
+    result = FitResult(U, V, svals)
     return result

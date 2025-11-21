@@ -1,18 +1,42 @@
 """Structs used by the `kernel` algorithms."""
 
-from typing import Iterator, TypedDict
+from dataclasses import dataclass
+from typing import Iterator, Mapping, TypedDict
 
 import numpy as np
+from numpy.typing import NDArray
 
 from kooplearn._utils import find_complex_conjugates
 
 
-class FitResult(TypedDict):
-    """Return type for kernel regressors."""
+@dataclass
+class FitResult(Mapping[str, NDArray[np.float64] | None]):
+    U: NDArray[np.float64]
+    V: NDArray[np.float64]
+    svals: NDArray[np.float64] | None = None
 
-    U: np.ndarray
-    V: np.ndarray
-    svals: np.ndarray | None
+    def __post_init__(self):
+        self.U = np.ascontiguousarray(self.U, dtype=np.float64)
+        self.V = np.ascontiguousarray(self.V, dtype=np.float64)
+        if self.svals is not None:
+            self.svals = np.ascontiguousarray(self.svals, dtype=np.float64)
+
+    # --- Mapping interface -------------------------------------------------
+
+    def __getitem__(self, key: str):
+        if key == "U":
+            return self.U
+        if key == "V":
+            return self.V
+        if key == "svals":
+            return self.svals
+        raise KeyError(key)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(("U", "V", "svals"))
+
+    def __len__(self) -> int:
+        return 3
 
 
 class EigResult(TypedDict):
