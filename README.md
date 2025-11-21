@@ -1,69 +1,36 @@
-<p align="center">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="logo-dark.png">
-      <source media="(prefers-color-scheme: light)" srcset="logo-light.png">
-      <img alt="kooplearn logo" width="60%" src="logo-light.png">
-    </picture>
+<p align = "left">
+  <img src="logo.svg" alt="SVG Image" style="width:50%;"/>
 </p>
 
-<a href="https://kooplearn.readthedocs.io/latest/"><img alt="Static Badge" src="https://img.shields.io/badge/Documentation-informational"></a>
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Machine-Learning-Dynamical-Systems/kooplearn/CI.yml)
-![GitHub License](https://img.shields.io/github/license/Machine-Learning-Dynamical-Systems/kooplearn)
+# Learn Koopman and Transfer operators for Dynamical Systems and Stochastic Processes
 
+`kooplearn` is a Python library designed for learning Koopman or Transfer operators associated with dynamical systems. Given a _nonlinear_ dynamical system $x_{t + 1} = S(x_{t})$, the **Koopman operator** provides a _global linearization_ of the dynamics by mapping it to a suitable space of observables $\mathcal{F}$. An observable is any (scalar) function of the state. The Koopman operator $\mathsf{K}$ is defined as $$(\mathsf{K}f)(x_{t}) = f(x_{t + 1}) := f \circ S (x_t) \qquad f \in \mathcal{F}.$$
+Similarly, given a stochastic process $X:= \{ X_{s} \colon s \in \mathbb{N}\}$, its **Transfer operator* returns the expected value of any observable forward in time. The Transfer operator $\mathsf{T}$ is defined as $$(\mathsf{T}f)(x) := \mathbb{E}\left[f(X_{t + 1}) \mid X_{t} = x \right] \qquad f \in \mathcal{F}.$$
 
-`kooplearn` is a Python library to learn evolution operators —  also known as _Koopman_ or _Transfer_ operators — from data. `kooplearn` models can:
+`kooplearn` provides a suite of algorithms for model training and analysis, enabling users to perform forecasting, spectral decomposition, and modal decomposition based on the learned operator.
 
-1. Predict the evolution of states *and* observables.
-2. Estimate the eigenvalues and eigenfunctions of the learned evolution operators.
-3. Compute the [dynamic mode decomposition](https://en.wikipedia.org/wiki/Dynamic_mode_decomposition) of states *and* observables.
-4. Learn neural-network representations $x_t \mapsto \varphi(x_t)$ for evolution operators.
+Please note that `kooplearn` is currently under active development, and while we are continuously adding new features and improvements, some parts of the library might still be a work in progress.
 
-## Why Choosing `kooplearn`?
+## Features
 
-1. It is easy to use and strictly adheres to the [scikit-learn API](https://scikit-learn.org/stable/api/index.html).
-2. **Kernel estimators** are state-of-the-art:
-
-   * `kooplearn` implements the *Reduced Rank Regressor* from [Kostic et al. 2022](https://arxiv.org/abs/2205.14027), which is [provably better](https://arxiv.org/abs/2302.02004) than the classical [kernel DMD](https://arxiv.org/abs/1411.2260) in estimating eigenvalues and eigenfunctions.
-   * It also implements [Nyström estimators](https://arxiv.org/abs/2306.04520) and randomized estimators [randomized](https://arxiv.org/abs/2312.17348) for blazingly fast kernel learning.
-3. Includes representation-learning losses (implemented both in Pytorch and JAX) to train neural-network Koopman embeddings.
-4. Offers a collection of datasets for benchmarking evolution-operator learning algorithms.
-
+- Implement different algorithms to learn Koopman or transfer operators for dynamical systems.
+- Perform forecasting using the learned operators.
+- Conduct spectral decomposition of the learned operator.
+- Perform modal decomposition for further analysis.
+  
 ## Installation
-
-To install the core version of `kooplearn`:
-
-### **pip**
-
+To install the core version of `kooplearn`, without optional dependencies, run
 ```bash
-pip install kooplearn
+   pip install kooplearn
 ```
-
-### **uv**
-
+To install the full version of `kooplearn`, including Neural-Network models, and the dahsboard, run
 ```bash
-uv add kooplearn
+   pip install "kooplearn[full]"
 ```
-
-To enable neural-network representations using `kooplearn.torch` or `kooplearn.jax`:
-
-### **pip**
-
+To install the development version of `kooplearn`, run
 ```bash
-# Torch
-pip install "kooplearn[torch]"
-# JAX
-pip install "kooplearn[jax]"
+   pip install --upgrade git+https://github.com/Machine-Learning-Dynamical-Systems/kooplearn.git
 ```
-
-### **uv**
-
-```bash
-# Torch
-uv add "kooplearn[torch]"
-# JAX
-uv add "kooplearn[jax]"
-```
-
 ## Contributing
 
 We welcome contributions from the community! If you're interested in contributing to `kooplearn`, please follow these steps:

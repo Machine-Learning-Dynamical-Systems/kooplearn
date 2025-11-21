@@ -1,8 +1,3 @@
-import os
-import sys
-
-sys.path.insert(0, os.path.abspath("../src/"))
-
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -11,9 +6,14 @@ sys.path.insert(0, os.path.abspath("../src/"))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath(".."))  # Importing kooplearn for autodoc
+
 project = "kooplearn"
-copyright = "2025, kooplearn team"
-author = "kooplearn team"
+copyright = "2023, Pietro Novelli"
+author = "Pietro Novelli"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -21,78 +21,41 @@ author = "kooplearn team"
 extensions = [
     "sphinxcontrib.bibtex",
     "sphinx.ext.autodoc",
-    "sphinx.ext.autosummary",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx_design",
-    "nbsphinx",
-    "myst_parser",
-    "sphinx_iconify",
-    "sphinx_copybutton",
+    "myst_nb",
 ]
-
-
-autosummary_generate = True
-napoleon_use_ivar = True
-napoleon_preprocess_types = True
-
 
 source_suffix = {
     ".rst": "restructuredtext",
-}
-
-html_favicon = "_static/favicon.png"
-
-
-nbsphinx_epilog = """
-.. footbibliography::
-"""
-
-copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
-copybutton_prompt_is_regexp = True
-
-autodoc_default_options = {
-    "members": True,
-    "undoc-members": True,
-    "show-inheritance": True,
+    ".ipynb": "myst-nb",
+    ".myst": "myst-nb",
 }
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "JOSS"]
-
-
-html_theme_options = {
-    "accent_color": "jade",
-    "github_url": "https://github.com/Machine-Learning-Dynamical-Systems/kooplearn",
-    "light_logo": "_static/logo-light.svg",
-    "dark_logo": "_static/logo-dark.svg",
-    "nav_links": [
-        {"title": "Examples", "url": "examples"},
-        {"title": "API Reference", "url": "api/index"},
-    ],
-}
-
-html_sidebars = {
-    "**": [
-        "sidebars/localtoc.html",
-        "sidebars/repo-stats.html",
-    ]
-}
-
-html_context = {
-    "source_type": "github",
-    "source_user": "Machine-Learning-Dynamical-Systems",
-    "source_repo": "kooplearn",
-}
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+autodoc_typehints = "none"
+autodoc_class_signature = "separated"
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
+html_theme = "sphinx_book_theme"
+html_logo = "../logo.svg"
+
+html_theme_options = {
+    "repository_url": "https://github.com/Machine-Learning-Dynamical-Systems/kooplearn",
+    "use_repository_button": True,  # add a 'link to repository' button
+    "use_issues_button": False,  # add an 'Open an Issue' button
+    "path_to_docs": ("docs"),
+    "show_navbar_depth": 1,
+    "show_toc_level": 3,
+}
+
+html_favicon = "favicon.png"
+
 bibtex_bibfiles = ["bibliography.bib"]
 
-html_theme = "shibuya"
-html_static_path = ["_static"]
 myst_enable_extensions = ["amsmath", "dollarmath", "html_image"]
-nb_execution_mode = "off"
-
-html_css_files = ["custom_rules.css"]
+nb_execution_timeout = -1

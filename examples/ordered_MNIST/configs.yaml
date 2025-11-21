@@ -1,0 +1,9 @@
+classes: 5
+train_samples: 1001
+val_ratio: 0.2
+test_samples: 1001
+rng_seed: 0
+batch_size: 64
+eval_up_to_t: 15
+reduced_rank: False
+max_epochs: 50

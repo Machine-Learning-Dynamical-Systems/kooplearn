@@ -1,0 +1,16 @@
+sphinx>=3.3.1
+pydata-sphinx-theme == 0.13.3 
+sphinx-book-theme
+Pygments>=2.6.1
+ipykernel
+myst_nb
+recommonmark
+ipython_genutils
+sphinx-design
+jupytext==1.13.8
+sphinxcontrib-bibtex
+docutils == 0.16
+matplotlib
+scienceplots
+ml_confs
+-e ".[full]"
