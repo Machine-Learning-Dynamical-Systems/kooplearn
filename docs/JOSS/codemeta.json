@@ -1,0 +1,65 @@
+{
+  "@context": "https://raw.githubusercontent.com/codemeta/codemeta/master/codemeta.jsonld",
+  "@type": "Code",
+  "author": [
+    {
+      "@id": "https://orcid.org/0000-0003-1623-5659",
+      "@type": "Person",
+      "email": "pietro.novelli@iit.it",
+      "name": "Pietro Novelli",
+      "affiliation": "Istituto Italiano di Tecnologia"
+    },
+    {
+      "@id": "",
+      "@type": "Person",
+      "email": "",
+      "name": "GregoirePacreau",
+      "affiliation": ""
+    },
+    {
+      "@id": "",
+      "@type": "Person",
+      "email": "",
+      "name": "Bruno",
+      "affiliation": ""
+    },
+    {
+      "@id": "https://orcid.org/0000-0002-3405-9292",
+      "@type": "Person",
+      "email": "giacomo.turri@iit.it",
+      "name": "Giacomo Turri",
+      "affiliation": "Italian Institute of Technology"
+    },
+    {
+      "@id": "https://orcid.org/0000-0002-2876-8834",
+      "@type": "Person",
+      "email": "vladimir.kostic@iit.it",
+      "name": "Vladimir Kostic",
+      "affiliation": "Italian Institute of Technology"
+    },
+    {
+      "@id": "",
+      "@type": "Person",
+      "email": "daniel.ordonez@iit.it",
+      "name": "Daniel Ordonez",
+      "affiliation": "Italian Institute of Technology"
+    },
+    {
+      "@id": "https://orcid.org/0000-0002-4633-2954",
+      "@type": "Person",
+      "email": "giacomo.meanti@gmail.com",
+      "name": "gmeanti",
+      "affiliation": "INRIA"
+    }
+  ],
+  "identifier": "",
+  "codeRepository": "https://github.com/Machine-Learning-Dynamical-Systems/kooplearn",
+  "datePublished": "2025-10-15",
+  "dateModified": "2025-10-15",
+  "dateCreated": "2025-10-15",
+  "description": "A Python library for Koopman and Transfer operator learning",
+  "keywords": "python, dynamical systems, koopman operator, transfer operator, operator learning, machine learning, representation learning, feature maps, kernel methods",
+  "license": "MIT",
+  "title": "kooplearn",
+  "version": "v2.0.0"
+}
