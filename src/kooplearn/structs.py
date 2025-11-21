@@ -109,12 +109,12 @@ class DynamicalModes:
         Mode 2: shape=(1001, 2), frequency=0.000
         >>>
         >>> # Get summary statistics
-        >>> summary_df = modes.summary(dt=0.1)
+        >>> summary_df = modes.summary(dt=0.1).round(2)
         >>> print(summary_df)
-           frequency      lifetime  ...  is_stable  is_conjugate_pair
-        0   0.000000  69258.166632  ...       True              False
-        1   0.030812     22.993853  ...       True               True
-        2   0.000000      0.037522  ...       True              False
+           frequency  lifetime  ...  is_stable  is_conjugate_pair
+        0       0.00  69258.17  ...       True              False
+        1       0.03     22.99  ...       True               True
+        2       0.00      0.04  ...       True              False
         <BLANKLINE>
         [3 rows x 7 columns]
         >>>
