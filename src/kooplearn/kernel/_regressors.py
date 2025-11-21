@@ -250,6 +250,7 @@ def pcr(
     if svd_solver == "arpack":
         _num_arpack_eigs = min(rank + 5, kernel_X.shape[0])
         v0 = _init_arpack_v0(npts, random_state)
+
         values, vectors = eigsh(
             kernel_X, k=_num_arpack_eigs, v0=v0, maxiter=max_iter, tol=tol
         )
@@ -318,6 +319,7 @@ def nystroem_pcr(
     reg = max(eps, tikhonov_reg)
     kernel_Xnys_sq = kernel_Xnys.T @ kernel_Xnys
     add_diagonal_(kernel_X, reg * ncenters)
+    add_diagonal_(kernel_Xnys_sq, reg * ncenters)
     if svd_solver == "dense":
         values, vectors = scipy.linalg.eigh(
             kernel_Xnys_sq, kernel_X
@@ -326,6 +328,7 @@ def nystroem_pcr(
         _oversampling = max(10, 4 * int(np.sqrt(rank)))
         _num_arpack_eigs = min(rank + _oversampling, ncenters)
         v0 = _init_arpack_v0(kernel_Xnys_sq.shape[0], random_state)
+
         values, vectors = eigsh(
             kernel_Xnys_sq,
             M=kernel_X,
@@ -338,6 +341,7 @@ def nystroem_pcr(
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
     add_diagonal_(kernel_X, -reg * ncenters)
+    add_diagonal_(kernel_Xnys_sq, -reg * ncenters)
 
     values, stable_values_idxs = stable_topk(values, rank, ignore_warnings=False)
     vectors = vectors[:, stable_values_idxs]
@@ -534,7 +538,8 @@ def nystroem_reduced_rank(
     kernel_Xnys_sq = (kernel_Xnys.T / sqrt_Mn) @ (kernel_Xnys / sqrt_Mn)
     +reg * kernel_X * (num_centers**-1)
 
-    add_diagonal_(kernel_Xnys_sq, eps)
+    add_diagonal_(kernel_Xnys_sq, reg * num_centers)
+    add_diagonal_(kernel_XYX, reg * num_centers)
     A = scipy.linalg.lstsq(kernel_Xnys_sq, kernel_XYX)[0]
     if svd_solver == "dense":
         values, vectors = scipy.linalg.eigh(
@@ -554,7 +559,8 @@ def nystroem_reduced_rank(
         )
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
-    add_diagonal_(kernel_Xnys_sq, -eps)
+    add_diagonal_(kernel_Xnys_sq, -reg * num_centers)
+    add_diagonal_(kernel_XYX, -reg * num_centers)
     values, stable_values_idxs = stable_topk(values, rank, ignore_warnings=False)
     vectors = vectors[:, stable_values_idxs]
     # Compare the filtered eigenvalues with the regularization strength, and warn

@@ -185,6 +185,7 @@ def test_random_state_reproducibility():
     model2.fit(X)
     np.testing.assert_allclose(model1.U_, model2.U_, rtol=1e-10)
 
+
 def test_score_training_and_test_alignment():
     """Verify score() on training data equals manual metric computation and
     n_steps alignment is correct."""
@@ -214,6 +215,7 @@ def test_score_training_and_test_alignment():
     target_ns = Y_test[n_steps - 1 :]
     pred_trimmed = pred_ns[: -(n_steps - 1)]
     assert np.allclose(score_ns, r2_score(target_ns, pred_trimmed))
+
 
 def test_score_observable_usage_and_errors():
     """Verify observable scoring with provided training observable and error cases
@@ -245,6 +247,7 @@ def test_score_observable_usage_and_errors():
     bad_y = np.zeros((len(data) + 1, obs.shape[1]))
     with pytest.raises(ValueError):
         model.score(X=data, observable=True, y=bad_y)
+
 
 def test_score_with_custom_metric_and_metric_kws():
     """Verify custom metric (mean_squared_error) and passing metric_kws work."""

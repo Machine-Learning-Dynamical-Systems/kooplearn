@@ -297,7 +297,7 @@ class NystroemKernelRidge(BaseEstimator):
 
         # Adjust regularization parameter
         if self.alpha is None:
-            alpha = 0.0
+            alpha = 1e-6
         else:
             alpha = self.alpha
 
@@ -510,7 +510,7 @@ class NystroemKernelRidge(BaseEstimator):
     def dynamical_modes(self, X, observable=False) -> DynamicalModes:
         """
         Compute the mode decomposition of arbitrary observables of the
-        evolution operator at the states defined by ``X``. 
+        evolution operator at the states defined by ``X``.
         If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the evolution operator, for any observable
         :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
         :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
@@ -570,8 +570,10 @@ class NystroemKernelRidge(BaseEstimator):
         )
 
         return dmd
-    
-    def score(self, X=None, y=None, n_steps=1, observable=False, metric=r2_score, **metric_kws) -> float:
+
+    def score(
+        self, X=None, y=None, n_steps=1, observable=False, metric=r2_score, **metric_kws
+    ) -> float:
         """
         Score the model predictions for timestep ``n_steps``.
 
@@ -647,9 +649,9 @@ class NystroemKernelRidge(BaseEstimator):
         # Make predictions and align timestamps
         pred = self.predict(X_test, n_steps=n_steps, observable=observable)
         if n_steps > 1:
-            target = target[n_steps - 1:]
+            target = target[n_steps - 1 :]
             pred = pred[: -(n_steps - 1)]
-        
+
         return metric(target, pred, **metric_kws)
 
     def _svals(self):

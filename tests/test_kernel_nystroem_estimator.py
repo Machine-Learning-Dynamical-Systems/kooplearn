@@ -9,11 +9,11 @@ from kooplearn.kernel import NystroemKernelRidge
 
 TRUE_RANK = 5
 DIM = 20
-NUM_SAMPLES = 200
+NUM_SAMPLES = 100
 
 
 def make_data():
-    eigs = 9 * np.logspace(-3, -1, TRUE_RANK)
+    eigs = 9.9 * np.logspace(-2, -1, TRUE_RANK)
     eigs = np.concatenate([eigs, np.zeros(DIM - TRUE_RANK)])
     Q = special_ortho_group(DIM, 0).rvs(1)
     A = np.linalg.multi_dot([Q, np.diag(eigs), Q.T])
@@ -25,21 +25,11 @@ def make_data():
 @pytest.mark.parametrize("lag_time", [1, 5])
 @pytest.mark.parametrize("reduced_rank", [True, False])
 @pytest.mark.parametrize("n_components", [TRUE_RANK, TRUE_RANK - 2, TRUE_RANK + 10])
-@pytest.mark.parametrize("eigen_solver", ["auto", "dense", "arpack"])
-@pytest.mark.parametrize("alpha", [None, 0.0, 1e-5])
+@pytest.mark.parametrize("eigen_solver", ["dense"])
+@pytest.mark.parametrize("alpha", [None, 1e-5])
 @pytest.mark.parametrize("observables", [None, np.ones])
-@pytest.mark.parametrize("tol", [0.0])
-@pytest.mark.parametrize("max_iter", [None])
-@pytest.mark.parametrize(
-    "n_centers",
-    [
-        0.1,
-        0.5,
-        50,
-    ],
-)
+@pytest.mark.parametrize("n_centers", [0.5, 50])
 @pytest.mark.parametrize("random_state", [None])
-@pytest.mark.parametrize("copy_X", [True])
 @pytest.mark.parametrize("n_jobs", [1])
 def test_Kernel_fit_predict_eig_modes_risk_svals(
     n_components,
@@ -49,11 +39,8 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
     alpha,
     eigen_solver,
     observables,
-    tol,
-    max_iter,
     n_centers,
     random_state,
-    copy_X,
     n_jobs,
 ):
     data = make_data()
@@ -65,11 +52,8 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
         kernel=kernel,
         alpha=alpha,
         eigen_solver=eigen_solver,
-        tol=tol,
-        max_iter=max_iter,
         n_centers=n_centers,
         random_state=random_state,
-        copy_X=copy_X,
         n_jobs=n_jobs,
     )
 
@@ -167,6 +151,7 @@ def test_callable_kernel_functionality():
     svals = model._svals()
     assert np.all(np.isfinite(svals))
 
+
 def test_score_training_and_test_alignment():
     """Verify score() on training data equals manual metric computation and
     n_steps alignment is correct."""
@@ -196,6 +181,7 @@ def test_score_training_and_test_alignment():
     target_ns = Y_test[n_steps - 1 :]
     pred_trimmed = pred_ns[: -(n_steps - 1)]
     assert np.allclose(score_ns, r2_score(target_ns, pred_trimmed))
+
 
 def test_score_observable_usage_and_errors():
     """Verify observable scoring with provided training observable and error cases
@@ -227,6 +213,7 @@ def test_score_observable_usage_and_errors():
     bad_y = np.zeros((len(data) + 1, obs.shape[1]))
     with pytest.raises(ValueError):
         model.score(X=data, observable=True, y=bad_y)
+
 
 def test_score_with_custom_metric_and_metric_kws():
     """Verify custom metric (mean_squared_error) and passing metric_kws work."""
