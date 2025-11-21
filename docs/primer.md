@@ -56,6 +56,8 @@ $$
 
 In the limit of infinite data, $N\to \infty$, and infinitely dimensional encoders, $d \to \infty$, the least squares estimator converges {cite:p}`korda2018convergence` in the strong operator topology to the evolution operator $\mathsf{E}$, and similar (but weaker) asymptotic convergence results are proved for its spectrum. When $\varphi$ is fixed and finite-dimensional, the least squares estimator for evolution operator learning is implemented in {class}`kooplearn.linear_model.Ridge`.
 
+The brief [Getting Started](../examples/linear_system) tutorial showcases the {class}`~kooplearn.linear_model.Ridge` model in action. In this example, data is generated from a linear dynamical system, and a **Principal Component Regression** (PCR) model—also known as **Dynamic Mode Decomposition**—is fitted to approximate the system’s evolution.
+
 ### Dynamical Modes
 
 The spectral decomposition of $\mathsf{E}$ is approximated by expressing the least-squares estimator in its eigenvectors' basis $\mathsf{E}_{ls} = Q\Lambda Q^{-1}$, where the columns of $Q = [q_1, \cdots, q_d]$ are the eigenvectors of $\mathsf{E}_{ls}$, and $\Lambda$ is a diagonal matrix of eigenvalues. In this basis, the expected value in the future for a function $f(x) = \langle w,\varphi(x)\rangle$ is expressed as:
@@ -72,15 +74,34 @@ The spectral decomposition expresses the transition $x_t \to x_{t+1}$ as a sum o
 
 3.  The coefficient $(Q^{-1}w)_i$, in turn, indicates how the function represented by the vector $w$ relates to the $i$-th mode. This connection makes it possible to link the dynamical patterns to specific functions — or ***observables*** — thereby deepening our understanding of the system.
 
+In ```kooplearn```, extracting the dynamical modes of arbitrary observables is as simple as calling the {meth}`~kooplearn.linear_model.Ridge.dynamical_modes` method after fitting the evolution operator. The dynamical modes evaluated at states ```X``` are returned as a convenient [```DynamicalModes```](../generated/kooplearn.DynamicalModes) object, which provides direct access to eigenvalues $\lambda_i$, eigenfunctions $\Psi_{i}$, and their projections $(Q^{-1}w)_i$. 
+
+For practical examples showcasing the capabilities of [```DynamicalModes```](../generated/kooplearn.DynamicalModes), see the [Fluid Flow](../examples/fluid_flow_dmd) and [Switching System](../examples/switching_system) examples.
+
 ### Kernel methods
 
-Leveraging the kernel trick, one can learn evolution operators by deriving a closed-form solution of the least square loss in terms of kernel matrices whose elements are of the form $k(x_i, x_j) = \langle \varphi(x_i),\varphi(x_j)\rangle$, with $k(\cdot, \cdot)$ a suitable kernel function. Thanks to the theory of reproducing kernel Hilbert spaces, this class of methods is backed up by statistical learning guarantees, such as the ones derived in {cite:p}`Kostic2022,Kostic2023SpectralRates,nuske2023finite`. Similarly to the least-squares approach, one also approximates the spectral decomposition of $\mathsf{E}$ via kernel methods {cite:p}`Williams2015_KDMD,Kawahara2016, Klus2019, Das2020, Alexander2020, Meanti2023`. See the module {mod}`kooplearn.kernel` for state-of-the-art kernel methods on evolution operator learning.
+Leveraging the kernel trick, one can learn evolution operators by deriving a closed-form solution of the least square loss in terms of kernel matrices whose elements are of the form $k(x_i, x_j) = \langle \varphi(x_i),\varphi(x_j)\rangle$, where $k(\cdot, \cdot)$ is a suitable kernel function. Thanks to the theory of reproducing kernel Hilbert spaces, this class of methods is backed up by statistical learning guarantees, such as the ones derived in {cite:p}`Kostic2022,Kostic2023SpectralRates,nuske2023finite`. Similarly to the least-squares approach, one also approximates the spectral decomposition of $\mathsf{E}$ via kernel methods {cite:p}`Williams2015_KDMD,Kawahara2016, Klus2019, Das2020, Alexander2020, Meanti2023`. See the {mod}`kooplearn.kernel` module for state-of-the-art kernel methods on evolution operator learning. 
+
+The following examples illustrate practical applications of these kernel-based approaches:
+
+- [Kernel Methods](../examples/kernel_methods): Learning of **Reduced Rank Regression** (RRR), **Nyström Reduced Rank Regression** (Nyström-RRR), and **Randomized Reduced Rank Regression** (Randomized-RRR) estimators on the Lorenz-63 chaotic system using {class}`~kooplearn.kernel.KernelRidge` and {class}`~kooplearn.kernel.NystroemKernelRidge` classes.
+- [Analysing Molecular Dynamics Simulations](../examples/ala2_nys_tutorial): Spectral analysis of molecular dynamics simulations using the {class}`~kooplearn.kernel.NystroemKernelRidge` model.
+- [Prinz Potential](../examples/prinz_potential): Approximation of leading eigenfunctions of the overdamped Langevin transfer operator using the {class}`~kooplearn.kernel.KernelRidge` model.
+- [Switching System](../examples/switching_system): Behavior analysis of a switching system using the {class}`~kooplearn.kernel.KernelRidge` model.
 
 ### Deep learning
 
 In contrast to the previous approaches, where the encoder $\varphi$ is prescribed, a number of methods proposed to approximate $\mathsf{E}$ from data with end-to-end schemes including $\varphi$ as a learnable neural network. Since learning $\mathsf{E}$ ultimately entails learning its action on the linear space spanned by $\varphi$, it is appealing to choose an encoder capturing the most salient features of the dynamics.
 
 To this end, one can train $\varphi$ via an ***encoder-decoder*** scheme as proposed in {cite:p}`takeishi2017learning,Lusch2018, otto2019linearly, Azencot2020CAE, wehmeyer2018time` or with ***encoder-only*** approaches as in {cite:p}`li2017extended,Mardt2018,yeung2019learning,Kostic2023DPNets,federici2023latent, turri2025self`.
+
+In ```kooplearn```, learning $\varphi$ is easier than ever. We provide the following losses: {class}`~kooplearn.torch.nn.AutoEncoderLoss` {cite:p}`Lusch2018`, {class}`~kooplearn.torch.nn.VampLoss` {cite:p}`Mardt2018`, and {class}`~kooplearn.torch.nn.SpectralContrastiveLoss` {cite:p}`turri2025self`, all implemented for use with [```torch```](https://pytorch.org) models. We also offer their [```JAX```](https://docs.jax.dev/en/latest/index.html) functional counterparts ({meth}`~kooplearn.jax.nn.autoencoder_loss`, {meth}`~kooplearn.jax.nn.vamp_loss`, and {meth}`~kooplearn.jax.nn.spectral_contrastive_loss`). 
+
+In the following examples, we show how straightforward it is to learn $\varphi$ using these losses:
+
+- [Ordered MNIST (```torch```)](../examples/ordered_mnist_torch): Comparison of different learned feature maps for the Ordered MNIST stochastic dynamical system (see {meth}`~kooplearn.datasets.fetch_ordered_mnist` for details).
+- [Ordered MNIST (```jax```)](../examples/ordered_mnist_jax): JAX version of the above example.
+- [Logistic Map](../examples/logistic_map): Evaluation of learned representations approximating spectral properties of the noisy logistic map.
 
 ---
 
