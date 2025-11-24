@@ -71,9 +71,7 @@ def noise_features(x: np.ndarray, i: int, M: int = 10) -> np.ndarray:
     if M <= 0:
         raise ValueError(f"M must be positive, got {M}")
 
-    cst = np.sqrt(
-        np.pi * scipy.special.binom(2 * M, i) / scipy.special.beta(M + 0.5, 0.5)
-    )
+    cst = np.sqrt(np.pi * scipy.special.binom(2 * M, i) / scipy.special.beta(M + 0.5, 0.5))
     sin_term = np.sin(np.pi * x) ** (2 * M - i)
     cos_term = np.cos(np.pi * x) ** i
     return cst * sin_term * cos_term
@@ -112,8 +110,7 @@ def compute_transition_matrix(M: int = 10) -> np.ndarray:
     P = np.zeros((rank, rank))
     for i, j in np.ndindex((rank, rank)):
         P[i, j] = scipy.integrate.quad(
-            lambda x: noise_features(x, i, M=M)
-            * noise_features(logistic_map(x), j, M=M),
+            lambda x: noise_features(x, i, M=M) * noise_features(logistic_map(x), j, M=M),
             0,
             1,
         )[0]
@@ -162,9 +159,7 @@ class TrigonometricNoise:
         return self.norm * (np.cos(np.pi * x) ** (2 * self.M))
 
 
-def make_noise_rng(
-    M: int, random_state: int | None = None
-) -> NumericalInversePolynomial:
+def make_noise_rng(M: int, random_state: int | None = None) -> NumericalInversePolynomial:
     """Create a random number generator for trigonometric noise.
 
     Parameters
@@ -192,7 +187,7 @@ def make_noise_rng(
     rng = np.random.default_rng(random_state)
     noise_dist = TrigonometricNoise(M)
     noise_rng = NumericalInversePolynomial(
-        noise_dist,  # type: ignore
+        noise_dist,
         domain=(-0.5, 0.5),
         mode=0,
         random_state=rng,
@@ -230,9 +225,7 @@ def step(x: np.ndarray, noise_rng: NumericalInversePolynomial) -> np.ndarray:
     return x_next
 
 
-def compute_invariant_distribution(
-    M: int = 10, precomputed_transition_matrix: np.ndarray | None = None
-) -> Callable[[np.ndarray], np.ndarray]:
+def compute_invariant_distribution(M: int = 10, precomputed_transition_matrix: np.ndarray | None = None) -> Callable[[np.ndarray], np.ndarray]:
     """Compute the invariant distribution of the noisy logistic map.
 
     This function computes the invariant distribution of the noisy logistic
@@ -271,10 +264,7 @@ def compute_invariant_distribution(
     # Find the eigenvalue closest to 1 (the leading eigenvalue)
     leading_idx = np.argmax(np.abs(values))
     if not np.allclose(values[leading_idx], 1.0):
-        raise RuntimeError(
-            f"Leading eigenvalue is {values[leading_idx]}, expected 1.0. "
-            "The transition matrix may be incorrectly computed."
-        )
+        raise RuntimeError(f"Leading eigenvalue is {values[leading_idx]}, expected 1.0. The transition matrix may be incorrectly computed.")
 
     # Build the invariant distribution from basis functions
     mesh_size = 2**10
@@ -293,9 +283,7 @@ def compute_invariant_distribution(
     return lambda _x: np.interp(_x, x, pi)
 
 
-def _eval_eigenfunctions(
-    eigenvectors: np.ndarray, eval_points: np.ndarray, M: int = 10
-) -> np.ndarray:
+def _eval_eigenfunctions(eigenvectors: np.ndarray, eval_points: np.ndarray, M: int = 10) -> np.ndarray:
     """Evaluate eigenfunctions from basis expansion coefficients.
 
     Parameters
@@ -314,9 +302,7 @@ def _eval_eigenfunctions(
         eigenfunction values at evaluation points.
     """
     eval_points = np.asarray(eval_points)
-    eigenfunctions = np.zeros(
-        (*eval_points.shape, eigenvectors.shape[1]), dtype=eigenvectors.dtype
-    )
+    eigenfunctions = np.zeros((*eval_points.shape, eigenvectors.shape[1]), dtype=eigenvectors.dtype)
 
     for i, coeffs in enumerate(eigenvectors):
         u_basis = noise_features(logistic_map(eval_points), i, M=M)
@@ -400,17 +386,13 @@ def compute_logistic_map_eig(
         num_components = vectors.shape[1]
 
     if eval_right_on is not None:
-        eigenfunctions = _eval_eigenfunctions(
-            vectors[:, :num_components], eval_right_on, M=M
-        )
+        eigenfunctions = _eval_eigenfunctions(vectors[:, :num_components], eval_right_on, M=M)
         return values[:num_components], eigenfunctions
     else:
         return values[:num_components]
 
 
-def compute_logistic_map_invariant_pdf(
-    M: int = 10, precomputed_transition_matrix: np.ndarray | None = None
-) -> Callable[[np.ndarray], np.ndarray]:
+def compute_logistic_map_invariant_pdf(M: int = 10, precomputed_transition_matrix: np.ndarray | None = None) -> Callable[[np.ndarray], np.ndarray]:
     """Compute the invariant probability density function.
 
     The invariant PDF for the logistic map with trigonometric noise.
@@ -450,6 +432,4 @@ def compute_logistic_map_invariant_pdf(
     >>> pdf1 = compute_logistic_map_invariant_pdf(M=10, precomputed_transition_matrix=P)
     >>> pdf2 = compute_logistic_map_invariant_pdf(M=10, precomputed_transition_matrix=P)
     """
-    return compute_invariant_distribution(
-        M=M, precomputed_transition_matrix=precomputed_transition_matrix
-    )
+    return compute_invariant_distribution(M=M, precomputed_transition_matrix=precomputed_transition_matrix)

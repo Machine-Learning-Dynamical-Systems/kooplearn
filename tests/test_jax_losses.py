@@ -288,7 +288,7 @@ class TestAutoEncoderLoss:
     def test_default_params(self, sample_features):
         """Test autoencoder_loss with default parameters."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x + 0.01 * jax.random.normal(jax.random.PRNGKey(0), x.shape)
@@ -306,7 +306,7 @@ class TestAutoEncoderLoss:
     def test_reconstruction_only(self, sample_features):
         """Test autoencoder_loss with reconstruction weight only."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x + 0.1 * jax.random.normal(jax.random.PRNGKey(0), x.shape)
@@ -332,7 +332,7 @@ class TestAutoEncoderLoss:
     def test_linearity_only(self, sample_features):
         """Test autoencoder_loss with linearity weight only."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x
@@ -358,7 +358,7 @@ class TestAutoEncoderLoss:
     def test_prediction_only(self, sample_features):
         """Test autoencoder_loss with prediction weight only."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x
@@ -384,7 +384,7 @@ class TestAutoEncoderLoss:
     def test_zero_weights(self, sample_features):
         """Test autoencoder_loss with all zero weights."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x
@@ -409,7 +409,7 @@ class TestAutoEncoderLoss:
     def test_large_weights(self, sample_features):
         """Test autoencoder_loss with large weights."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x + 0.1 * jax.random.normal(jax.random.PRNGKey(0), x.shape)
@@ -435,7 +435,7 @@ class TestAutoEncoderLoss:
     def test_perfect_reconstruction(self, sample_features):
         """Test autoencoder_loss with perfect reconstructions."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x
@@ -468,7 +468,7 @@ class TestAutoEncoderLoss:
     def test_large_batch(self, large_batch_features):
         """Test autoencoder_loss with large batch size."""
         x, y = large_batch_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 10
 
         key = jax.random.PRNGKey(0)
@@ -486,7 +486,7 @@ class TestAutoEncoderLoss:
     def test_weighted_combination(self, sample_features):
         """Test that weights correctly scale loss components."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         key = jax.random.PRNGKey(0)
@@ -819,7 +819,7 @@ class TestLossesIntegration:
         """Test that all losses are differentiable."""
         x, y = sample_features
         key = jax.random.PRNGKey(0)
-        batch_size, _ = x.shape
+        _batch_size, _ = x.shape
 
         # Test loss functions with gradients
         vamp_grad = jax.grad(vamp_loss)(x, y)

@@ -74,7 +74,7 @@ class KernelRidge(BaseEstimator):
 
     eigen_solver : {'auto', 'dense', 'arpack', 'randomized'}, default='auto'
         Solver used to perform the internal SVD calculations. If ``n_components``
-        is much less than the number of training samples, ``randomized`` (or 
+        is much less than the number of training samples, ``randomized`` (or
         ``arpack`` to a smaller extent) may be more efficient than the ``dense`` solver.
 
         auto :
@@ -174,18 +174,18 @@ class KernelRidge(BaseEstimator):
         >>> from kooplearn.datasets import make_linear_system
         >>> from kooplearn.kernel import KernelRidge
         >>> import numpy as np
-        >>> 
+        >>>
         >>> # Generate a linear system
         >>> A = np.array([[0.9, 0.1], [-0.1, 0.9]])
         >>> X0 = np.array([1.0, 0.0])
         >>> data = make_linear_system(X0, A, n_steps=100, noise=0.1, random_state=42).to_numpy()
-        >>> 
+        >>>
         >>> # Fit the model
         >>> model = KernelRidge(n_components=2, kernel='linear', alpha=1e-3)
         >>> model = model.fit(data)
         >>> # Predict the future state
         >>> pred = model.predict(data)
-        >>> 
+        >>>
         >>> # Get the eigenvalues of the Koopman operator
         >>> eigvals = model.eig()
     """

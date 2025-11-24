@@ -293,7 +293,7 @@ class TestAutoEncoderLoss:
     def test_forward_returns_scalar(self, sample_features):
         """Test that forward pass returns a scalar tensor."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x + 0.01 * torch.randn_like(x)
@@ -310,7 +310,7 @@ class TestAutoEncoderLoss:
     def test_forward_dtype(self, sample_features):
         """Test that loss maintains dtype."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x.clone()
@@ -326,7 +326,7 @@ class TestAutoEncoderLoss:
     def test_reconstruction_only(self, sample_features):
         """Test AutoEncoderLoss with reconstruction weight only."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x + 0.1 * torch.randn_like(x)
@@ -343,7 +343,7 @@ class TestAutoEncoderLoss:
     def test_linearity_only(self, sample_features):
         """Test AutoEncoderLoss with linearity weight only."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x.clone()
@@ -360,7 +360,7 @@ class TestAutoEncoderLoss:
     def test_prediction_only(self, sample_features):
         """Test AutoEncoderLoss with prediction weight only."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x.clone()
@@ -377,7 +377,7 @@ class TestAutoEncoderLoss:
     def test_gradient_flow(self, sample_features):
         """Test that gradients flow through all components."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x.clone().requires_grad_(True)
@@ -397,7 +397,7 @@ class TestAutoEncoderLoss:
     def test_zero_weights(self, sample_features):
         """Test AutoEncoderLoss with all zero weights."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x.clone()
@@ -413,7 +413,7 @@ class TestAutoEncoderLoss:
     def test_large_weights(self, sample_features):
         """Test AutoEncoderLoss with large weights."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x + 0.1 * torch.randn_like(x)
@@ -430,7 +430,7 @@ class TestAutoEncoderLoss:
     def test_perfect_reconstruction(self, sample_features):
         """Test AutoEncoderLoss with perfect reconstructions."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x.clone()
@@ -464,7 +464,7 @@ class TestAutoEncoderLoss:
     def test_large_batch(self, large_batch_features):
         """Test AutoEncoderLoss with large batch size."""
         x, y = large_batch_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 10
 
         x_rec = x + 0.01 * torch.randn_like(x)
@@ -482,7 +482,7 @@ class TestAutoEncoderLoss:
     def test_weighted_combination(self, sample_features):
         """Test that weights correctly scale loss components."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
         latent_dim = 5
 
         x_rec = x + torch.randn_like(x)
@@ -518,7 +518,7 @@ class TestLossesIntegration:
     def test_losses_in_training_loop(self, sample_features):
         """Test losses in a simple training loop."""
         x, y = sample_features
-        batch_size, feat_dim = x.shape
+        batch_size, _feat_dim = x.shape
 
         losses = {
             "vamp": VampLoss(),

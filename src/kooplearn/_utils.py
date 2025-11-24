@@ -73,15 +73,11 @@ def stable_topk(
         _first_discarded_val = np.max(np.abs(top_vec[first_invalid:]))
 
         if not ignore_warnings:
-            warn(
-                f"Warning: Discarded {k_max - np.sum(valid)} dimensions of the {k_max} requested due to numerical instability. Consider decreasing k_max. The largest discarded value is: {_first_discarded_val:.3e}."
-            )
+            warn(f"Warning: Discarded {k_max - np.sum(valid)} dimensions of the {k_max} requested due to numerical instability. Consider decreasing k_max. The largest discarded value is: {_first_discarded_val:.3e}.")
         return top_vec[valid], top_idxs[valid]
 
 
-def find_complex_conjugates(
-    complex_vec: np.ndarray, tol: float = 10.0
-) -> tuple[np.ndarray, np.ndarray]:
+def find_complex_conjugates(complex_vec: np.ndarray, tol: float = 10.0) -> tuple[np.ndarray, np.ndarray]:
     """
     Identify complex conjugate pairs and real eigenvalues in an array.
 
@@ -139,9 +135,7 @@ def find_complex_conjugates(
         [2]
     """
     # Validate input type
-    assert issubclass(complex_vec.dtype.type, np.complexfloating), (
-        "The input element should be complex"
-    )
+    assert issubclass(complex_vec.dtype.type, np.complexfloating), "The input element should be complex"
 
     # Validate input dimensionality
     if complex_vec.ndim != 1:
@@ -165,10 +159,7 @@ def find_complex_conjugates(
 
     # Verify that remaining elements are actually real
     if not np.allclose(np.imag(complex_vec[maybe_real_idxs]), 0):
-        raise ValueError(
-            "The input vector contains some complex element with no matching "
-            "complex conjugate pair."
-        )
+        raise ValueError("The input vector contains some complex element with no matching complex conjugate pair.")
 
     return cc_pairs, maybe_real_idxs
 
@@ -195,9 +186,7 @@ def fuzzy_parse_complex(vec: np.ndarray, tol: float = 10.0) -> np.ndarray:
         A new array with the real parts of close complex numbers averaged
         and imaginary parts close to zero set to zero.
     """
-    assert issubclass(vec.dtype.type, np.complexfloating), (
-        "The input element should be complex"
-    )
+    assert issubclass(vec.dtype.type, np.complexfloating), "The input element should be complex"
     rcond = tol * np.finfo(vec.dtype).eps
     pdist_real_part = pdist(vec.real[:, None])
     # Set the same element whenever pdist is smaller than eps*tol
@@ -243,17 +232,13 @@ def row_col_from_condensed_index(d: int, index: int) -> tuple[int, int]:
 
 def check_torch_deps():
     try:
-        import torch
+        import torch  # noqa: F401
     except ImportError:
-        raise ImportError(
-            "To use kooplearn's deep learning losses please reinstall it with the `torch` extra flag by typing `pip install kooplearn[torch]`."
-        )
+        raise ImportError("To use kooplearn's deep learning losses please reinstall it with the `torch` extra flag by typing `pip install kooplearn[torch]`.")
 
 
 def check_jax_deps():
     try:
-        import jax
+        import jax  # noqa: F401
     except ImportError:
-        raise ImportError(
-            "To use kooplearn's deep learning losses please reinstall it with the `jax` extra flag by typing `pip install kooplearn[jax]`."
-        )
+        raise ImportError("To use kooplearn's deep learning losses please reinstall it with the `jax` extra flag by typing `pip install kooplearn[jax]`.")

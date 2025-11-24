@@ -74,7 +74,7 @@ class NystroemKernelRidge(BaseEstimator):
 
     eigen_solver : {'auto', 'dense', 'arpack'}, default='auto'
         Solver used to perform the internal SVD calcuations. If ``n_components``
-        is much less than the number of training samples, ``arpack`` may be more 
+        is much less than the number of training samples, ``arpack`` may be more
         efficient than the ``dense`` eigensolver.
 
         auto :
@@ -158,7 +158,7 @@ class NystroemKernelRidge(BaseEstimator):
         (see :cite:t:`kernelridge-Kostic2022`).
     rank_ : int
         Effective rank of the fitted estimator.
-        
+
     Examples
     --------
     .. code-block:: python
@@ -166,19 +166,19 @@ class NystroemKernelRidge(BaseEstimator):
         >>> from kooplearn.datasets import make_linear_system
         >>> from kooplearn.kernel import NystroemKernelRidge
         >>> import numpy as np
-        >>> 
+        >>>
         >>> # Generate a linear system
         >>> A = np.array([[0.9, 0.1], [-0.1, 0.9]])
         >>> X0 = np.array([1.0, 0.0])
         >>> data = make_linear_system(X0, A, n_steps=100, noise=0.1, random_state=42).to_numpy()
-        >>> 
+        >>>
         >>> # Fit the model
         >>> model = NystroemKernelRidge(n_components=2, kernel='linear', alpha=1e-3)
         >>> model = model.fit(data)
-        >>> 
+        >>>
         >>> # Predict the future state
         >>> pred = model.predict(data)
-        >>> 
+        >>>
         >>> # Get the eigenvalues of the Koopman operator
         >>> eigvals = model.eig()
     """

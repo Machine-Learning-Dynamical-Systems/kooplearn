@@ -538,8 +538,7 @@ def nystroem_reduced_rank(
     kernel_Xnys_sq = (kernel_Xnys.T / sqrt_Mn) @ (kernel_Xnys / sqrt_Mn)
     +reg * kernel_X * (num_centers**-1)
 
-    add_diagonal_(kernel_Xnys_sq, reg * num_centers)
-    add_diagonal_(kernel_XYX, reg * num_centers)
+    add_diagonal_(kernel_Xnys_sq, eps)
     A = scipy.linalg.lstsq(kernel_Xnys_sq, kernel_XYX)[0]
     if svd_solver == "dense":
         values, vectors = scipy.linalg.eigh(
@@ -559,8 +558,7 @@ def nystroem_reduced_rank(
         )
     else:
         raise ValueError(f"Unknown svd_solver {svd_solver}")
-    add_diagonal_(kernel_Xnys_sq, -reg * num_centers)
-    add_diagonal_(kernel_XYX, -reg * num_centers)
+    add_diagonal_(kernel_Xnys_sq, -eps)
     values, stable_values_idxs = stable_topk(values, rank, ignore_warnings=False)
     vectors = vectors[:, stable_values_idxs]
     # Compare the filtered eigenvalues with the regularization strength, and warn

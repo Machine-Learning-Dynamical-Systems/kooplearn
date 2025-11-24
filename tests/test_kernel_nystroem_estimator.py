@@ -95,7 +95,7 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
         assert modes[0].shape == obs_shape
 
     # Eigen-decomposition
-    vals, lv, rv = model.eig(eval_left_on=data, eval_right_on=data)
+    vals, _lv, _rv = model.eig(eval_left_on=data, eval_right_on=data)
     assert vals.ndim == 1
     assert vals.shape[0] <= n_components
     assert np.isfinite(vals).all()
