@@ -5,55 +5,55 @@ This report details inconsistencies, bugs, and other issues found in the `koople
 ## `src/kooplearn/_linalg.py`
 
 - **`spd_neg_pow` function:**
-    - [ ] The docstring refers to `A` but the parameter is `M`.
-    - [ ] The `strategy` parameter's accepted values ("trunc", "tikhonov") are not documented.
-    - [ ] The return value is not documented.
+    - [x] The docstring refers to `A` but the parameter is `M`.
+    - [x] The `strategy` parameter's accepted values ("trunc", "tikhonov") are not documented.
+    - [x] The return value is not documented.
 - **`covariance` function:**
-    - [ ] The function is missing a docstring.
-    - [ ] The return value is not documented.
+    - [x] The function is missing a docstring.
+    - [x] The return value is not documented.
 - **`weighted_norm` function:**
-    - [ ] The type hint for the `M` parameter is `ndarray | None`, but the docstring says `ndarray or LinearOperator`. The usage of `.T` implies it should be `ndarray`. This should be clarified.
+    - [x] The type hint for the `M` parameter is `ndarray | None`, but the docstring says `ndarray or LinearOperator`. The usage of `.T` implies it should be `ndarray`. This should be clarified.
 - **`eigh_rank_reveal` function:**
-    - [ ] The function is missing a docstring.
-    - [ ] The parameters `values`, `vectors`, `rank`, `rcond`, `ignore_warnings` are not documented.
-    - [ ] The return value is not documented.
-    - [ ] There is a typo in the warning message: "Discarted" should be "Discarded".
+    - [x] The function is missing a docstring.
+    - [x] The parameters `values`, `vectors`, `rank`, `rcond`, `ignore_warnings` are not documented.
+    - [x] The return value is not documented.
+    - [x] There is a typo in the warning message: "Discarted" should be "Discarded".
 
 ## `src/kooplearn/_utils.py`
 
 - **`stable_topk` function:**
-    - [ ] The docstring for `ignore_warnings` contains a typo: "discarted" should be "discarded".
-    - [ ] The warning message contains a typo: "Discarted" should be "Discarded".
-    - [ ] The warning message suggests decreasing "k", but the parameter is named `k_max`.
+    - [x] The docstring for `ignore_warnings` contains a typo: "discarted" should be "discarded".
+    - [x] The warning message contains a typo: "Discarted" should be "Discarded".
+    - [x] The warning message suggests decreasing "k", but the parameter is named `k_max`.
 - **`find_complex_conjugates` function:**
-    - [ ] The type hint `np.ndarray[np.complexfloating]` is not standard. It should be `np.ndarray`, and the complex nature of the array should be described in the docstring.
-    - [ ] The return type hint `tuple[np.ndarray[np.int64], np.ndarray[np.int64]]` is not standard. It should be `tuple[np.ndarray, np.ndarray]`.
+    - [x] The type hint `np.ndarray[np.complexfloating]` is not standard. It should be `np.ndarray`, and the complex nature of the array should be described in the docstring.
+    - [x] The return type hint `tuple[np.ndarray[np.int64], np.ndarray[np.int64]]` is not standard. It should be `tuple[np.ndarray, np.ndarray]`.
 - **`fuzzy_parse_complex` function:**
-    - [ ] The function is missing a docstring.
-    - [ ] The return value is not documented.
+    - [x] The function is missing a docstring.
+    - [x] The return value is not documented.
 - **`row_col_from_condensed_index` function:**
-    - [ ] The function is missing a docstring.
-    - [ ] The parameters `d` and `index` are not documented.
-    - [ ] The return value is not documented.
+    - [x] The function is missing a docstring.
+    - [x] The parameters `d` and `index` are not documented.
+    - [x] The return value is not documented.
 
 ## `src/kooplearn/datasets/_logistic_map.py`
 
 - **`logistic_map` function:**
-    - [ ] The function is missing a docstring.
+    - [x] The function is missing a docstring.
 - **`noise_features` function:**
-    - [ ] The function is missing a docstring.
+    - [x] The function is missing a docstring.
 - **`transition_matrix` function:**
-    - [ ] The function is missing a docstring.
+    - [x] The function is missing a docstring.
 - **`TrigonometricNoise` class:**
-    - [ ] The class is missing a docstring.
+    - [x] The class is missing a docstring.
 - **`make_noise_rng` function:**
-    - [ ] The function is missing a docstring.
+    - [x] The function is missing a docstring.
 - **`step` function:**
-    - [ ] The function is missing a docstring.
+    - [x] The function is missing a docstring.
 - **`invariant_distribution` function:**
-    - [ ] The function is missing a docstring.
+    - [x] The function is missing a docstring.
 - **`equilibrium_density_ratio` function:**
-    - [ ] The function is missing a docstring.
+    - [x] The function is missing a docstring.
 - **`_eval_eigenfunctions` function:**
     - [ ] The docstring for the `eigenvectors` parameter states the shape is `(num_basis, num_modes)`, but the code iterates as `for i, coeffs in enumerate(eigenvectors):`, which implies the shape is `(num_modes, num_basis)`. This is inconsistent.
     - [ ] The variable `coeffs` is used in the loop but it is not defined. It seems it should be `eigenvectors[i]`.
