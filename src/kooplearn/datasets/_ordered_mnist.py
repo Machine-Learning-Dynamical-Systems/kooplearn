@@ -48,7 +48,7 @@ def fetch_ordered_mnist(
     Returns
     -------
     images : ndarray of shape (n_samples, 28, 28)
-        Array of grayscale MNIST images (uint8).
+        Array of grayscale MNIST images, with values scaled to the [0, 1] range (float64).
 
     targets : ndarray of shape (n_samples,)
         Corresponding digit labels (integers in ``[0, num_digits - 1]``).

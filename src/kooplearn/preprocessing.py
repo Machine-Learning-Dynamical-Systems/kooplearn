@@ -221,7 +221,7 @@ class FeatureFlattener(BaseEstimator, TransformerMixin):
         -------
         self : object
             Fitted transformer instance.
-        """        
+        """
         self._feature_shape = X.shape[1:]
         self._is_fitted = True
         return self
@@ -258,7 +258,7 @@ class FeatureFlattener(BaseEstimator, TransformerMixin):
 
         Returns
         -------
-        ndarray of shape (n_samples, ...) 
+        ndarray of shape (n_samples, ...)
             Data reshaped to the original feature dimensions.
         """
         n_samples = X.shape[0]

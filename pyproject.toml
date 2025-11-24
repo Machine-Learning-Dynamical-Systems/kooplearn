@@ -1,6 +1,6 @@
 [project]
 name = "kooplearn"
-version = "2.0.0rc1"
+version = "2.0.0rc2"
 description = "A python package for evolution operator learning"
 readme = "README.md"
 authors = [
@@ -69,12 +69,10 @@ exclude=[
 ]
 
 [tool.ruff.lint]
-# This enables us to use CPY001: copyright header check
-preview = true
 # This enables us to use the explicit preview rules that we want only
 explicit-preview-rules = true
 # all rules can be found here: https://docs.astral.sh/ruff/rules/
-extend-select = ["E501", "W", "I", "CPY001", "PGH", "RUF", "TID252"]
+extend-select = ["E501", "W", "I", "PGH", "RUF", "TID252"]
 ignore=[
     # do not assign a lambda expression, use a def
     "E731",
@@ -118,17 +116,3 @@ ban-relative-imports = "all"
 "examples/*"=["E402"]
 "doc/conf.py"=["E402"]
 "**/tests/*"=["CPY001"]
-"asv_benchmarks/*"=["CPY001", "TID252"]
-"benchmarks/*"=["CPY001"]
-"doc/*"=["CPY001"]
-"build_tools/*"=["CPY001"]
-"sklearn/_build_utils/*"=["CPY001"]
-"maint_tools/*"=["CPY001"]
-".spin/*"=["CPY001"]
-".github/*"=["CPY001"]
-# __doc__ is too long (>4096 chars) and therefore false positive on copyright check
-"examples/model_selection/plot_precision_recall.py"=["CPY001"]
-"examples/svm/plot_rbf_parameters.py"=["CPY001"]
-# __all__ has un-imported names
-"sklearn/__init__.py"=["F822"]
-"sklearn/utils/_metadata_requests.py"=["CPY001"]

@@ -1,4 +1,3 @@
-from math import sqrt
 from warnings import warn
 
 import numpy as np
@@ -10,30 +9,52 @@ def stable_topk(
     k_max: int,
     rcond: float | None = None,
     ignore_warnings: bool = True,
-):
-    """Takes up to k_max indices of the top k_max values of vec. If the values are below rcond, they are discarded.
+) -> tuple[np.ndarray, np.ndarray]:
+    """Takes up to k_max indices of the top k_max values of vec.
 
-    Args:
-        vec (ndarray): Vector to extract the top k indices from.
-        k_max (int): Number of indices to extract.
-        rcond (float, optional): Value below which the values are discarded. Defaults to None, in which case it is set according to the machine precision of vec's dtype.
-        ignore_warnings (bool): If False, raise a warning when some elements are discarted for being below the requested numerical precision.
+    If the values are below rcond, they are discarded.
 
+    Parameters
+    ----------
+    vec : np.ndarray
+        Vector to extract the top k indices from.
+    k_max : int
+        Number of indices to extract.
+    rcond : float or None, optional
+        Value below which the values are discarded. Default is None, in which case
+        it is set according to the machine precision of vec's dtype.
+    ignore_warnings : bool, optional
+        If False, raise a warning when some elements are discarded for being below
+        the requested numerical precision. Default is True.
+
+    Returns
+    -------
+    values : np.ndarray
+        Top k values (up to k_max, filtered by rcond).
+    indices : np.ndarray
+        Indices of the top k values.
     """
 
-    def _topk(vec: np.ndarray, k: int):
+    def _topk(vec: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
         """Get the top k values from a Numpy array.
 
-        Args:
-            vec (ndarray): A 1D numpy array
-            k (int): Number of elements to keep
+        Parameters
+        ----------
+        vec : np.ndarray
+            A 1D numpy array.
+        k : int
+            Number of elements to keep.
 
-        Returns:
-            values, indices: top k values and their indices
+        Returns
+        -------
+        values : np.ndarray
+            Top k values.
+        indices : np.ndarray
+            Indices of the top k values.
         """
         assert np.ndim(vec) == 1, "'vec' must be a 1D array"
         assert k > 0, "k should be greater than 0"
-        sort_perm = np.flip(np.argsort(vec))  # descending order
+        sort_perm = np.argsort(vec)[::-1]  # descending order
         indices = sort_perm[:k]
         values = vec[indices]
         return values, indices
@@ -48,19 +69,15 @@ def stable_topk(
     else:
         valid = top_vec > rcond
         # In the case of multiple occurrences of the maximum vec, the indices corresponding to the first occurrence are returned.
-        first_invalid = np.argmax(np.logical_not(valid))
-        _first_discarded_val = np.max(np.abs(vec[first_invalid:]))
+        first_invalid = np.argmax(~valid)
+        _first_discarded_val = np.max(np.abs(top_vec[first_invalid:]))
 
         if not ignore_warnings:
-            warn(
-                f"Warning: Discarted {k_max - np.sum(valid)} dimensions of the {k_max} requested due to numerical instability. Consider decreasing the k. The largest discarded value is: {_first_discarded_val:.3e}."
-            )
+            warn(f"Warning: Discarded {k_max - np.sum(valid)} dimensions of the {k_max} requested due to numerical instability. Consider decreasing k_max. The largest discarded value is: {_first_discarded_val:.3e}.")
         return top_vec[valid], top_idxs[valid]
 
 
-def find_complex_conjugates(
-    complex_vec: np.ndarray[np.complexfloating], tol: float = 10.0
-) -> tuple[np.ndarray[np.int64], np.ndarray[np.int64]]:
+def find_complex_conjugates(complex_vec: np.ndarray, tol: float = 10.0) -> tuple[np.ndarray, np.ndarray]:
     """
     Identify complex conjugate pairs and real eigenvalues in an array.
 
@@ -118,9 +135,7 @@ def find_complex_conjugates(
         [2]
     """
     # Validate input type
-    assert issubclass(complex_vec.dtype.type, np.complexfloating), (
-        "The input element should be complex"
-    )
+    assert issubclass(complex_vec.dtype.type, np.complexfloating), "The input element should be complex"
 
     # Validate input dimensionality
     if complex_vec.ndim != 1:
@@ -144,18 +159,34 @@ def find_complex_conjugates(
 
     # Verify that remaining elements are actually real
     if not np.allclose(np.imag(complex_vec[maybe_real_idxs]), 0):
-        raise ValueError(
-            "The input vector contains some complex element with no matching "
-            "complex conjugate pair."
-        )
+        raise ValueError("The input vector contains some complex element with no matching complex conjugate pair.")
 
     return cc_pairs, maybe_real_idxs
 
 
-def fuzzy_parse_complex(vec: np.ndarray, tol: float = 10.0):
-    assert issubclass(vec.dtype.type, np.complexfloating), (
-        "The input element should be complex"
-    )
+def fuzzy_parse_complex(vec: np.ndarray, tol: float = 10.0) -> np.ndarray:
+    """Average the real parts of complex numbers that are close to each other.
+
+    This function identifies complex numbers in a vector whose real parts are
+    closer than a given tolerance. It then averages their real parts.
+    Imaginary parts close to zero are set to zero.
+
+    Parameters
+    ----------
+    vec : np.ndarray
+        A 1D array of complex numbers.
+    tol : float, optional
+        Tolerance multiplier for machine epsilon. The actual tolerance is
+        `tol * eps`, where `eps` is the machine epsilon for the array's
+        dtype. Default is 10.0.
+
+    Returns
+    -------
+    np.ndarray
+        A new array with the real parts of close complex numbers averaged
+        and imaginary parts close to zero set to zero.
+    """
+    assert issubclass(vec.dtype.type, np.complexfloating), "The input element should be complex"
     rcond = tol * np.finfo(vec.dtype).eps
     pdist_real_part = pdist(vec.real[:, None])
     # Set the same element whenever pdist is smaller than eps*tol
@@ -172,27 +203,42 @@ def fuzzy_parse_complex(vec: np.ndarray, tol: float = 10.0):
     return fuzzy_real + 1j * fuzzy_imag
 
 
-def row_col_from_condensed_index(d, index):
+def row_col_from_condensed_index(d: int, index: int) -> tuple[int, int]:
+    """Convert a condensed index to a row-column index.
+
+    Converts a condensed index from `scipy.spatial.distance.pdist` to a
+    row-column index in a square matrix.
+
+    Parameters
+    ----------
+    d : int
+        The dimension of the square matrix.
+    index : int
+        The condensed index.
+
+    Returns
+    -------
+    i : int
+        Row index.
+    j : int
+        Column index.
+    """
     # Credits to: https://stackoverflow.com/a/14839010
     b = 1 - (2 * d)
-    i = (-b - sqrt(b**2 - 8 * index)) // 2
+    i = (-b - np.sqrt(b**2 - 8 * index)) // 2
     j = index + i * (b + i + 2) // 2 + 1
-    return (int(i), int(j))
+    return int(i), int(j)
 
 
 def check_torch_deps():
     try:
-        import torch
+        import torch  # noqa: F401
     except ImportError:
-        raise ImportError(
-            "To use kooplearn's deep learning losses please reinstall it with the `torch` extra flag by typing `pip install kooplearn[torch]`."
-        )
+        raise ImportError("To use kooplearn's deep learning losses please reinstall it with the `torch` extra flag by typing `pip install kooplearn[torch]`.")
 
 
 def check_jax_deps():
     try:
-        import jax
+        import jax  # noqa: F401
     except ImportError:
-        raise ImportError(
-            "To use kooplearn's deep learning losses please reinstall it with the `jax` extra flag by typing `pip install kooplearn[jax]`."
-        )
+        raise ImportError("To use kooplearn's deep learning losses please reinstall it with the `jax` extra flag by typing `pip install kooplearn[jax]`.")

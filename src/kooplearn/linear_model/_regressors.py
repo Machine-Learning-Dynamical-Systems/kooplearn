@@ -16,13 +16,6 @@ from kooplearn._linalg import (
 from kooplearn._utils import fuzzy_parse_complex, stable_topk
 from kooplearn.structs import EigResult, FitResult
 
-__all__ = [
-    "primal_pcr",
-    "primal_rand_pcr",
-    "primal_rand_reduced_rank",
-    "primal_reduced_rank",
-]
-
 
 def estimator_risk(
     fit_result: FitResult,
@@ -36,13 +29,13 @@ def estimator_risk(
 
     Parameters
     ----------
-    cov_Xv : ndarray of shape (n_val, n_val)
+    cov_Xv : ndarray of shape (n_feats, n_feats)
         Covariance matrix of validation inputs.
-    cov_Yv : ndarray of shape (n_val, n_val)
+    cov_Yv : ndarray of shape (n_feats, n_feats)
         Covariance matrix of validation outputs.
-    cov_XYv : ndarray of shape (n_train, n_val)
+    cov_XYv : ndarray of shape (n_feats, n_feats)
         Cross-covariance matrix of validation data.
-    cov_XY : ndarray of shape (n_train, n_train)
+    cov_XY : ndarray of shape (n_feats, n_feats)
         Cross-covariance matrix of training data.
     fit_result : FitResult
         Dictionary containing 'U' and 'V' matrices.

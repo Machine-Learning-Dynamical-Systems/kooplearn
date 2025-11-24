@@ -74,7 +74,7 @@ class NystroemKernelRidge(BaseEstimator):
 
     eigen_solver : {'auto', 'dense', 'arpack'}, default='auto'
         Solver used to perform the internal SVD calcuations. If ``n_components``
-        is much less than the number of training samples, ``arpack`` may be more 
+        is much less than the number of training samples, ``arpack`` may be more
         efficient than the ``dense`` eigensolver.
 
         auto :
@@ -158,7 +158,7 @@ class NystroemKernelRidge(BaseEstimator):
         (see :cite:t:`kernelridge-Kostic2022`).
     rank_ : int
         Effective rank of the fitted estimator.
-        
+
     Examples
     --------
     .. code-block:: python
@@ -166,19 +166,19 @@ class NystroemKernelRidge(BaseEstimator):
         >>> from kooplearn.datasets import make_linear_system
         >>> from kooplearn.kernel import NystroemKernelRidge
         >>> import numpy as np
-        >>> 
+        >>>
         >>> # Generate a linear system
         >>> A = np.array([[0.9, 0.1], [-0.1, 0.9]])
         >>> X0 = np.array([1.0, 0.0])
         >>> data = make_linear_system(X0, A, n_steps=100, noise=0.1, random_state=42).to_numpy()
-        >>> 
+        >>>
         >>> # Fit the model
         >>> model = NystroemKernelRidge(n_components=2, kernel='linear', alpha=1e-3)
         >>> model = model.fit(data)
-        >>> 
+        >>>
         >>> # Predict the future state
         >>> pred = model.predict(data)
-        >>> 
+        >>>
         >>> # Get the eigenvalues of the Koopman operator
         >>> eigvals = model.eig()
     """
@@ -721,11 +721,40 @@ class NystroemKernelRidge(BaseEstimator):
     def _init_nys_kernels(
         self, X: np.ndarray, Y: np.ndarray, X_nys: np.ndarray, Y_nys: np.ndarray
     ):
+        """Initialize Nyström kernel matrices for training.
+
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, n_features)
+            Initial states of the trajectory.
+        Y : ndarray of shape (n_samples, n_features)
+            Evolved states of the trajectory.
+        X_nys : ndarray of shape (n_centers, n_features)
+            Selected Nyström centers from the initial states.
+        Y_nys : ndarray of shape (n_centers, n_features)
+            Selected Nyström centers from the evolved states.
+
+        Returns
+        -------
+        K_X : ndarray of shape (n_samples, n_centers)
+            Nyström kernel matrix between initial states and Nyström centers.
+
+        K_Y : ndarray of shape (n_samples, n_centers)
+            Nyström kernel matrix between evolved states and Nyström centers.
+        """
         K_X = self._get_kernel(X, X_nys)
         K_Y = self._get_kernel(Y, Y_nys)
         return K_X, K_Y
 
-    def _center_selection(self, num_pts: int):
+    def _center_selection(self, num_pts: int) -> np.ndarray:
+        """Center selection for the Nyström method
+
+        Args:
+            num_pts (int): Number of points to select from.
+
+        Returns:
+            np.ndarray: Indices of the selected centers.
+        """
         if self.n_centers < 1:
             n_centers = int(np.ceil(self.n_centers * num_pts))
         else:
@@ -745,5 +774,5 @@ class NystroemKernelRidge(BaseEstimator):
         tags = super().__sklearn_tags__()
         tags.target_tags.required = False
         tags.requires_fit = True
-        tags.non_deterministic = self.eigen_solver == "randomized"
+        tags.non_deterministic = True
         return tags

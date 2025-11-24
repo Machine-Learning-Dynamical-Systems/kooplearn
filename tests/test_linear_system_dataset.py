@@ -181,7 +181,7 @@ def test_make_linear_system_dimension_mismatch():
     A = np.eye(3)
     X0 = np.array([1.0, 0.0])  # Wrong dimension
 
-    with pytest.raises(ValueError, match="X0 dimension .* must match A dimension"):
+    with pytest.raises(ValueError, match=r"X0 dimension .* must match A dimension"):
         make_linear_system(X0, A, n_steps=10)
 
 

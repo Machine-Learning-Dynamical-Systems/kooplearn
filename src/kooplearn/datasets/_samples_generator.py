@@ -3,8 +3,6 @@ from math import sqrt
 import numpy as np
 import pandas as pd
 import scipy.integrate
-import scipy.special
-from scipy.stats.sampling import NumericalInversePolynomial
 
 
 def make_duffing(
@@ -488,8 +486,6 @@ def make_logistic_map(
         the noise distribution more peaked around zero. If ``M <= 0``, no
         noise is added.
 
-    noise : float, default=0.0
-
     dt : float, default=1.0
         Time step size. For discrete-time systems, this is typically 1.0.
 
@@ -555,7 +551,7 @@ def make_logistic_map(
 
     For the noisy logistic map with :math:`r = 4`, the Koopman operator
     has known eigenfunctions that can be computed using the companion
-    function ``compute_logistic_map_eigenfunctions``.
+    function :func:``kooplearn.datasets.compute_logistic_map_eig``.
 
     """
     # Handle X0
@@ -574,7 +570,9 @@ def make_logistic_map(
 
     # Setup noise generator if needed
     if M > 0:
-        noise_rng = _make_noise_rng(M, rng)
+        from kooplearn.datasets._logistic_map import make_noise_rng
+
+        noise_rng = make_noise_rng(M, rng)
     else:
         noise_rng = None
 
@@ -618,24 +616,6 @@ def make_logistic_map(
     }
 
     return df
-
-
-def _make_noise_rng(M, rng):
-    """Create noise random number generator with trigonometric distribution."""
-
-    class TrigonometricNoise:
-        def __init__(self, M):
-            self.M = M
-            self.norm = np.pi / scipy.special.beta(M + 0.5, 0.5)
-
-        def pdf(self, x):
-            return self.norm * ((np.cos(np.pi * x)) ** (2 * self.M))
-
-    noise_dist = TrigonometricNoise(M)
-    noise_rng = NumericalInversePolynomial(
-        noise_dist, domain=(-0.5, 0.5), mode=0, random_state=rng
-    )
-    return noise_rng
 
 
 def make_regime_switching_var(
@@ -793,7 +773,7 @@ def make_prinz_potential(
     X0,
     n_steps=10000,
     dt=1e-4,
-    gamma=1.0,
+    gamma=0.1,
     sigma=sqrt(2.0),
     random_state=None,
 ):

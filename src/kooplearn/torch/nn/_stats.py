@@ -5,6 +5,7 @@ from math import sqrt
 import torch
 from torch import Tensor
 
+
 def covariance(
     X: Tensor,
     Y: Tensor | None = None,
@@ -100,7 +101,7 @@ def cov_norm_squared_unbiased(x: Tensor, permutation=None):
             &= \mathbb{E}_{x,x' \sim p(x)} [(x^{\top} x')^2] \\
             &\approx \frac{1}{N^2} \sum_n \sum_m [(x_n^{\top} x'_m)^2]
         \end{align}
-    
+
 
     .. note::
 
