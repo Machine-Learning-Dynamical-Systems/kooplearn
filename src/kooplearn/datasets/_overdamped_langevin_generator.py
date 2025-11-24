@@ -70,20 +70,33 @@ def assemble_operators_1d(
     sigma,
     num_quad_points=None,
 ):
-    """
-    Assemble 1D Fokker-Planck operator matrices using Galerkin projection.
+    """Assemble 1D Fokker-Planck operator matrices using Galerkin projection.
 
     The operator is L = -d/dx(V'(x) ·) - d²/dx²
 
-    Args:
-        domain_min, domain_max (float): Domain boundaries [a, b]
-        num_basis (int): Number of cosine basis functions
-        potential_gradient (callable): Function V'(x) returning gradient at points x
-        num_quad_points (int, optional): Number of quadrature points
+    Parameters
+    ----------
+    domain_min : float
+        Left boundary of the domain.
+    domain_max : float
+        Right boundary of the domain.
+    num_basis : int
+        Number of cosine basis functions.
+    potential_gradient : callable
+        Function ``V'(x)`` returning the gradient at points ``x``.
+    gamma : float
+        Friction coefficient of the Langevin dynamics.
+    sigma : float
+        Noise amplitude of the Langevin dynamics.
+    num_quad_points : int, optional
+        Number of quadrature points. If ``None``, defaults to ``2 * num_basis``.
 
-    Returns:
-        stiffness_matrix (ndarray): Operator matrix A, shape (num_basis, num_basis)
-        mass_matrix (ndarray): Mass matrix B, shape (num_basis, num_basis)
+    Returns
+    -------
+    stiffness_matrix : np.ndarray
+        Stiffness matrix (A) of shape ``(num_basis, num_basis)``.
+    mass_matrix : np.ndarray
+        Mass matrix (B) of shape ``(num_basis, num_basis)``.
     """
     quad_points, quad_weights, basis_vals, basis_derivs = build_cosine_basis_1d(
         domain_min, domain_max, num_basis, num_quad_points
@@ -239,8 +252,52 @@ def _assemble_2d_vectorized(
     gamma,
     sigma,
 ):
-    """
-    Vectorized assembly using einsum - fastest but uses more memory.
+    """Assemble 2D operator matrices using a vectorized approach with einsum.
+
+    This method is fast but memory-intensive as it constructs the full 2D
+    tensor product basis functions.
+
+    Parameters
+    ----------
+    num_basis_x : int
+        Number of basis functions in the x-dimension.
+    num_basis_y : int
+        Number of basis functions in the y-dimension.
+    num_quad_x : int
+        Number of quadrature points in the x-dimension.
+    num_quad_y : int
+        Number of quadrature points in the y-dimension.
+    basis_x : np.ndarray
+        1D basis functions for the x-dimension, of shape
+        ``(num_basis_x, num_quad_x)``.
+    basis_y : np.ndarray
+        1D basis functions for the y-dimension, of shape
+        ``(num_basis_y, num_quad_y)``.
+    deriv_x : np.ndarray
+        1D basis derivatives for the x-dimension, of shape
+        ``(num_basis_x, num_quad_x)``.
+    deriv_y : np.ndarray
+        1D basis derivatives for the y-dimension, of shape
+        ``(num_basis_y, num_quad_y)``.
+    weights_2d : np.ndarray
+        2D quadrature weights, of shape ``(num_quad_x, num_quad_y)``.
+    grad_x : np.ndarray
+        Potential gradient in the x-dimension on the quadrature grid,
+        of shape ``(num_quad_x, num_quad_y)``.
+    grad_y : np.ndarray
+        Potential gradient in the y-dimension on the quadrature grid,
+        of shape ``(num_quad_x, num_quad_y)``.
+    gamma : float
+        Friction coefficient of the Langevin dynamics.
+    sigma : float
+        Noise amplitude of the Langevin dynamics.
+
+    Returns
+    -------
+    stiffness_matrix : np.ndarray
+        Stiffness matrix (A) of shape ``(N, N)`` where ``N = num_basis_x * num_basis_y``.
+    mass_matrix : np.ndarray
+        Mass matrix (B) of shape ``(N, N)`` where ``N = num_basis_x * num_basis_y``.
     """
     total_basis = num_basis_x * num_basis_y
 
@@ -301,9 +358,47 @@ def _assemble_2d_kronecker(
     gamma,
     sigma,
 ):
-    """
-    Memory-efficient assembly using Kronecker products and 1D integrals.
-    Works when drift is separable or can be approximated along coordinate axes.
+    """Assemble 2D operator matrices using Kronecker products.
+
+    This memory-efficient method relies on 1D integrals and Kronecker products.
+    It is suitable for cases where the drift is separable or can be
+    approximated as separable.
+
+    Parameters
+    ----------
+    basis_x : np.ndarray
+        1D basis functions for the x-dimension, of shape
+        ``(num_basis_x, num_quad_x)``.
+    basis_y : np.ndarray
+        1D basis functions for the y-dimension, of shape
+        ``(num_basis_y, num_quad_y)``.
+    deriv_x : np.ndarray
+        1D basis derivatives for the x-dimension, of shape
+        ``(num_basis_x, num_quad_x)``.
+    deriv_y : np.ndarray
+        1D basis derivatives for the y-dimension, of shape
+        ``(num_basis_y, num_quad_y)``.
+    weights_x : np.ndarray
+        1D quadrature weights for the x-dimension, of shape ``(num_quad_x,)``.
+    weights_y : np.ndarray
+        1D quadrature weights for the y-dimension, of shape ``(num_quad_y,)``.
+    grad_x : np.ndarray
+        Potential gradient in the x-dimension on the quadrature grid,
+        of shape ``(num_quad_x, num_quad_y)``.
+    grad_y : np.ndarray
+        Potential gradient in the y-dimension on the quadrature grid,
+        of shape ``(num_quad_x, num_quad_y)``.
+    gamma : float
+        Friction coefficient of the Langevin dynamics.
+    sigma : float
+        Noise amplitude of the Langevin dynamics.
+
+    Returns
+    -------
+    stiffness_matrix : np.ndarray
+        Stiffness matrix (A) of shape ``(N, N)`` where ``N = num_basis_x * num_basis_y``.
+    mass_matrix : np.ndarray
+        Mass matrix (B) of shape ``(N, N)`` where ``N = num_basis_x * num_basis_y``.
     """
     # 1D mass and stiffness matrices
     mass_x = basis_x @ np.diag(weights_x) @ basis_x.T

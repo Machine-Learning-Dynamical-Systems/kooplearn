@@ -23,7 +23,7 @@ logger = logging.getLogger("kooplearn")
 
 class Ridge(BaseEstimator):
     r"""Linear model minimizing the :math:`L^{2}` loss.
-    
+
     Implements a model approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator by lifting the state with a *nonlinear* feature map and then minimizing the :math:`L^{2}` loss in the embedded space as described in :cite:t:`ridge-Kostic2022`.
 
     .. tip::
@@ -50,7 +50,7 @@ class Ridge(BaseEstimator):
 
     eigen_solver : {'auto', 'dense', 'arpack', 'randomized'}, default='auto'
         Solver used to perform the internal SVD calculations. If ``n_components``
-        is much less than the number of training samples, ``randomized`` (or 
+        is much less than the number of training samples, ``randomized`` (or
         ``arpack`` to a smaller extent) may be more efficient than the ``dense`` solver.
 
         auto :
@@ -471,7 +471,7 @@ class Ridge(BaseEstimator):
     def dynamical_modes(self, X, observable=False) -> DynamicalModes:
         """
         Compute the mode decomposition of arbitrary observables of the
-        evolution operator at the states defined by ``X``. 
+        evolution operator at the states defined by ``X``.
         If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the evolution operator, for any observable
         :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
         :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
@@ -538,7 +538,9 @@ class Ridge(BaseEstimator):
         dmd = DynamicalModes(values, right_eigenfunctions, left_projections)
         return dmd
 
-    def score(self, X=None, y=None, n_steps=1, observable=False, metric=r2_score, **metric_kws) -> float:
+    def score(
+        self, X=None, y=None, n_steps=1, observable=False, metric=r2_score, **metric_kws
+    ) -> float:
         """
         Score the model predictions for timestep ``n_steps``.
 
@@ -614,11 +616,11 @@ class Ridge(BaseEstimator):
         # Make predictions and align timestamps
         pred = self.predict(X_test, n_steps=n_steps, observable=observable)
         if n_steps > 1:
-            target = target[n_steps - 1:]
+            target = target[n_steps - 1 :]
             pred = pred[: -(n_steps - 1)]
-        
+
         return metric(target, pred, **metric_kws)
-    
+
     def _svals(self):
         """Singular values of the Koopman/Transfer operator.
 
@@ -633,7 +635,10 @@ class Ridge(BaseEstimator):
         Initializes the covariance matrices `cov_X`, `cov_Y`, and `cov_XY`.
 
         Args:
-            stacked (np.ndarray): Training data of shape ``(n_samples, 2,  *features_shape)``. It should be the result of the function :func:`stack_lookback`.
+            X (np.ndarray):
+                Feature map evaluated at the initial training steps, shape ``(n_samples, features_shape)``.
+            Y (np.ndarray):
+                Feature map evaluated a the evolved training steps, shape ``(n_samples, features_shape)``.
 
         Returns:
             A tuple containing:
@@ -675,5 +680,7 @@ class Ridge(BaseEstimator):
         tags = super().__sklearn_tags__()
         tags.target_tags.required = False
         tags.requires_fit = True
-        tags.non_deterministic = self.eigen_solver == "randomized"
+        tags.non_deterministic = (
+            self.eigen_solver == "randomized" or self.eigen_solver == "arpack"
+        )
         return tags

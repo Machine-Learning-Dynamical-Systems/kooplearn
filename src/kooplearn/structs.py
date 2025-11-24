@@ -4,16 +4,15 @@ from dataclasses import dataclass
 from typing import Iterator, Mapping, TypedDict
 
 import numpy as np
-from numpy.typing import NDArray
 
 from kooplearn._utils import find_complex_conjugates
 
 
 @dataclass
-class FitResult(Mapping[str, NDArray[np.float64] | None]):
-    U: NDArray[np.float64]
-    V: NDArray[np.float64]
-    svals: NDArray[np.float64] | None = None
+class FitResult(Mapping[str, np.ndarray | None]):
+    U: np.ndarray
+    V: np.ndarray
+    svals: np.ndarray | None = None
 
     def __post_init__(self):
         self.U = np.ascontiguousarray(self.U, dtype=np.float64)
@@ -401,7 +400,7 @@ class DynamicalModes:
         """
         return self.n_modes
 
-    def __getitem__(self, key: int) -> np.ndarray[np.float64]:
+    def __getitem__(self, key: int) -> np.ndarray:
         """
         Get the spatial mode shape at the given index.
 
@@ -455,7 +454,7 @@ class DynamicalModes:
 
         return mode
 
-    def __iter__(self) -> Iterator[np.ndarray[np.float64]]:
+    def __iter__(self) -> Iterator[np.ndarray]:
         """
         Iterate over all modes in the container.
 
@@ -607,7 +606,7 @@ class DynamicalModes:
         val = self._values[key]
         return val.real + 1j * np.abs(val.imag)
 
-    def get_right_eigenfunction(self, key: int) -> complex:
+    def get_right_eigenfunction(self, key: int) -> np.ndarray[np.complexfloating]:
         """
         Get the right eigenfunction associated to a specific mode.
 

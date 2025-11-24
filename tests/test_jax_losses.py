@@ -1,6 +1,5 @@
 import jax
 import jax.numpy as jnp
-import numpy as np
 import pytest
 
 from kooplearn.jax.nn._functional import (
@@ -107,7 +106,7 @@ class TestVampLoss:
 
     def test_different_batch_sizes(self):
         """Test vamp_loss with different batch sizes.
-        
+
         Note: JAX returns NaN with centered covariances for batch_size=1,
         so we use uncentered covariances here. PyTorch handles this gracefully.
         """
@@ -124,16 +123,16 @@ class TestVampLoss:
     def test_single_sample(self, single_sample_features):
         """Test vamp_loss with single sample - JAX returns NaN with centered covariances."""
         x, y = single_sample_features
-        
+
         # JAX returns NaN with centered covariances for single sample
         loss_centered = vamp_loss(x, y, center_covariances=True)
         assert jnp.isnan(loss_centered)
-        
+
         # But works fine with uncentered covariances
         loss_uncentered = vamp_loss(x, y, center_covariances=False)
         assert loss_uncentered.shape == ()
         assert not jnp.isnan(loss_uncentered)
-    
+
     def test_large_batch(self, large_batch_features):
         """Test vamp_loss with large batch size."""
         x, y = large_batch_features
@@ -202,7 +201,7 @@ class TestSpectralContrastiveLoss:
         x = jax.random.normal(key, (16, 10))
         y = jax.random.normal(jax.random.fold_in(key, 1), (16, 5))
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             spectral_contrastive_loss(x, y)
 
     def test_different_batch_sizes(self):
@@ -316,8 +315,15 @@ class TestAutoEncoderLoss:
         y_pred = y
 
         loss = autoencoder_loss(
-            x, y, x_rec, y_enc, x_evo, y_pred,
-            alpha_rec=1.0, alpha_lin=0.0, alpha_pred=0.0
+            x,
+            y,
+            x_rec,
+            y_enc,
+            x_evo,
+            y_pred,
+            alpha_rec=1.0,
+            alpha_lin=0.0,
+            alpha_pred=0.0,
         )
 
         assert loss.shape == ()
@@ -335,8 +341,15 @@ class TestAutoEncoderLoss:
         y_pred = y
 
         loss = autoencoder_loss(
-            x, y, x_rec, y_enc, x_evo, y_pred,
-            alpha_rec=0.0, alpha_lin=1.0, alpha_pred=0.0
+            x,
+            y,
+            x_rec,
+            y_enc,
+            x_evo,
+            y_pred,
+            alpha_rec=0.0,
+            alpha_lin=1.0,
+            alpha_pred=0.0,
         )
 
         assert loss.shape == ()
@@ -354,8 +367,15 @@ class TestAutoEncoderLoss:
         y_pred = y + 0.1 * jax.random.normal(jax.random.PRNGKey(3), y.shape)
 
         loss = autoencoder_loss(
-            x, y, x_rec, y_enc, x_evo, y_pred,
-            alpha_rec=0.0, alpha_lin=0.0, alpha_pred=1.0
+            x,
+            y,
+            x_rec,
+            y_enc,
+            x_evo,
+            y_pred,
+            alpha_rec=0.0,
+            alpha_lin=0.0,
+            alpha_pred=1.0,
         )
 
         assert loss.shape == ()
@@ -373,8 +393,15 @@ class TestAutoEncoderLoss:
         y_pred = y
 
         loss = autoencoder_loss(
-            x, y, x_rec, y_enc, x_evo, y_pred,
-            alpha_rec=0.0, alpha_lin=0.0, alpha_pred=0.0
+            x,
+            y,
+            x_rec,
+            y_enc,
+            x_evo,
+            y_pred,
+            alpha_rec=0.0,
+            alpha_lin=0.0,
+            alpha_pred=0.0,
         )
 
         assert jnp.allclose(loss, 0.0)
@@ -391,8 +418,15 @@ class TestAutoEncoderLoss:
         y_pred = y + 0.1 * jax.random.normal(jax.random.PRNGKey(3), y.shape)
 
         loss = autoencoder_loss(
-            x, y, x_rec, y_enc, x_evo, y_pred,
-            alpha_rec=100.0, alpha_lin=100.0, alpha_pred=100.0
+            x,
+            y,
+            x_rec,
+            y_enc,
+            x_evo,
+            y_pred,
+            alpha_rec=100.0,
+            alpha_lin=100.0,
+            alpha_pred=100.0,
         )
 
         assert not jnp.isnan(loss)
@@ -463,12 +497,26 @@ class TestAutoEncoderLoss:
 
         # Compute with different weight configurations
         loss1 = autoencoder_loss(
-            x, y, x_rec, y_enc, x_evo, y_pred,
-            alpha_rec=1.0, alpha_lin=0.0, alpha_pred=0.0
+            x,
+            y,
+            x_rec,
+            y_enc,
+            x_evo,
+            y_pred,
+            alpha_rec=1.0,
+            alpha_lin=0.0,
+            alpha_pred=0.0,
         )
         loss2 = autoencoder_loss(
-            x, y, x_rec, y_enc, x_evo, y_pred,
-            alpha_rec=2.0, alpha_lin=0.0, alpha_pred=0.0
+            x,
+            y,
+            x_rec,
+            y_enc,
+            x_evo,
+            y_pred,
+            alpha_rec=2.0,
+            alpha_lin=0.0,
+            alpha_pred=0.0,
         )
 
         # Loss should roughly double when weight doubles
@@ -726,8 +774,12 @@ class TestLossesIntegration:
             "vamp": vamp_loss(x, y),
             "spectral": spectral_contrastive_loss(x, y),
             "ae": autoencoder_loss(
-                x, y, x, jax.random.normal(key, (batch_size, 5)),
-                jax.random.normal(jax.random.fold_in(key, 1), (batch_size, 5)), y
+                x,
+                y,
+                x,
+                jax.random.normal(key, (batch_size, 5)),
+                jax.random.normal(jax.random.fold_in(key, 1), (batch_size, 5)),
+                y,
             ),
             "fro_reg": orthonormal_fro_reg(x, key),
             "logfro_reg": orthonormal_logfro_reg(x),
@@ -747,8 +799,12 @@ class TestLossesIntegration:
             "vamp": lambda: vamp_loss(x, y),
             "spectral": lambda: spectral_contrastive_loss(x, y),
             "ae": lambda: autoencoder_loss(
-                x, y, x, jax.random.normal(key, (batch_size, 5)),
-                jax.random.normal(jax.random.fold_in(key, 1), (batch_size, 5)), y
+                x,
+                y,
+                x,
+                jax.random.normal(key, (batch_size, 5)),
+                jax.random.normal(jax.random.fold_in(key, 1), (batch_size, 5)),
+                y,
             ),
             "fro_reg": lambda: orthonormal_fro_reg(x, key),
             "logfro_reg": lambda: orthonormal_logfro_reg(x),
@@ -771,6 +827,10 @@ class TestLossesIntegration:
         fro_grad = jax.grad(lambda x: orthonormal_fro_reg(x, key))(x)
         logfro_grad = jax.grad(orthonormal_logfro_reg)(x)
 
-        for grad, name in [(vamp_grad, "vamp"), (spectral_grad, "spectral"),
-                           (fro_grad, "fro_reg"), (logfro_grad, "logfro_reg")]:
+        for grad, name in [
+            (vamp_grad, "vamp"),
+            (spectral_grad, "spectral"),
+            (fro_grad, "fro_reg"),
+            (logfro_grad, "logfro_reg"),
+        ]:
             assert not jnp.isnan(grad).any(), f"{name} gradient contains NaN"

@@ -28,7 +28,7 @@ def directed_hausdorff_distance(pred: np.ndarray, reference: np.ndarray):
     Examples
     --------
 
-    .. code-block:python
+    .. code-block:: python
 
         import numpy as np
         from kooplearn.metrics import directed_hausdorff_distance

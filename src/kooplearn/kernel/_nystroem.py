@@ -721,11 +721,40 @@ class NystroemKernelRidge(BaseEstimator):
     def _init_nys_kernels(
         self, X: np.ndarray, Y: np.ndarray, X_nys: np.ndarray, Y_nys: np.ndarray
     ):
+        """Initialize Nyström kernel matrices for training.
+
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, n_features)
+            Initial states of the trajectory.
+        Y : ndarray of shape (n_samples, n_features)
+            Evolved states of the trajectory.
+        X_nys : ndarray of shape (n_centers, n_features)
+            Selected Nyström centers from the initial states.
+        Y_nys : ndarray of shape (n_centers, n_features)
+            Selected Nyström centers from the evolved states.
+
+        Returns
+        -------
+        K_X : ndarray of shape (n_samples, n_centers)
+            Nyström kernel matrix between initial states and Nyström centers.
+
+        K_Y : ndarray of shape (n_samples, n_centers)
+            Nyström kernel matrix between evolved states and Nyström centers.
+        """
         K_X = self._get_kernel(X, X_nys)
         K_Y = self._get_kernel(Y, Y_nys)
         return K_X, K_Y
 
-    def _center_selection(self, num_pts: int):
+    def _center_selection(self, num_pts: int) -> np.ndarray:
+        """Center selection for the Nyström method
+
+        Args:
+            num_pts (int): Number of points to select from.
+
+        Returns:
+            np.ndarray: Indices of the selected centers.
+        """
         if self.n_centers < 1:
             n_centers = int(np.ceil(self.n_centers * num_pts))
         else:
@@ -745,5 +774,5 @@ class NystroemKernelRidge(BaseEstimator):
         tags = super().__sklearn_tags__()
         tags.target_tags.required = False
         tags.requires_fit = True
-        tags.non_deterministic = self.eigen_solver == "randomized"
+        tags.non_deterministic = True
         return tags

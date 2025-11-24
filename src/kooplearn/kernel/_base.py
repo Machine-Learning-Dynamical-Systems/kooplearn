@@ -114,7 +114,7 @@ class KernelRidge(BaseEstimator):
 
     optimal_sketching : bool, default=False
         Sketching strategy for the randomized solver. If `True` performs
-        optimal sketching (computaitonally expensive but more accurate).
+        optimal sketching (computationally expensive but more accurate).
 
     random_state : int, RandomState instance or None, default=None
         Used when ``eigen_solver`` is ``'arpack'`` or ``'randomized'``. Pass an int
@@ -747,5 +747,7 @@ class KernelRidge(BaseEstimator):
         tags = super().__sklearn_tags__()
         tags.target_tags.required = False
         tags.requires_fit = True
-        tags.non_deterministic = self.eigen_solver == "randomized"
+        tags.non_deterministic = (
+            self.eigen_solver == "randomized" or self.eigen_solver == "arpack"
+        )
         return tags
