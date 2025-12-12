@@ -21,11 +21,20 @@ def make_data():
     return make_linear_system(np.zeros(DIM), A, NUM_SAMPLES, noise=1e-3, random_state=0)
 
 
-@pytest.mark.parametrize("kernel", ["rbf"])
+@pytest.mark.parametrize("kernel", ["linear", "rbf", "laplacian"])
+@pytest.mark.parametrize("lag_time", [1, 5])
 @pytest.mark.parametrize("reduced_rank", [True, False])
 @pytest.mark.parametrize("n_components", [TRUE_RANK, TRUE_RANK - 2, TRUE_RANK + 10])
+@pytest.mark.parametrize("eigen_solver", ["auto", "dense", "arpack", "randomized"])
 @pytest.mark.parametrize("alpha", [None, 0.0, 1e-5])
-@pytest.mark.parametrize("observables", [None])
+@pytest.mark.parametrize("observables", [None, np.zeros, np.ones])
+@pytest.mark.parametrize("tol", [0.0])
+@pytest.mark.parametrize("max_iter", [None])
+@pytest.mark.parametrize("iterated_power", ["auto"])
+@pytest.mark.parametrize("n_oversamples", [10])
+@pytest.mark.parametrize("optimal_sketching", [False])
+@pytest.mark.parametrize("random_state", [None])
+@pytest.mark.parametrize("copy_X", [True])
 @pytest.mark.parametrize("n_jobs", [1])
 def test_Kernel_fit_predict_eig_modes_risk_svals(
     n_components,
