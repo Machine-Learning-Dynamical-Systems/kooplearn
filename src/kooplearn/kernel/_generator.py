@@ -97,10 +97,7 @@ class GeneratorDirichlet(BaseEstimator):
 
     Notes
     -----
-    This implementation follows:
-
-    *Kostić et al., "Learning the Infinitesimal Generator of Stochastic Diffusion Processes",
-    2024.*
+    This implementation follows :cite:t:`generatordirichlet-kostic2024learning`.
 
     .. attention::
 
@@ -112,7 +109,7 @@ class GeneratorDirichlet(BaseEstimator):
     >>> model.fit(X)
     >>> eigvals = model.eig()
     >>> f_pred = model.predict(X0, t=1.0, observable=f)
-    """  # noqa: E501
+    """
 
     _parameter_constraints: dict = {
         "n_components": [
@@ -153,10 +150,10 @@ class GeneratorDirichlet(BaseEstimator):
         Fit the Dirichlet-form kernel model to trajectory data.
 
         This computes:
-          - the Gram matrix ``K``,
-          - its first and second kernel derivatives,
-          - an approximation of the generator via reduced-rank regression,
-          - its eigenvalues and eigenfunctions.
+          - The Gram matrix ``K``,
+          - Its first and second kernel derivatives,
+          - An approximation of the generator via reduced-rank regression :cite:t:`generatordirichlet-Kostic2022`,
+          - Its eigenvalues and eigenfunctions.
 
         Parameters
         ----------

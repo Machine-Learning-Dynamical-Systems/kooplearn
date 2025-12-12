@@ -150,12 +150,12 @@ class NystroemKernelRidge(BaseEstimator):
     U_ : ndarray of shape (n_centers, rank)
         Left projection matrix of the operator approximation:
         :math:`k(\cdot, X) U V^\top k(\cdot, Y)`
-        (see :cite:t:`kernelridge-Kostic2022`).
+        (see :cite:t:`nystroemkernelridge-Kostic2022`).
 
     V_ : ndarray of shape (n_centers, rank)
         Right projection matrix of the operator approximation:
         :math:`k(\cdot, X) U V^\top k(\cdot, Y)`
-        (see :cite:t:`kernelridge-Kostic2022`).
+        (see :cite:t:`nystroemkernelridge-Kostic2022`).
     rank_ : int
         Effective rank of the fitted estimator.
 
