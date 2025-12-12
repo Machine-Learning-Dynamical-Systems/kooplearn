@@ -9,7 +9,6 @@ from numbers import Integral, Real
 import numpy as np
 from numpy import ndarray
 from sklearn.base import BaseEstimator
-from sklearn.metrics import r2_score
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.validation import check_is_fitted, validate_data
@@ -49,23 +48,9 @@ class GeneratorDirichlet(BaseEstimator):
         If ``True``, use a reduced-rank solver for the Dirichlet regression
         problem. Recommended for large datasets.
 
-    kernel : {'rbf'} or callable, default='rbf'
-        Kernel function. Currently only the RBF kernel supports derivative
-        computations.
-
     gamma : float, optional
         RBF kernel scale parameter. If ``None``, defaults to
         ``1 / n_features``.
-
-    degree : float, optional
-        Degree for polynomial kernels (not currently supported for generator
-        learning).
-
-    coef0 : float, optional
-        Offset for polynomial or sigmoid kernels (ignored).
-
-    kernel_params : dict or None, optional
-        Additional keyword arguments passed to a user-defined kernel.
 
     alpha : float or None, default=1e-6
         Tikhonov regularization for the regression problem. If ``None``,
@@ -117,7 +102,7 @@ class GeneratorDirichlet(BaseEstimator):
     *Kostić et al., "Learning the Infinitesimal Generator of Stochastic Diffusion Processes",
     2024.*
 
-    Only RBF kernels currently support derivative-based generator learning.
+    Currently, only the RBF kernel is supported for this estimator.
 
     Examples
     --------
@@ -132,22 +117,15 @@ class GeneratorDirichlet(BaseEstimator):
             Interval(Integral, 1, None, closed="left"),
             None,
         ],
-        "kernel": [
-            StrOptions({"linear", "poly", "rbf", "sigmoid", "cosine"}),
-            callable,
-        ],
+        "kernel": [StrOptions({"rbf"})],
         "gamma": [
             Interval(Real, 0, None, closed="left"),
             None,
         ],
-        "degree": [Interval(Real, 0, None, closed="left")],
-        "coef0": [Interval(Real, None, None, closed="neither")],
-        "kernel_params": [dict, None],
         "alpha": [
             [Interval(Real, 0, None, closed="left")],
             None,
         ],
-
     }
 
     def __init__(
@@ -155,11 +133,7 @@ class GeneratorDirichlet(BaseEstimator):
         n_components=None,
         *,
         reduced_rank=True,
-        kernel="rbf",
         gamma=None,
-        degree=3,
-        coef0=1,
-        kernel_params=None,
         alpha=1e-6,
         n_jobs=1,
         friction=None,
@@ -167,13 +141,10 @@ class GeneratorDirichlet(BaseEstimator):
     ):
         self.n_components = n_components
         self.reduced_rank = reduced_rank
-        self.kernel = kernel
-        self.kernel_params = kernel_params
+        self.kernel = "rbf"
         self.gamma = gamma
-        self.degree = degree
-        self.coef0 = coef0
         self.alpha = alpha
-        self.n_jobs=n_jobs
+        self.n_jobs = n_jobs
         self.friction = friction
         self.shift = shift
 
@@ -197,7 +168,7 @@ class GeneratorDirichlet(BaseEstimator):
         self : GeneratorDirichlet
             Fitted estimator.
         """
-        self._pre_fit_checks(X,self.friction)
+        self._pre_fit_checks(X, self.friction)
         # Adjust number of components
         if self.n_components is None:
             n_components = self.kernel_X_.shape[0]
@@ -212,15 +183,16 @@ class GeneratorDirichlet(BaseEstimator):
         else:
             alpha = self.alpha
 
-
         # Compute regression
         if self.reduced_rank:
-            self.eigresults = _regressors.reduced_rank_regression_dirichlet(self.kernel_X_,  # noqa: E501
-                                                            self.N_,
-                                                            self.M_,
-                                                            self.shift,
-                                                            alpha,
-                                                            n_components)
+            self.eigresults = _regressors.reduced_rank_regression_dirichlet(
+                self.kernel_X_,
+                self.N_,
+                self.M_,
+                self.shift,
+                alpha,
+                n_components,
+            )
         else:
             raise NotImplementedError
 
@@ -229,7 +201,7 @@ class GeneratorDirichlet(BaseEstimator):
         logger.info(f"Fitted {self.__class__.__name__} model.")
         return self
 
-    def predict(self, X, t, observable,recompute=True) -> ndarray:
+    def predict(self, X, t, observable, recompute=True) -> ndarray:
         r"""
         Predict the expected observable value at time :math:`t`, conditional on
         the initial condition ``X``.
@@ -263,12 +235,11 @@ class GeneratorDirichlet(BaseEstimator):
             Predicted observable value :math:`\mathbb{E}[f(X_t)]`.
         """
 
-        modes = self.dynamical_modes(X, np.sqrt(self.shift)*observable, recompute=recompute)  # noqa: E501
-        pred = _regressors.predict_generator(
-            t, modes
+        modes = self.dynamical_modes(
+            X, np.sqrt(self.shift) * observable, recompute=recompute
         )
+        pred = _regressors.predict_generator(t, modes)
         return pred
-
 
     def eig(self, eval_left_on=None, eval_right_on=None):
         r"""
@@ -311,9 +282,15 @@ class GeneratorDirichlet(BaseEstimator):
         elif eval_left_on is None and eval_right_on is not None:
             # (eigenvalues, right eigenfunctions)
             eval_right_on = validate_data(self, eval_right_on, reset=False)
-            kernel_Xin_X_or_Y, N_Xin_X_or_Y = self._get_kernel(eval_right_on, self.X_fit_, get_derivatives=True)
-            block_matrix = np.block([np.sqrt(self.shift)*kernel_Xin_X_or_Y, N_Xin_X_or_Y])
-            return self.eigresults["values"], np.sqrt(2)*_regressors.evaluate_eigenfunction(
+            kernel_Xin_X_or_Y, N_Xin_X_or_Y = self._get_kernel(
+                eval_right_on, self.X_fit_, get_derivatives=True
+            )
+            block_matrix = np.block(
+                [np.sqrt(self.shift) * kernel_Xin_X_or_Y, N_Xin_X_or_Y]
+            )
+            return self.eigresults["values"], np.sqrt(
+                2
+            ) * _regressors.evaluate_eigenfunction(
                 self.eigresults, "right", block_matrix
             )
         elif eval_left_on is not None and eval_right_on is None:
@@ -321,20 +298,25 @@ class GeneratorDirichlet(BaseEstimator):
             eval_left_on = validate_data(self, eval_left_on, reset=False)
             kernel_Xin_X_or_Y = self._get_kernel(eval_left_on, self.X_fit_)
             return self.eigresults["values"], _regressors.evaluate_eigenfunction(
-               self.eigresults, "left", kernel_Xin_X_or_Y
+                self.eigresults, "left", kernel_Xin_X_or_Y
             )
         elif eval_left_on is not None and eval_right_on is not None:
             # (eigenvalues, left eigenfunctions, right eigenfunctions)
             eval_right_on = validate_data(self, eval_right_on, reset=False)
             eval_left_on = validate_data(self, eval_left_on, reset=False)
-            kernel_Xin_X_or_Y, N_Xin_X_or_Y = self._get_kernel(eval_right_on, self.X_fit_ , get_derivatives=True)
-            block_matrix = np.block([np.sqrt(self.shift)*kernel_Xin_X_or_Y, N_Xin_X_or_Y])
+            kernel_Xin_X_or_Y, N_Xin_X_or_Y = self._get_kernel(
+                eval_right_on, self.X_fit_, get_derivatives=True
+            )
+            block_matrix = np.block(
+                [np.sqrt(self.shift) * kernel_Xin_X_or_Y, N_Xin_X_or_Y]
+            )
             return (
                 self.eigresults["values"],
                 _regressors.evaluate_eigenfunction(
                     self.eigresults, "left", kernel_Xin_X_or_Y
                 ),
-                np.sqrt(2)*_regressors.evaluate_eigenfunction(
+                np.sqrt(2)
+                * _regressors.evaluate_eigenfunction(
                     self.eigresults, "right", block_matrix
                 ),
             )
@@ -380,72 +362,74 @@ class GeneratorDirichlet(BaseEstimator):
             0
         ]  # We use the eigenvector to be consistent with the dirichlet estimator that does not have the same shape #obs_train.shape[0]
         if recompute:
-            K_Xin_X, N_Xin_X =  self._get_kernel( X, self.X_fit_, get_derivatives=True)
+            K_Xin_X, N_Xin_X = self._get_kernel(X, self.X_fit_, get_derivatives=True)
         else:
             K_Xin_X, N_Xin_X = self.kernel_X_, self.N_
-        block_matrix = np.block([np.sqrt(self.shift)*K_Xin_X, N_Xin_X])
+        block_matrix = np.block([np.sqrt(self.shift) * K_Xin_X, N_Xin_X])
 
-        conditioning = np.sqrt(2)*_regressors.evaluate_eigenfunction(
+        conditioning = np.sqrt(2) * _regressors.evaluate_eigenfunction(
             self.eigresults, "right", block_matrix
         )  # [rank, num_initial_conditions]
 
-        modes_ = np.einsum("nr,nd"  + "->rd"  , levecs.conj(), observable ) / np.sqrt(npts)  # [rank, features]
-        #modes_ = np.expand_dims(modes_, axis=1)
+        modes_ = np.einsum("nr,nd" + "->rd", levecs.conj(), observable) / np.sqrt(
+            npts
+        )  # [rank, features]
+        # modes_ = np.expand_dims(modes_, axis=1)
 
-        result = DynamicalModes(
-            np.exp(self.eigresults["values"]), conditioning, modes_
-        )
+        result = DynamicalModes(np.exp(self.eigresults["values"]), conditioning, modes_)
         return result
 
-
-
-    def _get_kernel(self, X, Y=None, get_derivatives=False, get_second_derivatives=False):
+    def _get_kernel(
+        self, X, Y=None, get_derivatives=False, get_second_derivatives=False
+    ):
         """Compute the pairwise kernel matrix."""
 
-        if not(isinstance(self.kernel,str) and self.kernel == "rbf"):
+        if not (isinstance(self.kernel, str) and self.kernel == "rbf"):
             raise NotImplementedError
         params = {
-                "gamma": self.gamma_,
+            "gamma": self.gamma_,
         }
-        length_scale = 1/np.sqrt(2 * self.gamma)
+        length_scale = 1 / np.sqrt(2 * self.gamma)
         if Y is None:
             Y = X
         if get_derivatives and get_second_derivatives:
             K_X = pairwise_kernels(
-            X,
-            Y,
-            metric=self.kernel,
-            filter_params=True,
-            n_jobs=self.n_jobs,
-            **params,
+                X,
+                Y,
+                metric=self.kernel,
+                filter_params=True,
+                n_jobs=self.n_jobs,
+                **params,
             )
-            N = _utils.return_grad(K_X, X,Y, self.friction, length_scale)
-            M = _utils.return_grad2(K_X, X,Y, self.friction, length_scale)
+            N = _utils.return_grad(K_X, X, Y, self.friction, length_scale)
+            M = _utils.return_grad2(K_X, X, Y, self.friction, length_scale)
             return K_X, M, N
         elif get_derivatives:
             K_X = pairwise_kernels(
-            X,
-            Y,
-            metric=self.kernel,
-            filter_params=True,
-            n_jobs=self.n_jobs,
-            **params,
+                X,
+                Y,
+                metric=self.kernel,
+                filter_params=True,
+                n_jobs=self.n_jobs,
+                **params,
             )
-            N = _utils.return_grad(K_X, X,Y, self.friction, length_scale)
+            N = _utils.return_grad(K_X, X, Y, self.friction, length_scale)
             return K_X, N
         else:
             return pairwise_kernels(
-            X,
-            Y,
-            metric=self.kernel,
-            filter_params=True,
-            n_jobs=self.n_jobs,
-            **params,
+                X,
+                Y,
+                metric=self.kernel,
+                filter_params=True,
+                n_jobs=self.n_jobs,
+                **params,
             )
 
     def _init_kernels(self, X):
         """Initialize kernel matrices for training."""
-        K_X, M, N = self._get_kernel(X, get_derivatives=True, get_second_derivatives=True)
+        K_X, M, N = self._get_kernel(
+            X, get_derivatives=True, get_second_derivatives=True
+        )
         return K_X, M, N
 
     def _pre_fit_checks(self, X, friction):
@@ -455,10 +439,7 @@ class GeneratorDirichlet(BaseEstimator):
         X = validate_data(self, X)
         self.gamma_ = 1 / X.shape[1] if self.gamma is None else self.gamma
         self.X_fit_ = X
-        self.kernel_X_, self.M_, self.N_ = self._init_kernels(
-            self.X_fit_
-        )
-
+        self.kernel_X_, self.M_, self.N_ = self._init_kernels(self.X_fit_)
 
     def __sklearn_tags__(self):
         tags = super().__sklearn_tags__()
