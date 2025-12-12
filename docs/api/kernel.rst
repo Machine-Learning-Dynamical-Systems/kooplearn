@@ -15,3 +15,4 @@ kooplearn.kernel
 
    KernelRidge
    NystroemKernelRidge
+   GeneratorDirichlet

@@ -137,13 +137,14 @@ Learn more
 
    Eigenfunctions of a 1D Potential <examples/prinz_potential.ipynb>
    Dynamic Mode Decomposition <examples/fluid_flow_dmd.ipynb>
+   Using the infinitesimal generator of overdamped Langevin dynamics <examples/prinz_potential_dirichlet generator>
    Fast Kernel Models <examples/kernel_methods.ipynb>
    Analysing Molecular Dynamics <examples/ala2_nys_tutorial.ipynb>
    Switching System <examples/switching_system.ipynb>
    Ordered MNIST (torch) <examples/ordered_mnist_torch.ipynb>
    Ordered MNIST (jax) <examples/ordered_mnist_jax.ipynb>
    Logistic Map (torch) <examples/logistic_map.ipynb>
-
+   
 
 .. toctree::
    :maxdepth: 4

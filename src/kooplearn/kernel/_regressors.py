@@ -12,7 +12,8 @@ from sklearn.utils._arpack import _init_arpack_v0
 from sklearn.utils.extmath import randomized_svd
 
 from kooplearn._linalg import add_diagonal_, stable_topk, weighted_norm
-from kooplearn.structs import EigResult, FitResult
+from kooplearn.structs import EigResult, FitResult, DynamicalModes
+from kooplearn._utils import fuzzy_parse_complex
 
 __all__ = [
     "eig",
@@ -23,6 +24,7 @@ __all__ = [
     "predict",
     "rand_reduced_rank",
     "reduced_rank",
+    "reduced_rank_regression_dirichlet",
 ]
 
 
@@ -200,6 +202,46 @@ def predict(
     propagated_flat = K_dot_U @ M @ V_dot_obs_flat  # (npts, n_features)
     propagated = propagated_flat.reshape((K_dot_U.shape[0],) + obs_shape)
     return propagated
+
+
+def predict_generator(
+        t: float,  # time in the same units as dt
+        mode_result: DynamicalModes,
+    ) -> ndarray:  # shape [num_init_cond, features] or if num_t>1 [num_init_cond, num_time, features]
+    r"""Predicts the evolution of an observable using the mode decomposition.
+
+    Given the modal decomposition of an observable, this function reconstructs
+    the time evolution by propagating the eigenmodes forward in time.
+
+    Args:
+        t (Union[float, np.ndarray]): Time or array of time values in the same units as the spectral decomposition.
+        mode_result (ModeResult): Result of the mode decomposition
+
+    Shape:
+        - ``t``: :math:`(T,)` or scalar, where :math:`T` is the number of time steps.
+        - ``predictions``: :math:`(N_{init}, T, d_{obs})`, predicted observable values at times :math:`t`.
+          If :math:`T=1` or :math:`N_{init}=1`, unnecessary dimensions are removed.
+
+    Returns:
+        predictions: np.ndarray: Predicted observable values at the given time steps.
+        If multiple time points are given, the shape is :math:`(N_{init}, T, d_{obs})`.
+        If only one time step or one initial condition is provided, the output is squeezed accordingly.
+    """
+    if type(t) == float:  # noqa: E721
+        t = np.array([t])
+    evals = np.exp(- t[np.newaxis,:] / mode_result._lifetimes[:,np.newaxis] )
+    #to_evals = np.exp(evals[:, None] * t[None, :])  # [rank,time_steps]
+
+    modes = np.einsum("mr,rd->rmd",mode_result._right_eigenfunctions,mode_result._left_projections )
+
+    predictions = np.einsum(
+        "rs,rmd->msd", evals, modes
+    )
+    if (
+        predictions.shape[0] == 1 or predictions.shape[1] == 1
+    ):  # If only one time point or one initial condition is requested, remove unnecessary dims
+        predictions = np.squeeze(predictions)
+    return predictions.real
 
 
 def svdvals(fit_result, K_X, K_Y):
@@ -671,4 +713,83 @@ def rand_reduced_rank(
     V = sqrt(npts) * _M @ vectors
     svals = np.sqrt(values)
     result = FitResult(U, V, svals)
+    return result
+
+def reduced_rank_regression_dirichlet(
+    kernel_X: ndarray,  # kernel matrix of the training data
+    dKernel_X: ndarray,  # derivative of the kernel: dK_X_{i,j} = <\phi(x_i),d\phi(x_j)> (matrix N in the paper)
+    dKernel_dX: ndarray,  # derivative of the kernel dK_dX_{i,j} = <d\phi(x_i),d\phi(x_j)>
+    shift: float,  # shift parameter of the resolvent
+    tikhonov_reg: float,  # Tikhonov (ridge) regularization parameter, can be 0,
+    rank: int,
+):  # Rank of the estimator)
+    r"""Fits the physics informed Reduced Rank Estimator from :footcite:t:`kostic2024learning`.
+
+    Args:
+        kernel_X (np.ndarray): kernel matrix of the training data
+        dKernel_X (np.ndarray): (matrix N in :footcite:t:`kostic2024learning`) derivative of the kernel: :math:`N_{i,(k-1)n+j} = \langle \phi(x_i),d_k\phi(x_j) \rangle`
+        dKernel_dX (np.ndarray):  (matrix M in :footcite:t:`kostic2024learning`) derivative of the kernel :math:`M_{(l-1)n+i,(k-1)n+j} = \langle d_l\phi(x_i),d_k\phi(x_j) \rangle`
+        shift (float): shift parameter of the resolvent
+        tikhonov_reg (float): Tikhonov (ridge) regularization parameter
+        rank (int): Rank of the estimator
+
+    Shape:
+        ``kernel_X``: :math:`(N, N)`, where :math:`N` is the number of training data.
+
+        ``dkernel_X``: :math:`(N, (d+1)N)`. where :math:`N` is the number of training data amd :math:`d` is the dimensionality of the input data.
+
+        ``dkernel_dX``: :math:`((d+1)N, (d+1)N)`. where :math:`N` is the number of training data amd :math:`d` is the dimensionality of the input data.
+    Returns: EigResult structure containing the eigenvalues and eigenvectors
+    """
+    npts = kernel_X.shape[0]
+    sqrt_npts = np.sqrt(npts)
+
+    dimension_derivative = dKernel_dX.shape[0]
+
+    # We follow the notation of the paper
+    J = (
+        kernel_X / sqrt_npts
+        - (dKernel_X / sqrt_npts)
+        @ np.linalg.inv(
+            dKernel_dX + tikhonov_reg * shift * sqrt_npts * np.eye(dimension_derivative)
+        )
+        @ dKernel_X.T
+    )
+
+    sigmas_2, vectors = eigs(
+        J @ kernel_X / sqrt_npts, k=rank + 5, M=(J + tikhonov_reg * np.eye(J.shape[0])) * shift  # noqa: E501
+    )
+
+    _values, stable_values_idxs = stable_topk(sigmas_2, rank, ignore_warnings=False)
+
+    V = vectors[:, stable_values_idxs]
+    # Normalization step
+    V = V @ np.diag(np.sqrt(sqrt_npts) / np.sqrt(np.diag(V.T @ kernel_X @ V)))
+
+    sigma = np.diag(sigmas_2[stable_values_idxs])
+
+    make_U = np.block(
+        [
+            np.eye(npts) / np.sqrt(shift),
+            -dKernel_X
+            @ np.linalg.inv(
+                dKernel_dX + shift * tikhonov_reg * sqrt_npts * np.eye(dimension_derivative)  # noqa: E501
+            ),
+        ]
+    ).T
+
+    U = make_U @ (kernel_X @ V / sqrt_npts - shift * V @ sigma) / (tikhonov_reg * shift)
+
+    evals, vl, vr = scipy.linalg.eig(V.T @ V @ sigma, left=True)
+
+    evals = fuzzy_parse_complex(evals)  # To be coupled with the LOL function
+    lambdas = shift - 1 / evals
+    r_perm = np.argsort(-lambdas)
+    vr = vr[:, r_perm]
+    l_perm = np.argsort(-lambdas.conj())
+    vl = vl[:, l_perm]
+    evals = evals[r_perm]
+
+    vl /= np.sqrt(evals)
+    result: EigResult = {"values": lambdas[r_perm], "left": (V @ vl) * sqrt_npts, "right": U @ vr}  # noqa: E501
     return result
