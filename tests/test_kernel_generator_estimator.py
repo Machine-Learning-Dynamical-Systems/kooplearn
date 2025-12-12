@@ -1,11 +1,10 @@
 import numpy as np
 import pytest
 from scipy.stats import special_ortho_group
-from sklearn.metrics import r2_score
 from sklearn.utils.validation import check_is_fitted
 
 from kooplearn.datasets import make_linear_system
-from kooplearn.kernel import KernelRidge
+from kooplearn.kernel import GeneratorDirichlet
 
 TRUE_RANK = 5
 DIM = 20
@@ -21,35 +20,27 @@ def make_data():
     return make_linear_system(np.zeros(DIM), A, NUM_SAMPLES, noise=1e-3, random_state=0)
 
 
-@pytest.mark.parametrize("kernel", ["linear", "rbf", "laplacian"])
 @pytest.mark.parametrize("n_components", [TRUE_RANK, TRUE_RANK - 2, TRUE_RANK + 10])
 @pytest.mark.parametrize("alpha", [None, 0.0, 1e-5])
 @pytest.mark.parametrize("observables", [None, np.zeros, np.ones])
-
+@pytest.mark.parametrize("friction", [np.ones(DIM), None])
 def test_Kernel_fit_predict_eig_modes_risk_svals(
     n_components,
-    lag_time,
-    reduced_rank,
-    kernel,
     alpha,
+    friction,
     observables,
 ):
     data = make_data()
 
-    model = KernelRidge(
+    model = GeneratorDirichlet(
         n_components=n_components,
-        lag_time=lag_time,
-        reduced_rank=reduced_rank,
-        kernel=kernel,
         alpha=alpha,
-        
+        friction=friction,
     )
 
     # model should not be fitted yet
     with pytest.raises(Exception):
         check_is_fitted(model)
-
-    # randomized solver without regularization should fail
     # Fit, predict and modes checks
     model.fit(data)
     assert check_is_fitted(model) is None
@@ -57,10 +48,9 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
     assert X_pred.shape == model.X_fit_.shape
     modes = model.dynamical_modes(data, observable=data)
     assert modes[0].shape == model.X_fit_.shape
-   
+
     # Eigen-decomposition
     vals, _lv, _rv = model.eig(eval_left_on=data, eval_right_on=data)
     assert vals.ndim == 1
     assert vals.shape[0] <= n_components
     assert np.isfinite(vals).all()
-

@@ -105,10 +105,18 @@ class GeneratorDirichlet(BaseEstimator):
 
     Examples
     --------
-    >>> model = GeneratorDirichlet(gamma=1.0, friction=np.ones(d))
-    >>> model.fit(X)
+    >>> import numpy as np
+    >>> from kooplearn.kernel import GeneratorDirichlet
+    >>> # Generate training data from a 2D Ornstein-Uhlenbeck process
+    >>> from kooplearn.datasets import make_prinz_potential
+    >>> gamma = 1.0
+    >>> sigma = 2
+    >>> X = make_prinz_potential(X0 = 0, n_steps=int(5e2), gamma=gamma, sigma=sigma)
+    >>> model = GeneratorDirichlet(n_components=4, gamma=1.0, friction=np.ones(1,))
+    >>> model = model.fit(X)
     >>> eigvals = model.eig()
-    >>> f_pred = model.predict(X0, t=1.0, observable=f)
+    >>> f_pred = model.predict(X, t=1.0)
+    >>> print(f_pred.shape)
     """
 
     _parameter_constraints: dict = {
