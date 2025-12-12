@@ -44,10 +44,6 @@ class GeneratorDirichlet(BaseEstimator):
         Number of generator eigenmodes to retain. If ``None``, all components
         are kept.
 
-    reduced_rank : bool, default=True
-        If ``True``, use a reduced-rank solver for the Dirichlet regression
-        problem. Recommended for large datasets.
-
     gamma : float, optional
         RBF kernel scale parameter. If ``None``, defaults to
         ``1 / n_features``.
