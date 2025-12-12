@@ -114,8 +114,8 @@ class GeneratorDirichlet(BaseEstimator):
     -----
     This implementation follows:
 
-    *Kostić et al., "Kernel Methods for the Generator of Diffusion Processes",
-    2022.*
+    *Kostić et al., "Learning the Infinitesimal Generator of Stochastic Diffusion Processes",
+    2024.*
 
     Only RBF kernels currently support derivative-based generator learning.
 
