@@ -102,7 +102,9 @@ class GeneratorDirichlet(BaseEstimator):
     *Kostić et al., "Learning the Infinitesimal Generator of Stochastic Diffusion Processes",
     2024.*
 
-    Currently, only the RBF kernel is supported for this estimator.
+    .. attention::
+
+        Currently, only the RBF kernel is supported for this estimator.
 
     Examples
     --------
@@ -132,7 +134,6 @@ class GeneratorDirichlet(BaseEstimator):
         self,
         n_components=None,
         *,
-        reduced_rank=True,
         gamma=None,
         alpha=1e-6,
         n_jobs=1,
@@ -140,7 +141,6 @@ class GeneratorDirichlet(BaseEstimator):
         shift=1.0,
     ):
         self.n_components = n_components
-        self.reduced_rank = reduced_rank
         self.kernel = "rbf"
         self.gamma = gamma
         self.alpha = alpha
@@ -184,17 +184,14 @@ class GeneratorDirichlet(BaseEstimator):
             alpha = self.alpha
 
         # Compute regression
-        if self.reduced_rank:
-            self.eigresults = _regressors.reduced_rank_regression_dirichlet(
-                self.kernel_X_,
-                self.N_,
-                self.M_,
-                self.shift,
-                alpha,
-                n_components,
-            )
-        else:
-            raise NotImplementedError
+        self.eigresults = _regressors.reduced_rank_regression_dirichlet(
+            self.kernel_X_,
+            self.N_,
+            self.M_,
+            self.shift,
+            alpha,
+            n_components,
+        )
 
         self.rank_ = self.eigresults["values"].shape[0]
 
