@@ -4,9 +4,9 @@
 # SPDX-License-Identifier: MIT
 
 import logging
-import numpy as np
 from numbers import Integral, Real
 
+import numpy as np
 from numpy import ndarray
 from sklearn.base import BaseEstimator
 from sklearn.metrics import r2_score
@@ -14,9 +14,9 @@ from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.utils.validation import check_is_fitted, validate_data
 
-from kooplearn.kernel import _regressors
+from kooplearn.kernel import _regressors, _utils
 from kooplearn.structs import DynamicalModes
-from kooplearn.kernel import _utils
+
 logger = logging.getLogger("kooplearn")
 
 
@@ -125,7 +125,7 @@ class GeneratorDirichlet(BaseEstimator):
     >>> model.fit(X)
     >>> eigvals = model.eig()
     >>> f_pred = model.predict(X0, t=1.0, observable=f)
-    """
+    """  # noqa: E501
 
     _parameter_constraints: dict = {
         "n_components": [
@@ -263,7 +263,7 @@ class GeneratorDirichlet(BaseEstimator):
             Predicted observable value :math:`\mathbb{E}[f(X_t)]`.
         """
 
-        modes = self.dynamical_modes(X, np.sqrt(self.shift)*observable, recompute=recompute)
+        modes = self.dynamical_modes(X, np.sqrt(self.shift)*observable, recompute=recompute)  # noqa: E501
         pred = _regressors.predict_generator(
             t, modes
         )
@@ -346,13 +346,13 @@ class GeneratorDirichlet(BaseEstimator):
         For an observable :math:`f`, its expansion in generator modes is:
 
         .. math::
-            f(x) = \sum_{i=1}^r \langle \xi_i, f \rangle \, \psi_i(x),
+            f(x) = \\sum_{i=1}^r \\langle \\xi_i, f \\rangle \\, \\psi_i(x),
 
-        where :math:`\xi_i` and :math:`\psi_i` are left and right eigenfunctions.
-        Time evolution under the semigroup :math:`e^{t\mathcal{L}}` acts as:
+        where :math:`\\xi_i` and :math:`\\psi_i` are left and right eigenfunctions.
+        Time evolution under the semigroup :math:`e^{t\\mathcal{L}}` acts as:
 
         .. math::
-            f_t(x) = \sum_i e^{t \lambda_i} \langle \xi_i, f \rangle \psi_i(x).
+            f_t(x) = \\sum_i e^{t \\lambda_i} \\langle \\xi_i, f \\rangle \\psi_i(x).
 
         Parameters
         ----------
@@ -369,7 +369,7 @@ class GeneratorDirichlet(BaseEstimator):
         -------
         DynamicalModes
             Structured object containing:
-            - eigenvalues :math:`e^{\lambda_i}`,
+            - eigenvalues :math:`e^{\\lambda_i}`,
             - mode coefficients,
             - conditioning factors for evolution.
         """
