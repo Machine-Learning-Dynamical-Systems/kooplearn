@@ -40,6 +40,8 @@ class GeneratorDirichlet(BaseEstimator):
 
     Parameters
     ----------
+    friction : float or ndarray of shape (n_features,)
+        Langevin friction coefficients used in kernel derivative formulas.
     n_components : int or None, optional
         Number of generator eigenmodes to retain. If ``None``, all components
         are kept.
@@ -55,8 +57,7 @@ class GeneratorDirichlet(BaseEstimator):
     n_jobs : int, default=1
         Number of parallel workers for kernel computation.
 
-    friction : ndarray of shape (n_features,), optional
-        Langevin friction coefficients used in kernel derivative formulas.
+    
 
     shift : float, default=1.0
         Positive spectral shift applied to improve conditioning of the estimator.
@@ -133,12 +134,12 @@ class GeneratorDirichlet(BaseEstimator):
 
     def __init__(
         self,
+        friction,
         n_components=None,
         *,
         gamma=None,
         alpha=1e-6,
         n_jobs=1,
-        friction=None,
         shift=1.0,
     ):
         self.n_components = n_components
@@ -149,7 +150,7 @@ class GeneratorDirichlet(BaseEstimator):
         self.friction = friction
         self.shift = shift
 
-    def fit(self, X):
+    def fit(self, X, y=None):
         """
         Fit the Dirichlet-form kernel model to trajectory data.
 
@@ -163,6 +164,9 @@ class GeneratorDirichlet(BaseEstimator):
         ----------
         X : ndarray of shape (n_samples, n_features)
             Training states sampled from a diffusion process.
+        y : ndarray of shape (n_samples, n_features_out), default=None
+            Optional observable used for training.
+            If ``None``, the observable is assumed to be the state itself.
 
         Returns
         -------
@@ -170,6 +174,16 @@ class GeneratorDirichlet(BaseEstimator):
             Fitted estimator.
         """
         self._pre_fit_checks(X, self.friction)
+        if y is not None:
+            if y.shape[0] == X.shape[0]:
+                self.y_fit_ = y
+            else:
+                raise ValueError(
+                    f"y has {y.shape[0]} samples, but X has {X.shape[0]}. "
+                    "Both must have the same number of samples."
+                )
+        else:
+            self.y_fit_ = None
         # Adjust number of components
         if self.n_components is None:
             n_components = self.kernel_X_.shape[0]
@@ -199,7 +213,7 @@ class GeneratorDirichlet(BaseEstimator):
         logger.info(f"Fitted {self.__class__.__name__} model.")
         return self
 
-    def predict(self, X, t, observable, recompute=True) -> ndarray:
+    def predict(self, X, t, observable=False) -> ndarray:
         r"""
         Predict the expected observable value at time :math:`t`, conditional on
         the initial condition ``X``.
@@ -220,21 +234,18 @@ class GeneratorDirichlet(BaseEstimator):
         t : float
             Time horizon for the Koopman propagation.
 
-        observable : ndarray of shape (n_samples, n_dim)
-            Observable :math:`f(X)` to propagate in time.
+        observable : bool, default=False
+            If ``True``, returns the predicted observable at time :math:`t`
+            instead of the system state.
 
-        recompute : bool, default=True
-            If ``True``, recompute kernel matrices between ``X`` and ``X_fit_``.
-            If ``False``, reuse precomputed training kernels.
 
         Returns
         -------
         ndarray of shape (n_samples, n_dim)
             Predicted observable value :math:`\mathbb{E}[f(X_t)]`.
         """
-
         modes = self.dynamical_modes(
-            X, np.sqrt(self.shift) * observable, recompute=recompute
+            X, observable
         )
         pred = _regressors.predict_generator(t, modes)
         return pred
@@ -319,7 +330,7 @@ class GeneratorDirichlet(BaseEstimator):
                 ),
             )
 
-    def dynamical_modes(self, X, observable, recompute=False) -> DynamicalModes:
+    def dynamical_modes(self, X, observable=False) -> DynamicalModes:
         """
         Compute the dynamical mode decomposition of an observable.
 
@@ -339,11 +350,9 @@ class GeneratorDirichlet(BaseEstimator):
         X : ndarray
             Points at which the right eigenfunctions will be evaluated.
 
-        observable : ndarray of shape (n_samples, n_dim)
-            Observable values at the training points.
-
-        recompute : bool, default=False
-            If ``True``, recompute kernel matrices between ``X`` and ``X_fit_``.
+        observable : bool, default=False
+            If ``True``, returns the predicted observable at time :math:`t`
+            instead of the system state.
 
         Returns
         -------
@@ -355,21 +364,24 @@ class GeneratorDirichlet(BaseEstimator):
         """
         check_is_fitted(self)
         X = validate_data(self, X, reset=False)
+        if observable:
+            observable_fit_ = self.y_fit_
+        else:
+            observable_fit_ = X
         levecs = self.eigresults["left"]
         npts = levecs.shape[
             0
         ]  # We use the eigenvector to be consistent with the dirichlet estimator that does not have the same shape #obs_train.shape[0]
-        if recompute:
-            K_Xin_X, N_Xin_X = self._get_kernel(X, self.X_fit_, get_derivatives=True)
-        else:
-            K_Xin_X, N_Xin_X = self.kernel_X_, self.N_
+
+
+        K_Xin_X, N_Xin_X = self.kernel_X_, self.N_
         block_matrix = np.block([np.sqrt(self.shift) * K_Xin_X, N_Xin_X])
 
         conditioning = np.sqrt(2) * _regressors.evaluate_eigenfunction(
             self.eigresults, "right", block_matrix
         )  # [rank, num_initial_conditions]
 
-        modes_ = np.einsum("nr,nd" + "->rd", levecs.conj(), observable) / np.sqrt(
+        modes_ = np.einsum("nr,nd" + "->rd", levecs.conj(), np.sqrt(self.shift)*observable_fit_) / np.sqrt(
             npts
         )  # [rank, features]
         # modes_ = np.expand_dims(modes_, axis=1)
@@ -432,6 +444,8 @@ class GeneratorDirichlet(BaseEstimator):
 
     def _pre_fit_checks(self, X, friction):
         """Perform pre-fit checks and initialize kernel matrices."""
+        if isinstance(friction,float):
+            self.friction = np.full(X.shape[1], friction, dtype=float)
         if friction.shape[0] != X.shape[1]:
             raise ValueError
         X = validate_data(self, X)
