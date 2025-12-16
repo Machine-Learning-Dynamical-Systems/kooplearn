@@ -22,13 +22,13 @@ def make_data():
 
 @pytest.mark.parametrize("n_components", [TRUE_RANK, TRUE_RANK - 2, TRUE_RANK + 10])
 @pytest.mark.parametrize("alpha", [None, 0.0, 1e-5])
-@pytest.mark.parametrize("observables", [None, np.zeros, np.ones])
-@pytest.mark.parametrize("friction", [np.ones(DIM), None])
+@pytest.mark.parametrize("observable", [True, False])
+@pytest.mark.parametrize("friction", [np.ones(DIM), 1.0])
 def test_Kernel_fit_predict_eig_modes_risk_svals(
     n_components,
     alpha,
     friction,
-    observables,
+    observable,
 ):
     data = make_data()
 
@@ -42,11 +42,11 @@ def test_Kernel_fit_predict_eig_modes_risk_svals(
     with pytest.raises(Exception):
         check_is_fitted(model)
     # Fit, predict and modes checks
-    model.fit(data)
+    model.fit(data, y=data)
     assert check_is_fitted(model) is None
-    X_pred = model.predict(data, observable=data)
+    X_pred = model.predict(data, t=1.0, observable=observable)
     assert X_pred.shape == model.X_fit_.shape
-    modes = model.dynamical_modes(data, observable=data)
+    modes = model.dynamical_modes(data, observable=observable)
     assert modes[0].shape == model.X_fit_.shape
 
     # Eigen-decomposition

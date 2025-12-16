@@ -57,7 +57,7 @@ class GeneratorDirichlet(BaseEstimator):
     n_jobs : int, default=1
         Number of parallel workers for kernel computation.
 
-    
+
 
     shift : float, default=1.0
         Positive spectral shift applied to improve conditioning of the estimator.
@@ -244,9 +244,7 @@ class GeneratorDirichlet(BaseEstimator):
         ndarray of shape (n_samples, n_dim)
             Predicted observable value :math:`\mathbb{E}[f(X_t)]`.
         """
-        modes = self.dynamical_modes(
-            X, observable
-        )
+        modes = self.dynamical_modes(X, observable)
         pred = _regressors.predict_generator(t, modes)
         return pred
 
@@ -373,7 +371,6 @@ class GeneratorDirichlet(BaseEstimator):
             0
         ]  # We use the eigenvector to be consistent with the dirichlet estimator that does not have the same shape #obs_train.shape[0]
 
-
         K_Xin_X, N_Xin_X = self.kernel_X_, self.N_
         block_matrix = np.block([np.sqrt(self.shift) * K_Xin_X, N_Xin_X])
 
@@ -381,9 +378,9 @@ class GeneratorDirichlet(BaseEstimator):
             self.eigresults, "right", block_matrix
         )  # [rank, num_initial_conditions]
 
-        modes_ = np.einsum("nr,nd" + "->rd", levecs.conj(), np.sqrt(self.shift)*observable_fit_) / np.sqrt(
-            npts
-        )  # [rank, features]
+        modes_ = np.einsum(
+            "nr,nd" + "->rd", levecs.conj(), np.sqrt(self.shift) * observable_fit_
+        ) / np.sqrt(npts)  # [rank, features]
         # modes_ = np.expand_dims(modes_, axis=1)
 
         result = DynamicalModes(np.exp(self.eigresults["values"]), conditioning, modes_)
@@ -399,7 +396,7 @@ class GeneratorDirichlet(BaseEstimator):
         params = {
             "gamma": self.gamma_,
         }
-        length_scale = 1 / np.sqrt(2 * self.gamma)
+        length_scale = 1 / np.sqrt(2 * self.gamma_)
         if Y is None:
             Y = X
         if get_derivatives and get_second_derivatives:
@@ -444,10 +441,13 @@ class GeneratorDirichlet(BaseEstimator):
 
     def _pre_fit_checks(self, X, friction):
         """Perform pre-fit checks and initialize kernel matrices."""
-        if isinstance(friction,float):
+        if isinstance(friction, float):
             self.friction = np.full(X.shape[1], friction, dtype=float)
-        if friction.shape[0] != X.shape[1]:
-            raise ValueError
+        if self.friction.shape[0] != X.shape[1]:
+            raise ValueError(
+                f"Friction has length {self.friction.shape[0]}, "
+                f"but data has {X.shape[1]} features."
+            )
         X = validate_data(self, X)
         self.gamma_ = 1 / X.shape[1] if self.gamma is None else self.gamma
         self.X_fit_ = X
