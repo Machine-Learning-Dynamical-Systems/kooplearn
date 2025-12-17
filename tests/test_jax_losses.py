@@ -4,6 +4,7 @@ import pytest
 
 from kooplearn.jax.nn._functional import (
     autoencoder_loss,
+    energy_loss,
     orthonormal_fro_reg,
     orthonormal_logfro_reg,
     spectral_contrastive_loss,
@@ -834,3 +835,263 @@ class TestLossesIntegration:
             (logfro_grad, "logfro_reg"),
         ]:
             assert not jnp.isnan(grad).any(), f"{name} gradient contains NaN"
+
+
+class TestEnergyLoss:
+    """Test suite for energy_loss functional."""
+
+    def test_default_params(self):
+        """Test energy_loss with default parameters."""
+        key = jax.random.PRNGKey(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = jax.random.normal(key, (batch_size, state_dim))
+        y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, jacobian_dim, state_dim))
+
+        loss = energy_loss(x, y)
+
+        assert isinstance(loss, jnp.ndarray)
+        assert loss.shape == ()  # Scalar
+        assert not jnp.isnan(loss)
+        assert not jnp.isinf(loss)
+
+    def test_forward_dtype(self):
+        """Test that loss maintains dtype."""
+        key = jax.random.PRNGKey(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = jax.random.normal(key, (batch_size, state_dim), dtype=jnp.float32)
+        y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, jacobian_dim, state_dim), dtype=jnp.float32)
+
+        loss = energy_loss(x, y)
+
+        assert loss.dtype == x.dtype
+
+    def test_zero_grad_weight(self):
+        """Test energy_loss with zero gradient weight."""
+        key = jax.random.PRNGKey(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = jax.random.normal(key, (batch_size, state_dim))
+        y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, jacobian_dim, state_dim))
+
+        loss = energy_loss(x, y, grad_weight=0.0)
+
+        assert not jnp.isnan(loss)
+        assert not jnp.isinf(loss)
+
+    def test_large_grad_weight(self):
+        """Test energy_loss with large gradient weight."""
+        key = jax.random.PRNGKey(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = jax.random.normal(key, (batch_size, state_dim))
+        y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, jacobian_dim, state_dim))
+
+        loss = energy_loss(x, y, grad_weight=100.0)
+
+        assert not jnp.isnan(loss)
+        assert not jnp.isinf(loss)
+
+    def test_gradient_flow(self):
+        """Test that gradients flow through energy_loss."""
+        key = jax.random.PRNGKey(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = jax.random.normal(key, (batch_size, state_dim))
+        y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, jacobian_dim, state_dim))
+
+        def loss_fn(x, y):
+            return energy_loss(x, y)
+
+        grad_x = jax.grad(loss_fn, argnums=0)(x, y)
+        grad_y = jax.grad(loss_fn, argnums=1)(x, y)
+
+        assert not jnp.isnan(grad_x).any()
+        assert not jnp.isnan(grad_y).any()
+
+    def test_different_batch_sizes(self):
+        """Test energy_loss with different batch sizes."""
+        key = jax.random.PRNGKey(42)
+
+        for batch_size in [1, 2, 8, 32]:
+            x = jax.random.normal(key, (batch_size, 5))
+            y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, 10, 5))
+            loss = energy_loss(x, y)
+
+            assert loss.shape == ()
+            assert not jnp.isnan(loss)
+
+    def test_different_state_dims(self):
+        """Test energy_loss with different state dimensions."""
+        key = jax.random.PRNGKey(42)
+
+        for state_dim in [2, 5, 10, 20]:
+            x = jax.random.normal(key, (16, state_dim))
+            y = jax.random.normal(jax.random.fold_in(key, 1), (16, 10, state_dim))
+            loss = energy_loss(x, y)
+
+            assert loss.shape == ()
+            assert not jnp.isnan(loss)
+
+    def test_different_jacobian_dims(self):
+        """Test energy_loss with different Jacobian dimensions."""
+        key = jax.random.PRNGKey(42)
+
+        for jacobian_dim in [1, 5, 10, 50]:
+            x = jax.random.normal(key, (16, 5))
+            y = jax.random.normal(jax.random.fold_in(key, 1), (16, jacobian_dim, 5))
+            loss = energy_loss(x, y)
+
+            assert loss.shape == ()
+            assert not jnp.isnan(loss)
+
+    def test_single_sample(self):
+        """Test energy_loss with single sample."""
+        key = jax.random.PRNGKey(42)
+        x = jax.random.normal(key, (1, 5))
+        y = jax.random.normal(jax.random.fold_in(key, 1), (1, 10, 5))
+
+        loss = energy_loss(x, y)
+
+        assert loss.shape == ()
+        assert not jnp.isnan(loss)
+
+    def test_large_batch(self):
+        """Test energy_loss with large batch size."""
+        key = jax.random.PRNGKey(42)
+        batch_size = 128
+        state_dim = 10
+        jacobian_dim = 50
+
+        x = jax.random.normal(key, (batch_size, state_dim))
+        y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, jacobian_dim, state_dim))
+
+        loss = energy_loss(x, y)
+
+        assert loss.shape == ()
+        assert not jnp.isnan(loss)
+        assert not jnp.isinf(loss)
+
+    def test_weight_effect_on_loss(self):
+        """Test that grad_weight affects the loss value."""
+        key = jax.random.PRNGKey(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = jax.random.normal(key, (batch_size, state_dim))
+        y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, jacobian_dim, state_dim))
+
+        loss_no_grad = energy_loss(x, y, grad_weight=0.0)
+        loss_with_grad = energy_loss(x, y, grad_weight=1e-3)
+
+        # With non-zero grad_weight, loss should generally be different
+        assert not jnp.allclose(loss_no_grad, loss_with_grad)
+
+    def test_jacobian_contribution(self):
+        """Test that Jacobian term contributes to the loss."""
+        key = jax.random.PRNGKey(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = jax.random.normal(key, (batch_size, state_dim))
+        y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, jacobian_dim, state_dim))
+
+        loss_fn = lambda w: energy_loss(x, y, grad_weight=w)
+
+        loss = loss_fn(1.0)
+
+        assert not jnp.isnan(loss)
+        assert not jnp.isinf(loss)
+
+    def test_zero_jacobian(self):
+        """Test energy_loss with zero Jacobian."""
+        key = jax.random.PRNGKey(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = jax.random.normal(key, (batch_size, state_dim))
+        y = jnp.zeros((batch_size, jacobian_dim, state_dim))
+
+        loss = energy_loss(x, y, grad_weight=1e-3)
+
+        assert not jnp.isnan(loss)
+        assert not jnp.isinf(loss)
+
+    def test_double_precision(self):
+        """Test energy_loss with double precision."""
+        key = jax.random.PRNGKey(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = jax.random.normal(key, (batch_size, state_dim), dtype=jnp.float32)
+        y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, jacobian_dim, state_dim), dtype=jnp.float32)
+
+        loss = energy_loss(x, y)
+
+        assert loss.dtype == jnp.float32
+        assert not jnp.isnan(loss)
+
+    def test_deterministic_output(self):
+        """Test that energy_loss produces deterministic output for fixed input."""
+        key = jax.random.PRNGKey(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = jax.random.normal(key, (batch_size, state_dim))
+        y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, jacobian_dim, state_dim))
+
+        loss1 = energy_loss(x, y)
+        loss2 = energy_loss(x, y)
+
+        assert jnp.allclose(loss1, loss2)
+
+    def test_jit_compilation(self):
+        """Test that energy_loss can be JIT compiled."""
+        key = jax.random.PRNGKey(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = jax.random.normal(key, (batch_size, state_dim))
+        y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, jacobian_dim, state_dim))
+
+        jitted_fn = jax.jit(lambda x, y: energy_loss(x, y))
+        loss = jitted_fn(x, y)
+
+        assert loss.shape == ()
+        assert not jnp.isnan(loss)
+
+    def test_differentiability(self):
+        """Test that energy_loss is fully differentiable."""
+        key = jax.random.PRNGKey(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = jax.random.normal(key, (batch_size, state_dim))
+        y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, jacobian_dim, state_dim))
+
+        def loss_fn(x, y):
+            return energy_loss(x, y)
+
+        grad_x = jax.grad(loss_fn, argnums=0)(x, y)
+        grad_y = jax.grad(loss_fn, argnums=1)(x, y)
+
+        assert not jnp.isnan(grad_x).any()
+        assert not jnp.isnan(grad_y).any()
