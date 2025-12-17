@@ -7,6 +7,7 @@ from kooplearn.torch.nn import _functional as F
 
 __all__ = [
     "AutoEncoderLoss",
+    "EnergyLoss",
     "SpectralContrastiveLoss",
     "VampLoss",
 ]
@@ -175,3 +176,76 @@ class AutoEncoderLoss(Module):
             self.alpha_lin,
             self.alpha_pred,
         )
+
+
+class EnergyLoss(Module):
+    r"""Energy-based loss function.
+
+    Computes an energy-based loss that incorporates second-order information
+    (Jacobians) into the learning process.
+
+    The loss is computed as:
+
+    .. math::
+
+        \mathcal{L}(x, y) = \text{tr}(W^2) - 2\langle x, x \rangle \cdot L
+
+    where
+
+    .. math::
+
+        W = \frac{1}{N}(xx^\top + \lambda yy^\top)
+
+    with:
+
+    - :math:`x \in \mathbb{R}^{N \times L}` are input features
+    - :math:`y \in \mathbb{R}^{N \times DL}` are Jacobian features
+      (reshaped from :math:`(N, D, L)`)
+    - :math:`\lambda` is the ```grad_weight``` parameter controlling Jacobian
+      contribution
+    - :math:`N` is the batch size
+    - :math:`D` is the state space dimensionality
+    - :math:`L` is the latent space dimensionality
+
+    Parameters
+    ----------
+    grad_weight : float, optional
+        Weight for the Jacobian contribution. Must be non-negative. Controls how much
+        the Jacobian term contributes to the total loss. Default is 1e-3.
+    """
+
+    def __init__(
+            self,
+            grad_weight: float = 1e-3,
+    ) -> None:
+        """Initialize the Energy-based loss.
+
+        Parameters
+        ----------
+        grad_weight : float, optional
+            Weight for the Jacobian contribution. Must be non-negative.
+            Controls how much the Jacobian term contributes to the total
+            loss. Default is 1e-3.
+        """
+        super().__init__()
+        self.grad_weight = grad_weight
+
+    def forward(self, x: Tensor, y: Tensor) -> Tensor:
+        r"""Compute the energy-based loss combining input and Jacobian features.
+
+        Parameters
+        ----------
+        x : Tensor
+            Input features of shape :math:`(N, L)`, where :math:`N` is the batch size
+            and :math:`L` is the dimensionality of the latent space.
+        y : Tensor
+            Jacobian features of shape :math:`(N, D, L)`, where :math:`N`
+            is the batch size, :math:`D` is the state space dimensionality,
+            and :math:`L` is the latent space dimensionality.
+
+        Returns
+        -------
+        Tensor
+            Scalar loss value.
+        """
+        return F.energy_loss(x, y, self.grad_weight)
