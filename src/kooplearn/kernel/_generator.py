@@ -58,7 +58,6 @@ class GeneratorDirichlet(BaseEstimator):
         Number of parallel workers for kernel computation.
 
 
-
     shift : float, default=1.0
         Positive spectral shift applied to improve conditioning of the estimator.
 
@@ -113,7 +112,6 @@ class GeneratorDirichlet(BaseEstimator):
     >>> model = model.fit(X)
     >>> eigvals = model.eig()
     >>> f_pred = model.predict(X, t=1.0)
-    >>> print(f_pred.shape)
     """
 
     _parameter_constraints: dict = {
@@ -365,18 +363,17 @@ class GeneratorDirichlet(BaseEstimator):
         if observable:
             observable_fit_ = self.y_fit_
         else:
-            observable_fit_ = X
+            observable_fit_ = self.X_fit_
         levecs = self.eigresults["left"]
         npts = levecs.shape[
             0
         ]  # We use the eigenvector to be consistent with the dirichlet estimator that does not have the same shape #obs_train.shape[0]
-
-        K_Xin_X, N_Xin_X = self.kernel_X_, self.N_
+        K_Xin_X, N_Xin_X = self._get_kernel(X, self.X_fit_, get_derivatives=True)
         block_matrix = np.block([np.sqrt(self.shift) * K_Xin_X, N_Xin_X])
 
         conditioning = np.sqrt(2) * _regressors.evaluate_eigenfunction(
             self.eigresults, "right", block_matrix
-        )  # [rank, num_initial_conditions]
+        )  # [num_initial_conditions, rank]
 
         modes_ = np.einsum(
             "nr,nd" + "->rd", levecs.conj(), np.sqrt(self.shift) * observable_fit_
