@@ -87,8 +87,11 @@ def kooplearn_PCR_runner(train_data: np.ndarray, configs: BenchmarkConfig):
 
 
 def kooplearn_nystroem_PCR_runner(train_data: np.ndarray, configs: BenchmarkConfig):
+    from math import sqrt
+
     from kooplearn.kernel import NystroemKernelRidge
 
+    n_centers = int(sqrt(train_data.shape[0]))  # sqrt of number of samples
     # Reduced Rank Regression
     model = NystroemKernelRidge(
         n_components=configs.rank,
@@ -96,7 +99,7 @@ def kooplearn_nystroem_PCR_runner(train_data: np.ndarray, configs: BenchmarkConf
         kernel="rbf",
         alpha=configs.alpha,
         eigen_solver="arpack",
-        n_centers=int(train_data.shape[0] * 0.05),  # 5% of data as centers
+        n_centers=n_centers,  # 5% of data as centers
         random_state=0,
     )
     _ = model.fit(train_data)
@@ -129,7 +132,20 @@ def pydmd_runner(train_traj: np.ndarray, configs: BenchmarkConfig):
 
 
 def pykoop_runner(train_traj: np.ndarray, configs: BenchmarkConfig):
-    pass
+    from math import sqrt
+
+    import pykoop
+
+    gamma = 1 / train_traj.shape[1]  # gamma = 2*self.shape
+    n_components = int(sqrt(train_traj.shape[0]))  # sqrt of number of samples
+    rfs = pykoop.RandomFourierKernelApprox(
+        kernel_or_ft="gaussian",
+        n_components=n_components,
+        shape=gamma / 2.0,
+        method="weight_offset",
+        random_state=configs.random_seed,
+    ).fit_transform(train_traj)
+    model = pykoop.Edmd(alpha=configs.alpha).fit(rfs)
 
 
 def pykoopman_runner(train_traj: np.ndarray, configs: BenchmarkConfig):
@@ -156,8 +172,9 @@ runners_registry = {
     "kooplearn/PCR": kooplearn_PCR_runner,
     "kooplearn/nystroem_PCR": kooplearn_nystroem_PCR_runner,
     "kooplearn/randomized_PCR": kooplearn_randomized_PCR_runner,
-    "pydmd/PCR": pydmd_runner,
-    "pykoopman/PCR": pykoopman_runner,
+    "pydmd/KDMD": pydmd_runner,
+    "pykoopman/KDMD": pykoopman_runner,
+    "pykoop/EDMD": pykoop_runner,
 }
 
 
