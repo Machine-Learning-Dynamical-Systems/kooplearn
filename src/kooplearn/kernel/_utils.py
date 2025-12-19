@@ -7,7 +7,7 @@ __all__ = [
 ]
 
 
-def return_grad(kernel_X, X, Y, friction, length_scale):
+def return_grad(kernel_X, X, Y, diffusion, length_scale):
     r"""
     Compute the first derivative kernel block :math:`N` used in the
     Dirichlet-form estimator of the infinitesimal generator.
@@ -38,7 +38,7 @@ def return_grad(kernel_X, X, Y, friction, length_scale):
           \frac{(x_i - y_j)_k}{\sigma^2}
           \, k(x_i, y_j),
 
-    where :math:`s_k` denotes the friction coefficient.
+    where :math:`s_k` denotes the diffusion coefficient.
 
     Parameters
     ----------
@@ -51,9 +51,9 @@ def return_grad(kernel_X, X, Y, friction, length_scale):
     Y : ndarray of shape ``(M, d)``
         Second set of input samples.
 
-    friction : ndarray of shape ``(d,)``
-        Friction vector :math:`s = (s_1,\dots,s_d)` used in the physical
-        generator model.
+    diffusion : ndarray of shape `(M, d, d)``
+        Diffusion tensor :math:`D(x) = b(x)b(x)^\top` used in the generator.
+    `
 
     length_scale : float
         Kernel length-scale :math:`\sigma`.
@@ -88,11 +88,11 @@ def return_grad(kernel_X, X, Y, friction, length_scale):
         for j in range(m):
             for k in range(0, d):
                 N[i, k * m + j] = (
-                        np.sqrt(friction[k]) * difference[i, j, k] * kernel_X[i, j] / sigma**2
+                        diffusion[j, k] * difference[i, j, k] * kernel_X[i, j] / sigma**2
                 )
     return N
 
-def return_grad2(kernel_X: np.ndarray, X: np.ndarray, Y, friction: np.ndarray,length_scale):
+def return_grad2(kernel_X: np.ndarray, X: np.ndarray, Y, diffusion: np.ndarray,length_scale):
     r"""
     Compute the second derivative kernel block :math:`M` used in the
     Dirichlet-form generator estimator.
@@ -141,8 +141,8 @@ def return_grad2(kernel_X: np.ndarray, X: np.ndarray, Y, friction: np.ndarray,le
     Y : ndarray of shape ``(M, d)``
         Second set of samples.
 
-    friction : ndarray of shape ``(d,)``
-        Friction coefficients :math:`s_k`.
+    diffusion : ndarray of shape `(M, d, d)``
+        Diffusion tensor :math:`D(x) = b(x)b(x)^\top` used in the generator.
 
     length_scale : float
         Kernel length-scale :math:`\sigma`.
@@ -179,14 +179,13 @@ def return_grad2(kernel_X: np.ndarray, X: np.ndarray, Y, friction: np.ndarray,le
                 for l in range(0, d):
                     if l == k:
                         M[(k) * n + i, (l) * m + j] = (
-                            friction[k]
+                            diffusion[i,k] * diffusion[j,k]
                             * (1 / sigma**2 - difference[i, j, k] ** 2 / sigma**4)
                             * kernel_X[i, j]
                         )
                     else:
                         M[(k) * n + i, (l) * m + j] = (
-                                np.sqrt(friction[k])
-                                * np.sqrt(friction[l])
+                                diffusion[i,l] * diffusion[j,l]
                                 * (-difference[i, j, k] * difference[i, j, l] / sigma**4)
                                 * kernel_X[i, j]
                         )

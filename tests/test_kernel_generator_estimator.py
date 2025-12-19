@@ -23,7 +23,7 @@ def make_data():
 @pytest.mark.parametrize("n_components", [TRUE_RANK, TRUE_RANK - 2, TRUE_RANK + 10])
 @pytest.mark.parametrize("alpha", [None, 0.0, 1e-5])
 @pytest.mark.parametrize("observable", [True, False])
-@pytest.mark.parametrize("friction", [0.01 * np.ones(DIM), 0.01])
+@pytest.mark.parametrize("friction", [1e-3* np.ones(DIM), 1e-3, 1e-3*np.ones(NUM_SAMPLES,DIM)])
 def test_Kernel_fit_predict_eig_modes_risk_svals(
     n_components,
     alpha,
