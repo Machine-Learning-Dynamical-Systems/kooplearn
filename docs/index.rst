@@ -143,6 +143,7 @@ Learn more
    Ordered MNIST (torch) <examples/ordered_mnist_torch.ipynb>
    Ordered MNIST (jax) <examples/ordered_mnist_jax.ipynb>
    Logistic Map (torch) <examples/logistic_map.ipynb>
+   Kooplearn Datasets <examples/kooplearn_datasets.ipynb>
 
 
 .. toctree::

@@ -103,3 +103,15 @@ Explore the following examples showcasing different applications of our methods:
       **Logistic Map (torch)**
 
       Representation Learning for the noisy Logistic Map.
+
+   .. grid-item-card::
+      :link: examples/kooplearn_datasets.html
+      :class-card: sd-text-center sd-bg-light sd-shadow-sm sd-rounded-2xl
+
+      .. image:: _static/plot_datasets.png
+         :alt: Kooplearn Datasets
+         :width: 100%
+
+      **Kooplearn Datasets**
+
+      Visualizations of the datasets included in Kooplearn.
