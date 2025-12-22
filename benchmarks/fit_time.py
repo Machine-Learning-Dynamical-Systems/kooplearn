@@ -9,11 +9,14 @@
 #     "pykoopman",
 #     "tyro",
 #     "setuptools",
-#     "matplotlib"
+#     "matplotlib",
+#     "derivative",
+#     "lightning"
 # ]
 # ///
 import functools
 import json
+import warnings
 from dataclasses import dataclass
 from time import perf_counter
 from typing import Literal
@@ -21,11 +24,15 @@ from typing import Literal
 import numpy as np
 import tyro
 
+# Ignore SyntaxWarnings
+warnings.filterwarnings("ignore", category=SyntaxWarning)
+
 
 @dataclass
 class BenchmarkConfig:
     num_train_samples: int = 10000
     num_test_samples: int = 1000
+    num_repeats: int = 3
     rank: int = 25
     alpha: float = 1e-6
     dataset: Literal["lorenz", "noisy_logistic", "prinz_potential"] = "lorenz"
@@ -55,21 +62,30 @@ def make_data(config: BenchmarkConfig) -> np.ndarray:
     if config.dataset == "lorenz":
         data = kooplearn.datasets.make_lorenz63(
             np.ones(3),
-            n_steps=buffer+config.num_train_samples+buffer+config.num_test_samples
-            )
+            n_steps=buffer
+            + config.num_train_samples
+            + buffer
+            + config.num_test_samples,
+        )
     elif config.dataset == "noisy_logistic":
         data = kooplearn.datasets.make_logistic_map(
             0.5,
-            n_steps=buffer+config.num_train_samples+buffer+config.num_test_samples,
+            n_steps=buffer
+            + config.num_train_samples
+            + buffer
+            + config.num_test_samples,
             M=10,
-            random_state=config.random_seed
+            random_state=config.random_seed,
         )
     elif config.dataset == "prinz_potential":
         gamma = 1.0
         sigma = 2.0
         data = kooplearn.datasets.make_prinz_potential(
             X0=0,
-            n_steps=buffer+config.num_train_samples+buffer+config.num_test_samples,
+            n_steps=buffer
+            + config.num_train_samples
+            + buffer
+            + config.num_test_samples,
             gamma=gamma,
             sigma=sigma,
             random_state=config.random_seed,
@@ -78,13 +94,15 @@ def make_data(config: BenchmarkConfig) -> np.ndarray:
         raise ValueError(f"Unknown dataset {config.dataset}")
 
     dataset = {
-        "train": data[buffer:buffer+config.num_train_samples].values,
-        "test": data[-config.num_test_samples:].values,
+        "train": data[buffer : buffer + config.num_train_samples].values,
+        "test": data[-config.num_test_samples :].values,
     }
     return dataset
 
 
-def kooplearn_PCR_runner(train_data: np.ndarray, test_data: np.ndarray, configs: BenchmarkConfig):
+def kooplearn_PCR_runner(
+    train_data: np.ndarray, test_data: np.ndarray, configs: BenchmarkConfig
+):
     from kooplearn.kernel import KernelRidge
 
     # Reduced Rank Regression
@@ -163,7 +181,9 @@ def kooplearn_randomized_PCR_runner(
     return rmse
 
 
-def pydmd_runner(train_traj: np.ndarray, test_traj: np.ndarray, configs: BenchmarkConfig):
+def pydmd_runner(
+    train_traj: np.ndarray, test_traj: np.ndarray, configs: BenchmarkConfig
+):
     from pydmd.edmd import EDMDOperator
 
     model = EDMDOperator(svd_rank=configs.rank, kernel_metric="rbf", kernel_params={})
@@ -197,17 +217,20 @@ def pykoop_runner(
 
     # Create pipeline
     kp = pykoop.KoopmanPipeline(
-        lifting_functions=[(
-            'rff',
-            pykoop.KernelApproxLiftingFn(
-                kernel_approx=pykoop.RandomFourierKernelApprox(
-                    kernel_or_ft="gaussian",
-                    n_components=n_components,
-                    shape=gamma / 2.0,
-                    method="weight_offset",
-                    random_state=configs.random_seed
-                )),
-                )],
+        lifting_functions=[
+            (
+                "rff",
+                pykoop.KernelApproxLiftingFn(
+                    kernel_approx=pykoop.RandomFourierKernelApprox(
+                        kernel_or_ft="gaussian",
+                        n_components=n_components,
+                        shape=gamma / 2.0,
+                        method="weight_offset",
+                        random_state=configs.random_seed,
+                    )
+                ),
+            )
+        ],
         regressor=pykoop.Edmd(alpha=configs.alpha),
     )
 
@@ -280,18 +303,24 @@ def run_benchmarks(configs: BenchmarkConfig) -> None:
     for runner_name in runners:
         print(f"Running benchmark for {runner_name}...")
         runner = runners_registry.get(runner_name)
+        fit_time = []
+        rmse = []
         if runner is None:
             raise ValueError(f"Unknown test {runner_name}")
         try:
-            rmse_fn, fit_time = timer(runner)(
+            rmse_single, fit_time_single = timer(runner)(
                 dataset["train"], dataset["test"], configs
             )
-            rmse = rmse_fn
+            fit_time.append(fit_time_single)
+            rmse.append(rmse_single)
         except Exception as e:
-            fit_time = repr(e)
-            rmse = repr(e)
+            fit_time.append(np.nan)
+            rmse.append(np.nan)
 
-        results[runner_name] = {"fit_time": fit_time, "rmse": rmse}
+        results[runner_name] = {
+            "fit_time": np.nanmedian(fit_time),
+            "rmse": np.nanmedian(rmse),
+        }
 
     print("All benchmarks complete.")
 
@@ -301,8 +330,12 @@ def run_benchmarks(configs: BenchmarkConfig) -> None:
         json_results = {}
         for k, v in results.items():
             json_results[k] = {
-                "fit_time": v["fit_time"] if not isinstance(v["fit_time"], float) or not np.isnan(v["fit_time"]) else None,
-                "rmse": v["rmse"] if not isinstance(v["rmse"], float) or not np.isnan(v["rmse"]) else None,
+                "fit_time": v["fit_time"]
+                if not isinstance(v["fit_time"], float) or not np.isnan(v["fit_time"])
+                else None,
+                "rmse": v["rmse"]
+                if not isinstance(v["rmse"], float) or not np.isnan(v["rmse"])
+                else None,
             }
         with open("fit_time_benchmarks.json", "w") as f:
             json.dump(json_results, f, indent=4)
