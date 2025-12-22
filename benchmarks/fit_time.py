@@ -11,7 +11,8 @@
 #     "setuptools",
 #     "matplotlib",
 #     "derivative",
-#     "lightning"
+#     "lightning",
+#     "tqdm"
 # ]
 # ///
 import functools
@@ -23,6 +24,7 @@ from typing import Literal
 
 import numpy as np
 import tyro
+from tqdm import tqdm
 
 # Ignore SyntaxWarnings
 warnings.filterwarnings("ignore", category=SyntaxWarning)
@@ -101,7 +103,7 @@ def make_data(config: BenchmarkConfig) -> np.ndarray:
 
 
 def kooplearn_PCR_runner(
-    train_data: np.ndarray, test_data: np.ndarray, configs: BenchmarkConfig
+    train_data: np.ndarray, test_data: np.ndarray, configs: BenchmarkConfig, random_state: int = 0
 ):
     from kooplearn.kernel import KernelRidge
 
@@ -112,7 +114,7 @@ def kooplearn_PCR_runner(
         kernel="rbf",
         alpha=configs.alpha,
         eigen_solver="arpack",
-        random_state=0,
+        random_state=random_state,
     )
     model = model.fit(train_data)
 
@@ -126,13 +128,13 @@ def kooplearn_PCR_runner(
 
 
 def kooplearn_nystroem_PCR_runner(
-    train_data: np.ndarray, test_data: np.ndarray, configs: BenchmarkConfig
+    train_data: np.ndarray, test_data: np.ndarray, configs: BenchmarkConfig, random_state: int = 0
 ):
     from math import sqrt
 
     from kooplearn.kernel import NystroemKernelRidge
 
-    n_centers = int(sqrt(train_data.shape[0]))  # sqrt of number of samples
+    n_centers = int(train_data.shape[0]*0.1)
     # Reduced Rank Regression
     model = NystroemKernelRidge(
         n_components=configs.rank,
@@ -140,8 +142,8 @@ def kooplearn_nystroem_PCR_runner(
         kernel="rbf",
         alpha=configs.alpha,
         eigen_solver="arpack",
-        n_centers=n_centers,  # 5% of data as centers
-        random_state=0,
+        n_centers=n_centers,  # 10% of data as centers
+        random_state=random_state,
     )
     model = model.fit(train_data)
 
@@ -155,7 +157,7 @@ def kooplearn_nystroem_PCR_runner(
 
 
 def kooplearn_randomized_PCR_runner(
-    train_data: np.ndarray, test_data: np.ndarray, configs: BenchmarkConfig
+    train_data: np.ndarray, test_data: np.ndarray, configs: BenchmarkConfig, random_state: int = 0
 ):
     from kooplearn.kernel import KernelRidge
 
@@ -168,7 +170,7 @@ def kooplearn_randomized_PCR_runner(
         eigen_solver="randomized",
         iterated_power=1,
         n_oversamples=5,
-        random_state=0,
+        random_state=random_state,
     )
     model = model.fit(train_data)
 
@@ -182,10 +184,11 @@ def kooplearn_randomized_PCR_runner(
 
 
 def pydmd_runner(
-    train_traj: np.ndarray, test_traj: np.ndarray, configs: BenchmarkConfig
+    train_traj: np.ndarray, test_traj: np.ndarray, configs: BenchmarkConfig, random_state: int = 0
 ):
     from pydmd.edmd import EDMDOperator
 
+    np.random.seed(random_state)
     model = EDMDOperator(svd_rank=configs.rank, kernel_metric="rbf", kernel_params={})
     X = train_traj[:-1].T
     Y = train_traj[1:].T
@@ -198,20 +201,20 @@ def pydmd_runner(
 
 
 def pykoop_runner(
-    train_traj: np.ndarray, test_traj: np.ndarray, configs: BenchmarkConfig
+    train_traj: np.ndarray, test_traj: np.ndarray, configs: BenchmarkConfig, random_state: int = 0
 ):
     from math import sqrt
 
     import pykoop
 
     gamma = 1 / train_traj.shape[1]  # gamma = 2*self.shape
-    n_components = int(sqrt(train_traj.shape[0]))  # sqrt of number of samples
+    n_components = int(train_traj.shape[0] * 0.1)  # 10% of data as features
     rfs = pykoop.RandomFourierKernelApprox(
         kernel_or_ft="gaussian",
         n_components=n_components,
         shape=gamma / 2.0,
         method="weight_offset",
-        random_state=configs.random_seed,
+        random_state=random_state,
     ).fit_transform(train_traj)
     model = pykoop.Edmd(alpha=configs.alpha).fit(rfs)
 
@@ -226,7 +229,7 @@ def pykoop_runner(
                         n_components=n_components,
                         shape=gamma / 2.0,
                         method="weight_offset",
-                        random_state=configs.random_seed,
+                        random_state=random_state,
                     )
                 ),
             )
@@ -248,12 +251,13 @@ def pykoop_runner(
 
 
 def pykoopman_runner(
-    train_traj: np.ndarray, test_traj: np.ndarray, configs: BenchmarkConfig
+    train_traj: np.ndarray, test_traj: np.ndarray, configs: BenchmarkConfig, random_state: int = 0
 ):
     import pykoopman as pk
     from pykoopman.regression import KDMD
     from sklearn.gaussian_process.kernels import RBF
 
+    np.random.seed(random_state)
     gamma = 1 / train_traj.shape[1]
     length_scale = np.sqrt(0.5 / gamma)
     regressor = KDMD(
@@ -303,23 +307,40 @@ def run_benchmarks(configs: BenchmarkConfig) -> None:
     for runner_name in runners:
         print(f"Running benchmark for {runner_name}...")
         runner = runners_registry.get(runner_name)
-        fit_time = []
-        rmse = []
+        fit_times = []
+        rmses = []
         if runner is None:
             raise ValueError(f"Unknown test {runner_name}")
-        try:
-            rmse_single, fit_time_single = timer(runner)(
-                dataset["train"], dataset["test"], configs
-            )
-            fit_time.append(fit_time_single)
-            rmse.append(rmse_single)
-        except Exception as e:
-            fit_time.append(np.nan)
-            rmse.append(np.nan)
+        
+        for rep in tqdm(range(configs.num_repeats), desc=runner_name, leave=False):
+            try:
+                rmse_single, fit_time_single = timer(runner)(
+                    dataset["train"], dataset["test"], configs, random_state=rep
+                )
+                fit_times.append(fit_time_single)
+                rmses.append(rmse_single)
+            except Exception as e:
+                fit_times.append(np.nan)
+                rmses.append(np.nan)
+
+        # Calculate median and IQR
+        fit_time_median = np.nanmedian(fit_times)
+        fit_time_q1 = np.nanpercentile(fit_times, 25)
+        fit_time_q3 = np.nanpercentile(fit_times, 75)
+        fit_time_iqr = fit_time_q3 - fit_time_q1
+        
+        rmse_median = np.nanmedian(rmses)
+        rmse_q1 = np.nanpercentile(rmses, 25)
+        rmse_q3 = np.nanpercentile(rmses, 75)
+        rmse_iqr = rmse_q3 - rmse_q1
 
         results[runner_name] = {
-            "fit_time": np.nanmedian(fit_time),
-            "rmse": np.nanmedian(rmse),
+            "fit_time_median": fit_time_median,
+            "fit_time_iqr": fit_time_iqr,
+            "fit_time_values": fit_times,
+            "rmse_median": rmse_median,
+            "rmse_iqr": rmse_iqr,
+            "rmse_values": rmses,
         }
 
     print("All benchmarks complete.")
@@ -329,13 +350,25 @@ def run_benchmarks(configs: BenchmarkConfig) -> None:
         # Convert NaN to null for JSON serialization
         json_results = {}
         for k, v in results.items():
+            # Convert fit_time_values and rmse_values lists, replacing NaN with null
+            fit_time_vals = [x if isinstance(x, (int, float)) and not np.isnan(x) else None for x in v["fit_time_values"]]
+            rmse_vals = [x if isinstance(x, (int, float)) and not np.isnan(x) else None for x in v["rmse_values"]]
+            
             json_results[k] = {
-                "fit_time": v["fit_time"]
-                if not isinstance(v["fit_time"], float) or not np.isnan(v["fit_time"])
+                "fit_time_median": v["fit_time_median"]
+                if not isinstance(v["fit_time_median"], float) or not np.isnan(v["fit_time_median"])
                 else None,
-                "rmse": v["rmse"]
-                if not isinstance(v["rmse"], float) or not np.isnan(v["rmse"])
+                "fit_time_iqr": v["fit_time_iqr"]
+                if not isinstance(v["fit_time_iqr"], float) or not np.isnan(v["fit_time_iqr"])
                 else None,
+                "fit_time_values": fit_time_vals,
+                "rmse_median": v["rmse_median"]
+                if not isinstance(v["rmse_median"], float) or not np.isnan(v["rmse_median"])
+                else None,
+                "rmse_iqr": v["rmse_iqr"]
+                if not isinstance(v["rmse_iqr"], float) or not np.isnan(v["rmse_iqr"])
+                else None,
+                "rmse_values": rmse_vals,
             }
         with open("fit_time_benchmarks.json", "w") as f:
             json.dump(json_results, f, indent=4)
@@ -351,17 +384,20 @@ def run_benchmarks(configs: BenchmarkConfig) -> None:
             is_kooplearn = "kooplearn" in k
 
             # Check if value is float
-            fit_val = v["fit_time"]
-            is_valid = isinstance(fit_val, (int, float))
+            fit_val = v["fit_time_median"]
+            fit_iqr = v["fit_time_iqr"]
+            is_valid = isinstance(fit_val, (int, float)) and not np.isnan(fit_val)
             val = fit_val if is_valid else 0
+            err = fit_iqr if is_valid and isinstance(fit_iqr, (int, float)) and not np.isnan(fit_iqr) else 0
             # Create raw_val for sorting: valid floats first, then failures (as inf)
             raw_val = fit_val if is_valid else float("inf")
-            label = f"{fit_val:.2f}s" if is_valid else "FAILED"
+            label = f"{fit_val:.2f}±{fit_iqr:.2f}s" if is_valid else "FAILED"
 
             processed_fit.append(
                 {
                     "name": name,
                     "value": val,
+                    "error": err,
                     "raw_val": raw_val,
                     "label": label,
                     "is_kooplearn": is_kooplearn,
@@ -374,11 +410,12 @@ def run_benchmarks(configs: BenchmarkConfig) -> None:
 
         names = [p["name"] for p in processed_fit]
         values = [p["value"] for p in processed_fit]
+        errors = [p["error"] for p in processed_fit]
 
         fig, ax = plt.subplots(figsize=(10, 3))
 
-        # Plot bars
-        bars = ax.barh(names, values, color="#5e3c99", height=0.6)
+        # Plot bars with error bars
+        bars = ax.barh(names, values, xerr=errors, color="#5e3c99", height=0.6, capsize=5, error_kw={"elinewidth": 1.5})
 
         # Invert y-axis to have the first item (fastest) at the top
         ax.invert_yaxis()
@@ -398,7 +435,8 @@ def run_benchmarks(configs: BenchmarkConfig) -> None:
         max_val = max(values) if values else 1
         for bar, p in zip(bars, processed_fit):
             width = bar.get_width()
-            text_x = width + (max_val * 0.02)
+            err = p["error"]
+            text_x = width + err + (max_val * 0.02)
             text_color = "#999999" if p["is_valid"] else "red"
             weight = "bold" if not p["is_valid"] else "normal"
 
@@ -421,17 +459,20 @@ def run_benchmarks(configs: BenchmarkConfig) -> None:
             is_kooplearn = "kooplearn" in k
 
             # Check if value is float
-            rmse_val = v["rmse"]
+            rmse_val = v["rmse_median"]
+            rmse_iqr = v["rmse_iqr"]
             is_valid = isinstance(rmse_val, (int, float)) and not np.isnan(rmse_val)
             val = rmse_val if is_valid else 0
+            err = rmse_iqr if is_valid and isinstance(rmse_iqr, (int, float)) and not np.isnan(rmse_iqr) else 0
             # Create raw_val for sorting: valid floats first, then failures (as inf)
             raw_val = rmse_val if is_valid else float("inf")
-            label = f"{rmse_val:.4f}" if is_valid else "N/A"
+            label = f"{rmse_val:.4f}±{rmse_iqr:.4f}" if is_valid else "N/A"
 
             processed_rmse.append(
                 {
                     "name": name,
                     "value": val,
+                    "error": err,
                     "raw_val": raw_val,
                     "label": label,
                     "is_kooplearn": is_kooplearn,
@@ -444,11 +485,12 @@ def run_benchmarks(configs: BenchmarkConfig) -> None:
 
         names = [p["name"] for p in processed_rmse]
         values = [p["value"] for p in processed_rmse]
+        errors = [p["error"] for p in processed_rmse]
 
         fig, ax = plt.subplots(figsize=(10, 3))
 
-        # Plot bars
-        bars = ax.barh(names, values, color="#c23e1d", height=0.6)
+        # Plot bars with error bars
+        bars = ax.barh(names, values, xerr=errors, color="#c23e1d", height=0.6, capsize=5, error_kw={"elinewidth": 1.5})
 
         # Invert y-axis to have the first item (best) at the top
         ax.invert_yaxis()
@@ -468,7 +510,8 @@ def run_benchmarks(configs: BenchmarkConfig) -> None:
         max_val = max(values) if values else 1
         for bar, p in zip(bars, processed_rmse):
             width = bar.get_width()
-            text_x = width + (max_val * 0.02)
+            err = p["error"]
+            text_x = width + err + (max_val * 0.02)
             text_color = "#999999" if p["is_valid"] else "red"
             weight = "bold" if not p["is_valid"] else "normal"
 
@@ -484,13 +527,15 @@ def run_benchmarks(configs: BenchmarkConfig) -> None:
         print("Plot saved to rmse_benchmarks.png")
 
     for k, v in results.items():
-        fit_time = v["fit_time"]
-        rmse = v["rmse"]
-        if isinstance(fit_time, float):
-            fit_time = f"{fit_time:.6f} s" if not np.isnan(fit_time) else "N/A"
-        if isinstance(rmse, float):
-            rmse = f"{rmse:.6f}" if not np.isnan(rmse) else "N/A"
-        print(f"{k}: fit_time={fit_time}, rmse={rmse}")
+        fit_time_median = v["fit_time_median"]
+        fit_time_iqr = v["fit_time_iqr"]
+        rmse_median = v["rmse_median"]
+        rmse_iqr = v["rmse_iqr"]
+        if isinstance(fit_time_median, float):
+            fit_time_str = f"{fit_time_median:.6f}±{fit_time_iqr:.6f} s" if not np.isnan(fit_time_median) else "N/A"
+        if isinstance(rmse_median, float):
+            rmse_str = f"{rmse_median:.6f}±{rmse_iqr:.6f}" if not np.isnan(rmse_median) else "N/A"
+        print(f"{k}: fit_time={fit_time_str}, rmse={rmse_str}")
 
 
 if __name__ == "__main__":
