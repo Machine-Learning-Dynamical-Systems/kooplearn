@@ -13,18 +13,21 @@
 #     "matplotlib",
 #     "derivative",
 #     "lightning",
-#     "tqdm"
+#     "tqdm",
+#     "loguru",
 # ]
 # ///
 import functools
 import json
 import warnings
 from dataclasses import dataclass
+from math import sqrt
 from time import perf_counter
 
 import matplotlib.pyplot as plt
 import numpy as np
 import tyro
+from loguru import logger
 from tqdm import tqdm
 
 import kooplearn.datasets
@@ -37,14 +40,31 @@ warnings.filterwarnings("ignore", category=SyntaxWarning)
 @dataclass
 class BenchmarkConfig:
     num_train_samples: int = 10000
+    """Number of training samples to generate from the Lorenz63 dataset."""
     num_test_samples: int = 1000
+    """Number of test samples to generate from the Lorenz63 dataset."""
     num_repeats: int = 10
+    """Number of times to repeat each benchmark for statistics."""
     rank: int = 25
+    """Rank of the Koopman operator approximation."""
     alpha: float = 1e-6
+    """Tikhonov regularization parameter."""
     models: list[str] | str = "all"
+    """Which models to benchmark. 'all' or list of model keys.
+    Available models:
+        'kooplearn/KernelRidge'
+        'kooplearn/NystroemKernelRidge'
+        'kooplearn/KernelRidge+Randomized'
+        'pydmd/EDMDOperator'
+        'pykoopman/KDMD'
+        'pykoop/Edmd+RFs'
+    """
     random_seed: int = 0
+    """Base random seed for reproducibility."""
     save_json: bool = True
+    """Whether to save results to JSON file."""
     make_plots: bool = False
+    """Whether to generate plots."""
 
 
 def timer(func):
@@ -59,37 +79,74 @@ def timer(func):
 
 
 def make_data(config: BenchmarkConfig) -> dict[str, np.ndarray]:
+    from sklearn.preprocessing import StandardScaler
+
     buffer = 1000
     total_steps = buffer + config.num_train_samples + buffer + config.num_test_samples
 
     data = kooplearn.datasets.make_lorenz63(np.ones(3), n_steps=total_steps)
-
-    # Kooplearn datasets return a wrapper, .values extracts numpy array
+    scaler = StandardScaler()
+    train_set = scaler.fit_transform(
+        data.values[buffer : buffer + config.num_train_samples]
+    )
+    test_set = scaler.transform(data.values[-config.num_test_samples :])
     data_dict = {
-        "train": data[buffer : buffer + config.num_train_samples].values,
-        "test": data[-config.num_test_samples :].values,
+        "train": train_set,
+        "test": test_set,
     }
+    if config.make_plots:
+        plot_data(data_dict)
     return data_dict
+
+
+def plot_data(data_dict):
+    train_set = data_dict["train"]
+    test_set = data_dict["test"]
+    fig = plt.figure(figsize=(6, 6))
+    ax = fig.add_subplot(111, projection="3d")
+    ax.plot(
+        train_set[:, 0],
+        train_set[:, 1],
+        train_set[:, 2],
+        lw=1,
+        label="Training Set",
+        color="k",
+        alpha=0.3,
+    )
+    ax.plot(
+        test_set[:, 0],
+        test_set[:, 1],
+        test_set[:, 2],
+        lw=2,
+        label="Test Set",
+        color="#2A7E68",
+    )
+    plt.legend(frameon=False)
+    fig.savefig("lorenz63_data.svg", dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    logger.info("Plot of data saved to 'lorenz63_data.svg'")
 
 
 # --- Runners ---
 
 
-def kooplearn_PCR_runner(train, test, cfg, random_state=0):
+def kooplearn_PCR_runner(train: np.ndarray, test: np.ndarray, cfg: BenchmarkConfig):
     model = KernelRidge(
         n_components=cfg.rank,
         reduced_rank=False,
         kernel="rbf",
         alpha=cfg.alpha,
         eigen_solver="arpack",
-        random_state=random_state,
+        random_state=cfg.random_seed,
     )
     model.fit(train)
     return _calc_rmse(model, test)
 
 
-def kooplearn_nystroem_PCR_runner(train, test, cfg, random_state=0):
-    n_centers = int(train.shape[0] * 0.1)
+def kooplearn_nystroem_PCR_runner(
+    train: np.ndarray, test: np.ndarray, cfg: BenchmarkConfig
+):
+    n_centers = int(sqrt(train.shape[0]))
     model = NystroemKernelRidge(
         n_components=cfg.rank,
         reduced_rank=False,
@@ -97,13 +154,15 @@ def kooplearn_nystroem_PCR_runner(train, test, cfg, random_state=0):
         alpha=cfg.alpha,
         eigen_solver="arpack",
         n_centers=n_centers,
-        random_state=random_state,
+        random_state=cfg.random_seed,
     )
     model.fit(train)
     return _calc_rmse(model, test)
 
 
-def kooplearn_randomized_PCR_runner(train, test, cfg, random_state=0):
+def kooplearn_randomized_PCR_runner(
+    train: np.ndarray, test: np.ndarray, cfg: BenchmarkConfig
+):
     model = KernelRidge(
         n_components=cfg.rank,
         reduced_rank=False,
@@ -112,16 +171,16 @@ def kooplearn_randomized_PCR_runner(train, test, cfg, random_state=0):
         eigen_solver="randomized",
         iterated_power=1,
         n_oversamples=5,
-        random_state=random_state,
+        random_state=cfg.random_seed,
     )
     model.fit(train)
     return _calc_rmse(model, test)
 
 
-def pydmd_runner(train, test, cfg, random_state=0):
+def pydmd_runner(train: np.ndarray, test: np.ndarray, cfg: BenchmarkConfig):
     from pydmd.edmd import EDMDOperator
 
-    np.random.seed(random_state)
+    np.random.seed(cfg.random_seed)
 
     model = EDMDOperator(svd_rank=cfg.rank, kernel_metric="rbf", kernel_params={})
     X, Y = train[:-1].T, train[1:].T
@@ -130,18 +189,18 @@ def pydmd_runner(train, test, cfg, random_state=0):
     return np.nan
 
 
-def pykoop_runner(train, test, cfg, random_state=0):
+def pykoop_runner(train: np.ndarray, test: np.ndarray, cfg: BenchmarkConfig):
     import pykoop
 
     gamma = 1 / train.shape[1]
-    n_components = int(train.shape[0] * 0.1)
+    n_components = int(sqrt(train.shape[0]))
 
     kernel_approx = pykoop.RandomFourierKernelApprox(
         kernel_or_ft="gaussian",
         n_components=n_components,
         shape=gamma / 2.0,
         method="weight_offset",
-        random_state=random_state,
+        random_state=cfg.random_seed,
     )
 
     kp = pykoop.KoopmanPipeline(
@@ -153,16 +212,16 @@ def pykoop_runner(train, test, cfg, random_state=0):
     kp.fit(train)
 
     X_test, Y_test = test[:-1], test[1:]
-    Y_pred = kp.predict_trajectory(X_test)
+    Y_pred = kp.predict(X_test)
     return np.sqrt(np.mean((Y_pred - Y_test) ** 2))
 
 
-def pykoopman_runner(train, test, cfg, random_state=0):
+def pykoopman_runner(train: np.ndarray, test: np.ndarray, cfg: BenchmarkConfig):
     import pykoopman as pk
     from pykoopman.regression import KDMD
     from sklearn.gaussian_process.kernels import RBF
 
-    np.random.seed(random_state)
+    np.random.seed(cfg.random_seed)
     gamma = 1 / train.shape[1]
     length_scale = np.sqrt(0.5 / gamma)
 
@@ -177,7 +236,9 @@ def pykoopman_runner(train, test, cfg, random_state=0):
     return _calc_rmse(model, test)
 
 
-def _calc_rmse(model, test_data):
+def _calc_rmse(
+    model: KernelRidge | NystroemKernelRidge, test_data: np.ndarray
+) -> float:
     """Helper for standard fit/predict models."""
     X_test, Y_test = test_data[:-1], test_data[1:]
     Y_pred = model.predict(X_test)
@@ -185,12 +246,12 @@ def _calc_rmse(model, test_data):
 
 
 RUNNERS_REGISTRY = {
-    "kooplearn/PCR": kooplearn_PCR_runner,
-    "kooplearn/nystroem_PCR": kooplearn_nystroem_PCR_runner,
-    "kooplearn/randomized_PCR": kooplearn_randomized_PCR_runner,
-    "pydmd/KDMD": pydmd_runner,
+    "kooplearn/KernelRidge": kooplearn_PCR_runner,
+    "kooplearn/NystroemKernelRidge": kooplearn_nystroem_PCR_runner,
+    "kooplearn/KernelRidge+Randomized": kooplearn_randomized_PCR_runner,
+    "pydmd/EDMDOperator": pydmd_runner,
     "pykoopman/KDMD": pykoopman_runner,
-    "pykoop/EDMD": pykoop_runner,
+    "pykoop/Edmd+RFs": pykoop_runner,
 }
 
 
@@ -216,7 +277,8 @@ def plot_benchmark(results: dict, metric: str, filename: str, color: str):
     metric_iqr = f"{metric}_iqr"
 
     for k, v in results.items():
-        name = k.replace("/", " ").replace("_", " ")
+        lib, bench = k.split("/")
+        name = f"{lib} ({bench})"
         is_kooplearn = "kooplearn" in k
 
         val = v[metric_median]
@@ -289,14 +351,13 @@ def plot_benchmark(results: dict, metric: str, filename: str, color: str):
             color=text_color,
             fontweight=weight,
         )
-
     fig.savefig(filename, dpi=300, bbox_inches="tight")
     plt.close(fig)
-    print(f"Plot saved to {filename}")
+    logger.info(f"Plot saved to {filename}")
 
 
 def run_benchmarks(config: BenchmarkConfig) -> None:
-    print(f"Starting benchmarks: {config}")
+    logger.info(f"Starting benchmarks: {config}")
 
     runner_keys = (
         RUNNERS_REGISTRY.keys()
@@ -304,9 +365,8 @@ def run_benchmarks(config: BenchmarkConfig) -> None:
         else ([config.models] if isinstance(config.models, str) else config.models)
     )
 
-    print("Generating data...")
     dataset = make_data(config)
-    print("Data generation complete.")
+    logger.info("Data generation complete.")
 
     results = {}
 
@@ -316,15 +376,15 @@ def run_benchmarks(config: BenchmarkConfig) -> None:
             raise ValueError(f"Unknown runner: {name}")
 
         fit_times, rmses = [], []
-
+        base_seed = config.random_seed
         for rep in tqdm(range(config.num_repeats), desc=name, leave=False):
+            config.random_seed = base_seed + rep
             try:
-                rmse, dt = timer(runner)(
-                    dataset["train"], dataset["test"], config, random_state=rep
-                )
+                rmse, dt = timer(runner)(dataset["train"], dataset["test"], config)
                 fit_times.append(dt)
                 rmses.append(rmse)
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Runner {name} failed on repeat {rep} with error {e}")
                 fit_times.append(np.nan)
                 rmses.append(np.nan)
 
@@ -338,18 +398,17 @@ def run_benchmarks(config: BenchmarkConfig) -> None:
             "rmse_values": rmses,
         }
 
-    print("All benchmarks complete.")
+    logger.info("All benchmarks complete.")
 
     if config.save_json:
-        print("Saving results to JSON...")
+        logger.info("Saving results to JSON...")
         clean_results = sanitize_for_json(results)
         with open("fit_time_benchmarks.json", "w") as f:
             json.dump(clean_results, f, indent=4)
 
     if config.make_plots:
-        print("Creating plots...")
-        plot_benchmark(results, "fit_time", "fit_time_benchmarks.svg", "#5e3c99")
-        plot_benchmark(results, "rmse", "rmse_benchmarks.svg", "#c23e1d")
+        plot_benchmark(results, "fit_time", "fit_time_benchmarks.svg", "#2A7E68")
+        # plot_benchmark(results, "rmse", "rmse_benchmarks.svg", "#5EB1EF")
 
     # Summary print
     for k, v in results.items():
@@ -359,10 +418,9 @@ def run_benchmarks(config: BenchmarkConfig) -> None:
         ft_str = f"{ft:.4f}±{ft_iqr:.4f} s" if not np.isnan(ft) else "N/A"
         rmse_str = f"{rmse:.4f}±{rmse_iqr:.4f}" if not np.isnan(rmse) else "N/A"
 
-        print(f"{k:<30} fit_time={ft_str:<20} rmse={rmse_str}")
+        logger.info(f"{k:<30} fit_time={ft_str:<20} rmse={rmse_str}")
 
 
 if __name__ == "__main__":
     configs = tyro.cli(BenchmarkConfig)
     run_benchmarks(configs)
-    print("Script finished.")
