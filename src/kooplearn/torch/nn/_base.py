@@ -7,6 +7,7 @@ from kooplearn.torch.nn import _functional as F
 
 __all__ = [
     "AutoEncoderLoss",
+    "EnergyLoss",
     "SpectralContrastiveLoss",
     "VampLoss",
 ]
@@ -22,6 +23,9 @@ class VampLoss(Module):
     Args:
         schatten_norm (int, optional): Computes the VAMP-p score with ``p = schatten_norm``. Defaults to 2.
         center_covariances (bool, optional): Use centered covariances to compute the VAMP score. Defaults to True.
+
+    .. hint::
+        Check out the `Ordered MNIST <../examples/ordered_mnist_torch.html>`_ example for a practical use of this loss function.
     """
 
     def __init__(
@@ -63,6 +67,8 @@ class SpectralContrastiveLoss(Module):
 
         \mathcal{L}(x, y) = \frac{1}{N(N-1)}\sum_{i \neq j}\langle x_{i}, y_{j} \rangle^2 - \frac{2}{N}\sum_{i=1}\langle x_{i}, y_{i} \rangle.
 
+    .. hint::
+        Check out the `Ordered MNIST <../examples/ordered_mnist_torch.html>`_ example for a practical use of this loss function.
     """
 
     def __init__(
@@ -107,6 +113,9 @@ class AutoEncoderLoss(Module):
     :math:`\phi(y)` is the encoded output,
     :math:`K\phi(x)` is the evolved input latent representation,
     and :math:`\phi^{-1}(K\phi(x))` is the predicted decoded output.
+
+    .. hint::
+        Check out the `Ordered MNIST <../examples/ordered_mnist_torch.html>`_ example for a practical use of this loss function.
     """
 
     def __init__(
@@ -175,3 +184,79 @@ class AutoEncoderLoss(Module):
             self.alpha_lin,
             self.alpha_pred,
         )
+
+
+class EnergyLoss(Module):
+    r"""Energy-based loss function.
+
+    Computes an energy-based loss that incorporates second-order information
+    (Jacobians) into the learning process.
+
+    The loss is computed as:
+
+    .. math::
+
+        \mathcal{L}(x, y) = \text{tr}(W^2) - 2\langle x, x \rangle \cdot L
+
+    where
+
+    .. math::
+
+        W = \frac{1}{N}(xx^\top + \lambda yy^\top)
+
+    where:
+
+    - :math:`x \in \mathbb{R}^{N \times L}` are input features
+    - :math:`y \in \mathbb{R}^{N \times DL}` are Jacobian features
+      (reshaped from :math:`(N, D, L)`)
+    - :math:`\lambda` is the ```grad_weight``` parameter controlling Jacobian
+      contribution
+    - :math:`N` is the batch size
+    - :math:`D` is the state space dimensionality
+    - :math:`L` is the latent space dimensionality
+
+    .. hint::
+        Check out the `Prinz Potential <../examples/prinz_potential.html>`_ example for a practical use of this loss function.
+
+    Parameters
+    ----------
+    grad_weight : float, optional
+        Weight for the Jacobian contribution. Must be non-negative. Controls how much
+        the Jacobian term contributes to the total loss. Default is 1e-3.
+    """
+
+    def __init__(
+        self,
+        grad_weight: float = 1e-3,
+    ) -> None:
+        """Initialize the Energy-based loss.
+
+        Parameters
+        ----------
+        grad_weight : float, optional
+            Weight for the Jacobian contribution. Must be non-negative.
+            Controls how much the Jacobian term contributes to the total
+            loss. Default is 1e-3.
+        """
+        super().__init__()
+        self.grad_weight = grad_weight
+
+    def forward(self, x: Tensor, y: Tensor) -> Tensor:
+        r"""Compute the energy-based loss combining input and Jacobian features.
+
+        Parameters
+        ----------
+        x : Tensor
+            Input features of shape :math:`(N, L)`, where :math:`N` is the batch size
+            and :math:`L` is the dimensionality of the latent space.
+        y : Tensor
+            Jacobian features of shape :math:`(N, D, L)`, where :math:`N`
+            is the batch size, :math:`D` is the state space dimensionality,
+            and :math:`L` is the latent space dimensionality.
+
+        Returns
+        -------
+        Tensor
+            Scalar loss value.
+        """
+        return F.energy_loss(x, y, self.grad_weight)

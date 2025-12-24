@@ -127,3 +127,18 @@ def orthonormal_logfro_reg(x: Tensor) -> Tensor:
     centering_loss = (x.mean(0, keepdim=True) ** 2).sum()  # ||E_p(x) x||^2
     reg = orth_loss + 2 * centering_loss
     return reg
+
+
+def energy_loss(x: Tensor, y: Tensor, grad_weight: float) -> torch.Tensor:
+    """See :class:`kooplearn.torch.nn.EnergyLoss` for details."""
+    assert x.ndim == 2
+    assert grad_weight >= 0.0
+    assert y.ndim == 3
+
+    npts, dim = x.shape
+    y = y.reshape(npts, -1)
+    W = torch.matmul(x, x.T) + grad_weight * torch.matmul(y, y.T)
+    W /= npts
+    diag = 2 * torch.mean(x * x) * dim
+    square_term = torch.sum(W ** 2)
+    return square_term - diag

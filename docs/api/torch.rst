@@ -16,4 +16,5 @@ kooplearn.torch
    nn.SpectralContrastiveLoss
    nn.VampLoss
    nn.AutoEncoderLoss
+   nn.EnergyLoss
    FeatureMapEmbedder

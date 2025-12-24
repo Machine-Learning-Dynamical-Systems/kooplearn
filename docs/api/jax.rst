@@ -16,6 +16,7 @@ kooplearn.jax
    nn.spectral_contrastive_loss
    nn.vamp_loss
    nn.autoencoder_loss
+   nn.energy_loss
 
 .. autosummary::
    :toctree: ../generated/

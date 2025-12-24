@@ -43,6 +43,9 @@ def vamp_loss(
 
     and :math:`\sigma_i(A)` are the singular values of A.
 
+    .. hint::
+        Check out the `Ordered MNIST <../examples/ordered_mnist_jax.html>`_ example for a practical use of this loss function.
+
     Parameters
     ----------
     x : ArrayLike
@@ -122,6 +125,9 @@ def spectral_contrastive_loss(x: ArrayLike, y: ArrayLike) -> jax.Array:
         \mathcal{L}(x, y) = \frac{1}{N(N-1)}\sum_{i \neq j}\langle x_{i}, y_{j} \rangle^2
                             - \frac{2}{N}\sum_{i=1}^N\langle x_{i}, y_{i} \rangle
 
+    .. hint::
+        Check out the `Ordered MNIST <../examples/ordered_mnist_jax.html>`_ example for a practical use of this loss function.
+
     Parameters
     ----------
     x : ArrayLike
@@ -197,6 +203,9 @@ def autoencoder_loss(
 
     where :math:`\phi` is the encoder, :math:`\phi^{-1}` is the decoder,
     and :math:`K` is the Koopman operator in latent space.
+
+    .. hint::
+        Check out the `Ordered MNIST <../examples/ordered_mnist_jax.html>`_ example for a practical use of this loss function.
 
     Parameters
     ----------
@@ -324,3 +333,76 @@ def orthonormal_logfro_reg(x: ArrayLike) -> jax.Array:
     centering_loss = (x.mean(0, keepdims=True) ** 2).sum()
     reg = orth_loss + 2 * centering_loss
     return reg
+
+
+def energy_loss(x: ArrayLike, y: ArrayLike, grad_weight: float = 1e-3) -> jax.Array:
+    r"""Energy-based loss function.
+
+    Computes an energy-based loss that incorporates second-order information
+    (Jacobians) into the learning process.
+
+    The loss is computed as:
+
+    .. math::
+
+        \mathcal{L}(x, y) = \text{tr}(W^2) - 2\langle x, x \rangle \cdot L
+
+    where
+
+    .. math::
+
+        W = \frac{1}{N}(xx^\top + \lambda yy^\top)
+
+    where:
+
+    - :math:`x \in \mathbb{R}^{N \times L}` are input features
+    - :math:`y \in \mathbb{R}^{N \times DL}` are Jacobian features
+      (reshaped from :math:`(N, D, L)`)
+    - :math:`\lambda` is the ```grad_weight``` parameter controlling Jacobian
+      contribution
+    - :math:`N` is the batch size
+    - :math:`D` is the state space dimensionality
+    - :math:`L` is the latent space dimensionality
+
+    .. hint::
+        Check out the `Prinz Potential <../examples/prinz_potential.html>`_ example for a practical use of this loss function.
+
+    Parameters
+    ----------
+    x : ArrayLike
+        Input features of shape :math:`(N, L)`, where :math:`N` is the batch size
+        and :math:`L` is the dimensionality of the latent space.
+    y : ArrayLike
+        Jacobian features of shape :math:`(N, D, L)`, where :math:`N` is
+        the batch size, :math:`D` is the state space dimensionality, and :math:`L` is the latent space dimensionality.
+    grad_weight : float, optional
+        Weight for the Jacobian contribution. Must be non-negative. Controls how much
+        the Jacobian term contributes to the total loss. Default is 1e-3.
+
+    Returns
+    -------
+    jax.Array
+        Scalar loss value.
+
+    Raises
+    ------
+    AssertionError
+        If :math:`x` is not 2-dimensional or :math:`y` is not 3-dimensional.
+        If :math:`\text{grad_weight} < 0`.
+    """
+    x = jnp.asarray(x)
+    y = jnp.asarray(y)
+
+    assert x.ndim == 2, "x must be 2-dimensional"
+    assert y.ndim == 3, "y must be 3-dimensional"
+    assert grad_weight >= 0.0, "grad_weight must be non-negative"
+
+    npts, dim = x.shape
+    y_reshaped = y.reshape(npts, -1)
+
+    W = jnp.matmul(x, x.T) + grad_weight * jnp.matmul(y_reshaped, y_reshaped.T)
+    W = W / npts
+    diag = 2 * jnp.mean(x * x) * dim
+    square_term = jnp.sum(W**2)
+
+    return square_term - diag

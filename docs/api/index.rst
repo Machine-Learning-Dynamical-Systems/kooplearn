@@ -34,6 +34,7 @@ Kernel-based estimators
 
    KernelRidge
    NystroemKernelRidge
+   GeneratorDirichlet
 
 Preprocessing utilities
 ^^^^^^^^^^^^^^^^^^^^^^^

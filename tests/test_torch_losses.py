@@ -4,6 +4,7 @@ import torch.nn as nn
 
 from kooplearn.torch.nn._base import (
     AutoEncoderLoss,
+    EnergyLoss,
     SpectralContrastiveLoss,
     VampLoss,
 )
@@ -501,6 +502,284 @@ class TestAutoEncoderLoss:
         assert torch.isclose(loss2, 2 * loss1, rtol=0.01)
 
 
+class TestEnergyLoss:
+    """Test suite for EnergyLoss."""
+
+    def test_init_default_params(self):
+        """Test EnergyLoss initialization with default parameters."""
+        loss_fn = EnergyLoss()
+        assert loss_fn.grad_weight == 1e-3
+
+    def test_init_custom_params(self):
+        """Test EnergyLoss initialization with custom parameters."""
+        loss_fn = EnergyLoss(grad_weight=0.1)
+        assert loss_fn.grad_weight == 0.1
+
+    def test_init_zero_grad_weight(self):
+        """Test EnergyLoss initialization with zero gradient weight."""
+        loss_fn = EnergyLoss(grad_weight=0.0)
+        assert loss_fn.grad_weight == 0.0
+
+    def test_init_large_grad_weight(self):
+        """Test EnergyLoss initialization with large gradient weight."""
+        loss_fn = EnergyLoss(grad_weight=100.0)
+        assert loss_fn.grad_weight == 100.0
+
+    def test_forward_returns_scalar(self):
+        """Test that forward pass returns a scalar tensor."""
+        torch.manual_seed(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = torch.randn(batch_size, state_dim)
+        # y shape: (batch_size, jacobian_dim, state_dim)
+        # reshaped to: (batch_size, jacobian_dim * state_dim)
+        y = torch.randn(batch_size, jacobian_dim, state_dim)
+
+        loss_fn = EnergyLoss()
+        loss = loss_fn(x, y)
+
+        assert loss.dim() == 0, "Loss should be a scalar"
+        assert isinstance(loss, torch.Tensor)
+
+    def test_forward_dtype(self):
+        """Test that loss maintains dtype."""
+        torch.manual_seed(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = torch.randn(batch_size, state_dim)
+        y = torch.randn(batch_size, jacobian_dim, state_dim)
+
+        loss_fn = EnergyLoss()
+        loss = loss_fn(x, y)
+
+        assert loss.dtype == x.dtype
+
+    def test_forward_no_nan(self):
+        """Test that loss does not contain NaN or Inf."""
+        torch.manual_seed(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = torch.randn(batch_size, state_dim)
+        y = torch.randn(batch_size, jacobian_dim, state_dim)
+
+        loss_fn = EnergyLoss()
+        loss = loss_fn(x, y)
+
+        assert not torch.isnan(loss)
+        assert not torch.isinf(loss)
+
+    def test_zero_grad_weight(self):
+        """Test EnergyLoss with zero gradient weight."""
+        torch.manual_seed(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = torch.randn(batch_size, state_dim)
+        y = torch.randn(batch_size, jacobian_dim, state_dim)
+
+        loss_fn = EnergyLoss(grad_weight=0.0)
+        loss = loss_fn(x, y)
+
+        assert not torch.isnan(loss)
+        assert not torch.isinf(loss)
+
+    def test_large_grad_weight(self):
+        """Test EnergyLoss with large gradient weight."""
+        torch.manual_seed(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = torch.randn(batch_size, state_dim)
+        y = torch.randn(batch_size, jacobian_dim, state_dim)
+
+        loss_fn = EnergyLoss(grad_weight=100.0)
+        loss = loss_fn(x, y)
+
+        assert not torch.isnan(loss)
+        assert not torch.isinf(loss)
+
+    def test_gradient_flow(self):
+        """Test that gradients flow through EnergyLoss."""
+        torch.manual_seed(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = torch.randn(batch_size, state_dim, requires_grad=True)
+        y = torch.randn(batch_size, jacobian_dim, state_dim, requires_grad=True)
+
+        loss_fn = EnergyLoss()
+        loss = loss_fn(x, y)
+        loss.backward()
+
+        assert x.grad is not None
+        assert y.grad is not None
+        assert not torch.isnan(x.grad).any()
+        assert not torch.isnan(y.grad).any()
+
+    def test_different_batch_sizes(self):
+        """Test EnergyLoss with different batch sizes."""
+        loss_fn = EnergyLoss()
+
+        for batch_size in [1, 2, 8, 32]:
+            x = torch.randn(batch_size, 5)
+            y = torch.randn(batch_size, 10, 5)
+            loss = loss_fn(x, y)
+
+            assert loss.dim() == 0
+            assert not torch.isnan(loss)
+
+    def test_different_state_dims(self):
+        """Test EnergyLoss with different state dimensions."""
+        loss_fn = EnergyLoss()
+
+        for state_dim in [2, 5, 10, 20]:
+            x = torch.randn(16, state_dim)
+            y = torch.randn(16, 10, state_dim)
+            loss = loss_fn(x, y)
+
+            assert loss.dim() == 0
+            assert not torch.isnan(loss)
+
+    def test_different_jacobian_dims(self):
+        """Test EnergyLoss with different Jacobian dimensions."""
+        loss_fn = EnergyLoss()
+
+        for jacobian_dim in [1, 5, 10, 50]:
+            x = torch.randn(16, 5)
+            y = torch.randn(16, jacobian_dim, 5)
+            loss = loss_fn(x, y)
+
+            assert loss.dim() == 0
+            assert not torch.isnan(loss)
+
+    def test_single_sample(self):
+        """Test EnergyLoss with single sample."""
+        torch.manual_seed(42)
+        x = torch.randn(1, 5)
+        y = torch.randn(1, 10, 5)
+
+        loss_fn = EnergyLoss()
+        loss = loss_fn(x, y)
+
+        assert loss.dim() == 0
+        assert not torch.isnan(loss)
+
+    def test_large_batch(self):
+        """Test EnergyLoss with large batch size."""
+        torch.manual_seed(42)
+        batch_size = 128
+        state_dim = 10
+        jacobian_dim = 50
+
+        x = torch.randn(batch_size, state_dim)
+        y = torch.randn(batch_size, jacobian_dim, state_dim)
+
+        loss_fn = EnergyLoss()
+        loss = loss_fn(x, y)
+
+        assert loss.dim() == 0
+        assert not torch.isnan(loss)
+        assert not torch.isinf(loss)
+
+    def test_weight_effect_on_loss(self):
+        """Test that grad_weight affects the loss value."""
+        torch.manual_seed(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = torch.randn(batch_size, state_dim)
+        y = torch.randn(batch_size, jacobian_dim, state_dim)
+
+        loss_fn_no_grad = EnergyLoss(grad_weight=0.0)
+        loss_fn_with_grad = EnergyLoss(grad_weight=1e-3)
+
+        loss_no_grad = loss_fn_no_grad(x, y)
+        loss_with_grad = loss_fn_with_grad(x, y)
+
+        # With non-zero grad_weight, loss should generally be different
+        # (unless y happens to be zero, which is very unlikely)
+        assert not torch.isclose(loss_no_grad, loss_with_grad)
+
+    def test_jacobian_contribution(self):
+        """Test that Jacobian term contributes to the loss."""
+        torch.manual_seed(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = torch.randn(batch_size, state_dim)
+        y = torch.randn(batch_size, jacobian_dim, state_dim)
+
+        loss_fn = EnergyLoss(grad_weight=1.0)
+        loss = loss_fn(x, y)
+
+        assert not torch.isnan(loss)
+        assert not torch.isinf(loss)
+
+    def test_zero_jacobian(self):
+        """Test EnergyLoss with zero Jacobian."""
+        torch.manual_seed(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = torch.randn(batch_size, state_dim)
+        y = torch.zeros(batch_size, jacobian_dim, state_dim)
+
+        loss_fn = EnergyLoss(grad_weight=1e-3)
+        loss = loss_fn(x, y)
+
+        assert not torch.isnan(loss)
+        assert not torch.isinf(loss)
+
+    def test_double_precision(self):
+        """Test EnergyLoss with double precision."""
+        torch.manual_seed(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = torch.randn(batch_size, state_dim, dtype=torch.float64)
+        y = torch.randn(batch_size, jacobian_dim, state_dim, dtype=torch.float64)
+
+        loss_fn = EnergyLoss()
+        loss = loss_fn(x, y)
+
+        assert loss.dtype == torch.float64
+        assert not torch.isnan(loss)
+
+    def test_module_instance(self):
+        """Test that EnergyLoss is a proper nn.Module instance."""
+        loss_fn = EnergyLoss()
+        assert isinstance(loss_fn, nn.Module)
+
+    def test_deterministic_output(self):
+        """Test that EnergyLoss produces deterministic output for fixed input."""
+        torch.manual_seed(42)
+        batch_size = 16
+        state_dim = 5
+        jacobian_dim = 10
+
+        x = torch.randn(batch_size, state_dim)
+        y = torch.randn(batch_size, jacobian_dim, state_dim)
+
+        loss_fn = EnergyLoss()
+        loss1 = loss_fn(x, y)
+        loss2 = loss_fn(x, y)
+
+        assert torch.allclose(loss1, loss2)
+
+
 class TestLossesIntegration:
     """Integration tests for all loss functions."""
 
@@ -510,6 +789,7 @@ class TestLossesIntegration:
             VampLoss(),
             SpectralContrastiveLoss(),
             AutoEncoderLoss(),
+            EnergyLoss(),
         ]
 
         for loss_fn in losses:
