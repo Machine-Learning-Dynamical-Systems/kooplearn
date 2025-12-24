@@ -39,11 +39,11 @@ warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 @dataclass
 class BenchmarkConfig:
-    num_train_samples: int = 10000
+    num_train_samples: int = 5000
     """Number of training samples to generate from the Lorenz63 dataset."""
     num_test_samples: int = 1000
     """Number of test samples to generate from the Lorenz63 dataset."""
-    num_repeats: int = 10
+    num_repeats: int = 3
     """Number of times to repeat each benchmark for statistics."""
     rank: int = 25
     """Rank of the Koopman operator approximation."""
@@ -63,8 +63,10 @@ class BenchmarkConfig:
     """Base random seed for reproducibility."""
     save_json: bool = True
     """Whether to save results to JSON file."""
-    make_plots: bool = False
+    make_plots: bool = True
     """Whether to generate plots."""
+    results_json_path: str | None = None
+    """Path to load existing results JSON for plotting only."""
 
 
 def timer(func):
@@ -291,9 +293,9 @@ def plot_benchmark(results: dict, metric: str, filename: str, color: str):
 
         # Formatting
         if metric == "fit_time":
-            label_text = f"{val:.2f}±{iqr:.2f}s" if is_valid else "FAILED"
+            label_text = f"{val:.2f}s" if is_valid else "FAILED"
         else:
-            label_text = f"{val:.4f}±{iqr:.4f}" if is_valid else "N/A"
+            label_text = f"{val:.4f}" if is_valid else "N/A"
 
         processed.append(
             {
@@ -318,7 +320,6 @@ def plot_benchmark(results: dict, metric: str, filename: str, color: str):
     bars = ax.barh(
         names,
         values,
-        xerr=errors,
         color=color,
         height=0.6,
         capsize=5,
@@ -423,4 +424,9 @@ def run_benchmarks(config: BenchmarkConfig) -> None:
 
 if __name__ == "__main__":
     configs = tyro.cli(BenchmarkConfig)
-    run_benchmarks(configs)
+    if configs.results_json_path:
+        with open(configs.results_json_path, "r") as f:
+            results = json.load(f)
+        plot_benchmark(results, "fit_time", "fit_time_benchmarks.svg", "#2A7E68")
+    else:
+        run_benchmarks(configs)
