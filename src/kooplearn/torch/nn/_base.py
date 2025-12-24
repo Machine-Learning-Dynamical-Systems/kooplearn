@@ -23,6 +23,9 @@ class VampLoss(Module):
     Args:
         schatten_norm (int, optional): Computes the VAMP-p score with ``p = schatten_norm``. Defaults to 2.
         center_covariances (bool, optional): Use centered covariances to compute the VAMP score. Defaults to True.
+
+    .. hint::
+        Check out the `Ordered MNIST <../examples/ordered_mnist_torch.html>`_ example for a practical use of this loss function.
     """
 
     def __init__(
@@ -64,6 +67,8 @@ class SpectralContrastiveLoss(Module):
 
         \mathcal{L}(x, y) = \frac{1}{N(N-1)}\sum_{i \neq j}\langle x_{i}, y_{j} \rangle^2 - \frac{2}{N}\sum_{i=1}\langle x_{i}, y_{i} \rangle.
 
+    .. hint::
+        Check out the `Ordered MNIST <../examples/ordered_mnist_torch.html>`_ example for a practical use of this loss function.
     """
 
     def __init__(
@@ -108,6 +113,9 @@ class AutoEncoderLoss(Module):
     :math:`\phi(y)` is the encoded output,
     :math:`K\phi(x)` is the evolved input latent representation,
     and :math:`\phi^{-1}(K\phi(x))` is the predicted decoded output.
+
+    .. hint::
+        Check out the `Ordered MNIST <../examples/ordered_mnist_torch.html>`_ example for a practical use of this loss function.
     """
 
     def __init__(
@@ -196,7 +204,7 @@ class EnergyLoss(Module):
 
         W = \frac{1}{N}(xx^\top + \lambda yy^\top)
 
-    with:
+    where:
 
     - :math:`x \in \mathbb{R}^{N \times L}` are input features
     - :math:`y \in \mathbb{R}^{N \times DL}` are Jacobian features
@@ -207,6 +215,9 @@ class EnergyLoss(Module):
     - :math:`D` is the state space dimensionality
     - :math:`L` is the latent space dimensionality
 
+    .. hint::
+        Check out the `Prinz Potential <../examples/prinz_potential.html>`_ example for a practical use of this loss function.
+
     Parameters
     ----------
     grad_weight : float, optional
@@ -215,8 +226,8 @@ class EnergyLoss(Module):
     """
 
     def __init__(
-            self,
-            grad_weight: float = 1e-3,
+        self,
+        grad_weight: float = 1e-3,
     ) -> None:
         """Initialize the Energy-based loss.
 

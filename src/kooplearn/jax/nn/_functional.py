@@ -43,6 +43,9 @@ def vamp_loss(
 
     and :math:`\sigma_i(A)` are the singular values of A.
 
+    .. hint::
+        Check out the `Ordered MNIST <../examples/ordered_mnist_jax.html>`_ example for a practical use of this loss function.
+
     Parameters
     ----------
     x : ArrayLike
@@ -122,6 +125,9 @@ def spectral_contrastive_loss(x: ArrayLike, y: ArrayLike) -> jax.Array:
         \mathcal{L}(x, y) = \frac{1}{N(N-1)}\sum_{i \neq j}\langle x_{i}, y_{j} \rangle^2
                             - \frac{2}{N}\sum_{i=1}^N\langle x_{i}, y_{i} \rangle
 
+    .. hint::
+        Check out the `Ordered MNIST <../examples/ordered_mnist_jax.html>`_ example for a practical use of this loss function.
+
     Parameters
     ----------
     x : ArrayLike
@@ -197,6 +203,9 @@ def autoencoder_loss(
 
     where :math:`\phi` is the encoder, :math:`\phi^{-1}` is the decoder,
     and :math:`K` is the Koopman operator in latent space.
+
+    .. hint::
+        Check out the `Ordered MNIST <../examples/ordered_mnist_jax.html>`_ example for a practical use of this loss function.
 
     Parameters
     ----------
@@ -344,7 +353,7 @@ def energy_loss(x: ArrayLike, y: ArrayLike, grad_weight: float = 1e-3) -> jax.Ar
 
         W = \frac{1}{N}(xx^\top + \lambda yy^\top)
 
-    with:
+    where:
 
     - :math:`x \in \mathbb{R}^{N \times L}` are input features
     - :math:`y \in \mathbb{R}^{N \times DL}` are Jacobian features
@@ -354,6 +363,9 @@ def energy_loss(x: ArrayLike, y: ArrayLike, grad_weight: float = 1e-3) -> jax.Ar
     - :math:`N` is the batch size
     - :math:`D` is the state space dimensionality
     - :math:`L` is the latent space dimensionality
+
+    .. hint::
+        Check out the `Prinz Potential <../examples/prinz_potential.html>`_ example for a practical use of this loss function.
 
     Parameters
     ----------
@@ -391,6 +403,6 @@ def energy_loss(x: ArrayLike, y: ArrayLike, grad_weight: float = 1e-3) -> jax.Ar
     W = jnp.matmul(x, x.T) + grad_weight * jnp.matmul(y_reshaped, y_reshaped.T)
     W = W / npts
     diag = 2 * jnp.mean(x * x) * dim
-    square_term = jnp.sum(W ** 2)
+    square_term = jnp.sum(W**2)
 
     return square_term - diag
