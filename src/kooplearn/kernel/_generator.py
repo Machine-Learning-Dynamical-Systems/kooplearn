@@ -75,7 +75,7 @@ class GeneratorDirichlet(BaseEstimator):
 
     with :math:`u(x,t) = \mathbb{E}[f(X_t) \mid X_0 = x]`.
 
-    The estimator constructs a kernelized approximation of the resolvent 
+    The estimator constructs a kernelized approximation of the resolvent
     of the generator :math:`( \mu I - \mathcal{L})^{-1}`
     using first- and second-order derivatives of the kernel and solves a
     regularized variational problem to recover generator eigenvalues and
@@ -86,21 +86,21 @@ class GeneratorDirichlet(BaseEstimator):
     ----------
 
     diffusion : float or ndarray
-    Diffusion specification for the SDE. The input is interpreted as the
-    diffusion matrix directly (no multiplication to form D = b b^T).  
-    The allowed formats are:
+        Diffusion specification for the SDE. The input is interpreted as the
+        diffusion matrix directly (no multiplication to form :math:`D = b b^\top`).
+        The allowed formats are:
 
-    1. **Scalar diffusion**  
-       If a float is provided, the diffusion is assumed isotropic, the same
-       for all dimensions.
+        1. **Scalar diffusion**
+        If a float is provided, the diffusion is assumed isotropic, the same
+        for all dimensions.
 
-    2. **constant diffusion**  
-       If an array of shape ``(n_features,)`` is provided, the diffusion is
-       taken to be constant.
+        2. **constant diffusion**
+        If an array of shape ``(n_features,)`` is provided, the diffusion is
+        taken to be constant.
 
-    3. **State dependant diffusion**  
-       If an array of shape ``(n_samples, n_features)`` is provided, it is
-       interpreted as a state dependant diffusion.
+        3. **State dependant diffusion**
+        If an array of shape ``(n_samples, n_features)`` is provided, it is
+        interpreted as a state dependant diffusion.
 
     n_components : int or None, optional
         Number of generator eigenmodes to retain. If ``None``, all components
@@ -161,14 +161,15 @@ class GeneratorDirichlet(BaseEstimator):
     >>> from kooplearn.datasets import make_prinz_potential
     >>> X = make_prinz_potential(X0=0, n_steps=500, gamma=1.0, sigma=2.0)
     >>> model = GeneratorDirichlet(
+    ...     diffusion=1.0,
     ...     n_components=4,
     ...     gamma=1.0,
-    ...     friction=np.ones(1)
     ... )
-    >>> model.fit(X)
+    >>> model = model.fit(X)
     >>> eigvals = model.eig()
     >>> f_pred = model.predict(X, t=1.0)
     """
+
     _parameter_constraints: dict = {
         "n_components": [
             Interval(Integral, 1, None, closed="left"),
@@ -495,22 +496,26 @@ class GeneratorDirichlet(BaseEstimator):
         """Perform pre-fit checks and initialize kernel matrices."""
         n_samples, d = X.shape
         if np.isscalar(diffusion):
-        # Broadcast scalar to shape (n_samples, d)
+            # Broadcast scalar to shape (n_samples, d)
             self.diffusion = np.full((n_samples, d), diffusion)
 
         # Case 2: constant vector of length d
-        elif isinstance(diffusion, np.ndarray) and diffusion.shape == (d,):
-            # Broadcast vector to all samples
-            self.diffusion = np.tile(diffusion[None, :], (n_samples, 1))
-        # Case 3: sample-dependent vectors (n_samples, d)
-        elif isinstance(diffusion, np.ndarray) and diffusion.shape == (n_samples, d):
-            self.diffusion = diffusion
-
+        elif isinstance(diffusion, np.ndarray):
+            if diffusion.ndim == 1 and diffusion.shape == (d,):
+                # Broadcast vector to all samples
+                self.diffusion = np.tile(diffusion[None, :], (n_samples, 1))
+            elif diffusion.ndim == 2 and diffusion.shape == (n_samples, d):
+                # Case 3: sample-dependent vectors (n_samples, d)
+                self.diffusion = diffusion
+            else:
+                raise ValueError(
+                    f"diffusion must be a float, or a ndarray of shape ({d=},), or ({n_samples=}, {d=}) while got {diffusion.shape}."
+                )
         else:
             raise ValueError(
-                "diffusion must be a float, (d,), or (n_samples, d)"
+                f"diffusion must be a float or a numpy array, while got {type(diffusion)}."
             )
-        self.diffusion /= np.sqrt(2) # The genertor prefactor is diffusion/sqrt(2)
+        self.diffusion /= np.sqrt(2)  # The genertor prefactor is diffusion/sqrt(2)
         X = validate_data(self, X)
         self.gamma_ = 1 / X.shape[1] if self.gamma is None else self.gamma
         self.X_fit_ = X

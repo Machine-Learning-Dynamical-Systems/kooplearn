@@ -16,14 +16,23 @@ Kooplearn
 Why Choosing ``kooplearn``?
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-1. It is easy to use, and strictly adheres to the `scikit-learn API <https://scikit-learn.org/stable/api/index.html>`_.
-2. :ref:`Kernel estimators <api_kernel>` are state-of-the-art: 
+It is easy to use, and strictly adheres to the `scikit-learn API <https://scikit-learn.org/stable/api/index.html>`_. Its :ref:`Kernel estimators <api_kernel>` are state-of-the-art, and blazingly fast ⚡️: 
    
-   * ``kooplearn`` implements the *Reduced Rank Regressor* from :cite:`p1-Kostic2022` which is provably better :cite:`p1-Kostic2023SpectralRates` than the classical kernel DMD :cite:`p1-Williams2015_KDMD` in estimating eigenvalues and eigenfunctions. 
-   * It also implements Nyström estimators :cite:`p1-Meanti2023` and randomized estimators :cite:`p1-turri2023randomized` for :doc:`blazingly fast <examples/ala2_nys_tutorial.ipynb>` kernel learning.
+.. figure:: /_static/fit_time_benchmarks_light.svg
+   :figclass: light-only
+   :width: 800
+   :align: center
 
-3. Includes representation learning losses (implemented both in :ref:`PyTorch <api_torchnn>` and :ref:`JAX <api_jaxnn>`) to train neural-network Koopman embeddings.
-4. Offers a collection of :ref:`datasets <api_datasets>` for benchmarking evolution operator learning algorithms.
+   Fit time of a Kernel model (Gaussian kernel) on a dataset of 5000 observations from the Lorenz 63 dynamical system. Runned on a system equipped with an Intel Core i9-9900X CPU (3.50GHz) and 48GB of RAM memory.
+
+.. figure:: /_static/fit_time_benchmarks_dark.svg
+   :figclass: dark-only
+   :width: 800
+   :align: center
+
+   Fit time of a Kernel model (Gaussian kernel) on a dataset of 5000 observations from the Lorenz 63 dynamical system. Runned on a system equipped with an Intel Core i9-9900X CPU (3.50GHz) and 48GB of RAM memory.
+
+Kooplearn also includes representation learning losses (implemented both in :ref:`PyTorch <api_torchnn>` and :ref:`JAX <api_jaxnn>`) to train neural-network Koopman embeddings, and offers a collection of :ref:`datasets <api_datasets>` for benchmarking evolution operator learning algorithms.
 
 Installation
 ^^^^^^^^^^^^
