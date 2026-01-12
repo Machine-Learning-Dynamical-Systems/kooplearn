@@ -20,7 +20,7 @@ authors:
     affiliation: 3
   - name: Timothée Devergne
     orcid: 0000-0001-8369-237X
-    affiliation: 1
+    affiliation: "4, 1"
   - name: Daniel Ordoñez
     orcid: 0000-0002-9793-2482
     affiliation: 1
@@ -28,16 +28,16 @@ authors:
     orcid: 0000-0001-8720-1558
     affiliation: 1
   - name: Bruno Belucci
-    affiliation: 4
+    affiliation: 5
   - name: Karim Lounici
     orcid: 0000-0001-6806-6303
     affiliation: 2
   - name: Vladimir Kostic
     orcid: 0000-0002-2876-8834
-    affiliation: "1, 5"
+    affiliation: "1, 6"
   - name: Massimiliano Pontil
     orcid: 0000-0001-9415-098X
-    affiliation: "1, 6"
+    affiliation: "1, 7"
   - name: Pietro Novelli
     orcid: 0000-0003-1623-5659
     affiliation: 1
@@ -48,12 +48,14 @@ affiliations:
    index: 2
  - name: Centre Inria de l’Université Grenoble Alpes, Montbonnot, France
    index: 3
- - name: Paris Dauphine University, Paris, France
+ - name: ATSIM Unit, Italian Institute of Technology, Genoa, Italy
    index: 4
- - name: Faculty of Science, University of Novi Sad, Serbia
+ - name: Paris Dauphine University, Paris, France
    index: 5
- - name: Dept. of Computer Science, University College London, U.K.
+ - name: Faculty of Science, University of Novi Sad, Serbia
    index: 6
+ - name: Dept. of Computer Science, University College London, U.K.
+   index: 7
 date: 9 January 2026
 bibliography: paper.bib
 ---
