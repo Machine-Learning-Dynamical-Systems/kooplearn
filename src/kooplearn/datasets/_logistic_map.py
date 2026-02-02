@@ -1,7 +1,8 @@
 """
 Koopman operator analysis for the noisy logistic map.
 
-This module implements analytical tools for studying the noisy logistic map with trigonometirc noise.
+This module implements analytical tools for studying the noisy logistic map with trigonometirc
+noise.
 
 Main API Functions
 ------------------
@@ -225,7 +226,10 @@ def step(x: np.ndarray, noise_rng: NumericalInversePolynomial) -> np.ndarray:
     return x_next
 
 
-def compute_invariant_distribution(M: int = 10, precomputed_transition_matrix: np.ndarray | None = None) -> Callable[[np.ndarray], np.ndarray]:
+def compute_invariant_distribution(
+        M: int = 10,
+        precomputed_transition_matrix: np.ndarray | None = None
+        ) -> Callable[[np.ndarray], np.ndarray]:
     """Compute the invariant distribution of the noisy logistic map.
 
     This function computes the invariant distribution of the noisy logistic
@@ -264,7 +268,8 @@ def compute_invariant_distribution(M: int = 10, precomputed_transition_matrix: n
     # Find the eigenvalue closest to 1 (the leading eigenvalue)
     leading_idx = np.argmax(np.abs(values))
     if not np.allclose(values[leading_idx], 1.0):
-        raise RuntimeError(f"Leading eigenvalue is {values[leading_idx]}, expected 1.0. The transition matrix may be incorrectly computed.")
+        raise RuntimeError(f"Leading eigenvalue is {values[leading_idx]}, expected 1.0. " /
+                           "The transition matrix may be incorrectly computed.")
 
     # Build the invariant distribution from basis functions
     mesh_size = 2**10
@@ -283,7 +288,10 @@ def compute_invariant_distribution(M: int = 10, precomputed_transition_matrix: n
     return lambda _x: np.interp(_x, x, pi)
 
 
-def _eval_eigenfunctions(eigenvectors: np.ndarray, eval_points: np.ndarray, M: int = 10) -> np.ndarray:
+def _eval_eigenfunctions(
+        eigenvectors: np.ndarray,
+        eval_points: np.ndarray, M: int = 10
+        ) -> np.ndarray:
     """Evaluate eigenfunctions from basis expansion coefficients.
 
     Parameters
@@ -392,7 +400,10 @@ def compute_logistic_map_eig(
         return values[:num_components]
 
 
-def compute_logistic_map_invariant_pdf(M: int = 10, precomputed_transition_matrix: np.ndarray | None = None) -> Callable[[np.ndarray], np.ndarray]:
+def compute_logistic_map_invariant_pdf(
+        M: int = 10,
+        precomputed_transition_matrix: np.ndarray | None = None
+        ) -> Callable[[np.ndarray], np.ndarray]:
     """Compute the invariant probability density function.
 
     The invariant PDF for the logistic map with trigonometric noise.
@@ -432,4 +443,7 @@ def compute_logistic_map_invariant_pdf(M: int = 10, precomputed_transition_matri
     >>> pdf1 = compute_logistic_map_invariant_pdf(M=10, precomputed_transition_matrix=P)
     >>> pdf2 = compute_logistic_map_invariant_pdf(M=10, precomputed_transition_matrix=P)
     """
-    return compute_invariant_distribution(M=M, precomputed_transition_matrix=precomputed_transition_matrix)
+    return compute_invariant_distribution(
+        M=M,
+        precomputed_transition_matrix=precomputed_transition_matrix
+        )

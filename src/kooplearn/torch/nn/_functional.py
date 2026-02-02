@@ -79,8 +79,8 @@ def orthonormal_fro_reg(x: Tensor) -> Tensor:
     Given a batch of realizations of `x`, the orthonormality regularization term penalizes:
 
     1. Orthogonality: Linear dependencies among dimensions,
-    2. Normality: Deviations of each dimension’s variance from 1,
-    3. Centering: Deviations of each dimension’s mean from 0.
+    2. Normality: Deviations of each dimension's variance from 1,
+    3. Centering: Deviations of each dimension's mean from 0.
 
     .. math::
 
@@ -90,12 +90,13 @@ def orthonormal_fro_reg(x: Tensor) -> Tensor:
         x (Tensor): Input features.
 
     Shape:
-        ``x``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of features.
-    """
+        ``x``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of
+        features.
+    """  # noqa: E501
     x_mean = x.mean(dim=0, keepdim=True)
     x_centered = x - x_mean
-    # As ||Cx||_F^2 = E_(x,x')~p(x) [((x - E_p(x) x)^T (x' - E_p(x) x'))^2] = tr(Cx^2), involves the product of
-    # covariances, unbiased estimation of this term requires the use of U-statistics
+    # As ||Cx||_F^2 = E_(x,x')~p(x) [((x - E_p(x) x)^T (x' - E_p(x) x'))^2] = tr(Cx^2), involves the
+    # product of covariances, unbiased estimation of this term requires the use of U-statistics
     Cx_fro_2 = cov_norm_squared_unbiased(x_centered)
     # tr(Cx) = E_p(x) [(x - E_p(x))^T (x - E_p(x))] ≈ 1/N Σ_n (x_n - E_p(x))^T (x_n - E_p(x))
     tr_Cx = torch.einsum("ij,ij->", x_centered, x_centered) / x.shape[0]
@@ -106,7 +107,8 @@ def orthonormal_fro_reg(x: Tensor) -> Tensor:
 
 
 def orthonormal_logfro_reg(x: Tensor) -> Tensor:
-    r"""Orthonormality regularization with log-Frobenious norm of covariance of x by :cite:t:`Kostic2023DPNets`.
+    r"""Orthonormality regularization with log-Frobenious norm of covariance of x by
+      :cite:t:`Kostic2023DPNets`.
 
     .. math::
 
@@ -116,7 +118,8 @@ def orthonormal_logfro_reg(x: Tensor) -> Tensor:
         x (Tensor): Input features.
 
     Shape:
-        ``x``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of features.
+        ``x``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of
+        features.
     """
     cov = covariance(x)  # shape: (D, D)
     eps = torch.finfo(cov.dtype).eps * cov.shape[0]

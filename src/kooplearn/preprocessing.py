@@ -30,7 +30,8 @@ class TimeDelayEmbedding(BaseEstimator, TransformerMixin):
     Notes
     -----
     - The ``inverse_transform`` method **only works when ``stride=1``**.
-      Using ``stride>1`` will raise a ``ValueError``, because reconstruction requires overlapping windows.
+      Using ``stride>1`` will raise a ``ValueError``, because reconstruction requires overlapping
+      windows.
 
     Examples
     --------

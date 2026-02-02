@@ -12,8 +12,8 @@ from sklearn.utils._arpack import _init_arpack_v0
 from sklearn.utils.extmath import randomized_svd
 
 from kooplearn._linalg import add_diagonal_, stable_topk, weighted_norm
-from kooplearn.structs import EigResult, FitResult, DynamicalModes
 from kooplearn._utils import fuzzy_parse_complex
+from kooplearn.structs import DynamicalModes, EigResult, FitResult
 
 __all__ = [
     "eig",
@@ -207,27 +207,29 @@ def predict(
 def predict_generator(
         t: float,  # time in the same units as dt
         mode_result: DynamicalModes,
-    ) -> ndarray:  # shape [num_init_cond, features] or if num_t>1 [num_init_cond, num_time, features]
+    ) -> ndarray:  # shape [num_init_cond, features]. If num_t>1 [num_init_cond, num_time, features]
     r"""Predicts the evolution of an observable using the mode decomposition.
 
     Given the modal decomposition of an observable, this function reconstructs
     the time evolution by propagating the eigenmodes forward in time.
 
     Args:
-        t (Union[float, np.ndarray]): Time or array of time values in the same units as the spectral decomposition.
+        t (Union[float, np.ndarray]): Time or array of time values in the same units as the spectral
+        decomposition.
         mode_result (ModeResult): Result of the mode decomposition
 
     Shape:
         - ``t``: :math:`(T,)` or scalar, where :math:`T` is the number of time steps.
-        - ``predictions``: :math:`(N_{init}, T, d_{obs})`, predicted observable values at times :math:`t`.
-          If :math:`T=1` or :math:`N_{init}=1`, unnecessary dimensions are removed.
+        - ``predictions``: :math:`(N_{init}, T, d_{obs})`, predicted observable values at times
+        :math:`t`. If :math:`T=1` or :math:`N_{init}=1`, unnecessary dimensions are removed.
 
     Returns:
         predictions: np.ndarray: Predicted observable values at the given time steps.
         If multiple time points are given, the shape is :math:`(N_{init}, T, d_{obs})`.
-        If only one time step or one initial condition is provided, the output is squeezed accordingly.
+        If only one time step or one initial condition is provided, the output is squeezed
+        accordingly.
     """
-    if type(t) == float:  # noqa: E721
+    if type(t) == float:
         t = np.array([t])
     evals = np.exp(- t[np.newaxis,:] / mode_result._lifetimes[:,np.newaxis] )
     #to_evals = np.exp(evals[:, None] * t[None, :])  # [rank,time_steps]
@@ -717,7 +719,8 @@ def rand_reduced_rank(
 
 def reduced_rank_regression_dirichlet(
     kernel_X: ndarray,  # kernel matrix of the training data
-    dKernel_X: ndarray,  # derivative of the kernel: dK_X_{i,j} = <\phi(x_i),d\phi(x_j)> (matrix N in the paper)
+    dKernel_X: ndarray,  # derivative of the kernel: dK_X_{i,j} = <\phi(x_i),d\phi(x_j)>
+    # (matrix N in the paper)
     dKernel_dX: ndarray,  # derivative of the kernel dK_dX_{i,j} = <d\phi(x_i),d\phi(x_j)>
     shift: float,  # shift parameter of the resolvent
     tikhonov_reg: float,  # Tikhonov (ridge) regularization parameter, can be 0,
@@ -727,8 +730,10 @@ def reduced_rank_regression_dirichlet(
 
     Args:
         kernel_X (np.ndarray): kernel matrix of the training data
-        dKernel_X (np.ndarray): (matrix N in :footcite:t:`kostic2024learning`) derivative of the kernel: :math:`N_{i,(k-1)n+j} = \langle \phi(x_i),d_k\phi(x_j) \rangle`
-        dKernel_dX (np.ndarray):  (matrix M in :footcite:t:`kostic2024learning`) derivative of the kernel :math:`M_{(l-1)n+i,(k-1)n+j} = \langle d_l\phi(x_i),d_k\phi(x_j) \rangle`
+        dKernel_X (np.ndarray): (matrix N in :footcite:t:`kostic2024learning`) derivative of the
+        kernel: :math:`N_{i,(k-1)n+j} = \langle \phi(x_i),d_k\phi(x_j) \rangle`
+        dKernel_dX (np.ndarray):  (matrix M in :footcite:t:`kostic2024learning`) derivative of the
+        kernel :math:`M_{(l-1)n+i,(k-1)n+j} = \langle d_l\phi(x_i),d_k\phi(x_j) \rangle`
         shift (float): shift parameter of the resolvent
         tikhonov_reg (float): Tikhonov (ridge) regularization parameter
         rank (int): Rank of the estimator
@@ -736,9 +741,11 @@ def reduced_rank_regression_dirichlet(
     Shape:
         ``kernel_X``: :math:`(N, N)`, where :math:`N` is the number of training data.
 
-        ``dkernel_X``: :math:`(N, (d+1)N)`. where :math:`N` is the number of training data amd :math:`d` is the dimensionality of the input data.
+        ``dkernel_X``: :math:`(N, (d+1)N)`. where :math:`N` is the number of training data and
+        :math:`d` is the dimensionality of the input data.
 
-        ``dkernel_dX``: :math:`((d+1)N, (d+1)N)`. where :math:`N` is the number of training data amd :math:`d` is the dimensionality of the input data.
+        ``dkernel_dX``: :math:`((d+1)N, (d+1)N)`. where :math:`N` is the number of training data and
+        :math:`d` is the dimensionality of the input data.
     Returns: EigResult structure containing the eigenvalues and eigenvectors
     """
     npts = kernel_X.shape[0]
@@ -757,7 +764,7 @@ def reduced_rank_regression_dirichlet(
     )
 
     sigmas_2, vectors = eigs(
-        J @ kernel_X / sqrt_npts, k=rank + 5, M=(J + tikhonov_reg * np.eye(J.shape[0])) * shift  # noqa: E501
+        J @ kernel_X / sqrt_npts, k=rank + 5, M=(J + tikhonov_reg * np.eye(J.shape[0])) * shift
     )
 
     _values, stable_values_idxs = stable_topk(sigmas_2, rank, ignore_warnings=False)
@@ -773,7 +780,7 @@ def reduced_rank_regression_dirichlet(
             np.eye(npts) / np.sqrt(shift),
             -dKernel_X
             @ np.linalg.inv(
-                dKernel_dX + shift * tikhonov_reg * sqrt_npts * np.eye(dimension_derivative)  # noqa: E501
+                dKernel_dX + shift * tikhonov_reg * sqrt_npts * np.eye(dimension_derivative)
             ),
         ]
     ).T
@@ -791,5 +798,5 @@ def reduced_rank_regression_dirichlet(
     evals = evals[r_perm]
 
     vl /= np.sqrt(evals)
-    result: EigResult = {"values": lambdas[r_perm], "left": (V @ vl) * sqrt_npts, "right": U @ vr}  # noqa: E501
+    result: EigResult = {"values": lambdas[r_perm], "left": (V @ vl) * sqrt_npts, "right": U @ vr}
     return result

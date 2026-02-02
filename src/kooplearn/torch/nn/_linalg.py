@@ -5,7 +5,8 @@ from torch import Tensor
 
 
 def sqrtmh(A: Tensor) -> Tensor:
-    """Compute the square root of a Symmetric or Hermitian positive definite matrix or batch of matrices.
+    """Compute the square root of a Symmetric or Hermitian positive definite matrix or batch of
+    matrices.
 
     Used code from `this issue <https://github.com/pytorch/pytorch/issues/25481#issuecomment-1032789228>`_.
 

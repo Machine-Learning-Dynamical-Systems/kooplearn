@@ -1,9 +1,8 @@
 import numpy as np
 
-
 __all__ = [
-    "grad",
-    "grad2"
+    "return_grad",
+    "return_grad2"
 ]
 
 
@@ -164,7 +163,7 @@ def return_grad2(kernel_X: np.ndarray, X: np.ndarray, Y, diffusion: np.ndarray,l
     It forms the second part of the Dirichlet-form regression operator.
 
     """
-   
+
     difference = X[:, np.newaxis, :] - Y[np.newaxis, :, :]
 
     d = difference.shape[2]

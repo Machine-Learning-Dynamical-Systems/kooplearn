@@ -211,7 +211,8 @@ class GeneratorDirichlet(BaseEstimator):
         This computes:
           - The Gram matrix ``K``,
           - Its first and second kernel derivatives,
-          - An approximation of the generator via reduced-rank regression :cite:t:`kostic2024learning`,
+          - An approximation of the generator via reduced-rank regression
+          :cite:t:`kostic2024learning`,
           - Its eigenvalues and eigenfunctions.
 
         Parameters
@@ -423,7 +424,8 @@ class GeneratorDirichlet(BaseEstimator):
         levecs = self.eigresults["left"]
         npts = levecs.shape[
             0
-        ]  # We use the eigenvector to be consistent with the dirichlet estimator that does not have the same shape #obs_train.shape[0]
+        ]  # We use the eigenvector to be consistent with the dirichlet estimator that does not
+        # have the same shape #obs_train.shape[0]
         K_Xin_X, N_Xin_X = self._get_kernel(X, self.X_fit_, get_derivatives=True)
         block_matrix = np.block([np.sqrt(self.shift) * K_Xin_X, N_Xin_X])
 
@@ -509,7 +511,8 @@ class GeneratorDirichlet(BaseEstimator):
                 self.diffusion = diffusion
             else:
                 raise ValueError(
-                    f"diffusion must be a float, or a ndarray of shape ({d=},), or ({n_samples=}, {d=}) while got {diffusion.shape}."
+                    f"diffusion must be a float, or a ndarray of shape ({d=},), or" \
+                        " ({n_samples=}, {d=}) while got {diffusion.shape}."
                 )
         else:
             raise ValueError(

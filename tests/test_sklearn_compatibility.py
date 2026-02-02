@@ -4,7 +4,8 @@ from kooplearn.kernel._base import KernelRidge
 from kooplearn.kernel._nystroem import NystroemKernelRidge
 from kooplearn.linear_model._base import Ridge
 
-MSG = "Data is sampled from a Gaussian distribution with mean 100 leading to numerical instabilities."
+MSG = "Data is sampled from a Gaussian distribution with mean 100 leading to numerical " \
+"instabilities."
 EXPECTED_FAILED_CHECKS = {
     "NystroemKernelRidge": {
         "check_fit_idempotent": MSG,

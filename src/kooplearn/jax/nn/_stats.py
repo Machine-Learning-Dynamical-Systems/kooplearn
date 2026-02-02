@@ -51,10 +51,12 @@ def covariance(
 def cross_cov_norm_squared_unbiased(
     x: ArrayLike, y: ArrayLike, key: jax.random.PRNGKey, permutation=None
 ):
-    r"""Compute the unbiased estimation of :math:`\|\mathbf{C}_{xy}\|_F^2` from a batch of samples, using U-statistics.
+    r"""Compute the unbiased estimation of :math:`\|\mathbf{C}_{xy}\|_F^2` from a batch of samples,
+    using U-statistics.
 
-    Given the Covariance matrix :math:`\mathbf{C}_{xy} = \mathbb{E}_p(x,y) [x^{\top} y]`, this function computes an unbiased estimation
-    of the Frobenius norm of the covariance matrix from two independent sampling sets (an effective samples size of :math:`N^2`).
+    Given the Covariance matrix :math:`\mathbf{C}_{xy} = \mathbb{E}_p(x,y) [x^{\top} y]`, this
+    function computes an unbiased estimation of the Frobenius norm of the covariance matrix from two
+    independent sampling sets (an effective samples size of :math:`N^2`).
 
     .. math::
 
@@ -72,11 +74,12 @@ def cross_cov_norm_squared_unbiased(
         x (ArrayLike): Centered realizations of a random variable `x` of shape (N, D_x).
         y (ArrayLike): Centered realizations of a random variable `y` of shape (N, D_y).
         key (jax.random.PRNGKey): JAX random key for permutation.
-        permutation (ArrayLike, optional): List of integer indices of shape (n_samples,) used to permute the samples.
+        permutation (ArrayLike, optional): List of integer indices of shape (n_samples,) used to
+        permute the samples.
 
     Returns:
         ArrayLike: Unbiased estimation of :math:`\|\mathbf{C}_{xy}\|_F^2` using U-statistics.
-    """
+    """  # noqa: E501
     n_samples = x.shape[0]
 
     # Permute the rows independently to simulate independent sampling
@@ -99,8 +102,9 @@ def cross_cov_norm_squared_unbiased(
 def cov_norm_squared_unbiased(x: ArrayLike, key: jax.random.PRNGKey, permutation=None):
     r"""Compute the unbiased estimation of :math:`\|\mathbf{C}_x\|_F^2` from a batch of samples.
 
-    Given the Covariance matrix :math:`\mathbf{C}_x = \mathbb{E}_p(x) [x^{\top} x]`, this function computes an unbiased estimation
-    of the Frobenius norm of the covariance matrix from a single sampling set.
+    Given the Covariance matrix :math:`\mathbf{C}_x = \mathbb{E}_p(x) [x^{\top} x]`, this function
+    computes an unbiased estimation of the Frobenius norm of the covariance matrix from a single
+    sampling set.
 
     .. math::
 
@@ -116,11 +120,13 @@ def cov_norm_squared_unbiased(x: ArrayLike, key: jax.random.PRNGKey, permutation
         The random variable is assumed to be centered.
 
     Args:
-        x (ArrayLike): (n_samples, r) Centered realizations of a random variable x = [x_1, ..., x_r].
+        x (ArrayLike): (n_samples, r) Centered realizations of a random variable
+        x = [x_1, ..., x_r].
         key (jax.random.PRNGKey): JAX random key for permutation.
-        permutation (ArrayLike, optional): List of integer indices of shape (n_samples,) used to permute the samples.
+        permutation (ArrayLike, optional): List of integer indices of shape (n_samples,) used to
+        permute the samples.
 
     Returns:
         ArrayLike: Unbiased estimation of :math:`\|\mathbf{C}_x\|_F^2` using U-statistics.
-    """
+    """  # noqa: E501
     return cross_cov_norm_squared_unbiased(x=x, y=x, key=key, permutation=permutation)

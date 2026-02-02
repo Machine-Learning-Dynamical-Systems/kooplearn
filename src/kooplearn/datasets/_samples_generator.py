@@ -449,7 +449,8 @@ def make_logistic_map(
     random_state=None,
 ):
     """
-    Generate a trajectory from the logistic map with optional trigonometric noise :cite:t:`make_logistic_map-ostruszka2000dynamical`.
+    Generate a trajectory from the logistic map with optional trigonometric noise
+    :cite:t:`make_logistic_map-ostruszka2000dynamical`.
 
     The logistic map is a discrete-time dynamical system defined by:
 
@@ -778,7 +779,8 @@ def make_prinz_potential(
     random_state=None,
 ):
     """
-    Generate a 1D Langevin trajectory for the "Prinz potential" :cite:t:`make_prinz_potential-Prinz2011`.
+    Generate a 1D Langevin trajectory for the "Prinz potential"
+    :cite:t:`make_prinz_potential-Prinz2011`.
 
     This quadruple-well potential exhibits three metastable states separated by
     energy barriers. The dynamics follow the (discretized) overdamped Langevin equation:
@@ -789,7 +791,8 @@ def make_prinz_potential(
 
 
     where :math:`\\xi_t` is a Gaussian white noise process with zero mean and unit variance,
-    :math:`\\gamma` is the friction coefficient, and :math:`k_B T = \\frac{\\sigma^2}{2\\gamma}` determines the thermal energy scale.
+    :math:`\\gamma` is the friction coefficient, and :math:`k_B T = \\frac{\\sigma^2}{2\\gamma}`
+    determines the thermal energy scale.
 
     The potential is defined as:
 
@@ -837,7 +840,7 @@ def make_prinz_potential(
     >>> import numpy as np
     >>> from kooplearn.datasets import make_prinz_potential
     >>> df = make_prinz_potential(X0=0.0, n_steps=5000, dt=1e-4)
-    """
+    """  # noqa: E501
 
     X0 = np.atleast_1d(np.asarray(X0, dtype=float))
     if X0.shape != (1,):

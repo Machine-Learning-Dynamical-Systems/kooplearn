@@ -108,7 +108,8 @@ def covariance(X: np.ndarray, Y: np.ndarray | None = None) -> np.ndarray:
     else:
         if X.shape[0] != Y.shape[0]:
             raise ValueError(
-                f"Shape mismatch: the covariance between two arrays can be computed only if they have the same initial dimension. Got {X.shape[0]} and {Y.shape[0]}."
+                "Shape mismatch: the covariance between two arrays can be computed only if they " /
+                f"have the same initial dimension. Got {X.shape[0]} and {Y.shape[0]}."
             )
         Y = np.atleast_2d(Y)
         if Y.ndim > 2:
@@ -199,14 +200,17 @@ def eigh_rank_reveal(
     else:
         first_invalid = np.argmax(
             ~_ftest
-        )  # In the case of multiple occurrences of the maximum values, the indices corresponding to the first occurrence are returned.
+        )  # In the case of multiple occurrences of the maximum values, the indices corresponding to
+        #the first occurrence are returned.
         _first_discarded_val = np.max(np.abs(values[first_invalid:]))
         values = values[_ftest]
         vectors = vectors[:, _ftest]
 
         if not ignore_warnings:
             warn(
-                f"Warning: Discarded {rank - vectors.shape[1]} dimensions of the {rank} requested due to numerical instability. Consider decreasing the rank. The largest discarded value is: {_first_discarded_val:.3e}."
+                f"Warning: Discarded {rank - vectors.shape[1]} dimensions of the {rank} " /
+                "requested due to numerical instability. Consider decreasing the rank. The " /
+                "largest discarded value is: {_first_discarded_val:.3e}."
             )
         # Compute stable sqrt
         rsqrt_vals = (np.sqrt(values)) ** -1

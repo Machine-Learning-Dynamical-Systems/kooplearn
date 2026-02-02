@@ -68,16 +68,22 @@ def stable_topk(
         return top_vec, top_idxs
     else:
         valid = top_vec > rcond
-        # In the case of multiple occurrences of the maximum vec, the indices corresponding to the first occurrence are returned.
+        # In the case of multiple occurrences of the maximum vec, the indices corresponding to the
+        # first occurrence are returned.
         first_invalid = np.argmax(~valid)
         _first_discarded_val = np.max(np.abs(top_vec[first_invalid:]))
 
         if not ignore_warnings:
-            warn(f"Warning: Discarded {k_max - np.sum(valid)} dimensions of the {k_max} requested due to numerical instability. Consider decreasing k_max. The largest discarded value is: {_first_discarded_val:.3e}.")
+            warn(f"Warning: Discarded {k_max - np.sum(valid)} dimensions of the {k_max} " \
+                 f"requested due to numerical instability. Consider decreasing k_max. " \
+                 f"The largest discarded value is: {_first_discarded_val:.3e}.")
         return top_vec[valid], top_idxs[valid]
 
 
-def find_complex_conjugates(complex_vec: np.ndarray, tol: float = 10.0) -> tuple[np.ndarray, np.ndarray]:
+def find_complex_conjugates(
+        complex_vec: np.ndarray,
+        tol: float = 10.0
+        ) -> tuple[np.ndarray, np.ndarray]:
     """
     Identify complex conjugate pairs and real eigenvalues in an array.
 
@@ -135,7 +141,8 @@ def find_complex_conjugates(complex_vec: np.ndarray, tol: float = 10.0) -> tuple
         [2]
     """
     # Validate input type
-    assert issubclass(complex_vec.dtype.type, np.complexfloating), "The input element should be complex"
+    assert issubclass(complex_vec.dtype.type, np.complexfloating), "The input element should be"
+    " complex"
 
     # Validate input dimensionality
     if complex_vec.ndim != 1:
@@ -159,7 +166,8 @@ def find_complex_conjugates(complex_vec: np.ndarray, tol: float = 10.0) -> tuple
 
     # Verify that remaining elements are actually real
     if not np.allclose(np.imag(complex_vec[maybe_real_idxs]), 0):
-        raise ValueError("The input vector contains some complex element with no matching complex conjugate pair.")
+        raise ValueError("The input vector contains some complex element with no matching complex" \
+        " conjugate pair.")
 
     return cc_pairs, maybe_real_idxs
 
@@ -234,11 +242,13 @@ def check_torch_deps():
     try:
         import torch  # noqa: F401
     except ImportError:
-        raise ImportError("To use kooplearn's deep learning losses please reinstall it with the `torch` extra flag by typing `pip install kooplearn[torch]`.")
+        raise ImportError("To use kooplearn's deep learning losses please reinstall it with" \
+        " the `torch` extra flag by typing `pip install kooplearn[torch]`.")
 
 
 def check_jax_deps():
     try:
         import jax  # noqa: F401
     except ImportError:
-        raise ImportError("To use kooplearn's deep learning losses please reinstall it with the `jax` extra flag by typing `pip install kooplearn[jax]`.")
+        raise ImportError("To use kooplearn's deep learning losses please reinstall it with" \
+        " the `jax` extra flag by typing `pip install kooplearn[jax]`.")

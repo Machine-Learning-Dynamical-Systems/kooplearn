@@ -24,11 +24,15 @@ logger = logging.getLogger("kooplearn")
 class Ridge(BaseEstimator):
     r"""Linear model minimizing the :math:`L^{2}` loss.
 
-    Implements a model approximating the Koopman (deterministic systems) or Transfer (stochastic systems) operator by lifting the state with a *nonlinear* feature map and then minimizing the :math:`L^{2}` loss in the embedded space as described in :cite:t:`ridge-Kostic2022`.
+    Implements a model approximating the Koopman (deterministic systems) or Transfer (stochastic
+    systems) operator by lifting the state with a *nonlinear* feature map and then minimizing the
+    :math:`L^{2}` loss in the embedded space as described in :cite:t:`ridge-Kostic2022`.
 
     .. tip::
 
-        The dynamical modes obtained by calling :class:`kooplearn.linear_model.Ridge.dynamical_modes` correspond to the *Extended Dynamical Mode Decomposition* by :cite:t:`ridge-Williams2015_EDMD`.
+        The dynamical modes obtained by calling
+        :class:`kooplearn.linear_model.Ridge.dynamical_modes` correspond to the *Extended Dynamical
+        Mode Decomposition* by :cite:t:`ridge-Williams2015_EDMD`.
 
     Parameters
     ----------
@@ -36,7 +40,8 @@ class Ridge(BaseEstimator):
         Number of components to retain. If ``None``, all components are used.
 
     lag_time : int, default=1
-        Time delay between the pairs of snapshots :math:`(X_t, X_{t + \text{lag_time}})` used to train the estimator.
+        Time delay between the pairs of snapshots :math:`(X_t, X_{t + \text{lag_time}})` used to
+        train the estimator.
 
     reduced_rank : bool, default=True
         Whether to use reduced-rank regression introduced in
@@ -321,7 +326,10 @@ class Ridge(BaseEstimator):
         assert self.U_.shape[1] <= n_components
         if self.U_.shape[1] < n_components:
             logger.warning(
-                f"Warning: The fitting algorithm discarded {n_components - self.U_.shape[1]} dimensions of the {n_components} requested out of numerical instabilities.\nThe rank attribute has been updated to {self.U_.shape[1]}.\nConsider decreasing the rank parameter."
+                f"Warning: The fitting algorithm discarded {n_components - self.U_.shape[1]} " \
+                    "dimensions of the {n_components} requested out of numerical instabilities." \
+                    "\nThe rank attribute has been updated to {self.U_.shape[1]}.\nConsider " \
+                    "decreasing the rank parameter."
             )
             n_components = self.U_.shape[1]
 
@@ -471,10 +479,10 @@ class Ridge(BaseEstimator):
     def dynamical_modes(self, X, observable=False) -> DynamicalModes:
         """
         Compute the mode decomposition of arbitrary observables of the
-        evolution operator at the states defined by ``X``.
-        If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the evolution operator, for any observable
-        :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
-        :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
+        evolution operator at the states defined by ``X``. If
+        :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the evolution
+        operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined
+        as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
         See :cite:t:`ridge-Kostic2022` for more details.
 
 
@@ -585,7 +593,8 @@ class Ridge(BaseEstimator):
                     _, target = self._split_trajectory(self.y_fit_)
                 else:
                     raise ValueError(
-                        "Cannot score on observable: no training observable was provided during fit."
+                        "Cannot score on observable: no training observable was provided during" \
+                        "fit."
                     )
             else:
                 target = Y_test
@@ -602,7 +611,8 @@ class Ridge(BaseEstimator):
             if observable:
                 if y is None:
                     raise ValueError(
-                        "When observable=True and X is provided, y must contain the corresponding observable values."
+                        "When observable=True and X is provided, y must contain the corresponding" \
+                        "observable values."
                     )
                 if y.shape[0] != X.shape[0]:
                     raise ValueError(
@@ -625,7 +635,8 @@ class Ridge(BaseEstimator):
         """Singular values of the Koopman/Transfer operator.
 
         Returns:
-            The estimated singular values of the Koopman/Transfer operator. Array of shape `(n_components,)`.
+            The estimated singular values of the Koopman/Transfer operator. Array of shape
+            `(n_components,)`.
         """
         check_is_fitted(self)
         return _regressors.svdvals(self._fit_result, self.cov_XY_)
@@ -636,15 +647,20 @@ class Ridge(BaseEstimator):
 
         Args:
             X (np.ndarray):
-                Feature map evaluated at the initial training steps, shape ``(n_samples, features_shape)``.
+                Feature map evaluated at the initial training steps, shape
+                ``(n_samples, features_shape)``.
             Y (np.ndarray):
-                Feature map evaluated a the evolved training steps, shape ``(n_samples, features_shape)``.
+                Feature map evaluated a the evolved training steps, shape
+                ``(n_samples, features_shape)``.
 
         Returns:
             A tuple containing:
-                - ``cov_X`` (np.ndarray): Covariance matrix of the feature map evaluated at X, shape ``(n_features, n_features)``.
-                - ``cov_Y`` (np.ndarray): Covariance matrix of the feature map evaluated at Y, shape ``(n_features, n_features)``.
-                - ``cov_XY`` (np.ndarray): Cross-covariance matrix of the feature map evaluated at X and Y, shape ``(n_features, n_features)``.
+                - ``cov_X`` (np.ndarray): Covariance matrix of the feature map evaluated at X,
+                shape ``(n_features, n_features)``.
+                - ``cov_Y`` (np.ndarray): Covariance matrix of the feature map evaluated at Y,
+                shape ``(n_features, n_features)``.
+                - ``cov_XY`` (np.ndarray): Cross-covariance matrix of the feature map evaluated at X
+                and Y, shape ``(n_features, n_features)``.
         """
         cov_X = covariance(X)
         cov_Y = covariance(Y)

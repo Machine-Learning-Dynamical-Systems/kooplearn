@@ -44,7 +44,8 @@ def vamp_loss(
     and :math:`\sigma_i(A)` are the singular values of A.
 
     .. hint::
-        Check out the `Ordered MNIST <../examples/ordered_mnist_jax.html>`_ example for a practical use of this loss function.
+        Check out the `Ordered MNIST <../examples/ordered_mnist_jax.html>`_ example for a practical
+        use of this loss function.
 
     Parameters
     ----------
@@ -126,7 +127,8 @@ def spectral_contrastive_loss(x: ArrayLike, y: ArrayLike) -> jax.Array:
                             - \frac{2}{N}\sum_{i=1}^N\langle x_{i}, y_{i} \rangle
 
     .. hint::
-        Check out the `Ordered MNIST <../examples/ordered_mnist_jax.html>`_ example for a practical use of this loss function.
+        Check out the `Ordered MNIST <../examples/ordered_mnist_jax.html>`_ example for a practical
+        use of this loss function.
 
     Parameters
     ----------
@@ -205,7 +207,8 @@ def autoencoder_loss(
     and :math:`K` is the Koopman operator in latent space.
 
     .. hint::
-        Check out the `Ordered MNIST <../examples/ordered_mnist_jax.html>`_ example for a practical use of this loss function.
+        Check out the `Ordered MNIST <../examples/ordered_mnist_jax.html>`_ example for a practical
+        use of this loss function.
 
     Parameters
     ----------
@@ -365,7 +368,8 @@ def energy_loss(x: ArrayLike, y: ArrayLike, grad_weight: float = 1e-3) -> jax.Ar
     - :math:`L` is the latent space dimensionality
 
     .. hint::
-        Check out the `Prinz Potential <../examples/prinz_potential.html>`_ example for a practical use of this loss function.
+        Check out the `Prinz Potential <../examples/prinz_potential.html>`_ example for a practical
+        use of this loss function.
 
     Parameters
     ----------
@@ -374,7 +378,8 @@ def energy_loss(x: ArrayLike, y: ArrayLike, grad_weight: float = 1e-3) -> jax.Ar
         and :math:`L` is the dimensionality of the latent space.
     y : ArrayLike
         Jacobian features of shape :math:`(N, D, L)`, where :math:`N` is
-        the batch size, :math:`D` is the state space dimensionality, and :math:`L` is the latent space dimensionality.
+        the batch size, :math:`D` is the state space dimensionality, and :math:`L` is the latent
+        space dimensionality.
     grad_weight : float, optional
         Weight for the Jacobian contribution. Must be non-negative. Controls how much
         the Jacobian term contributes to the total loss. Default is 1e-3.

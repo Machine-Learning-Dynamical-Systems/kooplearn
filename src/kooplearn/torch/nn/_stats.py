@@ -21,9 +21,11 @@ def covariance(
         norm (float | None, optional): Normalization factor. Defaults to None.
 
     Shape:
-        ``X``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of features.
+        ``X``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of
+        features.
 
-        ``Y``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of features.
+        ``Y``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of
+        features.
 
         Output: :math:`(D, D)`, where :math:`D` is the number of features.
     """
@@ -49,10 +51,12 @@ def covariance(
 
 
 def cross_cov_norm_squared_unbiased(x: Tensor, y: Tensor, permutation=None):
-    r"""Compute the unbiased estimation of :math:`\|\mathbf{C}_{xy}\|_F^2` from a batch of samples, using U-statistics.
+    r"""Compute the unbiased estimation of :math:`\|\mathbf{C}_{xy}\|_F^2` from a batch of samples,
+    using U-statistics.
 
-    Given the Covariance matrix :math:`\mathbf{C}_{xy} = \mathbb{E}_p(x,y) [x^{\top} y]`, this function computes an unbiased estimation
-    of the Frobenius norm of the covariance matrix from two independent sampling sets (an effective samples size of :math:`N^2`).
+    Given the Covariance matrix :math:`\mathbf{C}_{xy} = \mathbb{E}_p(x,y) [x^{\top} y]`, this
+    function computes an unbiased estimation of the Frobenius norm of the covariance matrix from two
+    independent sampling sets (an effective samples size of :math:`N^2`).
 
     .. math::
 
@@ -69,11 +73,12 @@ def cross_cov_norm_squared_unbiased(x: Tensor, y: Tensor, permutation=None):
     Args:
         x (Tensor): Centered realizations of a random variable `x` of shape (N, D_x).
         y (Tensor): Centered realizations of a random variable `y` of shape (N, D_y).
-        permutation (Tensor, optional): List of integer indices of shape (n_samples,) used to permute the samples.
+        permutation (Tensor, optional): List of integer indices of shape (n_samples,) used to
+        permute the samples.
 
     Returns:
         Tensor: Unbiased estimation of :math:`\|\mathbf{C}_{xy}\|_F^2` using U-statistics.
-    """
+    """  # noqa: E501
     n_samples = x.shape[0]
 
     # Permute the rows independently to simulate independent sampling
@@ -91,8 +96,9 @@ def cross_cov_norm_squared_unbiased(x: Tensor, y: Tensor, permutation=None):
 def cov_norm_squared_unbiased(x: Tensor, permutation=None):
     r"""Compute the unbiased estimation of :math:`\|\mathbf{C}_x\|_F^2` from a batch of samples.
 
-    Given the Covariance matrix :math:`\mathbf{C}_x = \mathbb{E}_p(x) [x^{\top} x]`, this function computes an unbiased estimation
-    of the Frobenius norm of the covariance matrix from a single sampling set.
+    Given the Covariance matrix :math:`\mathbf{C}_x = \mathbb{E}_p(x) [x^{\top} x]`, this function
+    computes an unbiased estimation of the Frobenius norm of the covariance matrix from a single
+    sampling set.
 
     .. math::
 
@@ -109,9 +115,10 @@ def cov_norm_squared_unbiased(x: Tensor, permutation=None):
 
     Args:
         x (Tensor): (n_samples, r) Centered realizations of a random variable x = [x_1, ..., x_r].
-        permutation (Tensor, optional): List of integer indices of shape (n_samples,) used to permute the samples.
+        permutation (Tensor, optional): List of integer indices of shape (n_samples,) used to
+        permute the samples.
 
     Returns:
         Tensor: Unbiased estimation of :math:`\|\mathbf{C}_x\|_F^2` using U-statistics.
-    """
+    """  # noqa: E501
     return cross_cov_norm_squared_unbiased(x=x, y=x, permutation=permutation)

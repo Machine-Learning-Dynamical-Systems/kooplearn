@@ -65,7 +65,8 @@ class DynamicalModes:
 
     .. warning::
 
-        The class should be not initialized directly, and will be the return type of ``.dynamical_modes`` methods of Kooplearn estimators.
+        The class should be not initialized directly, and will be the return type of
+        ``.dynamical_modes`` methods of Kooplearn estimators.
 
     Parameters
     ----------
@@ -98,7 +99,8 @@ class DynamicalModes:
 
     .. tip::
 
-        Modes are sorted by stability: stable modes (:math:`|\\lambda| < 1`) are ordered by decreasing half-life, followed by unstable modes.
+        Modes are sorted by stability: stable modes (:math:`|\\lambda| < 1`) are ordered by
+        decreasing half-life, followed by unstable modes.
 
     Examples
     --------
@@ -476,7 +478,8 @@ class DynamicalModes:
             Index of the mode
         dt : float, optional
             Time step size, by default 1.0. Used to convert from per-timestep
-            to per-unit-time frequencies: :math:`f_{\\text{physical}} = f_{\\text{discrete}} / \\Delta t`
+            to per-unit-time frequencies:
+            :math:`f_{\\text{physical}} = f_{\\text{discrete}} / \\Delta t`
 
         Returns
         -------
@@ -512,7 +515,8 @@ class DynamicalModes:
             Index of the mode
         dt : float, optional
             Time step size, by default 1.0. Used to convert from timesteps
-            to physical time units: :math:`\\tau_{\\text{physical}} = \\tau_{\\text{discrete}} \\times \\Delta t`
+            to physical time units:
+            :math:`\\tau_{\\text{physical}} = \\tau_{\\text{discrete}} \\times \\Delta t`
 
         Returns
         -------

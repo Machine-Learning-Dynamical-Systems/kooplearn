@@ -14,8 +14,8 @@ class NnxFeatureMapEmbedder(BaseEstimator, TransformerMixin):
     sklearn-style transformer wrapping NNX Modules (encoder/decoder).
 
     This class mirrors the original PyTorch-based :class:`kooplearn.torch.FeatureMapEmbedder`,
-    using `Flax' NNX framework <https://flax.readthedocs.io/en/stable/>`_. It accepts stateful ``nnx.Module`` instances, JIT-compiles
-    their forward pass, and uses eval mode for inference.
+    using `Flax' NNX framework <https://flax.readthedocs.io/en/stable/>`_. It accepts stateful
+    ``nnx.Module`` instances, JIT-compiles their forward pass, and uses eval mode for inference.
 
     The interface follows the scikit-learn ``TransformerMixin`` pattern,
     providing ``fit`` and ``transform`` methods.

@@ -14,19 +14,23 @@ __all__ = [
 
 
 class VampLoss(Module):
-    r"""Variational Approach for learning Markov Processes (VAMP) score by :cite:t:`vamploss-Wu2019`.
+    r"""Variational Approach for learning Markov Processes (VAMP) score by
+    :cite:t:`vamploss-Wu2019`.
 
     .. math::
 
         \mathcal{L}(x, y) = -\sum_{i} \sigma_{i}(A)^{p} \qquad \text{where}~A = \big(x^{\top}x\big)^{\dagger/2}x^{\top}y\big(y^{\top}y\big)^{\dagger/2}.
 
     Args:
-        schatten_norm (int, optional): Computes the VAMP-p score with ``p = schatten_norm``. Defaults to 2.
-        center_covariances (bool, optional): Use centered covariances to compute the VAMP score. Defaults to True.
+        schatten_norm (int, optional): Computes the VAMP-p score with ``p = schatten_norm``.
+        Defaults to 2.
+        center_covariances (bool, optional): Use centered covariances to compute the VAMP score.
+        Defaults to True.
 
     .. hint::
-        Check out the `Ordered MNIST <../examples/ordered_mnist_torch.html>`_ example for a practical use of this loss function.
-    """
+        Check out the `Ordered MNIST <../examples/ordered_mnist_torch.html>`_ example for a
+        practical use of this loss function.
+    """  # noqa: E501
 
     def __init__(
         self,
@@ -48,9 +52,11 @@ class VampLoss(Module):
             NotImplementedError: If ``schatten_norm`` is not 1 or 2.
 
         Shape:
-            ``x``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of features.
+            ``x``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of
+            features.
 
-            ``y``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of features.
+            ``y``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of
+            features.
         """
         return F.vamp_loss(
             x,
@@ -61,15 +67,18 @@ class VampLoss(Module):
 
 
 class SpectralContrastiveLoss(Module):
-    r"""Spectral contrastive loss based originally introduced by :cite:t:`spectralcontrastiveloss-haochen2021provable`, and adopted for evolution operators in :cite:t:`spectralcontrastiveloss-turri2025self, spectralcontrastiveloss-jeong2025efficient`
+    r"""Spectral contrastive loss based originally introduced by
+    :cite:t:`spectralcontrastiveloss-haochen2021provable`, and adopted for evolution operators in
+    :cite:t:`spectralcontrastiveloss-turri2025self, spectralcontrastiveloss-jeong2025efficient`
 
     .. math::
 
         \mathcal{L}(x, y) = \frac{1}{N(N-1)}\sum_{i \neq j}\langle x_{i}, y_{j} \rangle^2 - \frac{2}{N}\sum_{i=1}\langle x_{i}, y_{i} \rangle.
 
     .. hint::
-        Check out the `Ordered MNIST <../examples/ordered_mnist_torch.html>`_ example for a practical use of this loss function.
-    """
+        Check out the `Ordered MNIST <../examples/ordered_mnist_torch.html>`_ example for a
+        practical use of this loss function.
+    """  # noqa: E501
 
     def __init__(
         self,
@@ -85,15 +94,18 @@ class SpectralContrastiveLoss(Module):
 
 
         Shape:
-            ``x``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of features.
+            ``x``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of
+            features.
 
-            ``y``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of features.
+            ``y``: :math:`(N, D)`, where :math:`N` is the batch size and :math:`D` is the number of
+            features.
         """
         return F.spectral_contrastive_loss(x, y)
 
 
 class AutoEncoderLoss(Module):
-    r"""Single-step Dynamic Autoencoder (DAE) loss introduced by :cite:t:`autoencoderloss-Lusch2018`.
+    r"""Single-step Dynamic Autoencoder (DAE) loss introduced by
+    :cite:t:`autoencoderloss-Lusch2018`.
 
     This loss combines three objectives to train dynamic autoencoders:
 
@@ -115,7 +127,8 @@ class AutoEncoderLoss(Module):
     and :math:`\phi^{-1}(K\phi(x))` is the predicted decoded output.
 
     .. hint::
-        Check out the `Ordered MNIST <../examples/ordered_mnist_torch.html>`_ example for a practical use of this loss function.
+        Check out the `Ordered MNIST <../examples/ordered_mnist_torch.html>`_ example for a
+        practical use of this loss function.
     """
 
     def __init__(
@@ -216,7 +229,8 @@ class EnergyLoss(Module):
     - :math:`L` is the latent space dimensionality
 
     .. hint::
-        Check out the `Prinz Potential <../examples/prinz_potential.html>`_ example for a practical use of this loss function.
+        Check out the `Prinz Potential <../examples/prinz_potential.html>`_ example for a practical
+        use of this loss function.
 
     Parameters
     ----------

@@ -547,9 +547,9 @@ class KernelRidge(BaseEstimator):
         """
         Compute the mode decomposition of arbitrary observables of the
         evolution operator at the states defined by ``X``.
-        If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the evolution operator, for any observable
-        :math:`f` the i-th mode of :math:`f` at :math:`x` is defined as:
-        :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
+        If :math:`(\\lambda_i, \\xi_i, \\psi_i)_{i = 1}^{r}` are eigentriplets of the evolution
+        operator, for any observable :math:`f` the i-th mode of :math:`f` at :math:`x` is defined
+        as: :math:`\\lambda_i \\langle \\xi_i, f \\rangle \\psi_i(x)`.
         See :cite:t:`kernelridge-Kostic2022` for more details.
 
 
@@ -651,7 +651,8 @@ class KernelRidge(BaseEstimator):
                     _, target = self._split_trajectory(self.y_fit_)
                 else:
                     raise ValueError(
-                        "Cannot score on observable: no training observable was provided during fit."
+                        "Cannot score on observable: no training observable was provided during" \
+                        " fit."
                     )
             else:
                 target = Y_test
@@ -668,7 +669,8 @@ class KernelRidge(BaseEstimator):
             if observable:
                 if y is None:
                     raise ValueError(
-                        "When observable=True and X is provided, y must contain the corresponding observable values."
+                        "When observable=True and X is provided, y must contain the " \
+                        "corresponding observable values."
                     )
                 if y.shape[0] != X.shape[0]:
                     raise ValueError(
@@ -691,7 +693,8 @@ class KernelRidge(BaseEstimator):
         """Singular values of the Koopman/Transfer operator.
 
         Returns:
-            The estimated singular values of the Koopman/Transfer operator. Array of shape `(n_components,)`.
+            The estimated singular values of the Koopman/Transfer operator. Array of shape
+            `(n_components,)`.
         """
         check_is_fitted(self)
         return _regressors.svdvals(self._fit_result, self.kernel_X_, self.kernel_Y_)

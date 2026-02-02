@@ -865,7 +865,11 @@ class TestEnergyLoss:
         jacobian_dim = 10
 
         x = jax.random.normal(key, (batch_size, state_dim), dtype=jnp.float32)
-        y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, jacobian_dim, state_dim), dtype=jnp.float32)
+        y = jax.random.normal(
+            jax.random.fold_in(key, 1),
+            (batch_size, jacobian_dim, state_dim),
+            dtype=jnp.float32
+            )
 
         loss = energy_loss(x, y)
 
@@ -1039,7 +1043,11 @@ class TestEnergyLoss:
         jacobian_dim = 10
 
         x = jax.random.normal(key, (batch_size, state_dim), dtype=jnp.float32)
-        y = jax.random.normal(jax.random.fold_in(key, 1), (batch_size, jacobian_dim, state_dim), dtype=jnp.float32)
+        y = jax.random.normal(
+            jax.random.fold_in(key, 1),
+            (batch_size, jacobian_dim, state_dim),
+            dtype=jnp.float32
+            )
 
         loss = energy_loss(x, y)
 

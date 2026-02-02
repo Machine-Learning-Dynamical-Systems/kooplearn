@@ -50,7 +50,7 @@ examples = [
 ]
 
 [tool.ruff]
-line-length = 88
+line-length = 100
 exclude=[
     ".eggs",
     ".git",
