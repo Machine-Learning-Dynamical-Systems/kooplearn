@@ -1,20 +1,26 @@
-
-@article{Kostic2022,
-  title={Learning dynamical systems via koopman operator regression in reproducing kernel hilbert spaces},
-  author={Kostic, Vladimir and Novelli, Pietro and Maurer, Andreas and Ciliberto, Carlo and Rosasco, Lorenzo and Pontil, Massimiliano},
-  journal={Advances in Neural Information Processing Systems},
-  volume={35},
-  pages={4017--4031},
-  year={2022}
+@inproceedings{Kostic2022,
+  author = {Kostic, Vladimir R. and Novelli, Pietro and Maurer, Andreas and Ciliberto, Carlo and Rosasco, Lorenzo and Pontil, Massimiliano},
+  booktitle = {Advances in Neural Information Processing Systems},
+  editor = {S. Koyejo and S. Mohamed and A. Agarwal and D. Belgrave and K. Cho and A. Oh},
+  pages = {4017--4031},
+  publisher = {Curran Associates, Inc.},
+  title = {Learning Dynamical Systems via Koopman Operator Regression in Reproducing Kernel Hilbert Spaces},
+  url = {https://proceedings.neurips.cc/paper_files/paper/2022/file/196c4e02b7464c554f0f5646af5d502e-Paper-Conference.pdf},
+  volume = {35},
+  year = {2022}
 }
 
-@article{kostic2024learning,
-  title={Learning the infinitesimal generator of stochastic diffusion processes},
-  author={Kostic, Vladimir and Halconruy, H{\'e}l{\`e}ne and Devergne, Timoth{\'e}e and Lounici, Karim and Pontil, Massimiliano},
-  journal={Advances in Neural Information Processing Systems},
-  volume={37},
-  pages={137806--137846},
-  year={2024}
+@inproceedings{kostic2024learning,
+  author = {Kostic, Vladimir R. and Lounici, Karim and Halconruy, H\'{e}l\`{e}ne and Devergne, Timoth\'{e}e and Pontil, Massimiliano},
+  booktitle = {Advances in Neural Information Processing Systems},
+  doi = {10.52202/079017-4377},
+  editor = {A. Globerson and L. Mackey and D. Belgrave and A. Fan and U. Paquet and J. Tomczak and C. Zhang},
+  pages = {137806--137846},
+  publisher = {Curran Associates, Inc.},
+  title = {Learning the Infinitesimal Generator of Stochastic Diffusion Processes},
+  url = {https://proceedings.neurips.cc/paper_files/paper/2024/file/f930c6e1292a1160189a0734f22b465b-Paper-Conference.pdf},
+  volume = {37},
+  year = {2024}
 }
 
 @book{Applebaum2009,
@@ -53,16 +59,18 @@
   publisher={AIP Publishing}
 }
 
-
 @article{Koopman1931,
-  title={Hamiltonian systems and transformation in Hilbert space},
-  author={Koopman, Bernard O},
-  journal={Proceedings of the National Academy of Sciences},
-  volume={17},
-  number={5},
-  pages={315--318},
-  year={1931},
-}
+  author = {B. O. Koopman },
+  title = {Hamiltonian Systems and Transformation in Hilbert Space},
+  journal = {Proceedings of the National Academy of Sciences},
+  volume = {17},
+  number = {5},
+  pages = {315-318},
+  year = {1931},
+  doi = {10.1073/pnas.17.5.315},
+  URL = {https://www.pnas.org/doi/abs/10.1073/pnas.17.5.315},
+  eprint = {https://www.pnas.org/doi/pdf/10.1073/pnas.17.5.315}
+  }
 
 @article{Prinz2011,
   title = {Markov models of molecular kinetics: Generation and validation},
@@ -78,27 +86,33 @@
   month = may 
 }
 
-
 @article{ostruszka2000dynamical,
-  title={Dynamical entropy for systems with stochastic perturbation},
-  author={Ostruszka, Andrzej and Pako{\'n}ski, Prot and S{\l}omczy{\'n}ski, Wojciech and {\.Z}yczkowski, Karol},
-  journal={Physical Review E},
-  volume={62},
-  number={2},
-  pages={2018},
-  year={2000},
-  publisher={APS}
+  title = {Dynamical entropy for systems with stochastic perturbation},
+  author = {Ostruszka, Andrzej and Pako\ifmmode \acute{n}\else \'{n}\fi{}ski, Prot and S\l{}omczy\ifmmode \acute{n}\else \'{n}\fi{}ski, Wojciech and \ifmmode \dot{Z}\else \.{Z}\fi{}yczkowski, Karol},
+  journal = {Phys. Rev. E},
+  volume = {62},
+  issue = {2},
+  pages = {2018--2029},
+  numpages = {0},
+  year = {2000},
+  month = {Aug},
+  publisher = {American Physical Society},
+  doi = {10.1103/PhysRevE.62.2018},
+  url = {https://link.aps.org/doi/10.1103/PhysRevE.62.2018}
 }
 
 @article{otto2019linearly,
-  title={Linearly recurrent autoencoder networks for learning dynamics},
-  author={Otto, Samuel E and Rowley, Clarence W},
-  journal={SIAM Journal on Applied Dynamical Systems},
-  volume={18},
-  number={1},
-  pages={558--593},
-  year={2019},
-  publisher={SIAM}
+  author = {Otto, Samuel E. and Rowley, Clarence W.},
+  title = {Linearly Recurrent Autoencoder Networks for Learning Dynamics},
+  journal = {SIAM Journal on Applied Dynamical Systems},
+  volume = {18},
+  number = {1},
+  pages = {558-593},
+  year = {2019},
+  doi = {10.1137/18M1177846},
+  URL = {https://doi.org/10.1137/18M1177846},
+  eprint = {https://doi.org/10.1137/18M1177846},
+  abstract = {This paper describes a method for learning low-dimensional approximations of nonlinear dynamical systems, based on neural network approximations of the underlying Koopman operator. Extended Dynamic Mode Decomposition (EDMD) provides a useful data-driven approximation of the Koopman operator for analyzing dynamical systems. This paper addresses a fundamental problem associated with EDMD: a trade-off between representational capacity of the dictionary and overfitting due to insufficient data. A new neural network architecture combining an autoencoder with linear recurrent dynamics in the encoded state is used to learn a low-dimensional and highly informative Koopman-invariant subspace of observables. A method is also presented for balanced model reduction of overspecified EDMD systems in feature space. Nonlinear reconstruction using partially linear multikernel regression aims to improve reconstruction accuracy from the low-dimensional state when the data has complex but intrinsically low-dimensional structure. The techniques demonstrate the ability to identify Koopman eigenfunctions of the unforced Duffing equation, create accurate low-dimensional models of an unstable cylinder wake flow, and make short-time predictions of the chaotic Kuramoto--Sivashinsky equation. }
 }
 
 @article{nuske2023finite,
@@ -113,11 +127,15 @@
 }
 
 @inproceedings{Kostic2023SpectralRates,
-title={Sharp Spectral Rates for Koopman Operator Learning},
-author={Vladimir R Kostic and Karim Lounici and Pietro Novelli and Massimiliano Pontil},
-booktitle={Thirty-seventh Conference on Neural Information Processing Systems},
-year={2023},
-url={https://openreview.net/forum?id=Lt3jqxsbVO}
+  author = {Kostic, Vladimir R. and Lounici, Karim and Novelli, Pietro and Pontil, Massimiliano},
+  booktitle = {Advances in Neural Information Processing Systems},
+  editor = {A. Oh and T. Naumann and A. Globerson and K. Saenko and M. Hardt and S. Levine},
+  pages = {32328--32339},
+  publisher = {Curran Associates, Inc.},
+  title = {Sharp Spectral Rates for Koopman Operator Learning},
+  url = {https://proceedings.neurips.cc/paper_files/paper/2023/file/663bce02a0050c4a11f1eb8a7f1429d3-Paper-Conference.pdf},
+  volume = {36},
+  year = {2023}
 }
 
 @article{li2017extended,
@@ -130,13 +148,15 @@ url={https://openreview.net/forum?id=Lt3jqxsbVO}
   publisher={AIP Publishing}
 }
 
-@inproceedings{
-Kostic2023DPNets,
-title={Learning invariant representations of time-homogeneous stochastic dynamical systems},
-author={Vladimir R. Kostic and Pietro Novelli and Riccardo Grazzi and Karim Lounici and Massimiliano Pontil},
-booktitle={The Twelfth International Conference on Learning Representations},
-year={2024},
-url={https://openreview.net/forum?id=twSnZwiOIm}
+@inproceedings{Kostic2023DPNets,
+  author = {Kostic, Vladimir R. and Novelli, Pietro and Grazzi, Riccardo and Lounici, Karim and pontil, massimiliano},
+  booktitle = {International Conference on Representation Learning},
+  editor = {B. Kim and Y. Yue and S. Chaudhuri and K. Fragkiadaki and M. Khan and Y. Sun},
+  pages = {54329--54341},
+  title = {Learning invariant representations of time-homogeneous stochastic dynamical systems},
+  url = {https://proceedings.iclr.cc/paper_files/paper/2024/file/eeab2e00835c71d64458ad1821e05664-Paper-Conference.pdf},
+  volume = {2024},
+  year = {2024}
 }
 
 @inproceedings{Fathi2023,
@@ -181,12 +201,15 @@ url={https://openreview.net/forum?id=twSnZwiOIm}
 }
 
 @inproceedings{Kawahara2016,
- author = {Kawahara, Yoshinobu},
- booktitle = {Advances in Neural Information Processing Systems},
- pages = {},
- title = {{D}ynamic {M}ode {D}ecomposition with {R}eproducing {K}ernels for {K}oopman {S}pectral {A}nalysis},
- volume = {29},
- year = {2016}
+  author = {Kawahara, Yoshinobu},
+  booktitle = {Advances in Neural Information Processing Systems},
+  editor = {D. Lee and M. Sugiyama and U. Luxburg and I. Guyon and R. Garnett},
+  pages = {},
+  publisher = {Curran Associates, Inc.},
+  title = {Dynamic Mode Decomposition with Reproducing Kernels for Koopman Spectral Analysis},
+  url = {https://proceedings.neurips.cc/paper_files/paper/2016/file/1728efbda81692282ba642aafd57be3a-Paper.pdf},
+  volume = {29},
+  year = {2016}
 }
 
 @article{Alexander2020,
@@ -200,11 +223,15 @@ url={https://openreview.net/forum?id=twSnZwiOIm}
 }
 
 @article{takeishi2017learning,
-  title={Learning {K}oopman invariant subspaces for dynamic mode decomposition},
-  author={Takeishi, Naoya and Kawahara, Yoshinobu and Yairi, Takehisa},
-  journal={Advances in Neural Information Processing Systems},
-  volume={30},
-  year={2017}
+  author = {Takeishi, Naoya and Kawahara, Yoshinobu and Yairi, Takehisa},
+  booktitle = {Advances in Neural Information Processing Systems},
+  editor = {I. Guyon and U. Von Luxburg and S. Bengio and H. Wallach and R. Fergus and S. Vishwanathan and R. Garnett},
+  pages = {},
+  publisher = {Curran Associates, Inc.},
+  title = {Learning Koopman Invariant Subspaces for Dynamic Mode Decomposition},
+  url = {https://proceedings.neurips.cc/paper_files/paper/2017/file/3a835d3215755c435ef4fe9965a3f2a0-Paper.pdf},
+  volume = {30},
+  year = {2017}
 }
 
 @article{Das2020,
@@ -229,13 +256,16 @@ url={https://openreview.net/forum?id=twSnZwiOIm}
   journal = {Journal of Nonlinear Science},
 }
 
-
 @inproceedings{Meanti2023,
-title={Estimating Koopman operators with sketching to provably learn large scale dynamical systems},
-author={Giacomo Meanti and Antoine Chatalic and Vladimir R Kostic and Pietro Novelli and Massimiliano Pontil and Lorenzo Rosasco},
-booktitle={Thirty-seventh Conference on Neural Information Processing Systems},
-year={2023},
-url={https://openreview.net/forum?id=GItLpB1vhK}
+  author = {Meanti, Giacomo and Chatalic, Antoine and Kostic, Vladimir R. and Novelli, Pietro and Pontil, Massimiliano and Rosasco, Lorenzo},
+  booktitle = {Advances in Neural Information Processing Systems},
+  editor = {A. Oh and T. Naumann and A. Globerson and K. Saenko and M. Hardt and S. Levine},
+  pages = {77242--77276},
+  publisher = {Curran Associates, Inc.},
+  title = {Estimating Koopman operators with sketching to provably learn large scale dynamical systems},
+  url = {https://proceedings.neurips.cc/paper_files/paper/2023/file/f3d1e34a15c0af0954ae36a7f811c754-Paper-Conference.pdf},
+  volume = {36},
+  year = {2023}
 }
 
 @inproceedings{Morton2018,
@@ -253,10 +283,15 @@ series = {NIPS'18}
 }
 
 @book{Kutz2016,
-  year = {2016},
+  author = {Kutz, J. Nathan and Brunton, Steven L. and Brunton, Bingni W. and Proctor, Joshua L.},
+  title = {Dynamic Mode Decomposition},
   publisher = {Society for Industrial and Applied Mathematics},
-  author = {J. Nathan Kutz and Steven L. Brunton and Bingni W. Brunton and Joshua L. Proctor},
-  title = {{D}ynamic {M}ode {D}ecomposition}
+  year = {2016},
+  doi = {10.1137/1.9781611974508},
+  address = {Philadelphia, PA},
+  edition   = {},
+  URL = {https://epubs.siam.org/doi/abs/10.1137/1.9781611974508},
+  eprint = {https://epubs.siam.org/doi/pdf/10.1137/1.9781611974508}
 }
 
 @article{korda2018convergence,
@@ -269,33 +304,29 @@ series = {NIPS'18}
   publisher={Springer}
 }
 
-
 @article{Schmid2010,
-  title = {Dynamic mode decomposition of numerical and experimental data},
-  volume = {656},
-  ISSN = {1469-7645},
-  url = {http://dx.doi.org/10.1017/s0022112010001217},
-  DOI = {10.1017/s0022112010001217},
-  journal = {Journal of Fluid Mechanics},
-  publisher = {Cambridge University Press (CUP)},
-  author = {Schmid,  Peter J.},
-  year = {2010},
-  month = jul,
-  pages = {5–28}
-}
+  title={Dynamic mode decomposition of numerical and experimental data},
+  volume={656},
+  DOI={10.1017/S0022112010001217},
+  journal={Journal of Fluid Mechanics},
+  author={Schimid, Peter J.},
+  year={2010},
+  pages={5–28}
+  }
 
 @article{Williams2015_KDMD,
   title = {A kernel-based method for data-driven koopman spectral analysis},
-  volume = {2},
-  ISSN = {2158-2505},
-  url = {http://dx.doi.org/10.3934/jcd.2015005},
-  DOI = {10.3934/jcd.2015005},
-  number = {2},
   journal = {Journal of Computational Dynamics},
-  publisher = {American Institute of Mathematical Sciences (AIMS)},
-  author = {O.  Williams,  Matthew and W. Rowley,  Clarence and G.  Kevrekidis,  Ioannis},
+  volume = {2},
+  number = {2},
+  pages = {247-265},
   year = {2015},
-  pages = {247–265}
+  issn = {2158-2491},
+  doi = {10.3934/jcd.2015005},
+  url = {https://www.aimsciences.org/article/id/ce535396-f8fe-4aa1-b6de-baaf986f6193},
+  author = {Matthew O.  Williams and Clarence W. Rowley and Ioannis G.  Kevrekidis},
+  keywords = {Koopman operator, dynamic mode decomposition, kernel
+    methods, time series analysis, machine learning}
 }
 
 @article{Williams2015_EDMD,
@@ -370,10 +401,13 @@ series = {NIPS'18}
 }
 
 @article{turri2025self,
-  title={Self-Supervised Evolution Operator Learning for High-Dimensional Dynamical Systems},
-  author={Turri, Giacomo and Bonati, Luigi and Zhu, Kai and Pontil, Massimiliano and Novelli, Pietro},
-  journal={arXiv preprint arXiv:2505.18671},
-  year={2025}
+  title={Self-Supervised Evolution Operator Learning for High-Dimensional Dynamical Systems}, 
+  author={Giacomo Turri and Luigi Bonati and Kai Zhu and Massimiliano Pontil and Pietro Novelli},
+  year={2025},
+  eprint={2505.18671},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2505.18671}, 
 }
 
 @inproceedings{yeung2019learning,
@@ -393,10 +427,14 @@ series = {NIPS'18}
 }
 
 @article{turri2023randomized,
-  title={A randomized algorithm to solve reduced rank operator regression},
-  author={Turri, Giacomo and Kostic, Vladimir and Novelli, Pietro and Pontil, Massimiliano},
+  author = {Turri, Giacomo and Kostic, Vladimir R. and Novelli, Pietro and Pontil, Massimiliano},
+  title = {A Randomized Algorithm to Solve Reduced Rank Operator Regression},
   journal = {SIAM Journal on Mathematics of Data Science},
-  publisher = {Society for Industrial & Applied Mathematics (SIAM)},
-  year={2025},
-  keywords = {novelli}
+  volume = {8},
+  number = {1},
+  pages = {23-45},
+  year = {2026},
+  doi = {10.1137/24M1632097},
+  URL = {https://doi.org/10.1137/24M1632097},
+  eprint = {https://doi.org/10.1137/24M1632097}
 }
