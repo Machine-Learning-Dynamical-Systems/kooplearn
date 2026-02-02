@@ -93,6 +93,21 @@ Quickstart
    model = KernelRidge(n_components=4, kernel='rbf', alpha=1e-5)
    model.fit(data)
 
+Citing ``kooplearn``
+^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: bibtex
+
+    @article{kooplearn,
+      title={kooplearn: A Scikit-Learn Compatible Library of Algorithms for Evolution Operator Learning}, 
+      author={Giacomo Turri and Grégoire Pacreau and Giacomo Meanti and Timothée Devergne and Daniel Ordonez and Erfan Mirzaei and Bruno Belucci and Karim Lounici and Vladimir R. Kostic and Massimiliano Pontil and Pietro Novelli},
+      year={2026},
+      eprint={2512.21409},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2512.21409}, 
+    }
+    
 Learn more
 ^^^^^^^^^^
 

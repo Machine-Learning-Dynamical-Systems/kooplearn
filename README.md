@@ -97,6 +97,20 @@ This project is licensed under the [MIT License](LICENSE).
    
 The mantainer of this repo is Pietro Novelli.
 
+## Citing `kooplearn`
+
+```bibtex
+@article{kooplearn,
+title={kooplearn: A Scikit-Learn Compatible Library of Algorithms for Evolution Operator Learning}, 
+author={Giacomo Turri and Grégoire Pacreau and Giacomo Meanti and Timothée Devergne and Daniel Ordonez and Erfan Mirzaei and Bruno Belucci and Karim Lounici and Vladimir R. Kostic and Massimiliano Pontil and Pietro Novelli},
+year={2026},
+eprint={2512.21409},
+archivePrefix={arXiv},
+primaryClass={cs.LG},
+url={https://arxiv.org/abs/2512.21409}, 
+}
+```
+
 ---
 
 We hope you find `kooplearn` useful for your dynamical systems analysis. If you encounter any issues or have suggestions for improvements, please don't hesitate to [raise an issue](https://github.com/Machine-Learning-Dynamical-Systems/kooplearn/issues). Happy coding!
