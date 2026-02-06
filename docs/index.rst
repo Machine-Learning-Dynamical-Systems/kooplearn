@@ -13,7 +13,7 @@ Kooplearn
 3. Compute the `dynamic mode decomposition <https://en.wikipedia.org/wiki/Dynamic_mode_decomposition>`_ of states *and* observables.
 4. Learn neural-network representations :math:`x_t \mapsto \varphi(x_t)` for evolution operators.
 
-Why Choosing ``kooplearn``?
+Why Choose ``kooplearn``?
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 It is easy to use, and strictly adheres to the `scikit-learn API <https://scikit-learn.org/stable/api/index.html>`_. Its :ref:`Kernel estimators <api_kernel>` are state-of-the-art, and blazingly fast ⚡️: 
