@@ -9,7 +9,7 @@ $$
 (\mathsf{E} f)(x_t) = \int p(dy | x_{t}) f(y) = \mathbb{E}_{y \sim X_{t + 1} | X_{t}}[f(y) | x_t].
 $$
 
-Notice that $\mathsf{E}$ is an operator because it maps any function $f$ to another function, $x_{t} \mapsto (\mathsf{E} f)(x_t)$, and is ***linear*** because $\mathsf{E}(f + \alpha g) = \mathsf{E} f + \alpha \mathsf{E} g$. When the dynamics is deterministic, $\mathsf{E}$ is known as the ***Koopman operator*** {cite:p}`Koopman1931`, while in the stochastic case it is known as the ***transfer operator*** {cite:p}`Applebaum2009`.
+Notice that $\mathsf{E}$ is an operator because it maps any function $f$ to another function, $x_{t} \mapsto (\mathsf{E} f)(x_t)$, and is ***linear*** because $\mathsf{E}(f + \alpha g) = \mathsf{E} f + \alpha \mathsf{E} g$. When the dynamics are deterministic, $\mathsf{E}$ is known as the ***Koopman operator*** {cite:p}`Koopman1931`, while in the stochastic case it is known as the ***transfer operator*** {cite:p}`Applebaum2009`.
 
 Evolution operators fully characterize the dynamical system because knowing $\mathsf{E}$ allows us to reconstruct the dynamical law $p(\cdot | x_{t})$. Indeed, for any subset of the state space $B \subseteq \mathcal{X}$, applying $\mathsf{E}$ to the indicator function of $B$, we have
 
