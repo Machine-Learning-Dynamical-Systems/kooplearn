@@ -1,8 +1,9 @@
 import pytest
-import torch
-import torch.nn as nn
 
-from kooplearn.torch.nn._base import (
+torch = pytest.importorskip("torch")
+nn = pytest.importorskip("torch.nn")
+
+from kooplearn.torch.nn._base import (  # noqa: E402
     AutoEncoderLoss,
     EnergyLoss,
     SpectralContrastiveLoss,

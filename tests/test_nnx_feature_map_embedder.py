@@ -1,9 +1,10 @@
-import jax.numpy as jnp
 import numpy as np
 import pytest
-from flax import nnx
 
-from kooplearn.jax.utils import NnxFeatureMapEmbedder
+jnp = pytest.importorskip("jax.numpy")
+nnx = pytest.importorskip("flax.nnx")
+
+from kooplearn.jax.utils import NnxFeatureMapEmbedder  # noqa: E402
 
 
 # Simple NNX test modules

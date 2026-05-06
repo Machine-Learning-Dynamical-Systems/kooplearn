@@ -1,9 +1,10 @@
 import numpy as np
 import pytest
-import torch
-import torch.nn as nn
 
-from kooplearn.torch.utils import FeatureMapEmbedder
+torch = pytest.importorskip("torch")
+nn = pytest.importorskip("torch.nn")
+
+from kooplearn.torch.utils import FeatureMapEmbedder  # noqa: E402
 
 
 # Simple test neural networks

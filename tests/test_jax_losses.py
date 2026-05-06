@@ -1,8 +1,9 @@
-import jax
-import jax.numpy as jnp
 import pytest
 
-from kooplearn.jax.nn._functional import (
+jax = pytest.importorskip("jax")
+jnp = pytest.importorskip("jax.numpy")
+
+from kooplearn.jax.nn._functional import (  # noqa: E402
     autoencoder_loss,
     energy_loss,
     orthonormal_fro_reg,
