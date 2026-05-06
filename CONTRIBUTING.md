@@ -63,6 +63,6 @@ Feature requests should describe the use case, the current workaround if any, an
 
 Please keep pull requests focused on one change. Include tests or documentation updates when the behavior changes, and mention any optional dependency needed to run the new code.
 
-## Release process
+## Maintainer releases
 
-Releases are maintainer-only. The project uses [Semantic Versioning](https://semver.org/) and publishes to PyPI from tags matching `v*` through the GitHub Actions release workflow.
+The maintainer release process is documented separately in [RELEASE.md](RELEASE.md).
