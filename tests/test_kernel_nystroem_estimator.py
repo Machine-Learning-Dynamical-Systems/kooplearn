@@ -136,13 +136,11 @@ def test_predict_observable_shape_mismatch_raises():
 def test_callable_kernel_functionality():
     X = np.random.randn(15, 5)
 
-    def custom_kernel(X, Y=None):
-        # Ensure both X and Y are 2D
-        X = np.atleast_2d(X)
-        Y = X if Y is None else np.atleast_2d(Y)
-        # Compute squared Euclidean distance
-        dists = np.sum((X[:, None, :] - Y[None, :, :]) ** 2, axis=-1)
-        return np.exp(-0.1 * dists)
+    def custom_kernel(x, y=None):
+        x = np.asarray(x)
+        y = x if y is None else np.asarray(y)
+        sqdist = np.sum((x - y) ** 2)
+        return float(np.exp(-0.1 * sqdist))
 
     model = NystroemKernelRidge(kernel=custom_kernel, n_components=3)
     model.fit(X)
