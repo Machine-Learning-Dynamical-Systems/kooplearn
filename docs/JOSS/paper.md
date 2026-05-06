@@ -1,5 +1,5 @@
 ---
-title: 'kooplearn: A scikit-learn Compatible Library of Algorithms for Evolution Operator Learning'
+title: 'kooplearn: A scikit-learn compatible library of algorithms for evolution operator learning'
 tags:
   - Python
   - dynamical systems
