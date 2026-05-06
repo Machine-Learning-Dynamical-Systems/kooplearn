@@ -6,9 +6,12 @@
     </picture>
 </p>
 
-<a href="https://kooplearn.readthedocs.io/latest/"><img alt="Static Badge" src="https://img.shields.io/badge/Documentation-informational"></a>
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Machine-Learning-Dynamical-Systems/kooplearn/CI.yml)
-![GitHub License](https://img.shields.io/github/license/Machine-Learning-Dynamical-Systems/kooplearn)
+[![Docs](https://readthedocs.org/projects/kooplearn/badge/?version=latest)](https://kooplearn.readthedocs.io/latest/)
+[![CI](https://github.com/Machine-Learning-Dynamical-Systems/kooplearn/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/Machine-Learning-Dynamical-Systems/kooplearn/actions/workflows/CI.yml)
+[![codecov](https://codecov.io/gh/Machine-Learning-Dynamical-Systems/kooplearn/graph/badge.svg?branch=main)](https://codecov.io/gh/Machine-Learning-Dynamical-Systems/kooplearn)
+[![PyPI version](https://img.shields.io/pypi/v/kooplearn.svg)](https://pypi.org/project/kooplearn/)
+[![Python versions](https://img.shields.io/pypi/pyversions/kooplearn.svg)](https://pypi.org/project/kooplearn/)
+[![License](https://img.shields.io/github/license/Machine-Learning-Dynamical-Systems/kooplearn)](LICENSE)
 
 
 `kooplearn` is a Python library to learn evolution operators —  also known as _Koopman_ or _Transfer_ operators — from data. `kooplearn` models can:
