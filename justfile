@@ -43,7 +43,10 @@ check-branch:
 test-all:
     uv run pytest -s tests
 
+# Run tests with coverage
+coverage:
+    uv run pytest --cov=kooplearn --cov-report=term-missing --cov-report=xml tests
+
 # Build docs:
 docs:
     uv run sphinx-autobuild -a -E docs docs/_build/html
-
