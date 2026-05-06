@@ -43,7 +43,6 @@ jobs:
         run: uv sync --locked --all-extras --all-groups
       
       - name: Run tests
-        # For example, using `pytest`
         run: uv run pytest --color=yes tests/
 
   coverage:
@@ -72,4 +71,4 @@ jobs:
         with:
           fail_ci_if_error: true
           files: ./coverage.xml
-          use_oidc: true
+          token: ${{ secrets.CODECOV_TOKEN }}
