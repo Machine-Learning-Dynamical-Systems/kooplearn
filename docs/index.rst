@@ -9,7 +9,7 @@ Kooplearn
 ``kooplearn`` is a Python library to learn :ref:`evolution operators <primer>` —  also known as Koopman :cite:p:`p1-Koopman1931` or Transfer :cite:p:`p1-Applebaum2009` operators —  from data. ``kooplearn`` models can
 
 1. Predict the evolution of states *and* observables.
-2. Estimate the eigenvalues and eigenfucntions of the learned evolution operators.
+2. Estimate the eigenvalues and eigenfunctions of the learned evolution operators.
 3. Compute the `dynamic mode decomposition <https://en.wikipedia.org/wiki/Dynamic_mode_decomposition>`_ of states *and* observables.
 4. Learn neural-network representations :math:`x_t \mapsto \varphi(x_t)` for evolution operators.
 
@@ -99,7 +99,7 @@ Citing ``kooplearn``
 .. code-block:: bibtex
 
     @article{kooplearn,
-      title={kooplearn: A Scikit-Learn Compatible Library of Algorithms for Evolution Operator Learning}, 
+      title={kooplearn: A scikit-learn compatible library of algorithms for evolution operator learning},
       author={Giacomo Turri and Grégoire Pacreau and Giacomo Meanti and Timothée Devergne and Daniel Ordonez and Erfan Mirzaei and Bruno Belucci and Karim Lounici and Vladimir R. Kostic and Massimiliano Pontil and Pietro Novelli},
       year={2026},
       eprint={2512.21409},

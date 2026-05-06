@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a reproducible problem in kooplearn
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproducer
+      description: Include the smallest code snippet, command, or notebook cell that reproduces the issue.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Error output
+      description: Paste the full traceback or terminal output.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: kooplearn version
+      placeholder: "python -c 'import kooplearn; print(kooplearn.__version__)'"
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "python --version"
+    validations:
+      required: true
+  - type: input
+    id: install
+    attributes:
+      label: Install command
+      placeholder: 'pip install "kooplearn[torch]"'
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, optional dependencies, CPU/GPU details, and any other relevant context.
