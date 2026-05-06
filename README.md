@@ -1,8 +1,8 @@
 <p align="center">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="logo-dark.png">
-      <source media="(prefers-color-scheme: light)" srcset="logo-light.png">
-      <img alt="kooplearn logo" width="60%" src="logo-light.png">
+      <source media="(prefers-color-scheme: dark)" srcset="docs/_static/logo-dark.png">
+      <source media="(prefers-color-scheme: light)" srcset="docs/_static/logo-light.png">
+      <img alt="kooplearn logo" width="60%" src="docs/_static/logo-light.png">
     </picture>
 </p>
 
