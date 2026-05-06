@@ -42,7 +42,7 @@
 
 @article{sklearn,
   author = {Pedregosa, Fabian and Varoquaux, Ga\"{e}l and Gramfort, Alexandre and Michel, Vincent and Thirion, Bertrand and Grisel, Olivier and Blondel, Mathieu and Prettenhofer, Peter and Weiss, Ron and Dubourg, Vincent and Vanderplas, Jake and Passos, Alexandre and Cournapeau, David and Brucher, Matthieu and Perrot, Matthieu and Duchesnay, \'{E}douard},
-  title = {Scikit-learn: Machine Learning in Python},
+  title = {{Scikit-learn}: Machine Learning in {Python}},
   year = {2011},
   issue_date = {2/1/2011},
   publisher = {JMLR.org},
@@ -81,22 +81,6 @@
   pages = {3634–3637}
 }
 
-@inbook{Steinwart2008,
-  author = {Ingo Steinwart and Andreas Christmann},
-  title = {Support Vector Machines},
-  booktitle = {Least Squares Support Vector Machines},
-  chapter = {},
-  pages = {29-70},
-  doi = {10.1142/9789812776655_0002},
-  URL = {https://www.worldscientific.com/doi/abs/10.1142/9789812776655_0002},
-  eprint = {https://www.worldscientific.com/doi/pdf/10.1142/9789812776655_0002},
-  abstract = { Abstract The following sections are included: Maximal margin classification and linear SVMs Margin Linear SVM classifier: separable case Linear SVM classifier: non-separable case Kernel trick and Mercer condition Nonlinear SVM classifiers VC theory and structural risk minimization Empirical risk versus generalization error Structural risk minimization SVMs for function estimation SVM for linear function estimation SVM for nonlinear function estimation VC bound on generalization error Modifications and extensions Kernels Extension to other convex cost functions Algorithms Parametric versus non-parametric approaches },
-  city = {New York, NY},
-  publisher = {Springer New York},
-  title = {Support Vector Machines},
-  year = {2008},
-}
-
 @article{klus2018data,
   author  = {Klus, Stefan and N{\"u}ske, Feliks and Koltai, P{\'e}ter and Wu, Hao and Kevrekidis, Ioannis and Sch{\"u}tte, Christof and No{\'e}, Frank},
   title   = {Data-Driven Model Reduction and Transfer Operator Approximation},
@@ -123,7 +107,9 @@
   address="Berlin, Heidelberg",
   pages="191--223",
   abstract="The article surveys the development of novel mathematical concepts and algorithmic approaches based thereon in view of their possible applicability to biomolecular design. Both a first deterministic approach, based on the Frobenius-Perron operator corresponding to the flow of the Hamiltonian dynamics, and later stochastic approaches, based on a spatial Markov operator or on Langevin dynamics, can be subsumed under the unified mathematical roof of the transfer operator approach to effective dynamics of molecular systems. The key idea of constructing specific transfer operators especially taylored for the purpose of conformational dynamics appears as the red line throughout the paper. Different steps of the algorithm are exemplified by a trinucleotide molecular system as a small representative of possible RNA drug molecules.",
-  isbn="978-3-642-56589-2"
+  isbn="978-3-642-56589-2",
+  doi="10.1007/978-3-642-56589-2_9",
+  url="https://doi.org/10.1007/978-3-642-56589-2_9"
 }
 
 @book{kutz2016,
@@ -139,7 +125,7 @@
 }
 
 @article{williams2015_kdmd,
-  title = {A kernel-based method for data-driven koopman spectral analysis},
+  title = {A kernel-based method for data-driven {Koopman} spectral analysis},
   journal = {Journal of Computational Dynamics},
   volume = {2},
   number = {2},
@@ -151,30 +137,6 @@
   author = {Matthew O.  Williams and Clarence W. Rowley and Ioannis G.  Kevrekidis},
   keywords = {Koopman operator, dynamic mode decomposition, kernel
     methods, time series analysis, machine learning}
-}
-
-@inproceedings{kawahara2016,
-  author = {Kawahara, Yoshinobu},
-  booktitle = {Advances in Neural Information Processing Systems},
-  editor = {D. Lee and M. Sugiyama and U. Luxburg and I. Guyon and R. Garnett},
-  pages = {},
-  publisher = {Curran Associates, Inc.},
-  title = {Dynamic Mode Decomposition with Reproducing Kernels for Koopman Spectral Analysis},
-  url = {https://proceedings.neurips.cc/paper_files/paper/2016/file/1728efbda81692282ba642aafd57be3a-Paper.pdf},
-  volume = {29},
-  year = {2016}
-}
-
-@inproceedings{takeishi2017,
-  author = {Takeishi, Naoya and Kawahara, Yoshinobu and Yairi, Takehisa},
-  booktitle = {Advances in Neural Information Processing Systems},
-  editor = {I. Guyon and U. Von Luxburg and S. Bengio and H. Wallach and R. Fergus and S. Vishwanathan and R. Garnett},
-  pages = {},
-  publisher = {Curran Associates, Inc.},
-  title = {Learning Koopman Invariant Subspaces for Dynamic Mode Decomposition},
-  url = {https://proceedings.neurips.cc/paper_files/paper/2017/file/3a835d3215755c435ef4fe9965a3f2a0-Paper.pdf},
-  volume = {30},
-  year = {2017}
 }
 
 @article{lusch2018,
@@ -190,23 +152,9 @@
   journal = {Nature Communications}
 }
 
-@article{otto2019,
-  author = {Otto, Samuel E. and Rowley, Clarence W.},
-  title = {Linearly Recurrent Autoencoder Networks for Learning Dynamics},
-  journal = {SIAM Journal on Applied Dynamical Systems},
-  volume = {18},
-  number = {1},
-  pages = {558-593},
-  year = {2019},
-  doi = {10.1137/18M1177846},
-  URL = {https://doi.org/10.1137/18M1177846},
-  eprint = {https://doi.org/10.1137/18M1177846},
-  abstract = {This paper describes a method for learning low-dimensional approximations of nonlinear dynamical systems, based on neural network approximations of the underlying Koopman operator. Extended Dynamic Mode Decomposition (EDMD) provides a useful data-driven approximation of the Koopman operator for analyzing dynamical systems. This paper addresses a fundamental problem associated with EDMD: a trade-off between representational capacity of the dictionary and overfitting due to insufficient data. A new neural network architecture combining an autoencoder with linear recurrent dynamics in the encoded state is used to learn a low-dimensional and highly informative Koopman-invariant subspace of observables. A method is also presented for balanced model reduction of overspecified EDMD systems in feature space. Nonlinear reconstruction using partially linear multikernel regression aims to improve reconstruction accuracy from the low-dimensional state when the data has complex but intrinsically low-dimensional structure. The techniques demonstrate the ability to identify Koopman eigenfunctions of the unforced Duffing equation, create accurate low-dimensional models of an unstable cylinder wake flow, and make short-time predictions of the chaotic Kuramoto--Sivashinsky equation. }
-}
-
 @article{pydmd,
   author  = {Sara M. Ichinaga and Francesco Andreuzzi and Nicola Demo and Marco Tezzele and Karl Lapo and Gianluigi Rozza and Steven L. Brunton and J. Nathan Kutz},
-  title   = {PyDMD: A Python Package for Robust Dynamic Mode Decomposition},
+  title   = {{PyDMD}: A {Python} Package for Robust Dynamic Mode Decomposition},
   journal = {Journal of Machine Learning Research},
   year    = {2024},
   volume  = {25},
@@ -224,7 +172,7 @@
   number = {94}, 
   pages = {5881}, 
   author = {Pan, Shaowu and Kaiser, Eurika and de Silva, Brian M. and Kutz, J. Nathan and Brunton, Steven L.}, 
-  title = {PyKoopman: A Python Package for Data-Driven Approximation of the Koopman Operator}, 
+  title = {{PyKoopman}: A {Python} Package for Data-Driven Approximation of the {Koopman} Operator},
   journal = {Journal of Open Source Software} 
 }
 
@@ -237,21 +185,12 @@
   number = {114}, 
   pages = {7947}, 
   author = {Dahdah, Steven and Forbes, James Richard}, 
-  title = {pykoop: a Python Library for Koopman Operator Approximation}, 
+  title = {pykoop: a {Python} Library for {Koopman} Operator Approximation},
   journal = {Journal of Open Source Software} 
 }
 
-@inproceedings{dlkoopman,
-  title={DLKoopman: A deep learning software package for Koopman theory},
-  author={Dey, Sourya and Davis, Eric William},
-  booktitle={Learning for Dynamics and Control Conference},
-  pages={1467--1479},
-  year={2023},
-  organization={PMLR}
-}
-
 @InProceedings{dlkoopman,
-  title = 	 {DLKoopman: A deep learning software package for Koopman theory},
+  title = 	 {{DLKoopman}: A deep learning software package for {Koopman} theory},
   author =       {Dey, Sourya and Davis, Eric William},
   booktitle = 	 {Proceedings of The 5th Annual Learning for Dynamics and Control Conference},
   pages = 	 {1467--1479},
@@ -268,7 +207,7 @@
 
 @article{koopmanlab,
   author = {Xiong, Wei and Ma, Muyuan and Huang, Xiaomeng and Zhang, Ziyang and Sun, Pei and Tian, Yang},
-  title = {KoopmanLab: Machine learning for solving complex physics equations},
+  title = {{KoopmanLab}: Machine learning for solving complex physics equations},
   journal = {APL Machine Learning},
   volume = {1},
   number = {3},
@@ -288,7 +227,7 @@
   editor = {H. Wallach and H. Larochelle and A. Beygelzimer and F. d\textquotesingle Alch\'{e}-Buc and E. Fox and R. Garnett},
   pages = {},
   publisher = {Curran Associates, Inc.},
-  title = {PyTorch: An Imperative Style, High-Performance Deep Learning Library},
+  title = {{PyTorch}: An Imperative Style, High-Performance Deep Learning Library},
   url = {https://proceedings.neurips.cc/paper_files/paper/2019/file/bdbca288fee7f92f2bfa9f7012727740-Paper.pdf},
   volume = {32},
   year = {2019}
@@ -296,7 +235,7 @@
 
 @software{jax,
   author = {James Bradbury and Roy Frostig and Peter Hawkins and Matthew James Johnson and Chris Leary and Dougal Maclaurin and George Necula and Adam Paszke and Jake Vander{P}las and Skye Wanderman-{M}ilne and Qiao Zhang},
-  title = {{JAX}: composable transformations of {P}ython+{N}um{P}y programs},
+  title = {{JAX}: composable transformations of {Python}+{NumPy} programs},
   url = {http://github.com/jax-ml/jax},
   version = {0.3.13},
   year = {2018},
@@ -308,7 +247,8 @@
   editor = {S. Koyejo and S. Mohamed and A. Agarwal and D. Belgrave and K. Cho and A. Oh},
   pages = {4017--4031},
   publisher = {Curran Associates, Inc.},
-  title = {Learning Dynamical Systems via Koopman Operator Regression in Reproducing Kernel Hilbert Spaces},
+  doi = {10.52202/068431-0290},
+  title = {Learning Dynamical Systems via {Koopman} Operator Regression in Reproducing Kernel {Hilbert} Spaces},
   url = {https://proceedings.neurips.cc/paper_files/paper/2022/file/196c4e02b7464c554f0f5646af5d502e-Paper-Conference.pdf},
   volume = {35},
   year = {2022}
@@ -320,7 +260,8 @@
   editor = {A. Oh and T. Naumann and A. Globerson and K. Saenko and M. Hardt and S. Levine},
   pages = {32328--32339},
   publisher = {Curran Associates, Inc.},
-  title = {Sharp Spectral Rates for Koopman Operator Learning},
+  doi = {10.52202/075280-1403},
+  title = {Sharp Spectral Rates for {Koopman} Operator Learning},
   url = {https://proceedings.neurips.cc/paper_files/paper/2023/file/663bce02a0050c4a11f1eb8a7f1429d3-Paper-Conference.pdf},
   volume = {36},
   year = {2023}
@@ -332,7 +273,8 @@
   editor = {A. Oh and T. Naumann and A. Globerson and K. Saenko and M. Hardt and S. Levine},
   pages = {77242--77276},
   publisher = {Curran Associates, Inc.},
-  title = {Estimating Koopman operators with sketching to provably learn large scale dynamical systems},
+  doi = {10.52202/075280-3378},
+  title = {Estimating {Koopman} operators with sketching to provably learn large scale dynamical systems},
   url = {https://proceedings.neurips.cc/paper_files/paper/2023/file/f3d1e34a15c0af0954ae36a7f811c754-Paper-Conference.pdf},
   volume = {36},
   year = {2023}
@@ -380,7 +322,8 @@
   editor = {A. Oh and T. Naumann and A. Globerson and K. Saenko and M. Hardt and S. Levine},
   pages = {16207--16221},
   publisher = {Curran Associates, Inc.},
-  title = {Koopman Kernel Regression},
+  doi = {10.52202/075280-0713},
+  title = {{Koopman} Kernel Regression},
   url = {https://proceedings.neurips.cc/paper_files/paper/2023/file/34678d08b36076de986df95c5bbba92f-Paper-Conference.pdf},
   volume = {36},
   year = {2023}
@@ -427,7 +370,7 @@
 }
 
 @InProceedings{bevanda2025,
-  title = 	 {Koopman-Equivariant Gaussian Processes},
+  title = 	 {{Koopman}-Equivariant Gaussian Processes},
   author =       {Bevanda, Petar and Beier, Max and Capone, Alexandre and Sosnowski, Stefan Georg and Hirche, Sandra and Lederer, Armin},
   booktitle = 	 {Proceedings of The 28th International Conference on Artificial Intelligence and Statistics},
   pages = 	 {3151--3159},
@@ -444,7 +387,7 @@
 
 @article{koopman1931,
   author = {B. O. Koopman },
-  title = {Hamiltonian Systems and Transformation in Hilbert Space},
+  title = {Hamiltonian Systems and Transformation in {Hilbert} Space},
   journal = {Proceedings of the National Academy of Sciences},
   volume = {17},
   number = {5},
