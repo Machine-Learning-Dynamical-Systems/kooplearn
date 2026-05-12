@@ -100,7 +100,7 @@ Citing ``kooplearn``
 
     @article{kooplearn,
       title={kooplearn: A scikit-learn compatible library of algorithms for evolution operator learning},
-      author={Giacomo Turri and Grégoire Pacreau and Giacomo Meanti and Timothée Devergne and Daniel Ordonez and Erfan Mirzaei and Bruno Belucci and Karim Lounici and Vladimir R. Kostic and Massimiliano Pontil and Pietro Novelli},
+      author={Giacomo Turri and Grégoire Pacreau and Giacomo Meanti and Timothée Devergne and Daniel Ordoñez-Apraez and Erfan Mirzaei and Bruno Belucci and Karim Lounici and Vladimir R. Kostic and Massimiliano Pontil and Pietro Novelli},
       year={2026},
       eprint={2512.21409},
       archivePrefix={arXiv},

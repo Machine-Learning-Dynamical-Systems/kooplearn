@@ -21,7 +21,7 @@ authors:
   - name: Timothée Devergne
     orcid: 0000-0001-8369-237X
     affiliation: "4, 1"
-  - name: Daniel Ordoñez
+  - name: Daniel Ordoñez-Apraez
     orcid: 0000-0002-9793-2482
     affiliation: 1
   - name: Erfan Mirzaei
