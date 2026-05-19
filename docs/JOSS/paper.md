@@ -84,7 +84,7 @@ The ecosystem of Python libraries that support operator-based modeling has grown
 
 ![Comparison between kernel DMD (kDMD) and Reduced Rank estimators. The Reduced Rank estimator provides a more accurate approximation of the leading eigenfunctions of the transfer operator for the overdamped Langevin dynamics.\label{fig:eigfns_approximation}](Fig2.png){ width=90% }
 
-![Fit time of a kernel model (Gaussian kernel) on a dataset of $5000$ observations from the Lorenz-63 dynamical system. The results are the median of three independent runs on a system equipped with an Intel Core i9-9900X CPU (3.50\ GHz) and 48\ GB of RAM.\label{fig:fast_kernel}](Fig3.png){ width=100% }
+![Fit time of a kernel model (Gaussian kernel) on a dataset of 5000 observations from the Lorenz-63 dynamical system. The results are the median of three independent runs on a system equipped with an Intel Core i9-9900X CPU (3.50\ GHz) and 48\ GB of RAM.\label{fig:fast_kernel}](Fig3.png){ width=100% }
 
 ## Learning the Representation $\varphi$
 
