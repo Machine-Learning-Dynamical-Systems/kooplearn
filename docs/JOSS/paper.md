@@ -72,7 +72,7 @@ Notice that $\mathsf{E}$ is an operator because it maps any function $f$ to anot
 
 Evolution operator learning is best understood from the perspective of *latent linear dynamical models*, which is schematically depicted in \autoref{fig:evop_scheme}. In this framework, the dynamical state $x_t$ is first mapped into a latent space defined by a (fixed or learned) representation $\varphi$. Then, a *linear evolution* map $E$ is learned to approximate the dynamics of the latents. The pair $(\varphi, E)$ provides an approximation of $\mathsf{E}$ restricted to the $d$-dimensional subspace spanned by the components of $\varphi$, given the data. `kooplearn` implements methods to learn $\varphi$, $E$, and the associated spectral decomposition of $\mathsf{E}$. 
 
-![Sketch of the action of an evolution operator on a protein folding trajectory. The dynamics of the protein is linearized by means of a nonlinear representation $\varphi$ and subsequently evolved by means of the linear map $E$.\label{fig:evop_scheme}](Fig1.png){ width=90% }
+![Sketch of the action of an evolution operator on a protein folding trajectory. The dynamics of the protein are linearized by means of a nonlinear representation $\varphi$ and subsequently evolved by means of the linear map $E$.\label{fig:evop_scheme}](Fig1.png){ width=90% }
 
 # State of the Field
 
