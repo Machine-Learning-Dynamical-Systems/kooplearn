@@ -17,7 +17,7 @@ $$
 (\mathsf{E} 1_{B})(x_t) = \int_{B}p(dy|x_{t}) = \mathbb{P}\left[X_{t + 1} \in B | x_t\right].
 $$
 
-An advantage of the operator approach over dealing directly with the conditional probability $p(\cdot | x_{t})$ is that $\mathsf{E}$ acts linearly on the objects to which it is applied. This means that operators unlock an arsenal of tools from linear algebra and functional analysis, which would be unavailable otherwise. Arguably the most important of them is the **spectral decomposition**, allowing us to decompose $\mathsf{E}$, and hence the dynamics, into a linear superposition of dynamical modes. These ideas lie at the core of the celebrated Time-lagged Independent Component Analysis (TICA) {cite:p}`Molgedey1994,perez2013identification` and Dynamical Mode Decomposition (DMD) {cite:p}`Schmid2010, Kutz2016`.
+An advantage of the operator approach over dealing directly with the conditional probability $p(\cdot | x_{t})$ is that $\mathsf{E}$ acts linearly on the objects to which it is applied. This means that operators unlock an arsenal of tools from linear algebra and functional analysis, which would be unavailable otherwise. Arguably the most important of them is the **spectral decomposition**, allowing us to decompose $\mathsf{E}$, and hence the dynamics, into a linear superposition of dynamical modes. These ideas lie at the core of the celebrated Time-lagged Independent Component Analysis (TICA) {cite:p}`Molgedey1994,perez2013identification` and Dynamic Mode Decomposition (DMD) {cite:p}`Schmid2010, Kutz2016`.
 
 ## Learning $\mathsf{E}$ and its spectral decomposition from data
 

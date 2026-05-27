@@ -32,7 +32,7 @@ class NystroemKernelRidge(BaseEstimator):
     .. tip::
         The dynamical modes obtained by calling
         :class:`kooplearn.kernel.NystroemKernelRidge.dynamical_modes` correspond to the *Kernel
-        Dynamical Mode Decomposition* by :cite:t:`nystroemkernelridge-Williams2015_KDMD`.
+        Dynamic Mode Decomposition* by :cite:t:`nystroemkernelridge-Williams2015_KDMD`.
 
     Parameters
     ----------

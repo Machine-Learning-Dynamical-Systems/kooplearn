@@ -10,7 +10,7 @@ Kooplearn
 
 1. Predict the evolution of states *and* observables.
 2. Estimate the eigenvalues and eigenfunctions of the learned evolution operators.
-3. Compute the `dynamic mode decomposition <https://en.wikipedia.org/wiki/Dynamic_mode_decomposition>`_ of states *and* observables.
+3. Compute the `Dynamic Mode Decomposition <https://en.wikipedia.org/wiki/Dynamic_mode_decomposition>`_ of states *and* observables.
 4. Learn neural-network representations :math:`x_t \mapsto \varphi(x_t)` for evolution operators.
 
 Why Choose ``kooplearn``?

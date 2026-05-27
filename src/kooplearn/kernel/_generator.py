@@ -385,7 +385,7 @@ class GeneratorDirichlet(BaseEstimator):
 
     def dynamical_modes(self, X, observable=False) -> DynamicalModes:
         """
-        Compute the dynamical mode decomposition of an observable.
+        Compute the Dynamic Mode Decomposition (DMD) of an observable.
 
         For an observable :math:`f`, its expansion in generator modes is:
 
