@@ -1,143 +1,78 @@
-<p align="center">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/_static/logo-dark.png">
-      <source media="(prefers-color-scheme: light)" srcset="docs/_static/logo-light.png">
-      <img alt="kooplearn logo" width="60%" src="docs/_static/logo-light.png">
-    </picture>
-</p>
+# COMP0091: MSc Project Experiment Code
+## Reference-free kernel selection for Koopman operator learning | September 2026
 
-[![Docs](https://readthedocs.org/projects/kooplearn/badge/?version=latest)](https://kooplearn.readthedocs.io/latest/)
-[![CI](https://github.com/Machine-Learning-Dynamical-Systems/kooplearn/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/Machine-Learning-Dynamical-Systems/kooplearn/actions/workflows/CI.yml)
-[![codecov](https://codecov.io/gh/Machine-Learning-Dynamical-Systems/kooplearn/graph/badge.svg?branch=main)](https://codecov.io/gh/Machine-Learning-Dynamical-Systems/kooplearn)
-[![PyPI version](https://img.shields.io/pypi/v/kooplearn.svg)](https://pypi.org/project/kooplearn/)
-[![Python versions](https://img.shields.io/pypi/pyversions/kooplearn.svg)](https://pypi.org/project/kooplearn/)
-[![License](https://img.shields.io/github/license/Machine-Learning-Dynamical-Systems/kooplearn)](LICENSE)
+This sub-repository contains the **experiment and methodological code** for the MSc thesis _'There is a tide': Kernel effects on spectral learning of dynamical systems_, supervised by Prof. Massimiliano Pontil. 
 
+This includes the pipelines that run the kernel spectral-learning experiments and compute the reference-free diagnostics, as well as the composite scoring. All of the files are designed to be part of an expansion of the MLDS `kooplearn` repository, and is actively being discussed with the authors of `kooplearn` at the time of writing. Therefore, the code in these files should not be considered in isolation, but as part of a larger library. Code used for plotting, table/CSV assembly, and the derived data are not included (please see Chapter 4 & Appendices of the thesis for the relevant results).
 
-`kooplearn` is a Python library to learn evolution operators —  also known as _Koopman_ or _Transfer_ operators — from data. `kooplearn` models can:
+### Methodological contributions (`benchmarks/`)
+This folder contains the python files holding the implemented diagnostics and scoring engine introduced in this project. These are the primary "concept $\rightarrow$ code" contributions by the author. 
 
-1. Predict the evolution of states *and* observables.
-2. Estimate the eigenvalues and eigenfunctions of the learned evolution operators.
-3. Compute the [Dynamic Mode Decomposition](https://en.wikipedia.org/wiki/Dynamic_mode_decomposition) of states *and* observables.
-4. Learn neural-network representations $x_t \mapsto \varphi(x_t)$ for evolution operators.
+Each file is an import-only module that is designed to work with, and calls on elements from, the pre-existing `kooplearn` library.
 
-## Why Choosing `kooplearn`?
+This folder is separated into the implementations of the numerous diagnostic axes ($x_1 to x_7$, see Table A.2 of the thesis), and the proposed scoring function:
 
-1. It is easy to use and strictly adheres to the [scikit-learn API](https://scikit-learn.org/stable/api/index.html).
-2. **Kernel estimators** are state-of-the-art:
+- `diagnostics/` is structured to reflect the scoring hierarchy discussed in §5.1: per-mode level verification metrics live in `eigenpair.py`; candidate-representation level criteria are grouped in `representation.py`; the specific diagnostics they contain are detailed at the top of each file.
+- `scoring/` consists of 
+    -`spectral_analysis.py`, which aggregates spectral metrics from Kostic et al. 2023, and separately the long-horizon and encoder-inspired criteria which were adapted for spectral analysis;
+    - `composite.py`, which is the central guarded composite scoring function; the weight sensitivity test referred to in §3.2.4 is also included here.
 
-   * `kooplearn` implements the *Reduced Rank Regressor* from [Kostic et al. 2022](https://arxiv.org/abs/2205.14027), which is [provably better](https://arxiv.org/abs/2302.02004) than the classical [kernel DMD](https://arxiv.org/abs/1411.2260) in estimating eigenvalues and eigenfunctions.
-   * It also implements [Nyström estimators](https://arxiv.org/abs/2306.04520) and randomized estimators [randomized](https://arxiv.org/abs/2312.17348) for blazingly fast kernel learning.
-3. Includes representation-learning losses (implemented both in Pytorch and JAX) to train neural-network Koopman embeddings.
-4. Offers a collection of datasets for benchmarking evolution-operator learning algorithms.
+### Experimental pipelines (`experiments/`)
+This folder consists of the self-contained notebooks which run the kernel-learning sweep for each kernel family (and encoders). 
 
-## Installation
+Each notebook opens with a repeat of the metric pipeline and scoring function from `benchmarks/`, and any kernel helpers needed for the rest of the notebook. This is followed by the experiments, which is sectioned by dynamical system type (first the reversible baselines, then non-normal, then analytic controls), and has an experiment for each relevant system tested. For each DS, data is first generated from `kooplearn.datasets`, then calls functions from `kooplearn` for estimator fitting and spectral decomposition. Where the generator/system could not be found natively in `kooplearn`, it has been built from scratch inline. 
 
-To install the core version of `kooplearn`:
+The spectral diagnostics and scoring found in `benchmarks/` are also repeated inline for each notebook, so that they can run against `kooplearn` alone. 
 
-### **pip**
+- The 4 notebooks experimenting on OU, Langevin, Duffing, Logistic map, Langevin + rotational skew, analytic linear system, and harmonic oscillator are 
+    - `kernel_analysis_rbf.ipynb`, 
+    - `kernel_analysis_poly.ipynb`, 
+    - `kernel_analysis_linear.ipynb`,
+    - `kernel_analysis_hermite.ipynb`.
 
-```bash
-pip install kooplearn
+    They cover the RBF, polynomial, linear, and Hermite kernel families. The first three are native kernel options in `kooplearn`; the Hermite kernel was built for this study and callable within the `kooplearn` setup, following the definition and parametric variations (goog/bad/ugly) given in Kostic et al. 2023.
+
+- The graph random-walk systems demonstrate the over-smoothing failure domain in `kernel_analysis_graphs.ipynb`, with the three graph-based kernels implemented for this experiment: delta, diffusion, and resolvent-walk. More details can be found in §2.5.5.
+
+- `kernel_analysis_ssl.ipynb` contains the learned-encoder self-supervised experiments with `SpectralContrastiveLearning` and the $P_*$-VAMP criterion, making clear how the project bridged encoder feature-learning to kernel representations.
+
+- `joint_hyperparam_selection.ipynb`details the joint ($\gamma, \alpha$) tuning validation reported in §4.3.6.
+
+**N.B. No free-standing plotting cells/code is included in this submission, since it does not bear on the results themselves and clutters up the notebooks. The decision was made to keep the notebooks and files streamlined and easier to assess by leaving them out.**
+
+### Execution instructions
+#### 1. Create an environment with Python 3.10+, and install the dependencies:
+
+```sh
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
 ```
 
-### **uv**
+#### 2. For the per-family experiment pipelines,
+either open interactively with
 
-```bash
-uv add kooplearn
+```sh
+jupyter lab
+
 ```
 
-To enable neural-network representations using `kooplearn.torch` or `kooplearn.jax`:
+then open a notebook and select `Run All`;
+or run headless:
 
-### **pip**
+```sh
+jupyter nbconvert --to notebook --execute experiments/kernel_analysis_[kernel family].ipynb
 
-```bash
-# Torch
-pip install "kooplearn[torch]"
-# JAX
-pip install "kooplearn[jax]"
 ```
 
-### **uv**
+for each kernel family/pipeline option (`rbf`, `poly`, `hermite`, `linear`, `graphs`, `ssl`)
 
-```bash
-# Torch
-uv add "kooplearn[torch]"
-# JAX
-uv add "kooplearn[jax]"
+
+#### 3. The files in `benchmarks/` are *import-only* library modules,
+not scripts. Individual functions, classes and variables can be imported from their `.py` file in Python, e.g.:
+
+```python
+# within the same relative path `0091/benchmarks/`
+from diagnostics,eigenpair import (kernel_selection_criteria, composite_score, GRAND_WEIGHTS, HARD_CONSTRAINTS)
+
 ```
-
-### From source
-
-For development, clone the repository and install the package with all optional extras and dependency groups:
-
-```bash
-git clone https://github.com/Machine-Learning-Dynamical-Systems/kooplearn.git
-cd kooplearn
-uv sync --all-extras --all-groups
-```
-
-With `pip>=25.1`, the equivalent editable install is:
-
-```bash
-python -m pip install -U pip
-python -m pip install -e ".[torch,jax]" --group dev --group docs --group examples
-```
-
-## Testing
-
-Run the default test suite from the repository root with:
-
-```bash
-uv run pytest
-```
-
-After installing with `pip`, use:
-
-```bash
-python -m pytest
-```
-
-## Contributing
-
-We welcome contributions from the community. See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, issue reports, and pull request guidance.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
-## Main contributors
-
-`kooplearn` is an joint effort between teams at the Italian Institute of Technology in Genoa and the École polytechnique in Paris. The main contributors to the project are (in alphabetical order):
-   - Vladimir Kostic
-   - Karim Lounici
-   - Giacomo Meanti
-   - Erfan Mirzaei
-   - Pietro Novelli
-   - Daniel Ordoñez-Apraez
-   - Grégoire Pacreau
-   - Massimiliano Pontil
-   - Giacomo Turri
-   
-The mantainer of this repo is Pietro Novelli.
-
-## Citing `kooplearn`
-
-```bibtex
-@article{kooplearn,
-title={kooplearn: A scikit-learn compatible library of algorithms for evolution operator learning},
-author={Turri, Giacomo and Pacreau, Grégoire and Meanti, Giacomo and Devergne, Timothée and Ordoñez-Apraez, Daniel and Mirzaei, Erfan and Belucci, Bruno and Lounici, Karim and Kostic, Vladimir R. and Pontil, Massimiliano and Novelli, Pietro},
-doi={10.21105/joss.10342},
-url={https://doi.org/10.21105/joss.10342},
-year={2026},
-publisher={The Open Journal},
-volume={11},
-number={122},
-pages={10342},
-journal={Journal of Open Source Software},
-}
-```
-
----
-
-We hope you find `kooplearn` useful for your dynamical systems analysis. If you encounter any issues or have suggestions for improvements, please don't hesitate to [raise an issue](https://github.com/Machine-Learning-Dynamical-Systems/kooplearn/issues). Happy coding!
