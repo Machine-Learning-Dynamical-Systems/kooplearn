@@ -1,0 +1,24 @@
+# Python 3.10+
+# Operator estimation / eigendecomposition — pinned to the version used in the thesis
+kooplearn==2.0.3
+
+# Core scientific stack
+numpy
+scipy
+pandas
+matplotlib
+scikit-learn
+statsmodels        # Type-II ANOVA (variance decomposition)
+
+# Learned-encoder / SSL extension (Appendix D)
+torch
+
+# Koopman/DMD utilities used by the experiment scripts
+pykoopman
+pydmd
+jax                # kooplearn backend for some operators
+
+# CLI / logging / progress (experiment scripts only)
+tyro
+loguru
+tqdm
